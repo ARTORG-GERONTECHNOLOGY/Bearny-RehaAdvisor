@@ -4,6 +4,7 @@ import type { HealthPageStore } from '@/stores/healthPageStore';
 
 import MetricBarChart from '@/components/Health/charts/MetricBarChart';
 import SleepChart from '@/components/Health/charts/SleepChart';
+import WearTimeChart, { averageWearTime } from '@/components/Health/charts/WearTimeChart';
 import HRZonesStacked from '@/components/Health/charts/HRZonesStacked';
 import AdherenceLine, { averageAdherencePct } from '@/components/Health/charts/AdherenceLine';
 import WeightChart, { averageWeight } from '@/components/Health/charts/WeightChart';
@@ -45,7 +46,6 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
   const hasAnyFitbit = store.fitbitData.length > 0;
   const restingHREmpty =
     hasAnyFitbit && store.fitbitData.every((d) => d.resting_heart_rate == null);
-  const wearTimeEmpty = hasAnyFitbit && store.fitbitData.every((d) => d.wear_time_minutes == null);
   const breathingEmpty =
     hasAnyFitbit && store.fitbitData.every((d) => d.breathing_rate?.breathingRate == null);
 
@@ -70,6 +70,11 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
     [store.fitbitData, start, end]
   );
 
+  const avgWearTime = useMemo(
+    () => averageWearTime(store.fitbitData, start, end),
+    [store.fitbitData, start, end]
+  );
+
   return (
     <div className="flex flex-col gap-10">
       <div>
@@ -91,22 +96,18 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{t('Wear Time')}</CardTitle>
+              <CardDescription>{t('Wear Time')}</CardDescription>
+              <CardTitle>
+                {avgWearTime != null ? `${Math.round(avgWearTime)} ${t('min')}` : '--'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="d-flex justify-content-center">
-                <MetricBarChart
-                  ref={svgRefs.wearTime}
-                  titleKey="Wear Time (min)"
-                  data={store.fitbitData}
-                  accessor={(d) => d.wear_time_minutes}
-                  start={start}
-                  end={end}
-                />
-              </div>
-              {wearTimeEmpty && (
-                <p className="text-muted small text-center mt-1">{t('hint_wear_time_empty')}</p>
-              )}
+              <WearTimeChart
+                ref={svgRefs.wearTime}
+                data={store.fitbitData}
+                start={start}
+                end={end}
+              />
             </CardContent>
           </Card>
           <Card>
