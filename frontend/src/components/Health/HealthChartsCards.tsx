@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { HealthPageStore } from '@/stores/healthPageStore';
 
-import MetricBarOrBox from '@/components/Health/charts/MetricBarOrBox';
+import MetricBarChart from '@/components/Health/charts/MetricBarChart';
 import SleepChart from '@/components/Health/charts/SleepChart';
 import HRZonesStacked from '@/components/Health/charts/HRZonesStacked';
 import AdherenceLine, { averageAdherencePct } from '@/components/Health/charts/AdherenceLine';
@@ -84,7 +84,7 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
             </CardHeader>
             <CardContent>
               <div className="d-flex justify-content-center">
-                <MetricBarOrBox
+                <MetricBarChart
                   ref={svgRefs.wearTime}
                   titleKey="Wear Time (min)"
                   data={store.fitbitData}
@@ -124,7 +124,7 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
             </CardHeader>
             <CardContent>
               <div className="d-flex justify-content-center">
-                <MetricBarOrBox
+                <MetricBarChart
                   ref={svgRefs.restingHR}
                   titleKey="Resting Heart Rate"
                   data={store.fitbitData}
@@ -183,7 +183,7 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
             </CardHeader>
             <CardContent>
               <div className="d-flex justify-content-center">
-                <MetricBarOrBox
+                <MetricBarChart
                   ref={svgRefs.steps}
                   titleKey="Daily Steps"
                   data={store.fitbitData}
@@ -247,7 +247,7 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
             </CardHeader>
             <CardContent>
               <div className="d-flex justify-content-center">
-                <MetricBarOrBox
+                <MetricBarChart
                   ref={svgRefs.breathing}
                   titleKey="Breathing Rate (breaths/min)"
                   data={store.fitbitData}

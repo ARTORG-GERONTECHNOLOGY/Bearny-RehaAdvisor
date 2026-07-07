@@ -8,7 +8,7 @@ jest.mock('@/components/Health/charts/AdherenceLine', () => ({
   default: React.forwardRef(() => <div data-testid="chart-adherence" />),
   averageAdherencePct: jest.fn(() => null),
 }));
-jest.mock('@/components/Health/charts/MetricBarOrBox', () =>
+jest.mock('@/components/Health/charts/MetricBarChart', () =>
   React.forwardRef(({ titleKey }: { titleKey: string }) => (
     <div data-testid={`chart-metric-${titleKey}`} />
   ))

@@ -1,4 +1,4 @@
-// components/charts/MetricBarOrBox.tsx
+// components/charts/MetricBarChart.tsx
 import React, { useEffect, useRef, forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FitbitEntry } from '@/types/health';
@@ -22,7 +22,7 @@ type Props = {
   goal?: number | null;
 };
 
-const MetricBarOrBox = forwardRef<SVGSVGElement, Props>((props, ref) => {
+const MetricBarChart = forwardRef<SVGSVGElement, Props>((props, ref) => {
   const {
     titleKey,
     data,
@@ -80,6 +80,6 @@ const MetricBarOrBox = forwardRef<SVGSVGElement, Props>((props, ref) => {
   return <svg ref={svgRef} style={{ width: '100%', height: 'auto' }} />;
 });
 
-MetricBarOrBox.displayName = 'MetricBarOrBox';
+MetricBarChart.displayName = 'MetricBarChart';
 
-export default MetricBarOrBox;
+export default MetricBarChart;
