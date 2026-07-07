@@ -47,15 +47,18 @@ export const averageAdherencePct = (
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 };
 
-const chartConfig: ChartConfig = {
-  pct: { label: 'Adherence (%)' },
-};
-
 const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) => {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const rows = useMemo(() => filterAdherenceInRange(data, start, end), [data, start, end]);
+
+  const chartConfig: ChartConfig = useMemo(
+    () => ({
+      pct: { label: t('Adherence (%)') },
+    }),
+    [t]
+  );
 
   // Recharts doesn't expose its inner <svg> via a ref prop, so grab it off the
   // container once rendered. Used for PDF export, which needs a real SVGSVGElement.
@@ -78,7 +81,7 @@ const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, start, end }, re
       <AreaChart accessibilityLayer data={rows}>
         <CartesianGrid vertical={false} />
         <YAxis hide domain={[0, 100]} />
-        <XAxis dataKey="date" hide />
+        <XAxis hide dataKey="date" />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
         <Area
           type="monotone"
@@ -86,6 +89,7 @@ const AdherenceLine = forwardRef<SVGSVGElement, Props>(({ data, start, end }, re
           stroke={colors.brand}
           strokeWidth={2}
           fill={colors.brand}
+          fillOpacity={0.5}
           dot={{ r: 3, fill: colors.brand, strokeWidth: 0 }}
           activeDot={{ r: 4 }}
           connectNulls

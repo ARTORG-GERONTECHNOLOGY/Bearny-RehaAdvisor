@@ -7,7 +7,9 @@ import SleepChart from '@/components/Health/charts/SleepChart';
 import HRZonesStacked from '@/components/Health/charts/HRZonesStacked';
 import AdherenceLine, { averageAdherencePct } from '@/components/Health/charts/AdherenceLine';
 import WeightChart from '@/components/Health/charts/WeightChart';
-import BloodPressureChart from '@/components/Health/charts/BloodPressureChart';
+import BloodPressureChart, {
+  averageBloodPressure,
+} from '@/components/Health/charts/BloodPressureChart';
 import ExerciseSessionsChart from '@/components/Health/charts/ExerciseSessionsChart';
 import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTable';
 import QuestionnaireResultsTable from '@/components/Health/QuestionnaireResultsTable';
@@ -50,6 +52,12 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
     () => averageAdherencePct(store.adherenceData, start, end),
     [store.adherenceData, start, end]
   );
+
+  const avgBloodPressure = useMemo(
+    () => averageBloodPressure(store.fitbitData, start, end),
+    [store.fitbitData, start, end]
+  );
+  const fmtBp = (v: number | null) => (v != null ? Math.round(v) : '--');
 
   return (
     <div className="flex flex-col gap-10">
@@ -132,17 +140,18 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>{t('Blood pressure')}</CardTitle>
+              <CardDescription>{t('Blood pressure')}</CardDescription>
+              <CardTitle>
+                {fmtBp(avgBloodPressure.sys)}/{fmtBp(avgBloodPressure.dia)} mmHg
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="d-flex justify-content-center">
-                <BloodPressureChart
-                  ref={svgRefs.bloodPressure}
-                  data={store.fitbitData}
-                  start={start}
-                  end={end}
-                />
-              </div>
+              <BloodPressureChart
+                ref={svgRefs.bloodPressure}
+                data={store.fitbitData}
+                start={start}
+                end={end}
+              />
             </CardContent>
           </Card>
           <Card>

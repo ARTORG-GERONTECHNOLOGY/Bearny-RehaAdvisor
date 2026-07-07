@@ -21,6 +21,8 @@ export interface FitbitEntry {
   wear_time_minutes?: number;
   heart_rate_zones?: HeartRateZone[];
   exercise?: { name: string; duration: number }[];
+  bp_sys?: number | null;
+  bp_dia?: number | null;
 }
 
 export interface QuestionnaireEntry {
