@@ -1,5 +1,6 @@
 // src/utils/healthCharts.ts
 import * as d3 from 'd3';
+import { colors } from '@/lib/colors';
 
 export const parseYMD = d3.timeParse('%Y-%m-%d');
 
@@ -181,16 +182,23 @@ export function smartBandAxisBottom(
 // ---------- compact charts ----------
 type BarBand = { lo: number | null; hi: number | null };
 
-const IN_RANGE_COLOR = '#2b83ba';
-const OUT_OF_RANGE_COLOR = '#d88997';
-const DEFAULT_BAR_COLOR = '#69b3a2';
+const IN_RANGE_COLOR = colors.brand;
+const OUT_OF_RANGE_COLOR = colors.nok;
+const DEFAULT_BAR_COLOR = colors.chartMuted;
+const GOAL_LINE_COLOR = colors.yellow;
 
-/** Daily bars, optionally colored by a personal-range band (in range / out of range) */
+/** Daily bars, optionally colored by a personal-range band (in range / out of range)
+ *  and/or annotated with a fixed goal reference line. */
 export function drawBarTimeseries(
   svgRef: React.RefObject<SVGSVGElement>,
   rows: { x: string; y: number }[],
   title: string,
-  opts: { band?: BarBand; legend?: { inRange?: string; outOfRange?: string } } = {}
+  opts: {
+    band?: BarBand;
+    legend?: { inRange?: string; outOfRange?: string };
+    goal?: number | null;
+    goalLabel?: string;
+  } = {}
 ) {
   if (!svgRef.current || !document.body.contains(svgRef.current)) return;
   const svg = d3.select(svgRef.current);
@@ -198,25 +206,30 @@ export function drawBarTimeseries(
 
   const band = opts.band;
   const hasBand = band != null && band.lo != null && band.hi != null;
+  const goal = opts.goal;
+  const hasGoal = goal != null;
 
   const w = 720,
     h = 260,
-    m = { top: hasBand ? 46 : 28, right: 24, bottom: 64, left: 52 };
+    m = { top: hasBand || hasGoal ? 46 : 28, right: 24, bottom: 64, left: 52 };
   initSvg(svg, w, h);
 
-  if (hasBand) {
-    renderLegend(
-      svg,
-      [
+  if (hasBand || hasGoal) {
+    const legendItems: LegendItem[] = [];
+    if (hasBand) {
+      legendItems.push(
         { label: opts.legend?.inRange ?? 'In range', color: IN_RANGE_COLOR, symbol: 'dot' },
         {
           label: opts.legend?.outOfRange ?? 'Out of range',
           color: OUT_OF_RANGE_COLOR,
           symbol: 'dot',
-        },
-      ],
-      36
-    );
+        }
+      );
+    }
+    if (hasGoal) {
+      legendItems.push({ label: opts.goalLabel ?? 'Goal', color: GOAL_LINE_COLOR, symbol: 'line' });
+    }
+    renderLegend(svg, legendItems, 36);
   }
 
   const width = w - m.left - m.right;
@@ -236,7 +249,11 @@ export function drawBarTimeseries(
       .range([0, width])
       .padding(0.2);
 
-    const yMax = Math.max(d3.max(rows, (d) => d.y) || 0, hasBand ? band!.hi! : 0);
+    const yMax = Math.max(
+      d3.max(rows, (d) => d.y) || 0,
+      hasBand ? band!.hi! : 0,
+      hasGoal ? goal! : 0
+    );
     const y = d3
       .scaleLinear()
       .domain([0, yMax * 1.1])
@@ -259,6 +276,18 @@ export function drawBarTimeseries(
       .call(smartBandAxisBottom(x, { maxTicks: 10, rotate: -35, format: (d) => d.slice(5) }));
 
     g.append('g').call(d3.axisLeft(y).ticks(5));
+
+    if (hasGoal) {
+      g.append('line')
+        .attr('class', 'goal-line')
+        .attr('x1', 0)
+        .attr('x2', width)
+        .attr('y1', y(goal!))
+        .attr('y2', y(goal!))
+        .attr('stroke', GOAL_LINE_COLOR)
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '6,3');
+    }
 
     const tt = getOrCreateTooltip();
 

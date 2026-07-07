@@ -17,6 +17,9 @@ type Props = {
   rangeWindowDays?: number; // default 30
   rangeLowerPct?: number; // default 3
   rangeUpperPct?: number; // default 97
+
+  /** Optional fixed goal value, drawn as a reference line (e.g. a patient's daily steps goal) */
+  goal?: number | null;
 };
 
 const MetricBarOrBox = forwardRef<SVGSVGElement, Props>((props, ref) => {
@@ -30,6 +33,7 @@ const MetricBarOrBox = forwardRef<SVGSVGElement, Props>((props, ref) => {
     rangeWindowDays = 30,
     rangeLowerPct = 3,
     rangeUpperPct = 97,
+    goal,
   } = props;
 
   const { t } = useTranslation();
@@ -56,6 +60,8 @@ const MetricBarOrBox = forwardRef<SVGSVGElement, Props>((props, ref) => {
     drawBarTimeseries(svgRef, rows, t(titleKey), {
       band: band ?? undefined,
       legend: { inRange: t('In range'), outOfRange: t('Out of range') },
+      goal,
+      goalLabel: t('Goal'),
     });
   }, [
     data,
@@ -68,6 +74,7 @@ const MetricBarOrBox = forwardRef<SVGSVGElement, Props>((props, ref) => {
     rangeWindowDays,
     rangeLowerPct,
     rangeUpperPct,
+    goal,
   ]);
 
   return <svg ref={svgRef} style={{ width: '100%', height: 'auto' }} />;

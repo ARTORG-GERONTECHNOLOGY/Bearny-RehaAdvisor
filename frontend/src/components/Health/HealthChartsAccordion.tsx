@@ -140,6 +140,7 @@ const HealthChartsAccordion: React.FC<Props> = observer(({ store, t, lang, svgRe
               titleKey="Daily Steps"
               data={store.fitbitData}
               accessor={(d) => d.steps}
+              goal={store.thresholds.steps_goal}
               start={start}
               end={end}
             />
