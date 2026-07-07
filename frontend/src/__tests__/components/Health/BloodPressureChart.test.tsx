@@ -8,6 +8,7 @@ jest.mock('recharts', () => ({
   Area: () => null,
   AreaChart: ({ children }: { children: React.ReactNode }) => <svg>{children}</svg>,
   CartesianGrid: () => null,
+  ReferenceLine: () => null,
   XAxis: () => null,
   YAxis: () => null,
 }));
@@ -73,6 +74,14 @@ describe('BloodPressureChart', () => {
     const data = [makeEntry('2026-01-01', 120, 80)];
     render(<BloodPressureChart ref={ref} data={data} />);
     expect(ref.current).toBeInstanceOf(SVGSVGElement);
+  });
+
+  it('renders without crashing when threshold reference lines are provided', () => {
+    const data = [makeEntry('2026-01-01', 120, 80)];
+    const { container } = render(
+      <BloodPressureChart data={data} sysGreenMax={129} diaGreenMax={84} />
+    );
+    expect(container.querySelector('svg')).toBeInTheDocument();
   });
 });
 

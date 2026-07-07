@@ -151,6 +151,8 @@ const HealthChartsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }
                 data={store.fitbitData}
                 start={start}
                 end={end}
+                sysGreenMax={store.thresholds.bp_sys_green_max}
+                diaGreenMax={store.thresholds.bp_dia_green_max}
               />
             </CardContent>
           </Card>
