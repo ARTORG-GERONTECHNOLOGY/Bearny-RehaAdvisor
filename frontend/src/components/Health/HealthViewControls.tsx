@@ -36,7 +36,8 @@ const HealthViewControls: React.FC<Props> = observer(
               data-testid="view-controls-prev"
             />
             <div className="text-sm capitalize">
-              {store.viewMode}, {formatRangeLabel(store.viewStart, store.viewEnd)}
+              {t(VIEW_MODE_LABELS[store.viewMode])},{' '}
+              {formatRangeLabel(store.viewStart, store.viewEnd)}
             </div>
             <ArrowRightIcon
               className="mt-0.5 h-4 w-4 hover:cursor-pointer"
