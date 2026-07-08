@@ -8,6 +8,7 @@ export interface HeartRateZone {
 export interface FitbitEntry {
   date: string; // YYYY-MM-DD
   steps?: number;
+  active_minutes?: number;
   distance?: number;
   floors?: number;
   resting_heart_rate?: number;

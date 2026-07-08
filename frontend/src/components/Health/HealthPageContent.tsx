@@ -46,6 +46,7 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
     wearTime: useRef<SVGSVGElement>(null),
     hrZones: useRef<SVGSVGElement>(null),
     steps: useRef<SVGSVGElement>(null),
+    activeMinutes: useRef<SVGSVGElement>(null),
     breathing: useRef<SVGSVGElement>(null),
     weight: useRef<SVGSVGElement>(null),
     bloodPressure: useRef<SVGSVGElement>(null),
@@ -62,6 +63,7 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
     wearTime: true,
     hrZones: true,
     steps: true,
+    activeMinutes: true,
     breathing: true,
     weight: true,
     bloodPressure: true,
@@ -204,6 +206,11 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
         'Steps',
         fitIn.map((d) => ({ date: d.date, val: (d as any).steps }))
       );
+    if (selections.activeMinutes)
+      csv += emitScalar(
+        'Active Minutes',
+        fitIn.map((d) => ({ date: d.date, val: (d as any).active_minutes }))
+      );
     if (selections.breathing)
       csv += emitScalar(
         'Breathing Rate',
@@ -314,6 +321,7 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
       { ref: svgRefs.sleep, key: 'sleep', title: t('Sleep Schedule and Duration') },
       { ref: svgRefs.hrZones, key: 'hrZones', title: t('Heart Rate Zones per Day') },
       { ref: svgRefs.steps, key: 'steps', title: t('Daily Steps') },
+      { ref: svgRefs.activeMinutes, key: 'activeMinutes', title: t('Active Minutes') },
       { ref: svgRefs.breathing, key: 'breathing', title: t('Breathing Rate (breaths/min)') },
       { ref: svgRefs.wearTime, key: 'wearTime', title: t('Wear Time (min)') },
       { ref: svgRefs.weight, key: 'weight', title: t('Weight (kg)') },

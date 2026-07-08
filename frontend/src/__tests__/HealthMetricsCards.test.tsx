@@ -44,6 +44,11 @@ jest.mock('@/components/Health/charts/StepsChart', () => ({
   default: React.forwardRef(() => <div data-testid="chart-steps" />),
   averageSteps: jest.fn(() => null),
 }));
+jest.mock('@/components/Health/charts/ActiveMinutesChart', () => ({
+  __esModule: true,
+  default: React.forwardRef(() => <div data-testid="chart-activeminutes" />),
+  averageActiveMinutes: jest.fn(() => null),
+}));
 jest.mock('@/components/Health/charts/BloodPressureChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-bloodpressure" />),
@@ -70,7 +75,7 @@ const makeStore = (overrides: Partial<HealthPageStore> = {}): HealthPageStore =>
     fitbitData: [] as FitbitEntry[],
     questionnaireData: [],
     adherenceData: [],
-    thresholds: { steps_goal: 10000 },
+    thresholds: { steps_goal: 10000, active_minutes_green: 30 },
     startDate: new Date('2024-01-08'),
     endDate: new Date('2024-01-15'),
     ...overrides,
@@ -86,6 +91,7 @@ const svgRefs = {
   wearTime: React.createRef<SVGSVGElement>(),
   hrZones: React.createRef<SVGSVGElement>(),
   steps: React.createRef<SVGSVGElement>(),
+  activeMinutes: React.createRef<SVGSVGElement>(),
   breathing: React.createRef<SVGSVGElement>(),
   weight: React.createRef<SVGSVGElement>(),
   bloodPressure: React.createRef<SVGSVGElement>(),
@@ -103,13 +109,14 @@ describe('HealthMetricsCards – card headers', () => {
     'Wear Time',
     'Active HR Time',
     'Steps',
+    'Active Minutes',
     'Breathing',
     'WeightLabel',
     'Blood pressure',
     'Exercises',
   ];
 
-  it('renders all 11 card section headers', () => {
+  it('renders all 12 card section headers', () => {
     render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
 
     expectedHeaders.forEach((header) => {
@@ -122,10 +129,10 @@ describe('HealthMetricsCards – card headers', () => {
     expect(screen.getByText(header)).toBeInTheDocument();
   });
 
-  it('renders exactly 11 cards', () => {
+  it('renders exactly 12 cards', () => {
     const { container } = render(
       <HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />
     );
-    expect(container.querySelectorAll('.rounded-xl.border.border-accent')).toHaveLength(11);
+    expect(container.querySelectorAll('.rounded-xl.border.border-accent')).toHaveLength(12);
   });
 });

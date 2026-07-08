@@ -50,6 +50,7 @@ const ExportModal: React.FC<Props> = ({
     'sleep',
     'hrZones',
     'steps',
+    'activeMinutes',
     'breathing',
     'wearTime',
     'weight',

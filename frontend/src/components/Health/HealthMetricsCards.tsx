@@ -13,6 +13,9 @@ import HRZonesStacked, {
 import AdherenceLine, { averageAdherencePct } from '@/components/Health/charts/AdherenceLine';
 import WeightChart, { averageWeight } from '@/components/Health/charts/WeightChart';
 import StepsChart, { averageSteps } from '@/components/Health/charts/StepsChart';
+import ActiveMinutesChart, {
+  averageActiveMinutes,
+} from '@/components/Health/charts/ActiveMinutesChart';
 import RestingHRChart, { averageRestingHR } from '@/components/Health/charts/RestingHRChart';
 import BreathingChart, { averageBreathingRate } from '@/components/Health/charts/BreathingChart';
 import BloodPressureChart, {
@@ -33,6 +36,7 @@ type SvgRefs = {
   wearTime: React.RefObject<SVGSVGElement>;
   hrZones: React.RefObject<SVGSVGElement>;
   steps: React.RefObject<SVGSVGElement>;
+  activeMinutes: React.RefObject<SVGSVGElement>;
   breathing: React.RefObject<SVGSVGElement>;
   weight: React.RefObject<SVGSVGElement>;
   bloodPressure: React.RefObject<SVGSVGElement>;
@@ -73,6 +77,11 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
 
   const avgWearTime = useMemo(
     () => averageWearTime(store.fitbitData, start, end),
+    [store.fitbitData, start, end]
+  );
+
+  const avgActiveMinutes = useMemo(
+    () => averageActiveMinutes(store.fitbitData, start, end),
     [store.fitbitData, start, end]
   );
 
@@ -234,6 +243,23 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
                 start={start}
                 end={end}
                 goal={store.thresholds.steps_goal}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardDescription>{t('Active Minutes')}</CardDescription>
+              <CardTitle>
+                {avgActiveMinutes != null ? `${Math.round(avgActiveMinutes)} ${t('min')}` : '--'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ActiveMinutesChart
+                ref={svgRefs.activeMinutes}
+                data={store.fitbitData}
+                start={start}
+                end={end}
+                goal={store.thresholds.active_minutes_green}
               />
             </CardContent>
           </Card>
