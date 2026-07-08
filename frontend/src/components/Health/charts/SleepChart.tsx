@@ -40,8 +40,7 @@ const resolveMinutesAsleep = (sleep: FitbitEntry['sleep']): number | null => {
   return null;
 };
 
-// One row per calendar day in the visible range (inclusive), so every day gets a bar
-// slot even without a reading, instead of compressing the timeline to just the days with data.
+// One row per calendar day, so every day gets a bar slot even without a reading.
 export const filterSleepInRange = (
   data: FitbitEntry[],
   start?: Date | null,
@@ -74,7 +73,6 @@ export const filterSleepInRange = (
   });
 };
 
-// Mean of the non-null "minutes asleep" readings in the visible date range, or null if none.
 export const averageSleepMinutes = (
   data: FitbitEntry[],
   start?: Date | null,

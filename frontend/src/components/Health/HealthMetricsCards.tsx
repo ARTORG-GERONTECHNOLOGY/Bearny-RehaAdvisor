@@ -45,7 +45,7 @@ import BreathingIcon from '@/assets/icons/lungs-outline.svg?react';
 // Each ref points at the chart's wrapping <div> (not the inner <svg> — Recharts mounts
 // that asynchronously once it measures a size). Callers needing the actual <svg> — e.g. for
 // PDF export — should query `ref.current?.querySelector('svg')` at the moment they need it.
-type SvgRefs = {
+export type SvgRefs = {
   adherence: React.RefObject<HTMLDivElement>;
   restingHR: React.RefObject<HTMLDivElement>;
   sleep: React.RefObject<HTMLDivElement>;

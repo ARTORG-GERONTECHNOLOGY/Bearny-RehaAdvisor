@@ -17,8 +17,6 @@ type AdherenceRow = { date: string; pct: number | null };
 
 const clampPct = (v: number) => Math.max(0, Math.min(100, v));
 
-// One row per calendar day in the visible range (inclusive), so gaps show up as
-// breaks in the line instead of compressing the timeline down to just the days with a reading.
 export const filterAdherenceInRange = (
   data: AdherenceEntry[],
   start?: Date | null,
@@ -28,7 +26,6 @@ export const filterAdherenceInRange = (
     Number.isFinite(r.pct) ? clampPct(r.pct as number) : null
   );
 
-// Mean of the non-null pct values in the visible date range, or null if none.
 export const averageAdherencePct = (
   data: AdherenceEntry[],
   start?: Date | null,

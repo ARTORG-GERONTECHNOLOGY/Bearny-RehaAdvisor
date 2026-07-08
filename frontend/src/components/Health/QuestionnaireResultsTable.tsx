@@ -121,7 +121,7 @@ const QuestionnaireResultsTable: React.FC<Props> = ({ data, start, end, lang, t 
               disabled={!hasEntry}
               onClick={() => setSelectedDay(day)}
               className={cn(
-                'h-full max-h-5 w-full rounded-sm border-none',
+                'h-full max-h-5 w-full border-none',
                 hasEntry
                   ? 'bg-brand hover:bg-brand/90 cursor-pointer'
                   : 'bg-chartMuted hover:bg-chartMuted/75 cursor-default'

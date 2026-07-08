@@ -15,8 +15,6 @@ type Props = {
 
 type WearTimeRow = { date: string; wearTime: number | null };
 
-// One row per calendar day in the visible range (inclusive), so gaps show up as
-// missing bars instead of compressing the timeline down to just the days with a reading.
 export const filterWearTimeInRange = (
   data: FitbitEntry[],
   start?: Date | null,
@@ -24,7 +22,6 @@ export const filterWearTimeInRange = (
 ): WearTimeRow[] =>
   buildDailyRows(data, start, end, 'wearTime', (d) => d.wear_time_minutes ?? null);
 
-// Mean of the non-null daily wear-time readings in the visible date range, or null if none.
 export const averageWearTime = (
   data: FitbitEntry[],
   start?: Date | null,

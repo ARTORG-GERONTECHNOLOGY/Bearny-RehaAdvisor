@@ -15,8 +15,6 @@ type Props = {
 
 type BreathingRow = { date: string; breathingRate: number | null };
 
-// One row per calendar day in the visible range (inclusive), so gaps show up as
-// breaks in the line instead of compressing the timeline down to just the days with a reading.
 export const filterBreathingInRange = (
   data: FitbitEntry[],
   start?: Date | null,
@@ -24,7 +22,6 @@ export const filterBreathingInRange = (
 ): BreathingRow[] =>
   buildDailyRows(data, start, end, 'breathingRate', (d) => d.breathing_rate?.breathingRate ?? null);
 
-// Mean of the non-null breathing rate readings in the visible date range, or null if none.
 export const averageBreathingRate = (
   data: FitbitEntry[],
   start?: Date | null,

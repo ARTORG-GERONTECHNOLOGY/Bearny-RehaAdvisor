@@ -17,15 +17,12 @@ type Props = {
 
 type StepsRow = { date: string; steps: number | null };
 
-// One row per calendar day in the visible range (inclusive), so gaps show up as
-// missing bars instead of compressing the timeline down to just the days with a reading.
 export const filterStepsInRange = (
   data: FitbitEntry[],
   start?: Date | null,
   end?: Date | null
 ): StepsRow[] => buildDailyRows(data, start, end, 'steps', (d) => d.steps ?? null);
 
-// Mean of the non-null daily steps readings in the visible date range, or null if none.
 export const averageSteps = (
   data: FitbitEntry[],
   start?: Date | null,

@@ -30,9 +30,18 @@ export const eachDateInRange = (start: Date, end: Date): string[] => {
   return dates;
 };
 
-// One row per calendar day in [start, end] (inclusive), pulling `accessor(entry)` for days
-// that have data and filling gaps with null — so charts show breaks/missing bars instead of
-// compressing the timeline down to just the days with a reading.
+// DD.MM.YYYY — used for both on-screen range labels and export files.
+export const toEuroDate = (iso: string | null | undefined): string => {
+  if (!iso) return '';
+  const parts = iso.split('-');
+  if (parts.length < 3) return iso;
+  const [y, m, d] = parts;
+  return `${d.padStart(2, '0')}.${m.padStart(2, '0')}.${y}`;
+};
+
+export const formatDateEU = (d: Date): string => toEuroDate(d.toISOString().slice(0, 10));
+
+// Fills gaps with null so charts show breaks instead of compressing to just the days with data.
 export const buildDailyRows = <T extends { date: string }, K extends string>(
   data: T[],
   start: Date | null | undefined,
@@ -53,7 +62,6 @@ export const buildDailyRows = <T extends { date: string }, K extends string>(
   );
 };
 
-// Mean of the non-null values, or null if there are none.
 export const averageNonNull = (values: Array<number | null | undefined>): number | null => {
   const nums = values.filter((v): v is number => v != null);
   if (!nums.length) return null;

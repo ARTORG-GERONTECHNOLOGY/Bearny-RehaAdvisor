@@ -15,15 +15,12 @@ type Props = {
 
 type WeightRow = { date: string; weight: number | null };
 
-// One row per calendar day in the visible range (inclusive), so gaps show up as
-// missing bars instead of compressing the timeline down to just the days with a reading.
 export const filterWeightInRange = (
   data: FitbitEntry[],
   start?: Date | null,
   end?: Date | null
 ): WeightRow[] => buildDailyRows(data, start, end, 'weight', (d) => d.weight_kg ?? null);
 
-// Mean of the non-null weight readings in the visible date range, or null if none.
 export const averageWeight = (
   data: FitbitEntry[],
   start?: Date | null,
