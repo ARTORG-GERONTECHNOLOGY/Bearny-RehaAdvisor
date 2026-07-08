@@ -102,8 +102,9 @@ export const filterHRZonesInRange = (
 
 const formatHM = (min: number) => {
   if (!min || min <= 0) return '0m';
-  const h = Math.floor(min / 60);
-  const m = Math.round(min % 60);
+  const total = Math.round(min);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
@@ -114,7 +115,13 @@ const HRZonesStacked = forwardRef<HTMLDivElement, Props>(({ data, start, end }, 
   const { t } = useTranslation();
 
   const rows = useMemo(() => filterHRZonesInRange(data, start, end), [data, start, end]);
-  const hasReadings = useMemo(() => rows.some((r) => ZONE_KEYS.some((k) => r[k] > 0)), [rows]);
+  // Distinguish "the device recorded nothing" from "readings exist but all in the
+  // resting (Out of Range) zone" — the latter is real data, not missing data.
+  const hasAnyReadings = useMemo(() => rows.some((r) => ZONE_KEYS.some((k) => r[k] > 0)), [rows]);
+  const hasActiveZoneMinutes = useMemo(
+    () => rows.some((r) => STACK_ZONE_KEYS.some((k) => r[k] > 0)),
+    [rows]
+  );
   const bpmRanges = useMemo(() => zoneBpmRanges(data), [data]);
 
   const chartConfig: ChartConfig = useMemo(
@@ -131,10 +138,18 @@ const HRZonesStacked = forwardRef<HTMLDivElement, Props>(({ data, start, end }, 
     [t, bpmRanges]
   );
 
-  if (!hasReadings) {
+  if (!hasAnyReadings) {
     return (
       <div ref={ref} className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
         {t('No heart rate zone data')}
+      </div>
+    );
+  }
+
+  if (!hasActiveZoneMinutes) {
+    return (
+      <div ref={ref} className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
+        {t('No time in active heart rate zones')}
       </div>
     );
   }

@@ -3,20 +3,30 @@ import * as d3 from 'd3';
 
 export const parseYMD = d3.timeParse('%Y-%m-%d');
 
-export const isInRange = (iso: string, start?: Date | null, end?: Date | null) => {
-  const d = new Date(iso);
-  return (!start || d >= start) && (!end || d <= end);
+// `start`/`end` are always constructed as local calendar dates (e.g. `new Date(y, m, d)`).
+// Comparing them as UTC instants against a UTC-parsed `iso` shifts the range by a day in any
+// non-UTC timezone, so we compare calendar-date strings instead.
+const toLocalYMD = (d: Date): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 };
 
-// Every calendar date (YYYY-MM-DD, UTC) from `start` to `end` inclusive
+export const isInRange = (iso: string, start?: Date | null, end?: Date | null) => {
+  const day = iso.slice(0, 10);
+  return (!start || day >= toLocalYMD(start)) && (!end || day <= toLocalYMD(end));
+};
+
+// Every calendar date (YYYY-MM-DD, local) from `start` to `end` inclusive
 export const eachDateInRange = (start: Date, end: Date): string[] => {
   const dates: string[] = [];
-  const cur = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
-  const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate()));
+  const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
 
   while (cur.getTime() <= last.getTime()) {
-    dates.push(cur.toISOString().slice(0, 10));
-    cur.setUTCDate(cur.getUTCDate() + 1);
+    dates.push(toLocalYMD(cur));
+    cur.setDate(cur.getDate() + 1);
   }
 
   return dates;
