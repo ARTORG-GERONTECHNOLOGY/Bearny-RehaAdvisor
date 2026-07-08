@@ -270,9 +270,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
               <CardTitle>{t('Sleep')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="d-flex justify-content-center">
-                <SleepChart ref={svgRefs.sleep} data={store.fitbitData} start={start} end={end} />
-              </div>
+              <SleepChart ref={svgRefs.sleep} data={store.fitbitData} start={start} end={end} />
             </CardContent>
           </Card>
           <Card>

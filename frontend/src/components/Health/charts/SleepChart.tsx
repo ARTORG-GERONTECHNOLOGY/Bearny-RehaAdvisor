@@ -2,14 +2,14 @@
 import React, { useEffect, useRef, forwardRef } from 'react';
 import * as d3 from 'd3';
 import { useTranslation } from 'react-i18next';
-import { FitbitEntry } from '../../../types/health';
+import { FitbitEntry } from '@/types/health';
 import {
   isInRange,
   smartBandAxisBottom,
   parseYMD,
   getOrCreateTooltip,
   renderLegend,
-} from '../../../utils/healthCharts';
+} from '@/utils/healthCharts';
 
 type Props = { data: FitbitEntry[]; start?: Date | null; end?: Date | null };
 
