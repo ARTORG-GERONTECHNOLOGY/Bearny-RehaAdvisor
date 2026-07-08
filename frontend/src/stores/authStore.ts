@@ -2,7 +2,8 @@
 import axios from 'axios';
 import * as Sentry from '@sentry/react';
 import { makeAutoObservable, runInAction } from 'mobx';
-import apiClient from '../api/client';
+import apiClient from '@/api/client';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL as string;
 
@@ -224,7 +225,7 @@ class AuthStore {
       Sentry.logger.info('User logged in', { userId: this.id, userType: this.userType });
     } catch (err: any) {
       runInAction(() => {
-        this.setLoginError(err?.response?.data?.error || 'Login failed');
+        this.setLoginError(getApiErrorMessage(err, 'Login failed'));
         this.isAuthenticated = false;
         this.partialLogin = false;
       });

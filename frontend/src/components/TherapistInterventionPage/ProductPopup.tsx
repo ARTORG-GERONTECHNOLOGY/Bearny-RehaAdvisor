@@ -33,6 +33,7 @@ import ErrorAlert from '@/components/common/ErrorAlert';
 import TemplateAssignModal from '@/components/TherapistInterventionPage/TemplateAssignModal';
 import { translateText } from '@/utils/translate';
 import { isHttpUrl } from '@/utils/urlUtils';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
 type UnknownRecord = Record<string, unknown>;
 const isRecord = (v: unknown): v is UnknownRecord => typeof v === 'object' && v !== null;
@@ -386,14 +387,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
         );
         await refreshAssignments();
       } catch (e: unknown) {
-        const msg =
-          (isRecord(e) &&
-            isRecord(e.response) &&
-            isRecord(e.response.data) &&
-            (asString(e.response.data.error) || asString(e.response.data.message))) ||
-          (isRecord(e) && asString(e.message)) ||
-          t('Failed to delete from template.');
-        setError(msg);
+        setError(getApiErrorMessage(e, t('Failed to delete from template.')));
       }
     },
     [effectiveItem, refreshAssignments, t]

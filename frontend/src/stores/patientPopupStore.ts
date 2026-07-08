@@ -3,6 +3,7 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { toLocalYMD, formatLocaleDate } from '@/utils/dateFormat';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
 export type ValueSource = 'manual' | 'redcap' | 'empty';
 export type SelectOption = { value: string; label: string };
@@ -770,12 +771,11 @@ export class PatientPopupStore {
         this.wearablesSyncPayloads = (res.data as any)?.sent_payloads ?? null;
       });
     } catch (err: any) {
-      const api = err?.response?.data;
+      const code: string | undefined = err?.response?.data?.code;
       runInAction(() => {
-        const code: string | undefined = api?.code;
         this.wearablesSyncError = code
           ? t(code)
-          : api?.error || api?.message || err?.message || t('wearables_sync_failed');
+          : getApiErrorMessage(err, t('wearables_sync_failed'));
       });
     } finally {
       runInAction(() => {

@@ -15,6 +15,7 @@ import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import LogoutFill from '@/assets/icons/logout-fill.svg?react';
 import { toISODateUTC, formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
 type AccessModalState = {
   open: boolean;
@@ -100,9 +101,7 @@ const AdminDashboard: React.FC = observer(() => {
       const res = await apiClient.get('/admin/interventions/');
       setInterventions(Array.isArray(res.data?.interventions) ? res.data.interventions : []);
     } catch (e: any) {
-      setInterventionError(
-        e?.response?.data?.error || e?.message || 'Failed to load interventions.'
-      );
+      setInterventionError(getApiErrorMessage(e, 'Failed to load interventions.'));
     } finally {
       setInterventionLoading(false);
     }
@@ -116,9 +115,7 @@ const AdminDashboard: React.FC = observer(() => {
       setDeleteModal({ open: false, id: '', title: '' });
       await fetchInterventions();
     } catch (e: any) {
-      setInterventionError(
-        e?.response?.data?.error || e?.message || 'Failed to delete intervention.'
-      );
+      setInterventionError(getApiErrorMessage(e, 'Failed to delete intervention.'));
       setDeleteModal({ open: false, id: '', title: '' });
     } finally {
       setDeleteInProgress(false);
@@ -177,9 +174,7 @@ const AdminDashboard: React.FC = observer(() => {
       const res = await apiClient.get('/admin/questionnaires/');
       setQuestionnaires(Array.isArray(res.data?.questionnaires) ? res.data.questionnaires : []);
     } catch (e: any) {
-      setQuestionnaireError(
-        e?.response?.data?.error || e?.message || 'Failed to load questionnaires.'
-      );
+      setQuestionnaireError(getApiErrorMessage(e, 'Failed to load questionnaires.'));
     } finally {
       setQuestionnaireLoading(false);
     }
@@ -193,9 +188,7 @@ const AdminDashboard: React.FC = observer(() => {
       setQDeleteModal({ open: false, id: '', title: '', usageCount: 0 });
       await fetchQuestionnaires();
     } catch (e: any) {
-      setQuestionnaireError(
-        e?.response?.data?.error || e?.message || 'Failed to delete questionnaire.'
-      );
+      setQuestionnaireError(getApiErrorMessage(e, 'Failed to delete questionnaire.'));
       setQDeleteModal({ open: false, id: '', title: '', usageCount: 0 });
     } finally {
       setQDeleteInProgress(false);
@@ -229,7 +222,7 @@ const AdminDashboard: React.FC = observer(() => {
       setQEditModal({ open: false, id: '', title: '', description: '', tags: '' });
       await fetchQuestionnaires();
     } catch (e: any) {
-      setQEditError(e?.response?.data?.error || e?.message || 'Failed to save.');
+      setQEditError(getApiErrorMessage(e, 'Failed to save.'));
     } finally {
       setQEditSaving(false);
     }
@@ -280,7 +273,7 @@ const AdminDashboard: React.FC = observer(() => {
       const res = await apiClient.get('/admin/access-change-requests/');
       setChangeRequests(Array.isArray(res.data?.requests) ? res.data.requests : []);
     } catch (e: any) {
-      setChangeReqError(e?.response?.data?.error || e?.message || 'Failed to load requests.');
+      setChangeReqError(getApiErrorMessage(e, 'Failed to load requests.'));
     } finally {
       setChangeReqLoading(false);
     }
@@ -291,7 +284,7 @@ const AdminDashboard: React.FC = observer(() => {
       await apiClient.put(`/admin/access-change-requests/${requestId}/`, { action: 'approve' });
       await fetchChangeRequests();
     } catch (e: any) {
-      setChangeReqError(e?.response?.data?.error || e?.message || 'Failed to approve.');
+      setChangeReqError(getApiErrorMessage(e, 'Failed to approve.'));
     }
   };
 
@@ -310,7 +303,7 @@ const AdminDashboard: React.FC = observer(() => {
       setRejectModal({ open: false, requestId: '' });
       await fetchChangeRequests();
     } catch (e: any) {
-      setChangeReqError(e?.response?.data?.error || e?.message || 'Failed to reject.');
+      setChangeReqError(getApiErrorMessage(e, 'Failed to reject.'));
     } finally {
       setRejectSubmitting(false);
     }
@@ -335,7 +328,7 @@ const AdminDashboard: React.FC = observer(() => {
       setExportClinics(clinics);
       setSelectedExportClinics(clinics);
     } catch (e: any) {
-      setExportClinicsError(e?.response?.data?.error || e?.message || 'Failed to load clinics.');
+      setExportClinicsError(getApiErrorMessage(e, 'Failed to load clinics.'));
     } finally {
       setExportClinicsLoading(false);
     }
@@ -373,7 +366,7 @@ const AdminDashboard: React.FC = observer(() => {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e: any) {
-      setExportError(e?.response?.data?.error || e?.message || 'Export failed.');
+      setExportError(getApiErrorMessage(e, 'Export failed.'));
     } finally {
       setExporting(false);
     }
@@ -471,12 +464,7 @@ const AdminDashboard: React.FC = observer(() => {
         setAvailableProjects(availProjects);
         setClinicProjectsMap(typeof cpm === 'object' && cpm ? cpm : {});
       } catch (e: any) {
-        const msg =
-          e?.response?.data?.error ||
-          e?.response?.data?.message ||
-          e?.message ||
-          'Failed to load access.';
-        setAccessError(String(msg));
+        setAccessError(getApiErrorMessage(e, 'Failed to load access.'));
       } finally {
         setAccessLoading(false);
       }
@@ -519,12 +507,7 @@ const AdminDashboard: React.FC = observer(() => {
       setAccessSuccess(t('Saved successfully.'));
       await adminStore.fetchPendingEntries();
     } catch (e: any) {
-      const msg =
-        e?.response?.data?.error ||
-        e?.response?.data?.message ||
-        e?.message ||
-        'Failed to save access.';
-      setAccessError(String(msg));
+      setAccessError(getApiErrorMessage(e, 'Failed to save access.'));
     } finally {
       setAccessLoading(false);
     }

@@ -2,6 +2,7 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import * as Sentry from '@sentry/react';
 import apiClient from '@/api/client';
 import { toLocalYMD } from '@/utils/dateFormat';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
 type ExistsResp = { exists: boolean };
 
@@ -66,7 +67,7 @@ class PatientVitalsStore {
     } catch (e: any) {
       Sentry.captureException(e, { extra: { context: 'patientVitalsStore.submit', userId } });
       runInAction(() => {
-        this.error = e?.response?.data?.error || "Failed to save today's vitals. Please try again.";
+        this.error = getApiErrorMessage(e, "Failed to save today's vitals. Please try again.");
       });
     } finally {
       runInAction(() => {
