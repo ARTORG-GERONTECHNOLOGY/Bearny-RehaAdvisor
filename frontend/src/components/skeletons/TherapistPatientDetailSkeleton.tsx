@@ -41,13 +41,14 @@ export function HealthPageContentLoadingSkeleton() {
   return (
     <div className="flex flex-col gap-10" role="status" aria-live="polite">
       <span className="sr-only">Loading…</span>
-      {Array.from({ length: 2 }).map((_, i) => (
+      {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="flex flex-col gap-2">
-          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-6 w-40" />
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-[212px] w-full" />
+            <Skeleton className="h-[212px] w-full" />
+            {i < 3 && <Skeleton className="h-[212px] w-full" />}
+            {i === 2 && <Skeleton className="h-[212px] w-full" />}
           </div>
         </div>
       ))}
