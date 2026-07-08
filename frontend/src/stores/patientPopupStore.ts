@@ -299,10 +299,8 @@ export class PatientPopupStore {
       });
       return true;
     } catch (err: any) {
-      const api = err?.response?.data;
       runInAction(() => {
-        this.passwordError =
-          api?.error || api?.message || err?.message || t('Failed to reset password.');
+        this.passwordError = getApiErrorMessage(err, t('Failed to reset password.'));
       });
       return false;
     } finally {
@@ -479,9 +477,8 @@ export class PatientPopupStore {
       await this.fetchRedcapIfPossible(t);
       await this.fetchThresholds(t);
     } catch (err: any) {
-      const api = err?.response?.data;
       runInAction(() => {
-        this.error = api?.error || api?.message || err?.message || t('Failed to load patient.');
+        this.error = getApiErrorMessage(err, t('Failed to load patient.'));
       });
     } finally {
       runInAction(() => {
@@ -539,9 +536,7 @@ export class PatientPopupStore {
         this.redcapRows = [];
         this.redcapFlat = {};
         const code: string | undefined = api?.code;
-        this.redcapError = code
-          ? t(code)
-          : api?.error || api?.message || err?.message || t('redcap_fetch_failed');
+        this.redcapError = code ? t(code) : getApiErrorMessage(err, t('redcap_fetch_failed'));
       });
     } finally {
       runInAction(() => {
@@ -574,12 +569,10 @@ export class PatientPopupStore {
         this.thresholdEffectiveFromISO = null;
       });
     } catch (err: any) {
-      const api = err?.response?.data;
       runInAction(() => {
         this.thresholds = this.thresholds || normalizeThresholds(DEFAULT_THRESHOLDS);
         this.thresholdsHistory = this.thresholdsHistory || [];
-        this.thresholdsError =
-          api?.error || api?.message || err?.message || t('Failed to load thresholds.');
+        this.thresholdsError = getApiErrorMessage(err, t('Failed to load thresholds.'));
       });
     } finally {
       runInAction(() => {
@@ -610,10 +603,8 @@ export class PatientPopupStore {
       await this.fetchThresholds(t);
       return true;
     } catch (err: any) {
-      const api = err?.response?.data;
       runInAction(() => {
-        this.thresholdsError =
-          api?.error || api?.message || err?.message || t('Failed to save thresholds.');
+        this.thresholdsError = getApiErrorMessage(err, t('Failed to save thresholds.'));
       });
       return false;
     } finally {
@@ -708,9 +699,8 @@ export class PatientPopupStore {
 
       return true;
     } catch (err: any) {
-      const api = err?.response?.data;
       runInAction(() => {
-        this.error = api?.error || api?.message || err?.message || t('Failed to save patient.');
+        this.error = getApiErrorMessage(err, t('Failed to save patient.'));
       });
       return false;
     } finally {
@@ -730,9 +720,8 @@ export class PatientPopupStore {
       await apiClient.delete(`/users/${this.patientId}/profile/`);
       return true;
     } catch (err: any) {
-      const api = err?.response?.data;
       runInAction(() => {
-        this.error = api?.error || api?.message || err?.message || t('Failed to delete patient.');
+        this.error = getApiErrorMessage(err, t('Failed to delete patient.'));
       });
       return false;
     } finally {

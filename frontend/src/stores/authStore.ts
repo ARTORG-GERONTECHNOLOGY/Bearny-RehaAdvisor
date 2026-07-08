@@ -121,9 +121,8 @@ class AuthStore {
   // ───────────────────────────
   // Helpers
   // ───────────────────────────
-  // Current user/patient id: localStorage first, falling back to the in-memory id.
   getStoredUserId() {
-    return localStorage.getItem('id') || this.id || '';
+    return this.id || localStorage.getItem('id') || '';
   }
 
   private _parseSpecialisationsFromPayload(data: any): string[] {

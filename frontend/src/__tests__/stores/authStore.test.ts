@@ -23,17 +23,17 @@ describe('authStore', () => {
   });
 
   describe('getStoredUserId', () => {
-    it('prefers the localStorage-persisted id over the in-memory id', () => {
+    it('prefers the in-memory id over a stale localStorage-persisted id', () => {
       authStore.setId('memory-id');
       localStorage.setItem('id', 'storage-id');
 
-      expect(authStore.getStoredUserId()).toBe('storage-id');
+      expect(authStore.getStoredUserId()).toBe('memory-id');
     });
 
-    it('falls back to the in-memory id when localStorage has none', () => {
-      authStore.id = 'memory-id';
+    it('falls back to localStorage when there is no in-memory id', () => {
+      localStorage.setItem('id', 'storage-id');
 
-      expect(authStore.getStoredUserId()).toBe('memory-id');
+      expect(authStore.getStoredUserId()).toBe('storage-id');
     });
 
     it('returns an empty string when neither source has an id', () => {
