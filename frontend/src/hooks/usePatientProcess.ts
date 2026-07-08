@@ -151,7 +151,7 @@ export function usePatientProcess() {
   const [fitbitSummary, setFitbitSummary] = useState<FitbitSummaryResponse | null>(null);
   const [thresholds, setThresholds] = useState<ThresholdsResponse | null>(null);
 
-  const patientId = localStorage.getItem('id') || authStore.id || '';
+  const patientId = authStore.getStoredUserId();
 
   const { from, to } = useMemo(() => getDateWindow(processFilter), [processFilter]);
   const days = processFilter === 'week' ? 7 : 30;

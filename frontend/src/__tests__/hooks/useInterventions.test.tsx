@@ -22,7 +22,12 @@ jest.mock('@/stores/patientQuestionnairesStore', () => ({
 
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
-  default: { id: 'patient-1' },
+  default: {
+    id: 'patient-1',
+    getStoredUserId: jest.fn(function (this: { id: string }) {
+      return localStorage.getItem('id') || this.id || '';
+    }),
+  },
 }));
 
 import { useInterventions } from '@/hooks/useInterventions';

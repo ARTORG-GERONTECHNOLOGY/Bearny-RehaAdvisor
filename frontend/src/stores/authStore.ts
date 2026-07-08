@@ -121,8 +121,9 @@ class AuthStore {
   // ───────────────────────────
   // Helpers
   // ───────────────────────────
-  private _getStoredUserId() {
-    return this.id || localStorage.getItem('id') || '';
+  // Current user/patient id: localStorage first, falling back to the in-memory id.
+  getStoredUserId() {
+    return localStorage.getItem('id') || this.id || '';
   }
 
   private _parseSpecialisationsFromPayload(data: any): string[] {
@@ -152,7 +153,7 @@ class AuthStore {
   // 🔥 Fetch profile from backend (and store in authStore)
   // ───────────────────────────
   async fetchAndStoreUserInfo(userId?: string) {
-    const id = userId || this._getStoredUserId();
+    const id = userId || this.getStoredUserId();
     if (!id) return;
 
     try {
@@ -253,7 +254,7 @@ class AuthStore {
   // Logout
   // ───────────────────────────
   logout = async () => {
-    const userId = this._getStoredUserId();
+    const userId = this.getStoredUserId();
 
     try {
       if (userId) {

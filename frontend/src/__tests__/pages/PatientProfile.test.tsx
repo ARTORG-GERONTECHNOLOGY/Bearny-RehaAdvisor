@@ -23,6 +23,9 @@ jest.mock('@/stores/authStore', () => ({
     id: 'test-patient-id',
     logout: jest.fn().mockResolvedValue(undefined),
     checkAuthentication: jest.fn().mockResolvedValue(undefined),
+    getStoredUserId: jest.fn(function (this: { id: string }) {
+      return localStorage.getItem('id') || this.id || '';
+    }),
   },
 }));
 

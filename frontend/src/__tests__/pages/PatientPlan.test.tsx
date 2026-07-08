@@ -14,6 +14,9 @@ jest.mock('@/stores/authStore', () => ({
     isAuthenticated: true,
     userType: 'Patient',
     id: 'patient123',
+    getStoredUserId: jest.fn(function (this: { id: string }) {
+      return localStorage.getItem('id') || this.id || '';
+    }),
   },
 }));
 

@@ -41,7 +41,7 @@ const PatientView: React.FC = observer(() => {
 
   const fitbitStatus = useMemo(() => searchParams.get('fitbit_status'), [searchParams]);
   const fitbitError = useMemo(() => searchParams.get('fitbit_error'), [searchParams]);
-  const patientId = localStorage.getItem('id') || authStore.id || '';
+  const patientId = authStore.getStoredUserId();
 
   // Get today's interventions completion count for badge
   const today = useMemo(() => new Date(), []);

@@ -24,7 +24,7 @@ const PatientProfile: React.FC = observer(() => {
   const navigate = useNavigate();
   const { isAllowed } = useRoleAuthGate('Patient');
 
-  const patientId = localStorage.getItem('id') || authStore.id || '';
+  const patientId = authStore.getStoredUserId();
   const displayName = authStore.firstName || t('Profile');
 
   const contactEmail =

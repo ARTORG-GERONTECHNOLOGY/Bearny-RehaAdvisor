@@ -26,7 +26,7 @@ const PatientPlan: React.FC = observer(() => {
 
   const { isAllowed } = useRoleAuthGate('Patient');
 
-  const patientId = localStorage.getItem('id') || authStore.id || '';
+  const patientId = authStore.getStoredUserId();
 
   const locale = getDateFnsLocale(i18n.language);
 

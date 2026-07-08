@@ -22,6 +22,25 @@ describe('authStore', () => {
     expect(authStore.password).toBe('pass123');
   });
 
+  describe('getStoredUserId', () => {
+    it('prefers the localStorage-persisted id over the in-memory id', () => {
+      authStore.setId('memory-id');
+      localStorage.setItem('id', 'storage-id');
+
+      expect(authStore.getStoredUserId()).toBe('storage-id');
+    });
+
+    it('falls back to the in-memory id when localStorage has none', () => {
+      authStore.id = 'memory-id';
+
+      expect(authStore.getStoredUserId()).toBe('memory-id');
+    });
+
+    it('returns an empty string when neither source has an id', () => {
+      expect(authStore.getStoredUserId()).toBe('');
+    });
+  });
+
   it('handles failed login', async () => {
     (apiClient.post as jest.Mock).mockRejectedValueOnce({});
     authStore.setEmail('x@example.com');

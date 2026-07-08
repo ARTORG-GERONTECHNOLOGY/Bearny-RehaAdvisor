@@ -317,7 +317,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const [titleLang, setTitleLang] = useState('');
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  const patientId = localStorage.getItem('id') || authStore.id || '';
+  const patientId = authStore.getStoredUserId();
   const viewOpenedAt = useRef<number>(Date.now());
   const mediaRef = useRef<HTMLDivElement>(null);
   const tooltipContainerRef = useRef<HTMLDivElement>(null);
