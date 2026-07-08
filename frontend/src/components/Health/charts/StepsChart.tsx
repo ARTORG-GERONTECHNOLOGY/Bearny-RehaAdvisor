@@ -11,7 +11,6 @@ type Props = {
   data: FitbitEntry[];
   start?: Date | null;
   end?: Date | null;
-  /** Daily steps goal, drawn as a reference line; bars that reach it are brand-colored. */
   goal?: number | null;
 };
 

@@ -12,9 +12,7 @@ type Props = {
   data: FitbitEntry[];
   start?: Date | null;
   end?: Date | null;
-  /** Minimum minutes asleep to count as "enough sleep", drawn as a reference line; bars that reach it are brand-colored. */
   goal?: number | null;
-  /** Softer "caution" threshold below goal; bars that reach it but not goal are yellow-colored. */
   yellowGoal?: number | null;
 };
 

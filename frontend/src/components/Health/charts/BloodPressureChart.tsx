@@ -12,10 +12,8 @@ type Props = {
   data: FitbitEntry[];
   start?: Date | null;
   end?: Date | null;
-  /** Upper bound of the healthy ("green") systolic/diastolic range, drawn as reference lines. */
   sysGreenMax?: number | null;
   diaGreenMax?: number | null;
-  /** Softer "caution" upper bound above green; readings above green but within yellow are yellow-colored. */
   sysYellowMax?: number | null;
   diaYellowMax?: number | null;
 };
