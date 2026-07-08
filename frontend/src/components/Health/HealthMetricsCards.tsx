@@ -29,6 +29,19 @@ import QuestionnaireResultsTable, {
 } from '@/components/Health/QuestionnaireResultsTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
+import AdherenceIcon from '@/assets/icons/calendar-check-outline.svg?react';
+import WearTimeIcon from '@/assets/icons/watch-heart-outline.svg?react';
+import QuestionnaireIcon from '@/assets/icons/clipboard-list-outline.svg?react';
+import RestingHRIcon from '@/assets/icons/heart-outline.svg?react';
+import BloodPressureIcon from '@/assets/icons/droplet-outline.svg?react';
+import HRZonesIcon from '@/assets/icons/clock-outline.svg?react';
+import StepsIcon from '@/assets/icons/shoe-sneakers-outline.svg?react';
+import ActiveMinutesIcon from '@/assets/icons/person-walking-outline.svg?react';
+import WeightIcon from '@/assets/icons/weight-scale-outline.svg?react';
+import ExerciseIcon from '@/assets/icons/bicep-outline.svg?react';
+import SleepIcon from '@/assets/icons/moon-outline.svg?react';
+import BreathingIcon from '@/assets/icons/lungs-outline.svg?react';
+
 // Each ref points at the chart's wrapping <div> (not the inner <svg> — Recharts mounts
 // that asynchronously once it measures a size). Callers needing the actual <svg> — e.g. for
 // PDF export — should query `ref.current?.querySelector('svg')` at the moment they need it.
@@ -125,7 +138,10 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
-              <CardDescription>{t('Adherence')}</CardDescription>
+              <CardDescription>
+                <AdherenceIcon className="h-4 w-4 mr-1 -mt-1" />
+                {t('Adherence')}
+              </CardDescription>
               <CardTitle>{avgAdherence != null ? `${Math.round(avgAdherence)}%` : '--%'}</CardTitle>
             </CardHeader>
             <CardContent>
@@ -139,7 +155,10 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
           </Card>
           <Card>
             <CardHeader>
-              <CardDescription>{t('Wear Time')}</CardDescription>
+              <CardDescription>
+                <WearTimeIcon className="h-4 w-4 mr-1 -mt-1" />
+                {t('Wear Time')}
+              </CardDescription>
               <CardTitle>
                 {avgWearTime != null ? `${Math.round(avgWearTime)} ${t('min')}` : '--'}
               </CardTitle>
@@ -155,7 +174,10 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
           </Card>
           <Card>
             <CardHeader>
-              <CardDescription>{t('Questionnaire Results By Date')}</CardDescription>
+              <CardDescription>
+                <QuestionnaireIcon className="h-4 w-4 mr-1 -mt-1" />
+                {t('Questionnaire Results By Date')}
+              </CardDescription>
               <CardTitle>
                 {questionnaireDaysCount} {t('Entries')}
               </CardTitle>
@@ -178,7 +200,10 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
-              <CardDescription>{t('Resting HR')}</CardDescription>
+              <CardDescription>
+                <RestingHRIcon className="h-4 w-4 mr-1 -mt-1" />
+                {t('Resting HR')}
+              </CardDescription>
               <CardTitle>
                 {avgRestingHR != null ? `${Math.round(avgRestingHR)} bpm` : '--'}
               </CardTitle>
@@ -194,7 +219,10 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
           </Card>
           <Card>
             <CardHeader>
-              <CardDescription>{t('Blood pressure')}</CardDescription>
+              <CardDescription>
+                <BloodPressureIcon className="h-4 w-4 mr-1 -mt-1" />
+                {t('Blood pressure')}
+              </CardDescription>
               <CardTitle>
                 {fmtBp(avgBloodPressure.sys)}/{fmtBp(avgBloodPressure.dia)} mmHg
               </CardTitle>
@@ -214,7 +242,10 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
           </Card>
           <Card>
             <CardHeader>
-              <CardDescription>{t('Active HR Time')}</CardDescription>
+              <CardDescription>
+                <HRZonesIcon className="h-4 w-4 mr-1 -mt-1" />
+                {t('Active HR Time')}
+              </CardDescription>
               <CardTitle>
                 {avgActiveHRZone != null ? `${Math.round(avgActiveHRZone)} ${t('min')}` : '--'}
               </CardTitle>
@@ -236,7 +267,10 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
-              <CardDescription>{t('Steps')}</CardDescription>
+              <CardDescription>
+                <StepsIcon className="h-4 w-4 mr-1 -mt-1" />
+                {t('Steps')}
+              </CardDescription>
               <CardTitle>
                 {avgSteps != null ? Math.round(avgSteps).toLocaleString() : '--'}
               </CardTitle>
@@ -253,7 +287,10 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
           </Card>
           <Card>
             <CardHeader>
-              <CardDescription>{t('Active Minutes')}</CardDescription>
+              <CardDescription>
+                <ActiveMinutesIcon className="h-4 w-4 mr-1 -mt-1" />
+                {t('Active Minutes')}
+              </CardDescription>
               <CardTitle>
                 {avgActiveMinutes != null ? `${Math.round(avgActiveMinutes)} ${t('min')}` : '--'}
               </CardTitle>
@@ -271,7 +308,10 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
           </Card>
           <Card>
             <CardHeader>
-              <CardDescription>{t('WeightLabel')}</CardDescription>
+              <CardDescription>
+                <WeightIcon className="h-4 w-4 mr-1 -mt-1" />
+                {t('WeightLabel')}
+              </CardDescription>
               <CardTitle>
                 {avgWeight != null ? avgWeight.toFixed(1) : '--'}{' '}
                 {t('WeightUnit').toLocaleLowerCase()}
@@ -283,7 +323,10 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
           </Card>
           <Card>
             <CardHeader>
-              <CardDescription>{t('Exercises')}</CardDescription>
+              <CardDescription>
+                <ExerciseIcon className="h-4 w-4 mr-1 -mt-1" />
+                {t('Exercises')}
+              </CardDescription>
               <CardTitle>
                 {avgExerciseMinutes != null
                   ? `${Math.round(avgExerciseMinutes)} ${t('min')}`
@@ -307,7 +350,10 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
-              <CardDescription>{t('Sleep')}</CardDescription>
+              <CardDescription>
+                <SleepIcon className="h-4 w-4 mr-1 -mt-1" />
+                {t('Sleep')}
+              </CardDescription>
               <CardTitle>
                 {avgSleepMinutes != null ? formatSleepDuration(avgSleepMinutes) : '--'}
               </CardTitle>
@@ -325,7 +371,10 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
           </Card>
           <Card>
             <CardHeader>
-              <CardDescription>{t('Breathing')}</CardDescription>
+              <CardDescription>
+                <BreathingIcon className="h-4 w-4 mr-1 -mt-1" />
+                {t('Breathing')}
+              </CardDescription>
               <CardTitle>
                 {avgBreathingRate != null ? `${avgBreathingRate.toFixed(1)} / min` : '--'}
               </CardTitle>
