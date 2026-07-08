@@ -83,19 +83,19 @@ const makeStore = (overrides: Partial<HealthPageStore> = {}): HealthPageStore =>
 
 const t = (key: string) => key;
 
-// SVG ref stubs
+// Chart container ref stubs
 const svgRefs = {
-  adherence: React.createRef<SVGSVGElement>(),
-  restingHR: React.createRef<SVGSVGElement>(),
-  sleep: React.createRef<SVGSVGElement>(),
-  wearTime: React.createRef<SVGSVGElement>(),
-  hrZones: React.createRef<SVGSVGElement>(),
-  steps: React.createRef<SVGSVGElement>(),
-  activeMinutes: React.createRef<SVGSVGElement>(),
-  breathing: React.createRef<SVGSVGElement>(),
-  weight: React.createRef<SVGSVGElement>(),
-  bloodPressure: React.createRef<SVGSVGElement>(),
-  exercise: React.createRef<SVGSVGElement>(),
+  adherence: React.createRef<HTMLDivElement>(),
+  restingHR: React.createRef<HTMLDivElement>(),
+  sleep: React.createRef<HTMLDivElement>(),
+  wearTime: React.createRef<HTMLDivElement>(),
+  hrZones: React.createRef<HTMLDivElement>(),
+  steps: React.createRef<HTMLDivElement>(),
+  activeMinutes: React.createRef<HTMLDivElement>(),
+  breathing: React.createRef<HTMLDivElement>(),
+  weight: React.createRef<HTMLDivElement>(),
+  bloodPressure: React.createRef<HTMLDivElement>(),
+  exercise: React.createRef<HTMLDivElement>(),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
@@ -112,9 +112,11 @@ const SessionTooltip: React.FC<SessionTooltipProps> = ({ active, label, payload 
   );
 };
 
-const ExerciseSessionsChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) => {
+// The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
+// mounts its <svg> once it has measured a size, so callers should query for it at read time
+// (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
+const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, end }, ref) => {
   const { t } = useTranslation();
-  const containerRef = useRef<HTMLDivElement>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const rows = useMemo(() => filterExerciseInRange(data, start, end), [data, start, end]);
@@ -139,14 +141,6 @@ const ExerciseSessionsChart = forwardRef<SVGSVGElement, Props>(({ data, start, e
 
   const chartConfig: ChartConfig = useMemo(() => ({}) as ChartConfig, []);
 
-  // Recharts doesn't expose its inner <svg> via a ref prop, so grab it off the
-  // container once rendered. Used for PDF export, which needs a real SVGSVGElement.
-  useEffect(() => {
-    if (!ref || typeof ref === 'function') return;
-    (ref as React.RefObject<SVGSVGElement | null>).current =
-      containerRef.current?.querySelector('svg') ?? null;
-  });
-
   const selectedDateObj = useMemo(
     () => (selectedDate ? new Date(selectedDate) : null),
     [selectedDate]
@@ -154,7 +148,7 @@ const ExerciseSessionsChart = forwardRef<SVGSVGElement, Props>(({ data, start, e
 
   if (!hasSessions) {
     return (
-      <div className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
+      <div ref={ref} className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
         {t('No exercise sessions in this period.')}
       </div>
     );
@@ -162,7 +156,7 @@ const ExerciseSessionsChart = forwardRef<SVGSVGElement, Props>(({ data, start, e
 
   return (
     <>
-      <ChartContainer ref={containerRef} config={chartConfig} className="w-full max-h-24">
+      <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
         <BarChart accessibilityLayer data={chartRows}>
           <CartesianGrid vertical={false} />
           <YAxis hide domain={[0, (dataMax: number) => dataMax * 1.1]} />

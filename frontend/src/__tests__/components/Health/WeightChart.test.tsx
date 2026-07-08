@@ -65,11 +65,11 @@ describe('WeightChart', () => {
     expect(screen.queryByText('No weight data')).not.toBeInTheDocument();
   });
 
-  it('forwards the underlying svg element via ref', () => {
-    const ref = React.createRef<SVGSVGElement>();
+  it('forwards the underlying container element via ref', () => {
+    const ref = React.createRef<HTMLDivElement>();
     const data = [makeEntry('2026-01-01', 70)];
     render(<WeightChart ref={ref} data={data} />);
-    expect(ref.current).toBeInstanceOf(SVGSVGElement);
+    expect(ref.current).toBeInstanceOf(HTMLDivElement);
   });
 });
 

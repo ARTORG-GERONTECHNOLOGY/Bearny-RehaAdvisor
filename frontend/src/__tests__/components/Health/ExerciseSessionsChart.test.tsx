@@ -136,11 +136,11 @@ describe('ExerciseSessionsChart', () => {
     expect(screen.queryByText('No exercise sessions in this period.')).not.toBeInTheDocument();
   });
 
-  it('forwards the underlying svg element via ref', () => {
-    const ref = React.createRef<SVGSVGElement>();
+  it('forwards the underlying container element via ref', () => {
+    const ref = React.createRef<HTMLDivElement>();
     const data = [makeEntry('2026-01-01', [{ name: 'Run', duration: 30 * 60000 }])];
     render(<ExerciseSessionsChart ref={ref} data={data} />);
-    expect(ref.current).toBeInstanceOf(SVGSVGElement);
+    expect(ref.current).toBeInstanceOf(HTMLDivElement);
   });
 
   it('opens a detail sheet with the day exercise table when a bar is clicked', () => {

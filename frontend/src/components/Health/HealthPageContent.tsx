@@ -38,20 +38,24 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
   // Export modal state (UI-only)
   const [showExport, setShowExport] = useState(false);
 
-  // Chart refs for PDF export. Ordered to match the card layout on the Health page
-  // (HealthMetricsCards.tsx): Engagement, Cardiovascular, Activity, Sleep & Recovery.
+  // Chart container refs for PDF export. Each ref points at the chart's wrapping <div> —
+  // populated natively by React the moment it mounts, unlike the inner <svg>, which Recharts
+  // only renders asynchronously once it has measured a size. handleExportPDF queries for the
+  // live <svg> off these refs at export time, so it never races that measurement.
+  // Ordered to match the card layout on the Health page (HealthMetricsCards.tsx):
+  // Engagement, Cardiovascular, Activity, Sleep & Recovery.
   const svgRefs = {
-    adherence: useRef<SVGSVGElement>(null),
-    wearTime: useRef<SVGSVGElement>(null),
-    restingHR: useRef<SVGSVGElement>(null),
-    bloodPressure: useRef<SVGSVGElement>(null),
-    hrZones: useRef<SVGSVGElement>(null),
-    steps: useRef<SVGSVGElement>(null),
-    activeMinutes: useRef<SVGSVGElement>(null),
-    weight: useRef<SVGSVGElement>(null),
-    exercise: useRef<SVGSVGElement>(null),
-    sleep: useRef<SVGSVGElement>(null),
-    breathing: useRef<SVGSVGElement>(null),
+    adherence: useRef<HTMLDivElement>(null),
+    wearTime: useRef<HTMLDivElement>(null),
+    restingHR: useRef<HTMLDivElement>(null),
+    bloodPressure: useRef<HTMLDivElement>(null),
+    hrZones: useRef<HTMLDivElement>(null),
+    steps: useRef<HTMLDivElement>(null),
+    activeMinutes: useRef<HTMLDivElement>(null),
+    weight: useRef<HTMLDivElement>(null),
+    exercise: useRef<HTMLDivElement>(null),
+    sleep: useRef<HTMLDivElement>(null),
+    breathing: useRef<HTMLDivElement>(null),
   };
 
   // Default selections for export modal, in the same card order as svgRefs above.
@@ -334,7 +338,9 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
 
     for (const { ref, key, title } of charts) {
       if (!selections[key]) continue;
-      const svg = ref.current;
+      // Queried fresh (not cached) — by export time the chart has been on screen long
+      // enough for Recharts to have mounted its <svg>, so this reliably finds it.
+      const svg = ref.current?.querySelector('svg');
       if (!svg) continue;
 
       const url = await svgToImageDataUrl(svg);

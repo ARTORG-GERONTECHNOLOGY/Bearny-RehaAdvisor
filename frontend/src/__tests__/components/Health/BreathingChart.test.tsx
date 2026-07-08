@@ -61,11 +61,11 @@ describe('BreathingChart', () => {
     expect(screen.queryByText('No breathing rate data')).not.toBeInTheDocument();
   });
 
-  it('forwards the underlying svg element via ref', () => {
-    const ref = React.createRef<SVGSVGElement>();
+  it('forwards the underlying container element via ref', () => {
+    const ref = React.createRef<HTMLDivElement>();
     const data = [makeEntry('2026-01-01', 15)];
     render(<BreathingChart ref={ref} data={data} />);
-    expect(ref.current).toBeInstanceOf(SVGSVGElement);
+    expect(ref.current).toBeInstanceOf(HTMLDivElement);
   });
 
   it('shows the device hint when Fitbit entries exist but none report breathing rate', () => {

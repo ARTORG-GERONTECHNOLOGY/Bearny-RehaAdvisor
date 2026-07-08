@@ -61,11 +61,11 @@ describe('RestingHRChart', () => {
     expect(screen.queryByText('No resting heart rate data')).not.toBeInTheDocument();
   });
 
-  it('forwards the underlying svg element via ref', () => {
-    const ref = React.createRef<SVGSVGElement>();
+  it('forwards the underlying container element via ref', () => {
+    const ref = React.createRef<HTMLDivElement>();
     const data = [makeEntry('2026-01-01', 60)];
     render(<RestingHRChart ref={ref} data={data} />);
-    expect(ref.current).toBeInstanceOf(SVGSVGElement);
+    expect(ref.current).toBeInstanceOf(HTMLDivElement);
   });
 
   it('shows the device hint when Fitbit entries exist but none report resting heart rate', () => {

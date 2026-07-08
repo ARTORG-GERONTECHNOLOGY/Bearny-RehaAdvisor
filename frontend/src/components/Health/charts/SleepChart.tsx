@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useMemo, useRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -12,7 +12,9 @@ type Props = {
   data: FitbitEntry[];
   start?: Date | null;
   end?: Date | null;
+  /** Minimum minutes asleep to count as "enough sleep", drawn as a reference line; bars that reach it are brand-colored. */
   goal?: number | null;
+  /** Softer "caution" threshold below goal; bars that reach it but not goal are yellow-colored. */
   yellowGoal?: number | null;
 };
 
@@ -96,10 +98,12 @@ export const formatSleepDuration = (min: number) => {
 // slicing avoids a timezone-shifting Date parse for what's just a clock-time display.
 const formatTimeOfDay = (iso: string) => iso.slice(11, 16);
 
-const SleepChart = forwardRef<SVGSVGElement, Props>(
+// The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
+// mounts its <svg> once it has measured a size, so callers should query for it at read time
+// (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
+const SleepChart = forwardRef<HTMLDivElement, Props>(
   ({ data, start, end, goal, yellowGoal }, ref) => {
     const { t } = useTranslation();
-    const containerRef = useRef<HTMLDivElement>(null);
 
     const rows = useMemo(() => filterSleepInRange(data, start, end), [data, start, end]);
     const hasReadings = useMemo(() => rows.some((r) => r.minutesAsleep != null), [rows]);
@@ -111,24 +115,19 @@ const SleepChart = forwardRef<SVGSVGElement, Props>(
       [t]
     );
 
-    // Recharts doesn't expose its inner <svg> via a ref prop, so grab it off the
-    // container once rendered. Used for PDF export, which needs a real SVGSVGElement.
-    useEffect(() => {
-      if (!ref || typeof ref === 'function') return;
-      (ref as React.RefObject<SVGSVGElement | null>).current =
-        containerRef.current?.querySelector('svg') ?? null;
-    });
-
     if (!hasReadings) {
       return (
-        <div className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
+        <div
+          ref={ref}
+          className="flex h-24 w-full items-center justify-center text-sm text-zinc-500"
+        >
           {t('No sleep data')}
         </div>
       );
     }
 
     return (
-      <ChartContainer ref={containerRef} config={chartConfig} className="w-full max-h-24">
+      <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
         <BarChart accessibilityLayer data={rows}>
           <CartesianGrid vertical={false} />
           <YAxis hide domain={[0, (dataMax: number) => Math.max(dataMax, goal ?? 0) * 1.1]} />

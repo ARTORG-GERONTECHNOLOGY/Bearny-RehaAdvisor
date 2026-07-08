@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useMemo, useRef } from 'react';
+import { forwardRef, useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -46,9 +46,11 @@ export const averageWeight = (
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 };
 
-const WeightChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) => {
+// The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
+// mounts its <svg> once it has measured a size, so callers should query for it at read time
+// (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
+const WeightChart = forwardRef<HTMLDivElement, Props>(({ data, start, end }, ref) => {
   const { t } = useTranslation();
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const rows = useMemo(() => filterWeightInRange(data, start, end), [data, start, end]);
   const hasReadings = useMemo(() => rows.some((r) => r.weight != null), [rows]);
@@ -61,24 +63,16 @@ const WeightChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref)
     [t]
   );
 
-  // Recharts doesn't expose its inner <svg> via a ref prop, so grab it off the
-  // container once rendered. Used for PDF export, which needs a real SVGSVGElement.
-  useEffect(() => {
-    if (!ref || typeof ref === 'function') return;
-    (ref as React.RefObject<SVGSVGElement | null>).current =
-      containerRef.current?.querySelector('svg') ?? null;
-  });
-
   if (!hasReadings) {
     return (
-      <div className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
+      <div ref={ref} className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
         {t('No weight data')}
       </div>
     );
   }
 
   return (
-    <ChartContainer ref={containerRef} config={chartConfig} className="w-full max-h-24">
+    <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
       <BarChart accessibilityLayer data={rows}>
         <CartesianGrid vertical={false} />
         <YAxis hide domain={['dataMin - 1', 'dataMax + 1']} />

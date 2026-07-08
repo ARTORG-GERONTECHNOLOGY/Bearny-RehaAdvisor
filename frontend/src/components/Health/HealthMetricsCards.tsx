@@ -29,18 +29,21 @@ import QuestionnaireResultsTable, {
 } from '@/components/Health/QuestionnaireResultsTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
+// Each ref points at the chart's wrapping <div> (not the inner <svg> — Recharts mounts
+// that asynchronously once it measures a size). Callers needing the actual <svg> — e.g. for
+// PDF export — should query `ref.current?.querySelector('svg')` at the moment they need it.
 type SvgRefs = {
-  adherence: React.RefObject<SVGSVGElement>;
-  restingHR: React.RefObject<SVGSVGElement>;
-  sleep: React.RefObject<SVGSVGElement>;
-  wearTime: React.RefObject<SVGSVGElement>;
-  hrZones: React.RefObject<SVGSVGElement>;
-  steps: React.RefObject<SVGSVGElement>;
-  activeMinutes: React.RefObject<SVGSVGElement>;
-  breathing: React.RefObject<SVGSVGElement>;
-  weight: React.RefObject<SVGSVGElement>;
-  bloodPressure: React.RefObject<SVGSVGElement>;
-  exercise: React.RefObject<SVGSVGElement>;
+  adherence: React.RefObject<HTMLDivElement>;
+  restingHR: React.RefObject<HTMLDivElement>;
+  sleep: React.RefObject<HTMLDivElement>;
+  wearTime: React.RefObject<HTMLDivElement>;
+  hrZones: React.RefObject<HTMLDivElement>;
+  steps: React.RefObject<HTMLDivElement>;
+  activeMinutes: React.RefObject<HTMLDivElement>;
+  breathing: React.RefObject<HTMLDivElement>;
+  weight: React.RefObject<HTMLDivElement>;
+  bloodPressure: React.RefObject<HTMLDivElement>;
+  exercise: React.RefObject<HTMLDivElement>;
 };
 
 type Props = {
