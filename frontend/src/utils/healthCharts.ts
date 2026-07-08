@@ -22,6 +22,40 @@ export const eachDateInRange = (start: Date, end: Date): string[] => {
   return dates;
 };
 
+// ---------- threshold tiers (green/yellow/red goal coloring) ----------
+export type ThresholdTier = 'green' | 'yellow' | 'red';
+
+const TIER_SEVERITY: Record<ThresholdTier, number> = { green: 0, yellow: 1, red: 2 };
+
+// Classifies a value against a green ("good") and yellow ("caution") threshold.
+// `higherIsBetter` flips the comparison for metrics like blood pressure, where lower is healthier.
+// Returns null when there's no value to classify (e.g. a day with no reading).
+export const thresholdTier = (
+  value: number | null | undefined,
+  green: number | null | undefined,
+  yellow: number | null | undefined,
+  higherIsBetter: boolean
+): ThresholdTier | null => {
+  if (value == null) return null;
+  if (green == null) return 'green';
+
+  const reachedGreen = higherIsBetter ? value >= green : value <= green;
+  if (reachedGreen) return 'green';
+
+  const reachedYellow = yellow != null && (higherIsBetter ? value >= yellow : value <= yellow);
+  return reachedYellow ? 'yellow' : 'red';
+};
+
+// Worst (most severe) of several tiers, ignoring nulls. Used when a single day is
+// judged by more than one metric (e.g. blood pressure's systolic + diastolic readings).
+export const worstTier = (...tiers: (ThresholdTier | null)[]): ThresholdTier | null =>
+  tiers
+    .filter((t): t is ThresholdTier => t != null)
+    .reduce<ThresholdTier | null>(
+      (worst, t) => (worst == null || TIER_SEVERITY[t] > TIER_SEVERITY[worst] ? t : worst),
+      null
+    );
+
 // ---------- svg & shared UI ----------
 export const initSvg = (
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,

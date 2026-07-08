@@ -204,6 +204,8 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
                 end={end}
                 sysGreenMax={store.thresholds.bp_sys_green_max}
                 diaGreenMax={store.thresholds.bp_dia_green_max}
+                sysYellowMax={store.thresholds.bp_sys_yellow_max}
+                diaYellowMax={store.thresholds.bp_dia_yellow_max}
               />
             </CardContent>
           </Card>
@@ -260,6 +262,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
                 start={start}
                 end={end}
                 goal={store.thresholds.active_minutes_green}
+                yellowGoal={store.thresholds.active_minutes_yellow}
               />
             </CardContent>
           </Card>
@@ -313,6 +316,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
                 start={start}
                 end={end}
                 goal={store.thresholds.sleep_green_min}
+                yellowGoal={store.thresholds.sleep_yellow_min}
               />
             </CardContent>
           </Card>

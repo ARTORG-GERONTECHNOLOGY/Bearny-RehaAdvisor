@@ -5,13 +5,21 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { eachDateInRange, isInRange } from '@/utils/healthCharts';
+import { eachDateInRange, isInRange, thresholdTier } from '@/utils/healthCharts';
+import type { ThresholdTier } from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
   start?: Date | null;
   end?: Date | null;
   goal?: number | null;
+  yellowGoal?: number | null;
+};
+
+const TIER_COLOR: Record<ThresholdTier, string> = {
+  green: colors.brand,
+  yellow: colors.yellow,
+  red: colors.pink,
 };
 
 type SleepRow = {
@@ -30,6 +38,8 @@ const resolveMinutesAsleep = (sleep: FitbitEntry['sleep']): number | null => {
   return null;
 };
 
+// One row per calendar day in the visible range (inclusive), so every day gets a bar
+// slot even without a reading, instead of compressing the timeline to just the days with data.
 export const filterSleepInRange = (
   data: FitbitEntry[],
   start?: Date | null,
@@ -62,6 +72,7 @@ export const filterSleepInRange = (
   });
 };
 
+// Mean of the non-null "minutes asleep" readings in the visible date range, or null if none.
 export const averageSleepMinutes = (
   data: FitbitEntry[],
   start?: Date | null,
@@ -81,99 +92,103 @@ export const formatSleepDuration = (min: number) => {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 };
 
+// sleep_start/sleep_end are naive local ISO timestamps (e.g. "2026-01-01T22:00:00.000") —
+// slicing avoids a timezone-shifting Date parse for what's just a clock-time display.
 const formatTimeOfDay = (iso: string) => iso.slice(11, 16);
 
-const SleepChart = forwardRef<SVGSVGElement, Props>(({ data, start, end, goal }, ref) => {
-  const { t } = useTranslation();
-  const containerRef = useRef<HTMLDivElement>(null);
+const SleepChart = forwardRef<SVGSVGElement, Props>(
+  ({ data, start, end, goal, yellowGoal }, ref) => {
+    const { t } = useTranslation();
+    const containerRef = useRef<HTMLDivElement>(null);
 
-  const rows = useMemo(() => filterSleepInRange(data, start, end), [data, start, end]);
-  const hasReadings = useMemo(() => rows.some((r) => r.minutesAsleep != null), [rows]);
+    const rows = useMemo(() => filterSleepInRange(data, start, end), [data, start, end]);
+    const hasReadings = useMemo(() => rows.some((r) => r.minutesAsleep != null), [rows]);
 
-  const chartConfig: ChartConfig = useMemo(
-    () => ({
-      minutesAsleep: { label: t('Asleep'), color: colors.brand },
-    }),
-    [t]
-  );
-
-  // Recharts doesn't expose its inner <svg> via a ref prop, so grab it off the
-  // container once rendered. Used for PDF export, which needs a real SVGSVGElement.
-  useEffect(() => {
-    if (!ref || typeof ref === 'function') return;
-    (ref as React.RefObject<SVGSVGElement | null>).current =
-      containerRef.current?.querySelector('svg') ?? null;
-  });
-
-  if (!hasReadings) {
-    return (
-      <div className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
-        {t('No sleep data')}
-      </div>
+    const chartConfig: ChartConfig = useMemo(
+      () => ({
+        minutesAsleep: { label: t('Asleep'), color: colors.brand },
+      }),
+      [t]
     );
-  }
 
-  return (
-    <ChartContainer ref={containerRef} config={chartConfig} className="w-full max-h-24">
-      <BarChart accessibilityLayer data={rows}>
-        <CartesianGrid vertical={false} />
-        <YAxis hide domain={[0, (dataMax: number) => Math.max(dataMax, goal ?? 0) * 1.1]} />
-        <XAxis hide dataKey="date" />
-        <ChartTooltip
-          content={
-            <ChartTooltipContent
-              hideIndicator
-              formatter={(value, _name, item) => {
-                const minutesAsleep = value as number | null;
-                const row = item.payload as SleepRow;
-                return (
-                  <div className="flex flex-1 flex-col gap-1">
-                    <div className="flex items-center justify-between gap-4 leading-none">
-                      <span className="text-muted-foreground">{t('Asleep')}</span>
-                      <span className="font-mono font-medium tabular-nums text-foreground">
-                        {minutesAsleep != null ? formatSleepDuration(minutesAsleep) : '--'}
-                      </span>
-                    </div>
-                    {row.sleepStart && row.sleepEnd && (
+    // Recharts doesn't expose its inner <svg> via a ref prop, so grab it off the
+    // container once rendered. Used for PDF export, which needs a real SVGSVGElement.
+    useEffect(() => {
+      if (!ref || typeof ref === 'function') return;
+      (ref as React.RefObject<SVGSVGElement | null>).current =
+        containerRef.current?.querySelector('svg') ?? null;
+    });
+
+    if (!hasReadings) {
+      return (
+        <div className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
+          {t('No sleep data')}
+        </div>
+      );
+    }
+
+    return (
+      <ChartContainer ref={containerRef} config={chartConfig} className="w-full max-h-24">
+        <BarChart accessibilityLayer data={rows}>
+          <CartesianGrid vertical={false} />
+          <YAxis hide domain={[0, (dataMax: number) => Math.max(dataMax, goal ?? 0) * 1.1]} />
+          <XAxis hide dataKey="date" />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                hideIndicator
+                formatter={(value, _name, item) => {
+                  const minutesAsleep = value as number | null;
+                  const row = item.payload as SleepRow;
+                  return (
+                    <div className="flex flex-1 flex-col gap-1">
                       <div className="flex items-center justify-between gap-4 leading-none">
-                        <span className="text-muted-foreground">{t('Sleep window')}</span>
+                        <span className="text-muted-foreground">{t('Asleep')}</span>
                         <span className="font-mono font-medium tabular-nums text-foreground">
-                          {formatTimeOfDay(row.sleepStart)}–{formatTimeOfDay(row.sleepEnd)}
+                          {minutesAsleep != null ? formatSleepDuration(minutesAsleep) : '--'}
                         </span>
                       </div>
-                    )}
-                  </div>
-                );
-              }}
-            />
-          }
-        />
-        {goal != null && (
-          <ReferenceLine
-            y={goal}
-            stroke={colors.chartMuted}
-            strokeWidth={2}
-            strokeDasharray="8 8"
+                      {row.sleepStart && row.sleepEnd && (
+                        <div className="flex items-center justify-between gap-4 leading-none">
+                          <span className="text-muted-foreground">{t('Sleep window')}</span>
+                          <span className="font-mono font-medium tabular-nums text-foreground">
+                            {formatTimeOfDay(row.sleepStart)}–{formatTimeOfDay(row.sleepEnd)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }}
+              />
+            }
           />
-        )}
-        <Bar dataKey="minutesAsleep">
-          {rows.map((row, index) => (
-            <Cell
-              key={`cell-${index}`}
-              fill={
-                row.minutesAsleep == null
-                  ? 'transparent'
-                  : goal == null || row.minutesAsleep >= goal
-                    ? colors.brand
-                    : colors.pink
-              }
+          {goal != null && (
+            <ReferenceLine
+              y={goal}
+              stroke={colors.chartMuted}
+              strokeWidth={2}
+              strokeDasharray="8 8"
             />
-          ))}
-        </Bar>
-      </BarChart>
-    </ChartContainer>
-  );
-});
+          )}
+          {yellowGoal != null && (
+            <ReferenceLine
+              y={yellowGoal}
+              stroke={colors.chartMuted}
+              strokeWidth={2}
+              strokeDasharray="4 4"
+            />
+          )}
+          <Bar dataKey="minutesAsleep">
+            {rows.map((row, index) => {
+              const tier = thresholdTier(row.minutesAsleep, goal, yellowGoal, true);
+              return <Cell key={`cell-${index}`} fill={tier ? TIER_COLOR[tier] : 'transparent'} />;
+            })}
+          </Bar>
+        </BarChart>
+      </ChartContainer>
+    );
+  }
+);
 
 SleepChart.displayName = 'SleepChart';
 

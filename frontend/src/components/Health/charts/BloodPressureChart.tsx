@@ -5,15 +5,23 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { isInRange } from '@/utils/healthCharts';
+import { isInRange, thresholdTier, worstTier } from '@/utils/healthCharts';
+import type { ThresholdTier } from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
   start?: Date | null;
   end?: Date | null;
-  /** Upper bound of the healthy ("green") systolic/diastolic range, drawn as reference lines. */
   sysGreenMax?: number | null;
   diaGreenMax?: number | null;
+  sysYellowMax?: number | null;
+  diaYellowMax?: number | null;
+};
+
+const TIER_COLOR: Record<ThresholdTier, string> = {
+  green: colors.brand,
+  yellow: colors.yellow,
+  red: colors.pink,
 };
 
 type BloodPressureRow = { date: string; sys: number | null; dia: number | null };
@@ -64,7 +72,7 @@ const toBandRows = (rows: BloodPressureRow[]): BandRow[] =>
   }));
 
 const BloodPressureChart = forwardRef<SVGSVGElement, Props>(
-  ({ data, start, end, sysGreenMax, diaGreenMax }, ref) => {
+  ({ data, start, end, sysGreenMax, diaGreenMax, sysYellowMax, diaYellowMax }, ref) => {
     const { t } = useTranslation();
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -72,6 +80,25 @@ const BloodPressureChart = forwardRef<SVGSVGElement, Props>(
       () => toBandRows(filterBloodPressureInRange(data, start, end)),
       [data, start, end]
     );
+
+    const dotColor = (row: BandRow): string => {
+      const sysTier = thresholdTier(row.sys, sysGreenMax, sysYellowMax, false);
+      const diaTier = thresholdTier(row.dia, diaGreenMax, diaYellowMax, false);
+      const tier = worstTier(sysTier, diaTier);
+      return tier ? TIER_COLOR[tier] : colors.brand;
+    };
+
+    const renderDot =
+      (radius: number) =>
+      (props: { cx?: number; cy?: number; index?: number; payload?: BandRow }) => {
+        const { cx, cy, index, payload } = props;
+        if (cx == null || cy == null || !payload || payload.range == null) {
+          return <g key={`dot-${index}`} />;
+        }
+        return (
+          <circle key={`dot-${index}`} cx={cx} cy={cy} r={radius} fill={dotColor(payload)} />
+        );
+      };
 
     // Recharts doesn't expose its inner <svg> via a ref prop, so grab it off the
     // container once rendered. Used for PDF export, which needs a real SVGSVGElement.
@@ -98,7 +125,13 @@ const BloodPressureChart = forwardRef<SVGSVGElement, Props>(
             domain={[
               0,
               (dataMax: number) =>
-                Math.max(dataMax + 5, (sysGreenMax ?? 0) + 5, (diaGreenMax ?? 0) + 5),
+                Math.max(
+                  dataMax + 5,
+                  (sysGreenMax ?? 0) + 5,
+                  (diaGreenMax ?? 0) + 5,
+                  (sysYellowMax ?? 0) + 5,
+                  (diaYellowMax ?? 0) + 5
+                ),
             ]}
           />
           <XAxis hide dataKey="date" />
@@ -132,8 +165,8 @@ const BloodPressureChart = forwardRef<SVGSVGElement, Props>(
             strokeWidth={2}
             fill={colors.brand}
             fillOpacity={0.5}
-            dot={{ r: 3, fill: colors.brand, strokeWidth: 0 }}
-            activeDot={{ r: 4 }}
+            dot={renderDot(3)}
+            activeDot={renderDot(4)}
             connectNulls
           />
           {sysGreenMax != null && (
@@ -150,6 +183,22 @@ const BloodPressureChart = forwardRef<SVGSVGElement, Props>(
               stroke={colors.chartMuted}
               strokeWidth={2}
               strokeDasharray="8 8"
+            />
+          )}
+          {sysYellowMax != null && (
+            <ReferenceLine
+              y={sysYellowMax}
+              stroke={colors.chartMuted}
+              strokeWidth={2}
+              strokeDasharray="4 4"
+            />
+          )}
+          {diaYellowMax != null && (
+            <ReferenceLine
+              y={diaYellowMax}
+              stroke={colors.chartMuted}
+              strokeWidth={2}
+              strokeDasharray="4 4"
             />
           )}
         </AreaChart>
