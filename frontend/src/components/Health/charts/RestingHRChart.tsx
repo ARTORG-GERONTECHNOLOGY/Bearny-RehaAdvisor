@@ -69,7 +69,10 @@ const RestingHRChart = forwardRef<HTMLDivElement, Props>(({ data, start, end }, 
 
   if (!hasReadings) {
     return (
-      <div ref={ref} className="flex h-24 w-full flex-col items-center justify-center gap-1 text-center">
+      <div
+        ref={ref}
+        className="flex h-24 w-full flex-col items-center justify-center gap-1 text-center"
+      >
         <span className="text-sm text-zinc-500">{t('No resting heart rate data')}</span>
         {deviceEmpty && <span className="text-xs text-zinc-500">{t('hint_resting_hr_empty')}</span>}
       </div>

@@ -101,9 +101,7 @@ const BloodPressureChart = forwardRef<HTMLDivElement, Props>(
         if (cx == null || cy == null || !payload || payload.range == null) {
           return <g key={`dot-${index}`} />;
         }
-        return (
-          <circle key={`dot-${index}`} cx={cx} cy={cy} r={radius} fill={dotColor(payload)} />
-        );
+        return <circle key={`dot-${index}`} cx={cx} cy={cy} r={radius} fill={dotColor(payload)} />;
       };
 
     if (!rows.length) {

@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { saveAs } from 'file-saver';
 import { observer } from 'mobx-react-lite';
 import { Alert, Spinner } from 'react-bootstrap';
@@ -320,35 +321,107 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
   const handleExportPDF = async (from: Date, to: Date, selections: Record<string, boolean>) => {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'px', format: 'a4' });
 
-    const charts = [
-      { ref: svgRefs.adherence, key: 'adherence', title: t('Adherence (%)') },
-      { ref: svgRefs.wearTime, key: 'wearTime', title: t('Wear Time (min)') },
-      { ref: svgRefs.restingHR, key: 'restingHR', title: t('Resting Heart Rate') },
-      { ref: svgRefs.bloodPressure, key: 'bloodPressure', title: t('Blood Pressure (SYS/DIA)') },
-      { ref: svgRefs.hrZones, key: 'hrZones', title: t('Heart Rate Zones per Day') },
-      { ref: svgRefs.steps, key: 'steps', title: t('Daily Steps') },
-      { ref: svgRefs.activeMinutes, key: 'activeMinutes', title: t('Active Minutes') },
-      { ref: svgRefs.weight, key: 'weight', title: t('Weight (kg)') },
-      { ref: svgRefs.exercise, key: 'exercise', title: t('Exercise Summary') },
-      { ref: svgRefs.sleep, key: 'sleep', title: t('Sleep Schedule and Duration') },
-      { ref: svgRefs.breathing, key: 'breathing', title: t('Breathing Rate (breaths/min)') },
+    const sections: (
+      | { type: 'chart'; ref: React.RefObject<HTMLDivElement>; key: string; title: string }
+      | { type: 'questionnaire'; key: 'questionnaire'; title: string }
+    )[] = [
+      { type: 'chart', ref: svgRefs.adherence, key: 'adherence', title: t('Adherence (%)') },
+      { type: 'chart', ref: svgRefs.wearTime, key: 'wearTime', title: t('Wear Time (min)') },
+      { type: 'questionnaire', key: 'questionnaire', title: t('Questionnaire Results By Date') },
+      { type: 'chart', ref: svgRefs.restingHR, key: 'restingHR', title: t('Resting Heart Rate') },
+      {
+        type: 'chart',
+        ref: svgRefs.bloodPressure,
+        key: 'bloodPressure',
+        title: t('Blood Pressure (SYS/DIA)'),
+      },
+      { type: 'chart', ref: svgRefs.hrZones, key: 'hrZones', title: t('Heart Rate Zones per Day') },
+      { type: 'chart', ref: svgRefs.steps, key: 'steps', title: t('Daily Steps') },
+      {
+        type: 'chart',
+        ref: svgRefs.activeMinutes,
+        key: 'activeMinutes',
+        title: t('Active Minutes'),
+      },
+      { type: 'chart', ref: svgRefs.weight, key: 'weight', title: t('Weight (kg)') },
+      { type: 'chart', ref: svgRefs.exercise, key: 'exercise', title: t('Exercise Summary') },
+      {
+        type: 'chart',
+        ref: svgRefs.sleep,
+        key: 'sleep',
+        title: t('Sleep Schedule and Duration'),
+      },
+      {
+        type: 'chart',
+        ref: svgRefs.breathing,
+        key: 'breathing',
+        title: t('Breathing Rate (breaths/min)'),
+      },
     ];
 
     let first = true;
 
-    for (const { ref, key, title } of charts) {
-      if (!selections[key]) continue;
-      // Queried fresh (not cached) — by export time the chart has been on screen long
-      // enough for Recharts to have mounted its <svg>, so this reliably finds it.
-      const svg = ref.current?.querySelector('svg');
-      if (!svg) continue;
+    for (const section of sections) {
+      if (!selections[section.key]) continue;
 
-      const url = await svgToImageDataUrl(svg);
+      // Every selected chart gets a page — including ones with no data for the
+      // range, so the PDF mirrors the card grid instead of silently dropping pages.
       if (!first) doc.addPage();
       first = false;
 
       const pageW = doc.internal.pageSize.getWidth();
       const pageH = doc.internal.pageSize.getHeight();
+      doc.text(String(section.title), pageW / 2, 30, { align: 'center' });
+
+      if (section.type === 'questionnaire') {
+        const qIn = store.questionnaireData
+          .filter((d) => isInRange(d.date, from, to))
+          .slice()
+          .sort((a, b) => a.date.localeCompare(b.date));
+
+        if (!qIn.length) {
+          doc.text(t('No data available'), pageW / 2, pageH / 2, { align: 'center' });
+          continue;
+        }
+
+        const rows = qIn.map((e) => {
+          const questionText =
+            e.questionTranslations?.find((x) => x.language === i18n.language)?.text ||
+            e.questionTranslations?.find((x) => x.language === 'en')?.text ||
+            e.questionKey;
+
+          const answers = (e.answers || [])
+            .map(
+              (a) =>
+                a.translations?.find((x) => x.language === i18n.language)?.text ||
+                a.translations?.find((x) => x.language === 'en')?.text ||
+                a.key
+            )
+            .filter(Boolean)
+            .join(', ');
+
+          return [toEuroDate(e.date.slice(0, 10)), questionText, answers || '—', e.comment || '—'];
+        });
+
+        autoTable(doc, {
+          startY: 50,
+          head: [[t('Date'), t('Question'), t('Answers'), t('Comment')]],
+          body: rows,
+          styles: { fontSize: 8, cellPadding: 4 },
+          headStyles: { fillColor: [0, 149, 108] },
+          margin: { left: 30, right: 30 },
+        });
+        continue;
+      }
+
+      // Queried fresh (not cached) — by export time the chart has been on screen long
+      // enough for Recharts to have mounted its <svg>, so this reliably finds it.
+      const svg = section.ref.current?.querySelector('svg');
+      if (!svg) {
+        doc.text(t('No data available'), pageW / 2, pageH / 2, { align: 'center' });
+        continue;
+      }
+
       const maxW = pageW - 60;
       const maxH = pageH - 90;
 
@@ -360,7 +433,7 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
       const imgW = sW * scale;
       const imgH = sH * scale;
 
-      doc.text(String(title), pageW / 2, 30, { align: 'center' });
+      const url = await svgToImageDataUrl(svg);
       doc.addImage(url, 'PNG', (pageW - imgW) / 2, 50, imgW, imgH);
     }
 
