@@ -2,8 +2,8 @@
 import React, { useMemo } from 'react';
 import { Table, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
-import { FitbitEntry } from '../../../types/health';
-import { isInRange } from '../../../utils/healthCharts';
+import { FitbitEntry } from '@/types/health';
+import { isInRange } from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
@@ -77,45 +77,38 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
   }
 
   return (
-    <div style={{ maxHeight: 260, overflowY: 'auto' }}>
-      <Table striped bordered hover size="sm" className="mb-0">
-        <thead>
-          <tr>
-            <th>{t('Date')}</th>
-            <th>{t('Exercise')}</th>
-            <th>{t('Duration')}</th>
-            <th>{t('Avg HR')}</th>
-
-            {/* HEADLINE shows peak zone range */}
-            <th>
-              <OverlayTrigger
-                overlay={<Tooltip>{t('Fitbit Peak heart-rate zone range (bpm)')}</Tooltip>}
-              >
-                <span>{t('Peak zone (bpm)')}</span>
-              </OverlayTrigger>
-            </th>
-
-            {/* ROW shows minutes */}
-            <th>{t('Peak minutes')}</th>
-
-            <th>{t('Calories')}</th>
+    <Table striped bordered hover size="sm" className="mb-0">
+      <thead>
+        <tr>
+          <th>{t('Date')}</th>
+          <th>{t('Exercise')}</th>
+          <th>{t('Duration')}</th>
+          <th>{t('Avg HR')}</th>
+          <th>
+            <OverlayTrigger
+              overlay={<Tooltip>{t('Fitbit Peak heart-rate zone range (bpm)')}</Tooltip>}
+            >
+              <span>{t('Peak zone (bpm)')}</span>
+            </OverlayTrigger>
+          </th>
+          <th>{t('Peak minutes')}</th>
+          <th>{t('Calories')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, idx) => (
+          <tr key={`${r.date}-${idx}`}>
+            <td>{r.date}</td>
+            <td>{r.name}</td>
+            <td>{r.duration}</td>
+            <td>{r.avgHR ?? '-'}</td>
+            <td>{r.peakRange ?? '-'}</td>
+            <td>{r.peakMinutes ?? '-'}</td>
+            <td>{r.calories ?? '-'}</td>
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, idx) => (
-            <tr key={`${r.date}-${idx}`}>
-              <td>{r.date}</td>
-              <td>{r.name}</td>
-              <td>{r.duration}</td>
-              <td>{r.avgHR ?? '-'}</td>
-              <td>{r.peakRange ?? '-'}</td>
-              <td>{r.peakMinutes ?? '-'}</td>
-              <td>{r.calories ?? '-'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
-    </div>
+        ))}
+      </tbody>
+    </Table>
   );
 };
 

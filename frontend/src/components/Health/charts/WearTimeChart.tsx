@@ -13,41 +13,46 @@ type Props = {
   end?: Date | null;
 };
 
-type WeightRow = { date: string; weight: number | null };
+type WearTimeRow = { date: string; wearTime: number | null };
 
-export const filterWeightInRange = (
+export const filterWearTimeInRange = (
   data: FitbitEntry[],
   start?: Date | null,
   end?: Date | null
-): WeightRow[] => buildDailyRows(data, start, end, 'weight', (d) => d.weight_kg ?? null);
+): WearTimeRow[] =>
+  buildDailyRows(data, start, end, 'wearTime', (d) => d.wear_time_minutes ?? null);
 
-export const averageWeight = (
+export const averageWearTime = (
   data: FitbitEntry[],
   start?: Date | null,
   end?: Date | null
-): number | null => averageNonNull(filterWeightInRange(data, start, end).map((r) => r.weight));
+): number | null => averageNonNull(filterWearTimeInRange(data, start, end).map((r) => r.wearTime));
 
 // The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
 // mounts its <svg> once it has measured a size, so callers should query for it at read time
 // (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
-const WeightChart = forwardRef<HTMLDivElement, Props>(({ data, start, end }, ref) => {
+const WearTimeChart = forwardRef<HTMLDivElement, Props>(({ data, start, end }, ref) => {
   const { t } = useTranslation();
 
-  const rows = useMemo(() => filterWeightInRange(data, start, end), [data, start, end]);
-  const hasReadings = useMemo(() => rows.some((r) => r.weight != null), [rows]);
+  const rows = useMemo(() => filterWearTimeInRange(data, start, end), [data, start, end]);
+  const hasReadings = useMemo(() => rows.some((r) => r.wearTime != null), [rows]);
+  const deviceEmpty = data.length > 0 && data.every((d) => d.wear_time_minutes == null);
 
-  // ChartContainer's required `config` prop and its per-series CSS vars.
   const chartConfig: ChartConfig = useMemo(
     () => ({
-      weight: { label: t('WeightLabel'), color: colors.brand },
+      wearTime: { label: t('Wear Time (min)'), color: colors.brand },
     }),
     [t]
   );
 
   if (!hasReadings) {
     return (
-      <div ref={ref} className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
-        {t('No weight data')}
+      <div
+        ref={ref}
+        className="flex h-24 w-full flex-col items-center justify-center gap-1 text-center"
+      >
+        <span className="text-sm text-zinc-500">{t('No wear time data')}</span>
+        {deviceEmpty && <span className="text-xs text-zinc-500">{t('hint_wear_time_empty')}</span>}
       </div>
     );
   }
@@ -56,15 +61,15 @@ const WeightChart = forwardRef<HTMLDivElement, Props>(({ data, start, end }, ref
     <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
       <BarChart accessibilityLayer data={rows}>
         <CartesianGrid vertical={false} />
-        <YAxis hide domain={['dataMin - 1', 'dataMax + 1']} />
+        <YAxis hide domain={[0, (dataMax: number) => dataMax * 1.1]} />
         <XAxis hide dataKey="date" />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
-        <Bar dataKey="weight" fill={colors.brand} />
+        <Bar dataKey="wearTime" fill={colors.brand} />
       </BarChart>
     </ChartContainer>
   );
 });
 
-WeightChart.displayName = 'WeightChart';
+WearTimeChart.displayName = 'WearTimeChart';
 
-export default WeightChart;
+export default WearTimeChart;
