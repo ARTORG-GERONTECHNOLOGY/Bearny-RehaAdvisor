@@ -1,8 +1,6 @@
 // src/utils/healthCharts.ts
 import * as d3 from 'd3';
 
-export const parseYMD = d3.timeParse('%Y-%m-%d');
-
 // `start`/`end` are always constructed as local calendar dates (e.g. `new Date(y, m, d)`).
 // Comparing them as UTC instants against a UTC-parsed `iso` shifts the range by a day in any
 // non-UTC timezone, so we compare calendar-date strings instead.
@@ -67,16 +65,6 @@ export const worstTier = (...tiers: (ThresholdTier | null)[]): ThresholdTier | n
     );
 
 // ---------- svg & shared UI ----------
-export const initSvg = (
-  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-  w: number,
-  h: number
-) =>
-  svg
-    .attr('viewBox', `0 0 ${w} ${h}`)
-    .attr('preserveAspectRatio', 'xMidYMid meet')
-    .classed('w-100', true);
-
 // One tooltip reused by all charts
 export const getOrCreateTooltip = () => {
   let tt = d3.select<HTMLDivElement, unknown>('body').select('.chart-tooltip');

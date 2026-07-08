@@ -1,11 +1,10 @@
-/* eslint-disable */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { saveAs } from 'file-saver';
 import { observer } from 'mobx-react-lite';
-import { Alert, Spinner } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 
 import ExportModal from '@/components/Health/ExportModal';
@@ -101,7 +100,6 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
       store.endDate.toISOString().slice(0, 10),
       t
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId, store, store.viewMode, store.referenceDate, t]);
 
   const formatRangeLabel = (start: Date, end: Date) =>
