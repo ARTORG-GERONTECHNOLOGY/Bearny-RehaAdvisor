@@ -38,36 +38,37 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
   // Export modal state (UI-only)
   const [showExport, setShowExport] = useState(false);
 
-  // Chart refs for PDF export
+  // Chart refs for PDF export. Ordered to match the card layout on the Health page
+  // (HealthMetricsCards.tsx): Engagement, Cardiovascular, Activity, Sleep & Recovery.
   const svgRefs = {
     adherence: useRef<SVGSVGElement>(null),
-    restingHR: useRef<SVGSVGElement>(null),
-    sleep: useRef<SVGSVGElement>(null),
     wearTime: useRef<SVGSVGElement>(null),
+    restingHR: useRef<SVGSVGElement>(null),
+    bloodPressure: useRef<SVGSVGElement>(null),
     hrZones: useRef<SVGSVGElement>(null),
     steps: useRef<SVGSVGElement>(null),
     activeMinutes: useRef<SVGSVGElement>(null),
-    breathing: useRef<SVGSVGElement>(null),
     weight: useRef<SVGSVGElement>(null),
-    bloodPressure: useRef<SVGSVGElement>(null),
     exercise: useRef<SVGSVGElement>(null),
+    sleep: useRef<SVGSVGElement>(null),
+    breathing: useRef<SVGSVGElement>(null),
   };
 
-  // Default selections for export modal
+  // Default selections for export modal, in the same card order as svgRefs above.
   const defaultSelections: Record<string, boolean> = {
     adherence: true,
-    totalScore: true,
-    questionnaire: true,
-    restingHR: true,
-    sleep: true,
     wearTime: true,
+    questionnaire: true,
+    totalScore: true,
+    restingHR: true,
+    bloodPressure: true,
     hrZones: true,
     steps: true,
     activeMinutes: true,
-    breathing: true,
     weight: true,
-    bloodPressure: true,
     exercise: true,
+    sleep: true,
+    breathing: true,
   };
 
   // Fetch data when patient or window changes
@@ -317,16 +318,16 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
 
     const charts = [
       { ref: svgRefs.adherence, key: 'adherence', title: t('Adherence (%)') },
+      { ref: svgRefs.wearTime, key: 'wearTime', title: t('Wear Time (min)') },
       { ref: svgRefs.restingHR, key: 'restingHR', title: t('Resting Heart Rate') },
-      { ref: svgRefs.sleep, key: 'sleep', title: t('Sleep Schedule and Duration') },
+      { ref: svgRefs.bloodPressure, key: 'bloodPressure', title: t('Blood Pressure (SYS/DIA)') },
       { ref: svgRefs.hrZones, key: 'hrZones', title: t('Heart Rate Zones per Day') },
       { ref: svgRefs.steps, key: 'steps', title: t('Daily Steps') },
       { ref: svgRefs.activeMinutes, key: 'activeMinutes', title: t('Active Minutes') },
-      { ref: svgRefs.breathing, key: 'breathing', title: t('Breathing Rate (breaths/min)') },
-      { ref: svgRefs.wearTime, key: 'wearTime', title: t('Wear Time (min)') },
       { ref: svgRefs.weight, key: 'weight', title: t('Weight (kg)') },
-      { ref: svgRefs.bloodPressure, key: 'bloodPressure', title: t('Blood Pressure (SYS/DIA)') },
       { ref: svgRefs.exercise, key: 'exercise', title: t('Exercise Summary') },
+      { ref: svgRefs.sleep, key: 'sleep', title: t('Sleep Schedule and Duration') },
+      { ref: svgRefs.breathing, key: 'breathing', title: t('Breathing Rate (breaths/min)') },
     ];
 
     let first = true;
