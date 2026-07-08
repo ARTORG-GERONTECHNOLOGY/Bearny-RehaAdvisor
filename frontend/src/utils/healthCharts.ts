@@ -1,16 +1,10 @@
 // src/utils/healthCharts.ts
 import * as d3 from 'd3';
+import { toLocalYMD } from '@/utils/dateFormat';
 
 // `start`/`end` are always constructed as local calendar dates (e.g. `new Date(y, m, d)`).
 // Comparing them as UTC instants against a UTC-parsed `iso` shifts the range by a day in any
 // non-UTC timezone, so we compare calendar-date strings instead.
-const toLocalYMD = (d: Date): string => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
-
 export const isInRange = (iso: string, start?: Date | null, end?: Date | null) => {
   const day = iso.slice(0, 10);
   return (!start || day >= toLocalYMD(start)) && (!end || day <= toLocalYMD(end));

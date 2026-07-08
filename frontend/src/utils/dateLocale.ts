@@ -1,7 +1,7 @@
 import type { Locale } from 'date-fns';
 import { de, enUS, fr, it, nl, pt } from 'date-fns/locale';
 
-const LOCALE_MAP: Record<string, Locale> = {
+export const LOCALE_MAP: Record<string, Locale> = {
   en: enUS,
   de,
   fr,

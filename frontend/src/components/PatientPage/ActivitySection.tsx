@@ -11,6 +11,7 @@ import ProgressIndicator from '@/components/PatientPage/ProgressIndicator';
 import Section from '@/components/Section';
 import { PatientActivitySectionSkeleton } from '@/components/skeletons/PatientSkeleton';
 import Card from '@/components/Card';
+import { formatDurationMinutes } from '@/utils/dateFormat';
 
 interface StepsHistoryItem {
   date: string;
@@ -62,10 +63,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
 
   const formatMinutesToHM = (minutes?: number | null) => {
     if (!minutes || Number.isNaN(Number(minutes))) return '--';
-    const total = Math.max(0, Math.round(Number(minutes)));
-    const hours = Math.floor(total / 60);
-    const mins = total % 60;
-    return `${hours}h ${mins}min`;
+    return formatDurationMinutes(Number(minutes), 'min');
   };
 
   if (loading) {

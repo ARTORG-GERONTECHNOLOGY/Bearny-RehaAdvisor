@@ -133,7 +133,7 @@ const PatientView: React.FC = observer(() => {
     <Layout>
       <PageHeader
         title={t('today')}
-        subtitle={new Date().toLocaleDateString(t('locale'), { day: 'numeric', month: 'long' })}
+        subtitle={new Date().toLocaleDateString(i18n.language, { day: 'numeric', month: 'long' })}
       />
       <HomeIllustration className="absolute right-0 top-12 md:top-24" />
 

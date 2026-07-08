@@ -4,6 +4,7 @@ import { Table, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { FitbitEntry } from '@/types/health';
 import { isInRange } from '@/utils/healthCharts';
+import { formatDurationMs } from '@/utils/dateFormat';
 
 type Props = {
   data: FitbitEntry[];
@@ -13,10 +14,7 @@ type Props = {
 
 const formatDurationHM = (ms?: number | null): string => {
   if (!ms || ms <= 0) return '-';
-  const totalMin = Math.round(ms / 60000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  return formatDurationMs(ms);
 };
 
 const getPeakZone = (zones?: any[]): { range: string | null; minutes: number | null } => {

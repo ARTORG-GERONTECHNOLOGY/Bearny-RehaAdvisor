@@ -1,7 +1,8 @@
 /* eslint-disable */
 import { makeAutoObservable, runInAction } from 'mobx';
-import apiClient from '../api/client';
-import authStore from './authStore';
+import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
+import { toLocalYMD, formatLocaleDate } from '@/utils/dateFormat';
 
 export type ValueSource = 'manual' | 'redcap' | 'empty';
 export type SelectOption = { value: string; label: string };
@@ -16,14 +17,14 @@ export const toDateInput = (v: any) => {
   if (!v) return '';
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  return toLocalYMD(d);
 };
 
 export const toDisplayDate = (v: any) => {
   if (!v) return '';
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return String(v);
-  return d.toLocaleDateString();
+  return formatLocaleDate(d);
 };
 
 const toLocalDatetimeInput = (isoOrDate: any) => {

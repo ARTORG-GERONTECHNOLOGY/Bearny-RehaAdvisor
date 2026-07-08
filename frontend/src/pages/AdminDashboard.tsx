@@ -14,6 +14,7 @@ import apiClient from '@/api/client';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import LogoutFill from '@/assets/icons/logout-fill.svg?react';
+import { toISODateUTC, formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
 
 type AccessModalState = {
   open: boolean;
@@ -364,7 +365,7 @@ const AdminDashboard: React.FC = observer(() => {
 
       const url = URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
       const a = document.createElement('a');
-      const today = new Date().toISOString().slice(0, 10);
+      const today = toISODateUTC(new Date());
       a.href = url;
       a.download = `export_${today}.zip`;
       document.body.appendChild(a);
@@ -703,9 +704,7 @@ const AdminDashboard: React.FC = observer(() => {
                           <td>{renderBadges(req.requestedClinics, 'primary')}</td>
                           <td>{renderBadges(req.requestedProjects, 'dark')}</td>
                           <td>
-                            <small>
-                              {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : '—'}
-                            </small>
+                            <small>{req.createdAt ? formatLocaleDate(req.createdAt) : '—'}</small>
                           </td>
                           <td className="d-flex gap-2 flex-wrap">
                             <Button
@@ -898,7 +897,7 @@ const AdminDashboard: React.FC = observer(() => {
                             className="text-center"
                             title={
                               qn.updatedAt
-                                ? `${t('Last edited')}: ${new Date(qn.updatedAt).toLocaleString()}`
+                                ? `${t('Last edited')}: ${formatLocaleDateTime(qn.updatedAt)}`
                                 : t('Never edited')
                             }
                           >

@@ -26,6 +26,7 @@ import apiClient from '@/api/client';
 import { filterInterventions } from '@/utils/filterUtils';
 import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
 import { translateText } from '@/utils/translate';
+import { formatLocaleDate } from '@/utils/dateFormat';
 
 import type { TemplateItem, TemplatePayload } from '@/types/templates';
 import type { InterventionTypeTh } from '@/types';
@@ -1026,8 +1027,7 @@ const TherapistRecomendations: React.FC = observer(() => {
                                 >
                                   <FaBell />
                                   <small>
-                                    {t('Updated')}: {new Date(diff.date).toLocaleDateString()} (
-                                    {totalChanges})
+                                    {t('Updated')}: {formatLocaleDate(diff.date)} ({totalChanges})
                                   </small>
                                   <small>{showDiff ? '▲' : '▼'}</small>
                                 </button>

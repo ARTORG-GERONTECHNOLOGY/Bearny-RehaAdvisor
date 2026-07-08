@@ -1,9 +1,10 @@
 // src/components/TherapistInterventionPage/ApplyTemplateModal.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Button, Form, Row, Col, Alert, Spinner, Badge } from 'react-bootstrap';
-import apiClient from '../../api/client';
-import authStore from '../../stores/authStore';
+import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
+import { toISODateUTC } from '@/utils/dateFormat';
 
 type PatientOption = {
   _id: string;
@@ -52,9 +53,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
   const [diagnosis, setDiagnosis] = useState(defaultDiagnosis || '');
 
   // Shared
-  const [effectiveFrom, setEffectiveFrom] = useState(
-    new Date(Date.now() + 86400000).toISOString().slice(0, 10)
-  );
+  const [effectiveFrom, setEffectiveFrom] = useState(toISODateUTC(new Date(Date.now() + 86400000)));
   const [overwrite, setOverwrite] = useState(false);
   const [forceVideo, setForceVideo] = useState(false);
   const [notes, setNotes] = useState('');
@@ -153,7 +152,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
   };
 
   const hasUnsavedChanges = useMemo(() => {
-    const baseEff = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const baseEff = toISODateUTC(new Date(Date.now() + 86400000));
     const baseDiag = defaultDiagnosis || '';
     return (
       selectedIds.size > 0 ||

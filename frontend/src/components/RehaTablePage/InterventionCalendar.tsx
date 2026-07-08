@@ -3,12 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { Calendar, dateFnsLocalizer, Views, type View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
-import de from 'date-fns/locale/de';
-import enUS from 'date-fns/locale/en-US';
 
 import type { Intervention } from '@/types';
 import StarRating, { getRatingFromDateEntry } from './StarRating';
-import { getDateFnsLocale } from '@/utils/dateLocale';
+import { getDateFnsLocale, LOCALE_MAP } from '@/utils/dateLocale';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 type PatientPlan = { interventions: Intervention[] } & Record<string, any>;
@@ -33,14 +31,12 @@ type CalendarEvent = {
   };
 };
 
-const locales: Record<string, Locale> = { en: enUS, de };
-
 const localizer = dateFnsLocalizer({
   format,
   parse,
   startOfWeek: (date, options) => startOfWeek(date, { weekStartsOn: 1, ...options }),
   getDay,
-  locales,
+  locales: LOCALE_MAP,
 });
 
 const safeDate = (v: string): Date | null => {

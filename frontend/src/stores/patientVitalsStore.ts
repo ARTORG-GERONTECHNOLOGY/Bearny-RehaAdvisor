@@ -1,15 +1,9 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import * as Sentry from '@sentry/react';
-import apiClient from '../api/client';
+import apiClient from '@/api/client';
+import { toLocalYMD } from '@/utils/dateFormat';
 
 type ExistsResp = { exists: boolean };
-
-function isoLocalDate(d = new Date()) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 
 class PatientVitalsStore {
   loading = false;
@@ -18,7 +12,7 @@ class PatientVitalsStore {
   successMsg = '';
   posting = false;
 
-  today = isoLocalDate();
+  today = toLocalYMD(new Date());
 
   constructor() {
     makeAutoObservable(this);

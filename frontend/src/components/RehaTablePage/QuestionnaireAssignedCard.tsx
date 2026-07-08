@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import CircleRemoveFill from '@/assets/icons/trash-x-fill.svg?react';
 import EditFill from '@/assets/icons/pencil-fill.svg?react';
+import { formatLocaleDate } from '@/utils/dateFormat';
 
 interface QuestionnaireAssignedCardProps {
   a: {
@@ -57,7 +58,7 @@ const QuestionnaireAssignedCard: React.FC<QuestionnaireAssignedCardProps> = ({
       {a.frequency && <Badge>{a.frequency}</Badge>}
       {!!a.dates?.length && (
         <Badge>
-          {t('Next on')} {new Date(a.dates[0]).toLocaleDateString()}
+          {t('Next on')} {formatLocaleDate(a.dates[0])}
         </Badge>
       )}
       {!!a.answered_entries?.length && (
