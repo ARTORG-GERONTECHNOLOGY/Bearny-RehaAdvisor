@@ -8,9 +8,12 @@ jest.mock('@/components/Health/charts/AdherenceLine', () => ({
   default: React.forwardRef(() => <div data-testid="chart-adherence" />),
   averageAdherencePct: jest.fn(() => null),
 }));
-jest.mock('@/components/Health/charts/SleepChart', () =>
-  React.forwardRef(() => <div data-testid="chart-sleep" />)
-);
+jest.mock('@/components/Health/charts/SleepChart', () => ({
+  __esModule: true,
+  default: React.forwardRef(() => <div data-testid="chart-sleep" />),
+  averageSleepMinutes: jest.fn(() => null),
+  formatSleepDuration: jest.fn((min: number) => `${min}m`),
+}));
 jest.mock('@/components/Health/charts/WearTimeChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-weartime" />),

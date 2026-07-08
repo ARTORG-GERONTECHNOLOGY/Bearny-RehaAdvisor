@@ -2,7 +2,10 @@ import React, { useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { HealthPageStore } from '@/stores/healthPageStore';
 
-import SleepChart from '@/components/Health/charts/SleepChart';
+import SleepChart, {
+  averageSleepMinutes,
+  formatSleepDuration,
+} from '@/components/Health/charts/SleepChart';
 import WearTimeChart, { averageWearTime } from '@/components/Health/charts/WearTimeChart';
 import HRZonesStacked, {
   averageActiveHRZoneMinutes,
@@ -90,6 +93,11 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
 
   const avgExerciseMinutes = useMemo(
     () => averageExerciseMinutes(store.fitbitData, start, end),
+    [store.fitbitData, start, end]
+  );
+
+  const avgSleepMinutes = useMemo(
+    () => averageSleepMinutes(store.fitbitData, start, end),
     [store.fitbitData, start, end]
   );
 
@@ -267,10 +275,19 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <Card>
             <CardHeader>
-              <CardTitle>{t('Sleep')}</CardTitle>
+              <CardDescription>{t('Sleep')}</CardDescription>
+              <CardTitle>
+                {avgSleepMinutes != null ? formatSleepDuration(avgSleepMinutes) : '--'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <SleepChart ref={svgRefs.sleep} data={store.fitbitData} start={start} end={end} />
+              <SleepChart
+                ref={svgRefs.sleep}
+                data={store.fitbitData}
+                start={start}
+                end={end}
+                goal={store.thresholds.sleep_green_min}
+              />
             </CardContent>
           </Card>
           <Card>

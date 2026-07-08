@@ -375,6 +375,8 @@
   "No wear time data": "Aucune donnée de temps de port",
   "No resting heart rate data": "Aucune donnée de fréquence cardiaque au repos",
   "No breathing rate data": "Aucune donnée de fréquence respiratoire",
+  "No sleep data": "Aucune donnée de sommeil",
+  "Asleep": "Endormi",
   "Entries": "Entrées",
   "Distance": "Distance",
   "Breathing": "Respiration",

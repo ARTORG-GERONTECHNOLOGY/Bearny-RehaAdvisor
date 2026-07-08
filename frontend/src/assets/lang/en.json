@@ -376,6 +376,8 @@
   "No wear time data": "No wear time data",
   "No resting heart rate data": "No resting heart rate data",
   "No breathing rate data": "No breathing rate data",
+  "No sleep data": "No sleep data",
+  "Asleep": "Asleep",
   "Entries": "Entries",
   "Distance": "Distance Traveled (km)",
   "Breathing": "Breathing Rate (breaths/min)",
