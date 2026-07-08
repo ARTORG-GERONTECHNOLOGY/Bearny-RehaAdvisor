@@ -1,152 +1,206 @@
-/* eslint-disable */
-import React, { useEffect } from 'react';
-import * as d3 from 'd3';
-import { isInRange } from '../../../utils/healthCharts';
+import { forwardRef, useMemo } from 'react';
+import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
+import { useTranslation } from 'react-i18next';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import type { ChartConfig } from '@/components/ui/chart';
+import type { FitbitEntry } from '@/types/health';
+import { colors } from '@/lib/colors';
+import { averageNonNull, isInRange, thresholdTier, worstTier } from '@/utils/healthCharts';
+import type { ThresholdTier } from '@/utils/healthCharts';
 
-const BloodPressureChart = React.forwardRef<
-  SVGSVGElement,
-  {
-    data: any[];
-    start: Date;
-    end: Date;
-  }
->(({ data, start, end }, ref) => {
-  useEffect(() => {
-    if (!ref || !(ref as any).current) return;
+type Props = {
+  data: FitbitEntry[];
+  start?: Date | null;
+  end?: Date | null;
+  sysGreenMax?: number | null;
+  diaGreenMax?: number | null;
+  sysYellowMax?: number | null;
+  diaYellowMax?: number | null;
+};
 
-    const svg = d3.select(ref.current);
-    svg.selectAll('*').remove();
+const TIER_COLOR: Record<ThresholdTier, string> = {
+  green: colors.brand,
+  yellow: colors.yellow,
+  red: colors.pink,
+};
 
-    const width = 800;
-    const height = 300;
-    const margin = { top: 20, right: 30, bottom: 40, left: 60 };
+type BloodPressureRow = { date: string; sys: number | null; dia: number | null };
 
-    svg.attr('viewBox', `0 0 ${width} ${height}`);
+// Filters fitbit entries with a systolic or diastolic reading to the visible date range.
+export const filterBloodPressureInRange = (
+  data: FitbitEntry[],
+  start?: Date | null,
+  end?: Date | null
+): BloodPressureRow[] => {
+  const raw = Array.isArray(data) ? data : [];
 
-    // ------- Filter data -------
-    const filtered = data
-      .filter((d) => (d.bp_sys != null || d.bp_dia != null) && isInRange(d.date, start, end))
-      .map((d) => ({
-        date: new Date(d.date),
-        sys: d.bp_sys,
-        dia: d.bp_dia,
-      }))
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  return raw
+    .filter((d) => (d.bp_sys != null || d.bp_dia != null) && isInRange(d.date, start, end))
+    .map((d) => ({ date: d.date, sys: d.bp_sys ?? null, dia: d.bp_dia ?? null }));
+};
 
-    if (filtered.length === 0) {
-      svg
-        .append('text')
-        .attr('x', width / 2)
-        .attr('y', height / 2)
-        .attr('text-anchor', 'middle')
-        .attr('fill', '#888')
-        .text('No blood pressure data');
-      return;
+// Mean systolic/diastolic across the visible date range; either can be null if no readings.
+export const averageBloodPressure = (
+  data: FitbitEntry[],
+  start?: Date | null,
+  end?: Date | null
+): { sys: number | null; dia: number | null } => {
+  const rows = filterBloodPressureInRange(data, start, end);
+
+  return {
+    sys: averageNonNull(rows.map((r) => r.sys)),
+    dia: averageNonNull(rows.map((r) => r.dia)),
+  };
+};
+
+// ChartContainer's required `config` prop and its per-series CSS vars.
+const chartConfig: ChartConfig = {
+  range: { color: colors.brand },
+};
+
+type BandRow = BloodPressureRow & { range: [number, number] | null };
+
+// Recharts treats an array-valued dataKey as an explicit [base, top] range,
+// so a single Area draws the band from diastolic straight to systolic.
+const toBandRows = (rows: BloodPressureRow[]): BandRow[] =>
+  rows.map((r) => ({
+    ...r,
+    range: r.sys != null && r.dia != null ? [r.dia, r.sys] : null,
+  }));
+
+// The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
+// mounts its <svg> once it has measured a size, so callers should query for it at read time
+// (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
+const BloodPressureChart = forwardRef<HTMLDivElement, Props>(
+  ({ data, start, end, sysGreenMax, diaGreenMax, sysYellowMax, diaYellowMax }, ref) => {
+    const { t } = useTranslation();
+
+    const rows = useMemo(
+      () => toBandRows(filterBloodPressureInRange(data, start, end)),
+      [data, start, end]
+    );
+
+    // Worse of the systolic/diastolic tier for that day — a single reading out of range is
+    // enough to flag the day, so the dot color reflects whichever metric is doing worse.
+    const dotColor = (row: BandRow): string => {
+      const sysTier = thresholdTier(row.sys, sysGreenMax, sysYellowMax, false);
+      const diaTier = thresholdTier(row.dia, diaGreenMax, diaYellowMax, false);
+      const tier = worstTier(sysTier, diaTier);
+      return tier ? TIER_COLOR[tier] : colors.brand;
+    };
+
+    const renderDot =
+      (radius: number) =>
+      (props: { cx?: number; cy?: number; index?: number; payload?: BandRow }) => {
+        const { cx, cy, index, payload } = props;
+        if (cx == null || cy == null || !payload || payload.range == null) {
+          return <g key={`dot-${index}`} />;
+        }
+        return <circle key={`dot-${index}`} cx={cx} cy={cy} r={radius} fill={dotColor(payload)} />;
+      };
+
+    if (!rows.length) {
+      return (
+        <div
+          ref={ref}
+          className="flex h-24 w-full items-center justify-center text-sm text-zinc-500"
+        >
+          {t('No blood pressure data')}
+        </div>
+      );
     }
 
-    // ------- Scales -------
-    const x = d3
-      .scaleTime()
-      .domain(d3.extent(filtered, (d) => d.date) as [Date, Date])
-      .range([margin.left, width - margin.right]);
+    return (
+      <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
+        <AreaChart accessibilityLayer data={rows}>
+          <CartesianGrid vertical={false} />
+          <YAxis
+            hide
+            domain={[
+              0,
+              (dataMax: number) =>
+                Math.max(
+                  dataMax + 5,
+                  (sysGreenMax ?? 0) + 5,
+                  (diaGreenMax ?? 0) + 5,
+                  (sysYellowMax ?? 0) + 5,
+                  (diaYellowMax ?? 0) + 5
+                ),
+            ]}
+          />
+          <XAxis hide dataKey="date" />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                hideIndicator
+                formatter={(_value, _name, item) => (
+                  <div className="flex flex-1 flex-col gap-1">
+                    <div className="flex justify-between leading-none">
+                      <span className="text-muted-foreground">{t('Blood pressure systolic')}</span>
+                      <span className="font-mono font-medium tabular-nums text-foreground">
+                        {item.payload.sys}
+                      </span>
+                    </div>
+                    <div className="flex justify-between leading-none">
+                      <span className="text-muted-foreground">{t('Blood pressure diastolic')}</span>
+                      <span className="font-mono font-medium tabular-nums text-foreground">
+                        {item.payload.dia}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              />
+            }
+          />
+          <Area
+            type="monotone"
+            dataKey="range"
+            stroke={colors.brand}
+            strokeWidth={2}
+            fill={colors.brand}
+            fillOpacity={0.5}
+            dot={renderDot(3)}
+            activeDot={renderDot(4)}
+            connectNulls
+          />
+          {sysGreenMax != null && (
+            <ReferenceLine
+              y={sysGreenMax}
+              stroke={colors.chartMuted}
+              strokeWidth={2}
+              strokeDasharray="8 8"
+            />
+          )}
+          {diaGreenMax != null && (
+            <ReferenceLine
+              y={diaGreenMax}
+              stroke={colors.chartMuted}
+              strokeWidth={2}
+              strokeDasharray="8 8"
+            />
+          )}
+          {sysYellowMax != null && (
+            <ReferenceLine
+              y={sysYellowMax}
+              stroke={colors.chartMuted}
+              strokeWidth={2}
+              strokeDasharray="4 4"
+            />
+          )}
+          {diaYellowMax != null && (
+            <ReferenceLine
+              y={diaYellowMax}
+              stroke={colors.chartMuted}
+              strokeWidth={2}
+              strokeDasharray="4 4"
+            />
+          )}
+        </AreaChart>
+      </ChartContainer>
+    );
+  }
+);
 
-    const y = d3
-      .scaleLinear()
-      .domain([
-        d3.min(filtered, (d) => Math.min(d.sys ?? Infinity, d.dia ?? Infinity))! - 5,
-        d3.max(filtered, (d) => Math.max(d.sys ?? -Infinity, d.dia ?? -Infinity))! + 5,
-      ])
-      .nice()
-      .range([height - margin.bottom, margin.top]);
-
-    // ------- Axes -------
-    svg
-      .append('g')
-      .attr('transform', `translate(0, ${height - margin.bottom})`)
-      .call(d3.axisBottom(x).ticks(6));
-
-    svg.append('g').attr('transform', `translate(${margin.left}, 0)`).call(d3.axisLeft(y));
-
-    // ------- Line generators -------
-    const lineSys = d3
-      .line<{ date: Date; sys: number | null }>()
-      .defined((d) => d.sys != null)
-      .x((d) => x(d.date))
-      .y((d) => y(d.sys!))
-      .curve(d3.curveMonotoneX);
-
-    const lineDia = d3
-      .line<{ date: Date; dia: number | null }>()
-      .defined((d) => d.dia != null)
-      .x((d) => x(d.date))
-      .y((d) => y(d.dia!))
-      .curve(d3.curveMonotoneX);
-
-    // ------- Draw lines -------
-    svg
-      .append('path')
-      .datum(filtered)
-      .attr('fill', 'none')
-      .attr('stroke', '#d9534f')
-      .attr('stroke-width', 2)
-      .attr('d', lineSys);
-
-    svg
-      .append('path')
-      .datum(filtered)
-      .attr('fill', 'none')
-      .attr('stroke', '#0275d8')
-      .attr('stroke-width', 2)
-      .attr('d', lineDia);
-
-    // ------- Points -------
-    svg
-      .selectAll('circle.sys')
-      .data(filtered.filter((d) => d.sys != null))
-      .enter()
-      .append('circle')
-      .attr('class', 'sys')
-      .attr('cx', (d) => x(d.date))
-      .attr('cy', (d) => y(d.sys!))
-      .attr('r', 4)
-      .attr('fill', '#d9534f');
-
-    svg
-      .selectAll('circle.dia')
-      .data(filtered.filter((d) => d.dia != null))
-      .enter()
-      .append('circle')
-      .attr('class', 'dia')
-      .attr('cx', (d) => x(d.date))
-      .attr('cy', (d) => y(d.dia!))
-      .attr('r', 4)
-      .attr('fill', '#0275d8');
-
-    // ------- Legend -------
-    const legend = svg.append('g').attr('transform', 'translate(60,10)');
-
-    legend
-      .append('rect')
-      .attr('x', 0)
-      .attr('y', 0)
-      .attr('width', 12)
-      .attr('height', 12)
-      .attr('fill', '#d9534f');
-
-    legend.append('text').attr('x', 20).attr('y', 10).attr('dy', '0.3em').text('Systolic (SYS)');
-
-    legend
-      .append('rect')
-      .attr('x', 150)
-      .attr('y', 0)
-      .attr('width', 12)
-      .attr('height', 12)
-      .attr('fill', '#0275d8');
-
-    legend.append('text').attr('x', 170).attr('y', 10).attr('dy', '0.3em').text('Diastolic (DIA)');
-  }, [data, start, end, ref]);
-
-  return <svg ref={ref} />;
-});
+BloodPressureChart.displayName = 'BloodPressureChart';
 
 export default BloodPressureChart;

@@ -1,149 +1,199 @@
-/* eslint-disable */
-import React, { useEffect, useRef } from 'react';
-import * as d3 from 'd3';
-import { forwardRef } from 'react';
-import { FitbitEntry } from '../../../types/health';
-import { isInRange } from '../../../utils/healthCharts';
+import React, { forwardRef, useMemo, useState } from 'react';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { useTranslation } from 'react-i18next';
+import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
+import type { ChartConfig } from '@/components/ui/chart';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTable';
+import type { FitbitEntry } from '@/types/health';
+import { averageNonNull, eachDateInRange, isInRange } from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
-  start: Date;
-  end: Date;
+  start?: Date | null;
+  end?: Date | null;
 };
 
-/**
- * Stacked bar chart:
- * - X-axis: day
- * - Y-axis: total exercise duration (minutes)
- * - Each day's bar is stacked by individual sessions (Option 2 + 3)
- */
-const ExerciseSessionsChart = forwardRef<SVGSVGElement, Props>(({ data, start, end }, ref) => {
-  const localRef = useRef<SVGSVGElement | null>(null);
+type Session = { name: string; duration: number };
+type ExerciseRow = { date: string; total: number | null; sessions: Session[] };
 
-  useEffect(() => {
-    const svgEl = (ref as React.RefObject<SVGSVGElement>)?.current || localRef.current;
-    if (!svgEl) return;
+const SESSION_COLORS = ['#00956C', '#32ad82', '#4cc196'];
+const sessionColor = (index: number) => SESSION_COLORS[index % SESSION_COLORS.length];
 
-    const svg = d3.select(svgEl);
-    svg.selectAll('*').remove();
+const sessionDurationMinutes = (session: { duration?: number }): number =>
+  session?.duration ? session.duration / 60000 : 0;
 
-    const margin = { top: 30, right: 20, bottom: 60, left: 60 };
-    const width = 800;
-    const height = 300;
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
+export const filterExerciseInRange = (
+  data: FitbitEntry[],
+  start?: Date | null,
+  end?: Date | null
+): ExerciseRow[] => {
+  const raw = Array.isArray(data) ? data : [];
+  const byDate = new Map(
+    raw
+      .filter((d) => isInRange(d.date, start, end))
+      .map((d) => {
+        const sessions: Session[] = (d.exercise?.sessions || [])
+          .map((s: any) => ({ name: s?.name || '', duration: sessionDurationMinutes(s) }))
+          .filter((s) => s.duration > 0);
+        return [d.date, sessions];
+      })
+  );
 
-    svg.attr('viewBox', `0 0 ${width} ${height}`);
+  const dates = start && end ? eachDateInRange(start, end) : [...byDate.keys()].sort();
 
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+  return dates.map((date) => {
+    const sessions = byDate.get(date);
+    return {
+      date,
+      total: sessions ? sessions.reduce((sum, s) => sum + s.duration, 0) : null,
+      sessions: sessions ?? [],
+    };
+  });
+};
 
-    // Filter data by date range and extract exercise sessions
-    const filtered = data.filter((d) => isInRange(d.date, start, end));
+export const averageExerciseMinutes = (
+  data: FitbitEntry[],
+  start?: Date | null,
+  end?: Date | null
+): number | null => {
+  return averageNonNull(filterExerciseInRange(data, start, end).map((r) => r.total));
+};
 
-    // Build a map: dateStr -> array of segments {name, durationMin}
-    type Seg = { name: string; duration: number };
-    const byDate = new Map<string, Seg[]>();
+const formatHM = (min: number) => {
+  if (!min || min <= 0) return '0m';
+  const h = Math.floor(min / 60);
+  const m = Math.round(min % 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+};
 
-    filtered.forEach((d) => {
-      const dateStr = d.date.slice(0, 10);
-      const sessions = d.exercise?.sessions || [];
-      sessions.forEach((s: any) => {
-        const durMin = s.duration ? s.duration / 60000 : 0;
-        if (durMin <= 0) return;
-        if (!byDate.has(dateStr)) byDate.set(dateStr, []);
-        byDate.get(dateStr)!.push({
-          name: s.name || '',
-          duration: durMin,
+type SessionTooltipProps = {
+  active?: boolean;
+  label?: string;
+  payload?: { dataKey?: string; value?: number; payload?: Record<string, unknown> }[];
+};
+
+const SessionTooltip: React.FC<SessionTooltipProps> = ({ active, label, payload }) => {
+  if (!active || !payload?.length) return null;
+  const entries = payload.filter((p) => (p.value ?? 0) > 0);
+  if (!entries.length) return null;
+
+  return (
+    <div className="grid min-w-[9rem] gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+      <div className="font-medium">{label}</div>
+      <div className="grid gap-1">
+        {entries.map((entry) => (
+          <div key={entry.dataKey} className="flex items-center gap-2">
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+              style={{ backgroundColor: sessionColor(Number(entry.dataKey?.slice(1))) }}
+            />
+            <span className="flex-1 text-muted-foreground">
+              {String(entry.payload?.[`${entry.dataKey}Name`] ?? '')}
+            </span>
+            <span className="font-mono font-medium tabular-nums text-foreground">
+              {formatHM(entry.value ?? 0)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
+// mounts its <svg> once it has measured a size, so callers should query for it at read time
+// (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
+const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, end }, ref) => {
+  const { t } = useTranslation();
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const rows = useMemo(() => filterExerciseInRange(data, start, end), [data, start, end]);
+  const hasSessions = useMemo(() => rows.some((r) => r.sessions.length > 0), [rows]);
+  const maxSessions = useMemo(
+    () => rows.reduce((max, r) => Math.max(max, r.sessions.length), 0),
+    [rows]
+  );
+
+  const chartRows = useMemo(
+    () =>
+      rows.map((row) => {
+        const wide: Record<string, number | string> = { date: row.date };
+        row.sessions.forEach((s, i) => {
+          wide[`s${i}`] = s.duration;
+          wide[`s${i}Name`] = s.name || t('Exercise');
         });
-      });
-    });
+        return wide;
+      }),
+    [rows, t]
+  );
 
-    const dates = Array.from(byDate.keys()).sort((a, b) => a.localeCompare(b));
+  const chartConfig: ChartConfig = useMemo(() => ({}) as ChartConfig, []);
 
-    if (!dates.length) {
-      g.append('text')
-        .attr('x', innerWidth / 2)
-        .attr('y', innerHeight / 2)
-        .attr('text-anchor', 'middle')
-        .attr('fill', '#666')
-        .text('No exercise sessions in selected range');
-      return;
-    }
+  const selectedDateObj = useMemo(() => {
+    if (!selectedDate) return null;
+    const [y, m, d] = selectedDate.split('-').map((n) => Number(n));
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d);
+  }, [selectedDate]);
 
-    // X scale
-    const x = d3.scaleBand<string>().domain(dates).range([0, innerWidth]).padding(0.2);
+  if (!hasSessions) {
+    return (
+      <div ref={ref} className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
+        {t('No exercise sessions in this period.')}
+      </div>
+    );
+  }
 
-    // Y scale – total duration per day
-    const maxTotal = d3.max(dates, (d) => d3.sum(byDate.get(d) || [], (s) => s.duration)) || 0;
+  return (
+    <>
+      <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
+        <BarChart accessibilityLayer data={chartRows}>
+          <CartesianGrid vertical={false} />
+          <YAxis hide domain={[0, (dataMax: number) => dataMax * 1.1]} />
+          <XAxis hide dataKey="date" />
+          <ChartTooltip content={<SessionTooltip />} />
+          {Array.from({ length: maxSessions }, (_, i) => (
+            <Bar
+              key={`s${i}`}
+              dataKey={`s${i}`}
+              stackId="sessions"
+              fill={sessionColor(i)}
+              cursor="pointer"
+              onClick={(barData: any) => {
+                const day = barData?.date ?? barData?.payload?.date;
+                if (day) setSelectedDate(day);
+              }}
+            />
+          ))}
+        </BarChart>
+      </ChartContainer>
 
-    const y = d3
-      .scaleLinear()
-      .domain([0, maxTotal || 1])
-      .nice()
-      .range([innerHeight, 0]);
-
-    // Color scale by session index
-    const color = d3
-      .scaleOrdinal<string, string>()
-      .domain(d3.range(0, 10).map(String))
-      .range(d3.schemeTableau10);
-
-    // Axes
-    const xAxis = d3.axisBottom<string>(x).tickFormat((d) => d);
-    const yAxis = d3.axisLeft(y).ticks(5);
-
-    g.append('g')
-      .attr('transform', `translate(0,${innerHeight})`)
-      .call(xAxis)
-      .selectAll('text')
-      .attr('transform', 'rotate(-40)')
-      .style('text-anchor', 'end');
-
-    g.append('g').call(yAxis);
-
-    g.append('text')
-      .attr('x', innerWidth / 2)
-      .attr('y', -10)
-      .attr('text-anchor', 'middle')
-      .attr('font-weight', 'bold')
-      .text('Exercise Duration per Day (stacked sessions, minutes)');
-
-    g.append('text')
-      .attr('x', -innerHeight / 2)
-      .attr('y', -45)
-      .attr('transform', 'rotate(-90)')
-      .attr('text-anchor', 'middle')
-      .text('Minutes');
-
-    // Draw stacked bars
-    dates.forEach((dateStr) => {
-      const segs = byDate.get(dateStr) || [];
-      const x0 = x(dateStr);
-      if (x0 == null) return;
-
-      let cum = 0;
-      segs.forEach((seg, idx) => {
-        const h = innerHeight - y(seg.duration);
-        const yTop = y(cum + seg.duration);
-
-        g.append('rect')
-          .attr('x', x0)
-          .attr('y', yTop)
-          .attr('width', x.bandwidth())
-          .attr('height', h)
-          .attr('fill', color(String(idx)))
-          .append('title')
-          .text(
-            `${dateStr}
-${seg.name || 'Exercise'}: ${seg.duration.toFixed(1)} min`
-          );
-
-        cum += seg.duration;
-      });
-    });
-  }, [data, start, end, ref]);
-
-  return <svg ref={ref || localRef} />;
+      <Sheet open={!!selectedDate} onOpenChange={(open) => !open && setSelectedDate(null)}>
+        <SheetContent side="right" className="overflow-y-auto min-w-[40vw]">
+          <SheetHeader>
+            <SheetTitle>{t('Exercises')}</SheetTitle>
+            <SheetDescription>
+              {t('Date')}: {selectedDate}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-4">
+            {selectedDateObj && (
+              <ExerciseSessionsTable data={data} start={selectedDateObj} end={selectedDateObj} />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
 });
+
+ExerciseSessionsChart.displayName = 'ExerciseSessionsChart';
 
 export default ExerciseSessionsChart;

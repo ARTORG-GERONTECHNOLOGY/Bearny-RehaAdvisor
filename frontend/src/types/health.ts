@@ -1,11 +1,14 @@
 export interface HeartRateZone {
   name: string;
   minutes: number;
+  min?: number;
+  max?: number;
 }
 
 export interface FitbitEntry {
   date: string; // YYYY-MM-DD
   steps?: number;
+  active_minutes?: number;
   distance?: number;
   floors?: number;
   resting_heart_rate?: number;
@@ -21,6 +24,9 @@ export interface FitbitEntry {
   wear_time_minutes?: number;
   heart_rate_zones?: HeartRateZone[];
   exercise?: { name: string; duration: number }[];
+  bp_sys?: number | null;
+  bp_dia?: number | null;
+  weight_kg?: number | null;
 }
 
 export interface QuestionnaireEntry {
@@ -34,7 +40,6 @@ export interface QuestionnaireEntry {
   answerType?: string;
 }
 
-export type ChartRes = 'daily' | 'weekly' | 'monthly';
 export type ViewMode = 'weekly' | 'monthly';
 export type AdherenceEntry = {
   date: string; // YYYY-MM-DD

@@ -42,19 +42,22 @@ const ExportModal: React.FC<Props> = ({
     }
   }, [show, initialFrom, initialTo, selections]);
 
+  // Ordered to match the card layout on the Health page (HealthMetricsCards.tsx):
+  // Engagement, Cardiovascular, Activity, Sleep & Recovery.
   const ids = [
     'adherence',
-    'totalScore',
+    'wearTime',
     'questionnaire',
+    'totalScore',
     'restingHR',
-    'sleep',
+    'bloodPressure',
     'hrZones',
     'steps',
-    'breathing',
-    'wearTime',
+    'activeMinutes',
     'weight',
-    'bloodPressure',
     'exercise',
+    'sleep',
+    'breathing',
   ];
 
   const allSelected = Object.values(chosen).every(Boolean);

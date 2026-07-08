@@ -2,13 +2,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import { SessionCache } from '@/utils/sessionCache';
-import type {
-  FitbitEntry,
-  QuestionnaireEntry,
-  ViewMode,
-  ChartRes,
-  AdherenceEntry,
-} from '../types/health';
+import type { FitbitEntry, QuestionnaireEntry, ViewMode, AdherenceEntry } from '@/types/health';
 
 export type PatientThresholds = {
   steps_goal: number;
@@ -150,7 +144,6 @@ const normalizeAdherenceList = (raw: unknown): AdherenceEntry[] => {
 export class HealthPageStore {
   // UI state
   viewMode: ViewMode = 'monthly';
-  chartRes: ChartRes = 'daily';
   referenceDate: Date = new Date();
 
   // Data state
@@ -228,10 +221,6 @@ export class HealthPageStore {
   // ───────────────────────────
   setViewMode(mode: ViewMode) {
     this.viewMode = mode;
-  }
-
-  setChartRes(res: ChartRes) {
-    this.chartRes = res;
   }
 
   setReferenceDate(d: Date) {

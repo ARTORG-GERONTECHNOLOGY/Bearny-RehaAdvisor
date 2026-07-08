@@ -3,55 +3,61 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
-import type { AdherenceEntry } from '@/types/health';
+import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
 import { averageNonNull, buildDailyRows } from '@/utils/healthCharts';
 
 type Props = {
-  data: AdherenceEntry[];
+  data: FitbitEntry[];
   start?: Date | null;
   end?: Date | null;
 };
 
-type AdherenceRow = { date: string; pct: number | null };
+type BreathingRow = { date: string; breathingRate: number | null };
 
-const clampPct = (v: number) => Math.max(0, Math.min(100, v));
-
-export const filterAdherenceInRange = (
-  data: AdherenceEntry[],
+export const filterBreathingInRange = (
+  data: FitbitEntry[],
   start?: Date | null,
   end?: Date | null
-): AdherenceRow[] =>
-  buildDailyRows(data, start, end, 'pct', (r) =>
-    Number.isFinite(r.pct) ? clampPct(r.pct as number) : null
-  );
+): BreathingRow[] =>
+  buildDailyRows(data, start, end, 'breathingRate', (d) => d.breathing_rate?.breathingRate ?? null);
 
-export const averageAdherencePct = (
-  data: AdherenceEntry[],
+export const averageBreathingRate = (
+  data: FitbitEntry[],
   start?: Date | null,
   end?: Date | null
-): number | null => averageNonNull(filterAdherenceInRange(data, start, end).map((r) => r.pct));
+): number | null =>
+  averageNonNull(filterBreathingInRange(data, start, end).map((r) => r.breathingRate));
 
 // The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
 // mounts its <svg> once it has measured a size, so callers should query for it at read time
 // (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
-const AdherenceLine = forwardRef<HTMLDivElement, Props>(({ data, start, end }, ref) => {
+const BreathingChart = forwardRef<HTMLDivElement, Props>(({ data, start, end }, ref) => {
   const { t } = useTranslation();
 
-  const rows = useMemo(() => filterAdherenceInRange(data, start, end), [data, start, end]);
-  const hasReadings = useMemo(() => rows.some((r) => r.pct != null), [rows]);
+  const rows = useMemo(() => filterBreathingInRange(data, start, end), [data, start, end]);
+  const hasReadings = useMemo(() => rows.some((r) => r.breathingRate != null), [rows]);
+  // Device-capability hint: some Fitbit devices never report breathing rate. Show the
+  // hint only when there IS Fitbit data, just none of it has this field.
+  const deviceEmpty = data.length > 0 && data.every((d) => d.breathing_rate?.breathingRate == null);
 
   const chartConfig: ChartConfig = useMemo(
     () => ({
-      pct: { label: t('Adherence (%)') },
+      breathingRate: { label: t('Breathing Rate (breaths/min)'), color: colors.brand },
     }),
     [t]
   );
 
   if (!hasReadings) {
     return (
-      <div ref={ref} className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
-        {t('No adherence data')}
+      <div
+        ref={ref}
+        className="flex h-24 w-full flex-col items-center justify-center gap-1 text-center"
+      >
+        <span className="text-sm text-zinc-500">{t('No breathing rate data')}</span>
+        {deviceEmpty && (
+          <span className="text-xs text-zinc-500">{t('hint_breathing_rate_empty')}</span>
+        )}
       </div>
     );
   }
@@ -60,12 +66,12 @@ const AdherenceLine = forwardRef<HTMLDivElement, Props>(({ data, start, end }, r
     <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
       <AreaChart accessibilityLayer data={rows}>
         <CartesianGrid vertical={false} />
-        <YAxis hide domain={[0, 100]} />
+        <YAxis hide domain={['dataMin - 1', 'dataMax + 1']} />
         <XAxis hide dataKey="date" />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
         <Area
           type="monotone"
-          dataKey="pct"
+          dataKey="breathingRate"
           stroke={colors.brand}
           strokeWidth={2}
           fill={colors.brand}
@@ -79,6 +85,6 @@ const AdherenceLine = forwardRef<HTMLDivElement, Props>(({ data, start, end }, r
   );
 });
 
-AdherenceLine.displayName = 'AdherenceLine';
+BreathingChart.displayName = 'BreathingChart';
 
-export default AdherenceLine;
+export default BreathingChart;
