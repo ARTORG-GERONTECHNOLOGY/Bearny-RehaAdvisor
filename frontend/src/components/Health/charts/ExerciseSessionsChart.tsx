@@ -136,10 +136,12 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
 
   const chartConfig: ChartConfig = useMemo(() => ({}) as ChartConfig, []);
 
-  const selectedDateObj = useMemo(
-    () => (selectedDate ? new Date(selectedDate) : null),
-    [selectedDate]
-  );
+  const selectedDateObj = useMemo(() => {
+    if (!selectedDate) return null;
+    const [y, m, d] = selectedDate.split('-').map((n) => Number(n));
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d);
+  }, [selectedDate]);
 
   if (!hasSessions) {
     return (
