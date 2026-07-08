@@ -7,7 +7,8 @@ import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL as string;
 
-type UserType = 'Admin' | 'Therapist' | 'Researcher' | 'Patient' | '';
+export type UserRole = 'Admin' | 'Therapist' | 'Researcher' | 'Patient';
+type UserType = UserRole | '';
 
 class AuthStore {
   // ───────────────────────────

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { usePatientAuthGate } from '@/hooks/usePatientAuthGate';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import authStore from '@/stores/authStore';
 import { healthPageStore } from '@/stores/healthPageStore';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
@@ -142,7 +142,7 @@ export const getDateWindow = (filter: ProcessFilter) => {
 };
 
 export function usePatientProcess() {
-  const { isAllowed } = usePatientAuthGate();
+  const { isAllowed } = useRoleAuthGate('Patient');
 
   const [processFilter, setProcessFilter] = useState<ProcessFilter>('week');
   const [loading, setLoading] = useState(false);

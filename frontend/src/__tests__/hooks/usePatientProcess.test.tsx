@@ -1,13 +1,13 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { usePatientProcess } from '@/hooks/usePatientProcess';
 import apiClient from '@/api/client';
-import { usePatientAuthGate } from '@/hooks/usePatientAuthGate';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { colors } from '@/lib/colors';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
-jest.mock('@/hooks/usePatientAuthGate', () => ({
-  usePatientAuthGate: jest.fn(),
+jest.mock('@/hooks/useRoleAuthGate', () => ({
+  useRoleAuthGate: jest.fn(),
 }));
 
 jest.mock('@/stores/authStore', () => ({
@@ -17,7 +17,7 @@ jest.mock('@/stores/authStore', () => ({
   },
 }));
 
-const mockedUsePatientAuthGate = usePatientAuthGate as jest.Mock;
+const mockedUseRoleAuthGate = useRoleAuthGate as jest.Mock;
 
 describe('usePatientProcess', () => {
   let nowSpy: jest.SpyInstance<number, []>;
@@ -27,7 +27,7 @@ describe('usePatientProcess', () => {
     nowSpy = jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-03-16T12:00:00Z').getTime());
     localStorage.clear();
     localStorage.setItem('id', 'patient-123');
-    mockedUsePatientAuthGate.mockReturnValue({ isAllowed: true });
+    mockedUseRoleAuthGate.mockReturnValue({ isAllowed: true });
   });
 
   afterEach(() => {
@@ -35,7 +35,7 @@ describe('usePatientProcess', () => {
   });
 
   it('does not fetch when patient auth gate is not allowed', async () => {
-    mockedUsePatientAuthGate.mockReturnValue({ isAllowed: false });
+    mockedUseRoleAuthGate.mockReturnValue({ isAllowed: false });
 
     const { result } = renderHook(() => usePatientProcess());
 

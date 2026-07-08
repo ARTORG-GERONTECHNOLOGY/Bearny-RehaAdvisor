@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { getDateFnsLocale } from '@/utils/dateLocale';
 import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
@@ -22,6 +23,8 @@ const PatientPlan: React.FC = observer(() => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [dayFilter, setDayFilter] = useState<DayFilter>('all');
+
+  const { isAllowed } = useRoleAuthGate('Patient');
 
   const patientId = localStorage.getItem('id') || authStore.id || '';
 
@@ -59,30 +62,10 @@ const PatientPlan: React.FC = observer(() => {
 
   // Fetch interventions on mount
   useEffect(() => {
-    if (patientId) {
+    if (isAllowed && patientId) {
       patientInterventionsStore.fetchPlan(patientId, i18n.language);
     }
-  }, [patientId, i18n.language]);
-
-  // Check authentication
-  useEffect(() => {
-    let alive = true;
-
-    const checkAuth = async () => {
-      await authStore.checkAuthentication();
-
-      if (!alive) return;
-      if (!authStore.isAuthenticated || authStore.userType !== 'Patient') {
-        navigate('/');
-      }
-    };
-
-    checkAuth();
-
-    return () => {
-      alive = false;
-    };
-  }, [navigate]);
+  }, [isAllowed, patientId, i18n.language]);
 
   return (
     <Layout aria-label={t('Week range and current month')}>

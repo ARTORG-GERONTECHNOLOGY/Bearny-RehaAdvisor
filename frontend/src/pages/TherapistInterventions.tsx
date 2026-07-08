@@ -16,6 +16,7 @@ import TemplateAssignModal from '@/components/TherapistInterventionPage/Template
 import TemplateTimeline from '@/components/TherapistInterventionPage/TemplateTimeline';
 
 import authStore from '@/stores/authStore';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { therapistInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
 import templateStore from '@/stores/templateStore';
 import ApplyTemplateModal from '@/components/TherapistInterventionPage/ApplyTemplateModal';
@@ -97,7 +98,7 @@ const TherapistRecomendations: React.FC = observer(() => {
   const [mainTab, setMainTab] = useState<MainTab>('library');
 
   // ─────────────────────────── auth gate ───────────────────────────
-  const [authChecked, setAuthChecked] = useState(false);
+  const { isAllowed } = useRoleAuthGate('Therapist');
 
   // ─────────────────────────── global ui state ───────────────────────────
   const [error, setError] = useState('');
@@ -267,35 +268,15 @@ const TherapistRecomendations: React.FC = observer(() => {
     });
   }, [recommendations, templatesFilters, translatedTitles, t]);
 
-  // ─────────────────────────── auth check ───────────────────────────
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        await authStore.checkAuthentication();
-      } finally {
-        if (mounted) setAuthChecked(true);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   // ─────────────────────────── load library via MobX store ───────────────────────────
   useEffect(() => {
-    if (!authChecked) return;
-
-    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-      navigate('/');
-      return;
-    }
+    if (!isAllowed) return;
 
     therapistInterventionsLibraryStore.fetchAll({
       mode: 'therapist',
       lang: i18n.language.slice(0, 2),
     });
-  }, [authChecked, authStore.isAuthenticated, authStore.userType, navigate, i18n.language]);
+  }, [isAllowed, i18n.language]);
 
   // surface store errors in existing ErrorAlert
   useEffect(() => {

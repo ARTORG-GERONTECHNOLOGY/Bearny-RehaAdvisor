@@ -18,6 +18,7 @@ import authStore from '@/stores/authStore';
 import { patientInterventionsStore, type PatientRec } from '@/stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { translateText } from '@/utils/translate';
 import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
 
@@ -321,19 +322,14 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const mediaRef = useRef<HTMLDivElement>(null);
   const tooltipContainerRef = useRef<HTMLDivElement>(null);
 
+  const { isAllowed } = useRoleAuthGate('Patient');
+
   useEffect(() => {
+    if (!isAllowed) return;
+
     let alive = true;
 
     const run = async () => {
-      await authStore.checkAuthentication();
-
-      if (!alive) return;
-
-      if (!authStore.isAuthenticated || authStore.userType !== 'Patient') {
-        navigate('/');
-        return;
-      }
-
       if (!patientId) {
         setError(String(t('Patient not found.')));
         setLoading(false);
@@ -358,7 +354,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
     return () => {
       alive = false;
     };
-  }, [navigate, patientId, i18n.language, t]);
+  }, [isAllowed, patientId, i18n.language, t]);
 
   const selectedRec = useMemo<PatientRec | null>(() => {
     return (

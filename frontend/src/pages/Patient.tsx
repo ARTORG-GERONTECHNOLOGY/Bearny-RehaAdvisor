@@ -23,6 +23,7 @@ import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import { patientVitalsStore } from '@/stores/patientVitalsStore';
 import { useInterventions } from '@/hooks/useInterventions';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import type { PatientType } from '@/types';
 import { getDateFnsLocale } from '@/utils/dateLocale';
 import HomeIllustration from '@/assets/home_illustration.svg?react';
@@ -31,6 +32,7 @@ const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
+  const { isAllowed } = useRoleAuthGate('Patient');
 
   const locale = getDateFnsLocale(i18n.language);
 
@@ -82,50 +84,33 @@ const PatientView: React.FC = observer(() => {
     : [];
 
   useEffect(() => {
-    let alive = true;
+    if (!isAllowed) return;
 
-    const run = async () => {
-      await authStore.checkAuthentication();
+    if (fitbitStatus === 'error') setPageError(String(t('Fitbit connection failed.')));
+    if (fitbitStatus === 'misconfigured')
+      setPageError(String(t('Fitbit is not configured on this server. Please contact support.')));
+    if (fitbitStatus === 'auth_error') {
+      const desc =
+        fitbitError === 'redirect_uri_mismatch'
+          ? t('Fitbit redirect URI mismatch — please contact support.')
+          : fitbitError === 'invalid_client'
+            ? t('Fitbit client credentials are invalid — please contact support.')
+            : fitbitError === 'access_denied'
+              ? t('Fitbit authorization was denied.')
+              : t('Fitbit authorization failed: {{error}}.', { error: fitbitError ?? 'unknown' });
+      setPageError(String(desc));
+    }
 
-      if (!alive) return;
+    if (patientId) {
+      patientFitbitStore.fetchStatus(patientId);
+      patientFitbitStore.fetchSummary(patientId, 7);
+      patientInterventionsStore.fetchPlan(patientId, i18n.language);
+      patientQuestionnairesStore.checkInitialQuestionnaire(patientId);
+      patientQuestionnairesStore.loadHealthQuestionnaire(patientId, i18n.language);
+    }
 
-      if (!authStore.isAuthenticated || authStore.userType !== 'Patient') {
-        navigate('/');
-        return;
-      }
-
-      if (fitbitStatus === 'error') setPageError(String(t('Fitbit connection failed.')));
-      if (fitbitStatus === 'misconfigured')
-        setPageError(String(t('Fitbit is not configured on this server. Please contact support.')));
-      if (fitbitStatus === 'auth_error') {
-        const desc =
-          fitbitError === 'redirect_uri_mismatch'
-            ? t('Fitbit redirect URI mismatch — please contact support.')
-            : fitbitError === 'invalid_client'
-              ? t('Fitbit client credentials are invalid — please contact support.')
-              : fitbitError === 'access_denied'
-                ? t('Fitbit authorization was denied.')
-                : t('Fitbit authorization failed: {{error}}.', { error: fitbitError ?? 'unknown' });
-        setPageError(String(desc));
-      }
-
-      if (patientId) {
-        patientFitbitStore.fetchStatus(patientId);
-        patientFitbitStore.fetchSummary(patientId, 7);
-        patientInterventionsStore.fetchPlan(patientId, i18n.language);
-        patientQuestionnairesStore.checkInitialQuestionnaire(patientId);
-        patientQuestionnairesStore.loadHealthQuestionnaire(patientId, i18n.language);
-      }
-
-      setLoading(false);
-    };
-
-    run();
-
-    return () => {
-      alive = false;
-    };
-  }, [navigate, fitbitStatus, fitbitError, t, patientId, i18n.language]);
+    setLoading(false);
+  }, [isAllowed, fitbitStatus, fitbitError, t, patientId, i18n.language]);
 
   if (loading) return null;
 
