@@ -16,6 +16,21 @@ import { isInRange, svgToImageDataUrl } from '@/utils/healthCharts';
 import HealthPageStore from '@/stores/healthPageStore';
 import { HealthPageContentLoadingSkeleton } from '@/components/skeletons/TherapistPatientDetailSkeleton';
 
+// Pure row/average helpers reused to caption PDF chart pages with real numbers —
+// the on-page charts hide their axes for a clean mini-chart look, so the exported
+// image alone has no scale; these captions fill that gap without touching the charts.
+import { filterAdherenceInRange } from '@/components/Health/charts/AdherenceLine';
+import { filterWearTimeInRange } from '@/components/Health/charts/WearTimeChart';
+import { filterRestingHRInRange } from '@/components/Health/charts/RestingHRChart';
+import { filterBloodPressureInRange } from '@/components/Health/charts/BloodPressureChart';
+import { filterHRZonesInRange } from '@/components/Health/charts/HRZonesStacked';
+import { filterStepsInRange } from '@/components/Health/charts/StepsChart';
+import { filterActiveMinutesInRange } from '@/components/Health/charts/ActiveMinutesChart';
+import { filterWeightInRange } from '@/components/Health/charts/WeightChart';
+import { filterExerciseInRange } from '@/components/Health/charts/ExerciseSessionsChart';
+import { filterSleepInRange, formatSleepDuration } from '@/components/Health/charts/SleepChart';
+import { filterBreathingInRange } from '@/components/Health/charts/BreathingChart';
+
 /* --------- helpers for European date formatting ---------- */
 const toEuroDate = (iso: string | null | undefined): string => {
   if (!iso) return '';
@@ -320,6 +335,120 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
   // ─────────────────────────────────────────────────────────
   const handleExportPDF = async (from: Date, to: Date, selections: Record<string, boolean>) => {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'px', format: 'a4' });
+    const titleFontSize = doc.getFontSize();
+
+    // avg/min/max caption per chart page — the on-page charts hide their axes for a
+    // clean mini-chart look, so the exported image alone has no scale. Computed from
+    // the same filter functions that drive the chart, not re-derived independently.
+    const fmt = (v: number, decimals = 0) => v.toFixed(decimals);
+    const stats = (values: number[]): { avg: number; min: number; max: number } | null => {
+      if (!values.length) return null;
+      return {
+        avg: values.reduce((sum, v) => sum + v, 0) / values.length,
+        min: Math.min(...values),
+        max: Math.max(...values),
+      };
+    };
+
+    const captionBuilders: Record<string, () => string | null> = {
+      adherence: () => {
+        const s = stats(
+          filterAdherenceInRange(store.adherenceData, from, to)
+            .map((r) => r.pct)
+            .filter((v): v is number => v != null)
+        );
+        return s && `${t('Adherence (%)')}: avg ${fmt(s.avg)}% · min ${fmt(s.min)}% · max ${fmt(s.max)}%`;
+      },
+      wearTime: () => {
+        const s = stats(
+          filterWearTimeInRange(store.fitbitData, from, to)
+            .map((r) => r.wearTime)
+            .filter((v): v is number => v != null)
+        );
+        return s && `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`;
+      },
+      restingHR: () => {
+        const s = stats(
+          filterRestingHRInRange(store.fitbitData, from, to)
+            .map((r) => r.restingHR)
+            .filter((v): v is number => v != null)
+        );
+        return s && `avg ${fmt(s.avg)} bpm · min ${fmt(s.min)} bpm · max ${fmt(s.max)} bpm`;
+      },
+      bloodPressure: () => {
+        const rows = filterBloodPressureInRange(store.fitbitData, from, to);
+        const sys = stats(rows.map((r) => r.sys).filter((v): v is number => v != null));
+        const dia = stats(rows.map((r) => r.dia).filter((v): v is number => v != null));
+        if (!sys && !dia) return null;
+        const parts = [
+          sys && `${t('Blood pressure systolic')}: avg ${fmt(sys.avg)} · min ${fmt(sys.min)} · max ${fmt(sys.max)}`,
+          dia && `${t('Blood pressure diastolic')}: avg ${fmt(dia.avg)} · min ${fmt(dia.min)} · max ${fmt(dia.max)}`,
+        ].filter(Boolean);
+        return `${parts.join('   |   ')} mmHg`;
+      },
+      hrZones: () => {
+        const s = stats(
+          filterHRZonesInRange(store.fitbitData, from, to)
+            .map((r) => r.fatBurn + r.cardio + r.peak)
+            .filter((v) => v > 0)
+        );
+        return s && `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`;
+      },
+      steps: () => {
+        const s = stats(
+          filterStepsInRange(store.fitbitData, from, to)
+            .map((r) => r.steps)
+            .filter((v): v is number => v != null)
+        );
+        return (
+          s &&
+          `avg ${Math.round(s.avg).toLocaleString()} · min ${s.min.toLocaleString()} · max ${s.max.toLocaleString()}`
+        );
+      },
+      activeMinutes: () => {
+        const s = stats(
+          filterActiveMinutesInRange(store.fitbitData, from, to)
+            .map((r) => r.activeMinutes)
+            .filter((v): v is number => v != null)
+        );
+        return s && `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`;
+      },
+      weight: () => {
+        const s = stats(
+          filterWeightInRange(store.fitbitData, from, to)
+            .map((r) => r.weight)
+            .filter((v): v is number => v != null)
+        );
+        return s && `avg ${fmt(s.avg, 1)} kg · min ${fmt(s.min, 1)} kg · max ${fmt(s.max, 1)} kg`;
+      },
+      exercise: () => {
+        const s = stats(
+          filterExerciseInRange(store.fitbitData, from, to)
+            .map((r) => r.total)
+            .filter((v): v is number => v != null && v > 0)
+        );
+        return s && `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`;
+      },
+      sleep: () => {
+        const s = stats(
+          filterSleepInRange(store.fitbitData, from, to)
+            .map((r) => r.minutesAsleep)
+            .filter((v): v is number => v != null)
+        );
+        return (
+          s &&
+          `avg ${formatSleepDuration(s.avg)} · min ${formatSleepDuration(s.min)} · max ${formatSleepDuration(s.max)}`
+        );
+      },
+      breathing: () => {
+        const s = stats(
+          filterBreathingInRange(store.fitbitData, from, to)
+            .map((r) => r.breathingRate)
+            .filter((v): v is number => v != null)
+        );
+        return s && `avg ${fmt(s.avg, 1)}/min · min ${fmt(s.min, 1)}/min · max ${fmt(s.max, 1)}/min`;
+      },
+    };
 
     const sections: (
       | { type: 'chart'; ref: React.RefObject<HTMLDivElement>; key: string; title: string }
@@ -422,8 +551,10 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
         continue;
       }
 
+      // Bottom margin (below maxH) is reserved for the date-range/stats caption below,
+      // since the chart itself has no axis labels to give it scale.
       const maxW = pageW - 60;
-      const maxH = pageH - 90;
+      const maxH = pageH - 115;
 
       const vb = (svg as any).viewBox?.baseVal;
       const sW = vb?.width || 800;
@@ -435,6 +566,13 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
 
       const url = await svgToImageDataUrl(svg);
       doc.addImage(url, 'PNG', (pageW - imgW) / 2, 50, imgW, imgH);
+
+      const rangeLine = `${formatDateEU(from)} – ${formatDateEU(to)}`;
+      const caption = captionBuilders[section.key]?.();
+      doc.setFontSize(9);
+      doc.text(rangeLine, pageW / 2, pageH - (caption ? 38 : 24), { align: 'center' });
+      if (caption) doc.text(caption, pageW / 2, pageH - 22, { align: 'center' });
+      doc.setFontSize(titleFontSize);
     }
 
     doc.save(
