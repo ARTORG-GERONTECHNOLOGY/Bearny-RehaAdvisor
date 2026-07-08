@@ -5,7 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { AdherenceEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { eachDateInRange, isInRange } from '@/utils/healthCharts';
+import { averageNonNull, buildDailyRows } from '@/utils/healthCharts';
 
 type Props = {
   data: AdherenceEntry[];
@@ -23,32 +23,17 @@ export const filterAdherenceInRange = (
   data: AdherenceEntry[],
   start?: Date | null,
   end?: Date | null
-): AdherenceRow[] => {
-  const raw = Array.isArray(data) ? data : [];
-  const byDate = new Map(
-    raw
-      .filter((r) => isInRange(r.date, start, end))
-      .map((r) => [r.date, Number.isFinite(r.pct) ? clampPct(r.pct as number) : null])
+): AdherenceRow[] =>
+  buildDailyRows(data, start, end, 'pct', (r) =>
+    Number.isFinite(r.pct) ? clampPct(r.pct as number) : null
   );
-
-  const dates = start && end ? eachDateInRange(start, end) : [...byDate.keys()].sort();
-
-  return dates.map((date) => ({ date, pct: byDate.get(date) ?? null }));
-};
 
 // Mean of the non-null pct values in the visible date range, or null if none.
 export const averageAdherencePct = (
   data: AdherenceEntry[],
   start?: Date | null,
   end?: Date | null
-): number | null => {
-  const values = filterAdherenceInRange(data, start, end)
-    .map((r) => r.pct)
-    .filter((v): v is number => v != null);
-
-  if (!values.length) return null;
-  return values.reduce((sum, v) => sum + v, 0) / values.length;
-};
+): number | null => averageNonNull(filterAdherenceInRange(data, start, end).map((r) => r.pct));
 
 // The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
 // mounts its <svg> once it has measured a size, so callers should query for it at read time

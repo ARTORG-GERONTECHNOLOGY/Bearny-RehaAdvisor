@@ -5,7 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { eachDateInRange, isInRange, thresholdTier } from '@/utils/healthCharts';
+import { averageNonNull, buildDailyRows, thresholdTier } from '@/utils/healthCharts';
 import type { ThresholdTier } from '@/utils/healthCharts';
 
 type Props = {
@@ -32,30 +32,16 @@ export const filterActiveMinutesInRange = (
   data: FitbitEntry[],
   start?: Date | null,
   end?: Date | null
-): ActiveMinutesRow[] => {
-  const raw = Array.isArray(data) ? data : [];
-  const byDate = new Map(
-    raw.filter((d) => isInRange(d.date, start, end)).map((d) => [d.date, d.active_minutes ?? null])
-  );
-
-  const dates = start && end ? eachDateInRange(start, end) : [...byDate.keys()].sort();
-
-  return dates.map((date) => ({ date, activeMinutes: byDate.get(date) ?? null }));
-};
+): ActiveMinutesRow[] =>
+  buildDailyRows(data, start, end, 'activeMinutes', (d) => d.active_minutes ?? null);
 
 // Mean of the non-null daily active minutes readings in the visible date range, or null if none.
 export const averageActiveMinutes = (
   data: FitbitEntry[],
   start?: Date | null,
   end?: Date | null
-): number | null => {
-  const values = filterActiveMinutesInRange(data, start, end)
-    .map((r) => r.activeMinutes)
-    .filter((v): v is number => v != null);
-
-  if (!values.length) return null;
-  return values.reduce((sum, v) => sum + v, 0) / values.length;
-};
+): number | null =>
+  averageNonNull(filterActiveMinutesInRange(data, start, end).map((r) => r.activeMinutes));
 
 // The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
 // mounts its <svg> once it has measured a size, so callers should query for it at read time

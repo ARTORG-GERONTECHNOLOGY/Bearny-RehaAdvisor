@@ -5,7 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { eachDateInRange, isInRange } from '@/utils/healthCharts';
+import { averageNonNull, buildDailyRows } from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
@@ -21,32 +21,16 @@ export const filterBreathingInRange = (
   data: FitbitEntry[],
   start?: Date | null,
   end?: Date | null
-): BreathingRow[] => {
-  const raw = Array.isArray(data) ? data : [];
-  const byDate = new Map(
-    raw
-      .filter((d) => isInRange(d.date, start, end))
-      .map((d) => [d.date, d.breathing_rate?.breathingRate ?? null])
-  );
-
-  const dates = start && end ? eachDateInRange(start, end) : [...byDate.keys()].sort();
-
-  return dates.map((date) => ({ date, breathingRate: byDate.get(date) ?? null }));
-};
+): BreathingRow[] =>
+  buildDailyRows(data, start, end, 'breathingRate', (d) => d.breathing_rate?.breathingRate ?? null);
 
 // Mean of the non-null breathing rate readings in the visible date range, or null if none.
 export const averageBreathingRate = (
   data: FitbitEntry[],
   start?: Date | null,
   end?: Date | null
-): number | null => {
-  const values = filterBreathingInRange(data, start, end)
-    .map((r) => r.breathingRate)
-    .filter((v): v is number => v != null);
-
-  if (!values.length) return null;
-  return values.reduce((sum, v) => sum + v, 0) / values.length;
-};
+): number | null =>
+  averageNonNull(filterBreathingInRange(data, start, end).map((r) => r.breathingRate));
 
 // The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
 // mounts its <svg> once it has measured a size, so callers should query for it at read time

@@ -5,7 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { isInRange, thresholdTier, worstTier } from '@/utils/healthCharts';
+import { averageNonNull, isInRange, thresholdTier, worstTier } from '@/utils/healthCharts';
 import type { ThresholdTier } from '@/utils/healthCharts';
 
 type Props = {
@@ -49,12 +49,9 @@ export const averageBloodPressure = (
 ): { sys: number | null; dia: number | null } => {
   const rows = filterBloodPressureInRange(data, start, end);
 
-  const mean = (values: number[]) =>
-    values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : null;
-
   return {
-    sys: mean(rows.map((r) => r.sys).filter((v): v is number => v != null)),
-    dia: mean(rows.map((r) => r.dia).filter((v): v is number => v != null)),
+    sys: averageNonNull(rows.map((r) => r.sys)),
+    dia: averageNonNull(rows.map((r) => r.dia)),
   };
 };
 

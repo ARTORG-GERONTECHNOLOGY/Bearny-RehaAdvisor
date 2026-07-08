@@ -66,69 +66,53 @@ type Props = {
   svgRefs: SvgRefs;
 };
 
+const MetricCard: React.FC<{
+  icon: React.FC<React.SVGProps<SVGSVGElement>>;
+  label: string;
+  value: React.ReactNode;
+  children: React.ReactNode;
+}> = ({ icon: Icon, label, value, children }) => (
+  <Card>
+    <CardHeader>
+      <CardDescription>
+        <Icon className="h-4 w-4 mr-1 -mt-1" />
+        {label}
+      </CardDescription>
+      <CardTitle>{value}</CardTitle>
+    </CardHeader>
+    <CardContent>{children}</CardContent>
+  </Card>
+);
+
+const useMetricAvg = <T, R>(
+  fn: (data: T[], start?: Date | null, end?: Date | null) => R,
+  data: T[],
+  start: Date,
+  end: Date
+): R => useMemo(() => fn(data, start, end), [fn, data, start, end]);
+
 const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs }) => {
   const start = store.startDate;
   const end = store.endDate;
 
-  const avgAdherence = useMemo(
-    () => averageAdherencePct(store.adherenceData, start, end),
-    [store.adherenceData, start, end]
-  );
-
-  const avgBloodPressure = useMemo(
-    () => averageBloodPressure(store.fitbitData, start, end),
-    [store.fitbitData, start, end]
-  );
+  const avgAdherence = useMetricAvg(averageAdherencePct, store.adherenceData, start, end);
+  const avgBloodPressure = useMetricAvg(averageBloodPressure, store.fitbitData, start, end);
   const fmtBp = (v: number | null) => (v != null ? Math.round(v) : '--');
 
-  const avgWeight = useMemo(
-    () => averageWeight(store.fitbitData, start, end),
-    [store.fitbitData, start, end]
-  );
-
-  const avgSteps = useMemo(
-    () => averageSteps(store.fitbitData, start, end),
-    [store.fitbitData, start, end]
-  );
-
-  const avgWearTime = useMemo(
-    () => averageWearTime(store.fitbitData, start, end),
-    [store.fitbitData, start, end]
-  );
-
-  const avgActiveMinutes = useMemo(
-    () => averageActiveMinutes(store.fitbitData, start, end),
-    [store.fitbitData, start, end]
-  );
-
-  const avgRestingHR = useMemo(
-    () => averageRestingHR(store.fitbitData, start, end),
-    [store.fitbitData, start, end]
-  );
-
-  const avgActiveHRZone = useMemo(
-    () => averageActiveHRZoneMinutes(store.fitbitData, start, end),
-    [store.fitbitData, start, end]
-  );
-
-  const avgBreathingRate = useMemo(
-    () => averageBreathingRate(store.fitbitData, start, end),
-    [store.fitbitData, start, end]
-  );
-
-  const avgExerciseMinutes = useMemo(
-    () => averageExerciseMinutes(store.fitbitData, start, end),
-    [store.fitbitData, start, end]
-  );
-
-  const avgSleepMinutes = useMemo(
-    () => averageSleepMinutes(store.fitbitData, start, end),
-    [store.fitbitData, start, end]
-  );
-
-  const questionnaireDaysCount = useMemo(
-    () => countQuestionnaireDays(store.questionnaireData, start, end),
-    [store.questionnaireData, start, end]
+  const avgWeight = useMetricAvg(averageWeight, store.fitbitData, start, end);
+  const avgSteps = useMetricAvg(averageSteps, store.fitbitData, start, end);
+  const avgWearTime = useMetricAvg(averageWearTime, store.fitbitData, start, end);
+  const avgActiveMinutes = useMetricAvg(averageActiveMinutes, store.fitbitData, start, end);
+  const avgRestingHR = useMetricAvg(averageRestingHR, store.fitbitData, start, end);
+  const avgActiveHRZone = useMetricAvg(averageActiveHRZoneMinutes, store.fitbitData, start, end);
+  const avgBreathingRate = useMetricAvg(averageBreathingRate, store.fitbitData, start, end);
+  const avgExerciseMinutes = useMetricAvg(averageExerciseMinutes, store.fitbitData, start, end);
+  const avgSleepMinutes = useMetricAvg(averageSleepMinutes, store.fitbitData, start, end);
+  const questionnaireDaysCount = useMetricAvg(
+    countQuestionnaireDays,
+    store.questionnaireData,
+    start,
+    end
   );
 
   return (
@@ -136,258 +120,165 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
       <div>
         <h5>{t('Engagement')}</h5>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                <AdherenceIcon className="h-4 w-4 mr-1 -mt-1" />
-                {t('Adherence')}
-              </CardDescription>
-              <CardTitle>{avgAdherence != null ? `${Math.round(avgAdherence)}%` : '--%'}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AdherenceLine
-                ref={svgRefs.adherence}
-                data={store.adherenceData}
-                start={start}
-                end={end}
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                <WearTimeIcon className="h-4 w-4 mr-1 -mt-1" />
-                {t('Wear Time')}
-              </CardDescription>
-              <CardTitle>
-                {avgWearTime != null ? `${Math.round(avgWearTime)} ${t('min')}` : '--'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <WearTimeChart
-                ref={svgRefs.wearTime}
-                data={store.fitbitData}
-                start={start}
-                end={end}
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                <QuestionnaireIcon className="h-4 w-4 mr-1 -mt-1" />
-                {t('Questionnaire Results By Date')}
-              </CardDescription>
-              <CardTitle>
-                {questionnaireDaysCount} {t('Entries')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <QuestionnaireResultsTable
-                data={store.questionnaireData}
-                start={start}
-                end={end}
-                lang={lang || 'en'}
-                t={t}
-              />
-            </CardContent>
-          </Card>
+          <MetricCard
+            icon={AdherenceIcon}
+            label={t('Adherence')}
+            value={avgAdherence != null ? `${Math.round(avgAdherence)}%` : '--%'}
+          >
+            <AdherenceLine
+              ref={svgRefs.adherence}
+              data={store.adherenceData}
+              start={start}
+              end={end}
+            />
+          </MetricCard>
+          <MetricCard
+            icon={WearTimeIcon}
+            label={t('Wear Time')}
+            value={avgWearTime != null ? `${Math.round(avgWearTime)} ${t('min')}` : '--'}
+          >
+            <WearTimeChart ref={svgRefs.wearTime} data={store.fitbitData} start={start} end={end} />
+          </MetricCard>
+          <MetricCard
+            icon={QuestionnaireIcon}
+            label={t('Questionnaire Results By Date')}
+            value={`${questionnaireDaysCount} ${t('Entries')}`}
+          >
+            <QuestionnaireResultsTable
+              data={store.questionnaireData}
+              start={start}
+              end={end}
+              lang={lang || 'en'}
+              t={t}
+            />
+          </MetricCard>
         </div>
       </div>
 
       <div>
         <h5>{t('Cardiovascular')}</h5>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                <RestingHRIcon className="h-4 w-4 mr-1 -mt-1" />
-                {t('Resting HR')}
-              </CardDescription>
-              <CardTitle>
-                {avgRestingHR != null ? `${Math.round(avgRestingHR)} bpm` : '--'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <RestingHRChart
-                ref={svgRefs.restingHR}
-                data={store.fitbitData}
-                start={start}
-                end={end}
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                <BloodPressureIcon className="h-4 w-4 mr-1 -mt-1" />
-                {t('Blood pressure')}
-              </CardDescription>
-              <CardTitle>
-                {fmtBp(avgBloodPressure.sys)}/{fmtBp(avgBloodPressure.dia)} mmHg
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BloodPressureChart
-                ref={svgRefs.bloodPressure}
-                data={store.fitbitData}
-                start={start}
-                end={end}
-                sysGreenMax={store.thresholds.bp_sys_green_max}
-                diaGreenMax={store.thresholds.bp_dia_green_max}
-                sysYellowMax={store.thresholds.bp_sys_yellow_max}
-                diaYellowMax={store.thresholds.bp_dia_yellow_max}
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                <HRZonesIcon className="h-4 w-4 mr-1 -mt-1" />
-                {t('Active HR Time')}
-              </CardDescription>
-              <CardTitle>
-                {avgActiveHRZone != null ? `${Math.round(avgActiveHRZone)} ${t('min')}` : '--'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <HRZonesStacked
-                ref={svgRefs.hrZones}
-                data={store.fitbitData}
-                start={start}
-                end={end}
-              />
-            </CardContent>
-          </Card>
+          <MetricCard
+            icon={RestingHRIcon}
+            label={t('Resting HR')}
+            value={avgRestingHR != null ? `${Math.round(avgRestingHR)} bpm` : '--'}
+          >
+            <RestingHRChart
+              ref={svgRefs.restingHR}
+              data={store.fitbitData}
+              start={start}
+              end={end}
+            />
+          </MetricCard>
+          <MetricCard
+            icon={BloodPressureIcon}
+            label={t('Blood pressure')}
+            value={`${fmtBp(avgBloodPressure.sys)}/${fmtBp(avgBloodPressure.dia)} mmHg`}
+          >
+            <BloodPressureChart
+              ref={svgRefs.bloodPressure}
+              data={store.fitbitData}
+              start={start}
+              end={end}
+              sysGreenMax={store.thresholds.bp_sys_green_max}
+              diaGreenMax={store.thresholds.bp_dia_green_max}
+              sysYellowMax={store.thresholds.bp_sys_yellow_max}
+              diaYellowMax={store.thresholds.bp_dia_yellow_max}
+            />
+          </MetricCard>
+          <MetricCard
+            icon={HRZonesIcon}
+            label={t('Active HR Time')}
+            value={avgActiveHRZone != null ? `${Math.round(avgActiveHRZone)} ${t('min')}` : '--'}
+          >
+            <HRZonesStacked ref={svgRefs.hrZones} data={store.fitbitData} start={start} end={end} />
+          </MetricCard>
         </div>
       </div>
 
       <div>
         <h5>{t('Activity')}</h5>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                <StepsIcon className="h-4 w-4 mr-1 -mt-1" />
-                {t('Steps')}
-              </CardDescription>
-              <CardTitle>
-                {avgSteps != null ? Math.round(avgSteps).toLocaleString() : '--'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <StepsChart
-                ref={svgRefs.steps}
-                data={store.fitbitData}
-                start={start}
-                end={end}
-                goal={store.thresholds.steps_goal}
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                <ActiveMinutesIcon className="h-4 w-4 mr-1 -mt-1" />
-                {t('Active Minutes')}
-              </CardDescription>
-              <CardTitle>
-                {avgActiveMinutes != null ? `${Math.round(avgActiveMinutes)} ${t('min')}` : '--'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ActiveMinutesChart
-                ref={svgRefs.activeMinutes}
-                data={store.fitbitData}
-                start={start}
-                end={end}
-                goal={store.thresholds.active_minutes_green}
-                yellowGoal={store.thresholds.active_minutes_yellow}
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                <WeightIcon className="h-4 w-4 mr-1 -mt-1" />
-                {t('WeightLabel')}
-              </CardDescription>
-              <CardTitle>
-                {avgWeight != null ? avgWeight.toFixed(1) : '--'}{' '}
-                {t('WeightUnit').toLocaleLowerCase()}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <WeightChart ref={svgRefs.weight} data={store.fitbitData} start={start} end={end} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                <ExerciseIcon className="h-4 w-4 mr-1 -mt-1" />
-                {t('Exercises')}
-              </CardDescription>
-              <CardTitle>
-                {avgExerciseMinutes != null
-                  ? `${Math.round(avgExerciseMinutes)} ${t('min')}`
-                  : '--'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ExerciseSessionsChart
-                ref={svgRefs.exercise}
-                data={store.fitbitData}
-                start={start}
-                end={end}
-              />
-            </CardContent>
-          </Card>
+          <MetricCard
+            icon={StepsIcon}
+            label={t('Steps')}
+            value={avgSteps != null ? Math.round(avgSteps).toLocaleString() : '--'}
+          >
+            <StepsChart
+              ref={svgRefs.steps}
+              data={store.fitbitData}
+              start={start}
+              end={end}
+              goal={store.thresholds.steps_goal}
+            />
+          </MetricCard>
+          <MetricCard
+            icon={ActiveMinutesIcon}
+            label={t('Active Minutes')}
+            value={avgActiveMinutes != null ? `${Math.round(avgActiveMinutes)} ${t('min')}` : '--'}
+          >
+            <ActiveMinutesChart
+              ref={svgRefs.activeMinutes}
+              data={store.fitbitData}
+              start={start}
+              end={end}
+              goal={store.thresholds.active_minutes_green}
+              yellowGoal={store.thresholds.active_minutes_yellow}
+            />
+          </MetricCard>
+          <MetricCard
+            icon={WeightIcon}
+            label={t('WeightLabel')}
+            value={`${avgWeight != null ? avgWeight.toFixed(1) : '--'} ${t('WeightUnit').toLocaleLowerCase()}`}
+          >
+            <WeightChart ref={svgRefs.weight} data={store.fitbitData} start={start} end={end} />
+          </MetricCard>
+          <MetricCard
+            icon={ExerciseIcon}
+            label={t('Exercises')}
+            value={
+              avgExerciseMinutes != null ? `${Math.round(avgExerciseMinutes)} ${t('min')}` : '--'
+            }
+          >
+            <ExerciseSessionsChart
+              ref={svgRefs.exercise}
+              data={store.fitbitData}
+              start={start}
+              end={end}
+            />
+          </MetricCard>
         </div>
       </div>
 
       <div>
         <h5>{t('Sleep & Recovery')}</h5>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                <SleepIcon className="h-4 w-4 mr-1 -mt-1" />
-                {t('Sleep')}
-              </CardDescription>
-              <CardTitle>
-                {avgSleepMinutes != null ? formatSleepDuration(avgSleepMinutes) : '--'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <SleepChart
-                ref={svgRefs.sleep}
-                data={store.fitbitData}
-                start={start}
-                end={end}
-                goal={store.thresholds.sleep_green_min}
-                yellowGoal={store.thresholds.sleep_yellow_min}
-              />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardDescription>
-                <BreathingIcon className="h-4 w-4 mr-1 -mt-1" />
-                {t('Breathing')}
-              </CardDescription>
-              <CardTitle>
-                {avgBreathingRate != null ? `${avgBreathingRate.toFixed(1)} / min` : '--'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BreathingChart
-                ref={svgRefs.breathing}
-                data={store.fitbitData}
-                start={start}
-                end={end}
-              />
-            </CardContent>
-          </Card>
+          <MetricCard
+            icon={SleepIcon}
+            label={t('Sleep')}
+            value={avgSleepMinutes != null ? formatSleepDuration(avgSleepMinutes) : '--'}
+          >
+            <SleepChart
+              ref={svgRefs.sleep}
+              data={store.fitbitData}
+              start={start}
+              end={end}
+              goal={store.thresholds.sleep_green_min}
+              yellowGoal={store.thresholds.sleep_yellow_min}
+            />
+          </MetricCard>
+          <MetricCard
+            icon={BreathingIcon}
+            label={t('Breathing')}
+            value={avgBreathingRate != null ? `${avgBreathingRate.toFixed(1)} / min` : '--'}
+          >
+            <BreathingChart
+              ref={svgRefs.breathing}
+              data={store.fitbitData}
+              start={start}
+              end={end}
+            />
+          </MetricCard>
         </div>
       </div>
     </div>

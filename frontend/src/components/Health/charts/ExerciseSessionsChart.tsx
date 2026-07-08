@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/sheet';
 import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTable';
 import type { FitbitEntry } from '@/types/health';
-import { eachDateInRange, isInRange } from '@/utils/healthCharts';
+import { averageNonNull, eachDateInRange, isInRange } from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
@@ -63,12 +63,7 @@ export const averageExerciseMinutes = (
   start?: Date | null,
   end?: Date | null
 ): number | null => {
-  const values = filterExerciseInRange(data, start, end)
-    .map((r) => r.total)
-    .filter((v): v is number => v != null);
-
-  if (!values.length) return null;
-  return values.reduce((sum, v) => sum + v, 0) / values.length;
+  return averageNonNull(filterExerciseInRange(data, start, end).map((r) => r.total));
 };
 
 const formatHM = (min: number) => {

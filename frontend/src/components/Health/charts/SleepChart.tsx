@@ -5,7 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { eachDateInRange, isInRange, thresholdTier } from '@/utils/healthCharts';
+import { averageNonNull, eachDateInRange, isInRange, thresholdTier } from '@/utils/healthCharts';
 import type { ThresholdTier } from '@/utils/healthCharts';
 
 type Props = {
@@ -80,12 +80,7 @@ export const averageSleepMinutes = (
   start?: Date | null,
   end?: Date | null
 ): number | null => {
-  const values = filterSleepInRange(data, start, end)
-    .map((r) => r.minutesAsleep)
-    .filter((v): v is number => v != null);
-
-  if (!values.length) return null;
-  return values.reduce((sum, v) => sum + v, 0) / values.length;
+  return averageNonNull(filterSleepInRange(data, start, end).map((r) => r.minutesAsleep));
 };
 
 export const formatSleepDuration = (min: number) => {

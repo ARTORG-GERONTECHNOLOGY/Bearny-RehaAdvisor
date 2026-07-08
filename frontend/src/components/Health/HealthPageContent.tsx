@@ -59,7 +59,10 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
   // live <svg> off these refs at export time, so it never races that measurement.
   // Ordered to match the card layout on the Health page (HealthMetricsCards.tsx):
   // Engagement, Cardiovascular, Activity, Sleep & Recovery.
-  const svgRefs = {
+  // Held in a ref (not a plain object literal) so the object identity is stable across
+  // renders — HealthMetricsCards is wrapped in observer(), which memoizes on props, and a
+  // fresh svgRefs object every render would defeat that memoization.
+  const svgRefs = useRef({
     adherence: useRef<HTMLDivElement>(null),
     wearTime: useRef<HTMLDivElement>(null),
     restingHR: useRef<HTMLDivElement>(null),
@@ -71,7 +74,7 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
     exercise: useRef<HTMLDivElement>(null),
     sleep: useRef<HTMLDivElement>(null),
     breathing: useRef<HTMLDivElement>(null),
-  };
+  }).current;
 
   // Default selections for export modal, in the same card order as svgRefs above.
   const defaultSelections: Record<string, boolean> = {
@@ -348,36 +351,48 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
       };
     };
 
+    // "avg X · min X · max X" caption shared by every chart that plots one scalar reading
+    // per day. `label` prefixes the caption (e.g. "Adherence (%): ..."); `predicate` can
+    // exclude values that don't count toward the stats (e.g. exercise days with 0 minutes).
+    const scalarCaption = <T,>(
+      rows: T[],
+      field: keyof T,
+      fmtValue: (v: number) => string,
+      opts: { label?: string; predicate?: (v: number) => boolean } = {}
+    ): string | null => {
+      const predicate = opts.predicate ?? (() => true);
+      const s = stats(
+        rows
+          .map((r) => r[field] as unknown as number | null)
+          .filter((v): v is number => v != null && predicate(v))
+      );
+      if (!s) return null;
+      const body = `avg ${fmtValue(s.avg)} · min ${fmtValue(s.min)} · max ${fmtValue(s.max)}`;
+      return opts.label ? `${opts.label}: ${body}` : body;
+    };
+
     const captionBuilders: Record<string, () => string | null> = {
-      adherence: () => {
-        const s = stats(
-          filterAdherenceInRange(store.adherenceData, from, to)
-            .map((r) => r.pct)
-            .filter((v): v is number => v != null)
-        );
-        return (
-          s && `${t('Adherence (%)')}: avg ${fmt(s.avg)}% · min ${fmt(s.min)}% · max ${fmt(s.max)}%`
-        );
-      },
-      wearTime: () => {
-        const s = stats(
-          filterWearTimeInRange(store.fitbitData, from, to)
-            .map((r) => r.wearTime)
-            .filter((v): v is number => v != null)
-        );
-        return (
-          s &&
-          `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`
-        );
-      },
-      restingHR: () => {
-        const s = stats(
-          filterRestingHRInRange(store.fitbitData, from, to)
-            .map((r) => r.restingHR)
-            .filter((v): v is number => v != null)
-        );
-        return s && `avg ${fmt(s.avg)} bpm · min ${fmt(s.min)} bpm · max ${fmt(s.max)} bpm`;
-      },
+      adherence: () =>
+        scalarCaption(
+          filterAdherenceInRange(store.adherenceData, from, to),
+          'pct',
+          (v) => `${fmt(v)}%`,
+          {
+            label: t('Adherence (%)'),
+          }
+        ),
+      wearTime: () =>
+        scalarCaption(
+          filterWearTimeInRange(store.fitbitData, from, to),
+          'wearTime',
+          (v) => `${fmt(v)} ${t('min')}`
+        ),
+      restingHR: () =>
+        scalarCaption(
+          filterRestingHRInRange(store.fitbitData, from, to),
+          'restingHR',
+          (v) => `${fmt(v)} bpm`
+        ),
       bloodPressure: () => {
         const rows = filterBloodPressureInRange(store.fitbitData, from, to);
         const sys = stats(rows.map((r) => r.sys).filter((v): v is number => v != null));
@@ -402,68 +417,41 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
           `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`
         );
       },
-      steps: () => {
-        const s = stats(
-          filterStepsInRange(store.fitbitData, from, to)
-            .map((r) => r.steps)
-            .filter((v): v is number => v != null)
-        );
-        return (
-          s &&
-          `avg ${Math.round(s.avg).toLocaleString()} · min ${s.min.toLocaleString()} · max ${s.max.toLocaleString()}`
-        );
-      },
-      activeMinutes: () => {
-        const s = stats(
-          filterActiveMinutesInRange(store.fitbitData, from, to)
-            .map((r) => r.activeMinutes)
-            .filter((v): v is number => v != null)
-        );
-        return (
-          s &&
-          `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`
-        );
-      },
-      weight: () => {
-        const s = stats(
-          filterWeightInRange(store.fitbitData, from, to)
-            .map((r) => r.weight)
-            .filter((v): v is number => v != null)
-        );
-        return s && `avg ${fmt(s.avg, 1)} kg · min ${fmt(s.min, 1)} kg · max ${fmt(s.max, 1)} kg`;
-      },
-      exercise: () => {
-        const s = stats(
-          filterExerciseInRange(store.fitbitData, from, to)
-            .map((r) => r.total)
-            .filter((v): v is number => v != null && v > 0)
-        );
-        return (
-          s &&
-          `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`
-        );
-      },
-      sleep: () => {
-        const s = stats(
-          filterSleepInRange(store.fitbitData, from, to)
-            .map((r) => r.minutesAsleep)
-            .filter((v): v is number => v != null)
-        );
-        return (
-          s &&
-          `avg ${formatSleepDuration(s.avg)} · min ${formatSleepDuration(s.min)} · max ${formatSleepDuration(s.max)}`
-        );
-      },
-      breathing: () => {
-        const s = stats(
-          filterBreathingInRange(store.fitbitData, from, to)
-            .map((r) => r.breathingRate)
-            .filter((v): v is number => v != null)
-        );
-        return (
-          s && `avg ${fmt(s.avg, 1)}/min · min ${fmt(s.min, 1)}/min · max ${fmt(s.max, 1)}/min`
-        );
-      },
+      steps: () =>
+        scalarCaption(filterStepsInRange(store.fitbitData, from, to), 'steps', (v) =>
+          Math.round(v).toLocaleString()
+        ),
+      activeMinutes: () =>
+        scalarCaption(
+          filterActiveMinutesInRange(store.fitbitData, from, to),
+          'activeMinutes',
+          (v) => `${fmt(v)} ${t('min')}`
+        ),
+      weight: () =>
+        scalarCaption(
+          filterWeightInRange(store.fitbitData, from, to),
+          'weight',
+          (v) => `${fmt(v, 1)} kg`
+        ),
+      exercise: () =>
+        scalarCaption(
+          filterExerciseInRange(store.fitbitData, from, to),
+          'total',
+          (v) => `${fmt(v)} ${t('min')}`,
+          { predicate: (v) => v > 0 }
+        ),
+      sleep: () =>
+        scalarCaption(
+          filterSleepInRange(store.fitbitData, from, to),
+          'minutesAsleep',
+          formatSleepDuration
+        ),
+      breathing: () =>
+        scalarCaption(
+          filterBreathingInRange(store.fitbitData, from, to),
+          'breathingRate',
+          (v) => `${fmt(v, 1)}/min`
+        ),
     };
 
     const sections: (

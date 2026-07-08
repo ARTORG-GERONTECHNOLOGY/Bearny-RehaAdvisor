@@ -30,6 +30,36 @@ export const eachDateInRange = (start: Date, end: Date): string[] => {
   return dates;
 };
 
+// One row per calendar day in [start, end] (inclusive), pulling `accessor(entry)` for days
+// that have data and filling gaps with null — so charts show breaks/missing bars instead of
+// compressing the timeline down to just the days with a reading.
+export const buildDailyRows = <T extends { date: string }, K extends string>(
+  data: T[],
+  start: Date | null | undefined,
+  end: Date | null | undefined,
+  key: K,
+  accessor: (entry: T) => number | null
+): Array<{ date: string } & Record<K, number | null>> => {
+  const raw = Array.isArray(data) ? data : [];
+  const byDate = new Map(
+    raw.filter((d) => isInRange(d.date, start, end)).map((d) => [d.date, accessor(d)])
+  );
+
+  const dates = start && end ? eachDateInRange(start, end) : [...byDate.keys()].sort();
+
+  return dates.map(
+    (date) =>
+      ({ date, [key]: byDate.get(date) ?? null }) as { date: string } & Record<K, number | null>
+  );
+};
+
+// Mean of the non-null values, or null if there are none.
+export const averageNonNull = (values: Array<number | null | undefined>): number | null => {
+  const nums = values.filter((v): v is number => v != null);
+  if (!nums.length) return null;
+  return nums.reduce((sum, v) => sum + v, 0) / nums.length;
+};
+
 // ---------- threshold tiers (green/yellow/red goal coloring) ----------
 export type ThresholdTier = 'green' | 'yellow' | 'red';
 

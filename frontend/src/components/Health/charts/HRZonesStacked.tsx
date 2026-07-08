@@ -5,7 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { eachDateInRange, isInRange } from '@/utils/healthCharts';
+import { averageNonNull, eachDateInRange, isInRange } from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
@@ -72,8 +72,7 @@ export const averageActiveHRZoneMinutes = (
       }, 0)
     );
 
-  if (!dailyTotals.length) return null;
-  return dailyTotals.reduce((sum, v) => sum + v, 0) / dailyTotals.length;
+  return averageNonNull(dailyTotals);
 };
 
 export const filterHRZonesInRange = (
