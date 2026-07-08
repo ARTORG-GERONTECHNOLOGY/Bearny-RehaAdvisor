@@ -357,7 +357,9 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
             .map((r) => r.pct)
             .filter((v): v is number => v != null)
         );
-        return s && `${t('Adherence (%)')}: avg ${fmt(s.avg)}% · min ${fmt(s.min)}% · max ${fmt(s.max)}%`;
+        return (
+          s && `${t('Adherence (%)')}: avg ${fmt(s.avg)}% · min ${fmt(s.min)}% · max ${fmt(s.max)}%`
+        );
       },
       wearTime: () => {
         const s = stats(
@@ -365,7 +367,10 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
             .map((r) => r.wearTime)
             .filter((v): v is number => v != null)
         );
-        return s && `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`;
+        return (
+          s &&
+          `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`
+        );
       },
       restingHR: () => {
         const s = stats(
@@ -381,8 +386,10 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
         const dia = stats(rows.map((r) => r.dia).filter((v): v is number => v != null));
         if (!sys && !dia) return null;
         const parts = [
-          sys && `${t('Blood pressure systolic')}: avg ${fmt(sys.avg)} · min ${fmt(sys.min)} · max ${fmt(sys.max)}`,
-          dia && `${t('Blood pressure diastolic')}: avg ${fmt(dia.avg)} · min ${fmt(dia.min)} · max ${fmt(dia.max)}`,
+          sys &&
+            `${t('Blood pressure systolic')}: avg ${fmt(sys.avg)} · min ${fmt(sys.min)} · max ${fmt(sys.max)}`,
+          dia &&
+            `${t('Blood pressure diastolic')}: avg ${fmt(dia.avg)} · min ${fmt(dia.min)} · max ${fmt(dia.max)}`,
         ].filter(Boolean);
         return `${parts.join('   |   ')} mmHg`;
       },
@@ -392,7 +399,10 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
             .map((r) => r.fatBurn + r.cardio + r.peak)
             .filter((v) => v > 0)
         );
-        return s && `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`;
+        return (
+          s &&
+          `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`
+        );
       },
       steps: () => {
         const s = stats(
@@ -411,7 +421,10 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
             .map((r) => r.activeMinutes)
             .filter((v): v is number => v != null)
         );
-        return s && `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`;
+        return (
+          s &&
+          `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`
+        );
       },
       weight: () => {
         const s = stats(
@@ -427,7 +440,10 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
             .map((r) => r.total)
             .filter((v): v is number => v != null && v > 0)
         );
-        return s && `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`;
+        return (
+          s &&
+          `avg ${fmt(s.avg)} ${t('min')} · min ${fmt(s.min)} ${t('min')} · max ${fmt(s.max)} ${t('min')}`
+        );
       },
       sleep: () => {
         const s = stats(
@@ -446,7 +462,9 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
             .map((r) => r.breathingRate)
             .filter((v): v is number => v != null)
         );
-        return s && `avg ${fmt(s.avg, 1)}/min · min ${fmt(s.min, 1)}/min · max ${fmt(s.max, 1)}/min`;
+        return (
+          s && `avg ${fmt(s.avg, 1)}/min · min ${fmt(s.min, 1)}/min · max ${fmt(s.max, 1)}/min`
+        );
       },
     };
 
