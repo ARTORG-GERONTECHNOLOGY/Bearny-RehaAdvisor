@@ -6,14 +6,7 @@ from datetime import datetime, timedelta
 from datetime import timezone as dt_tz
 from typing import Any, Dict, List, Optional, Tuple
 
-from core.models import FitbitData, Patient
-
-# GoogleHealthData is introduced by the Google Health migration branch.
-# Import it conditionally so this module works on main before that branch lands.
-try:
-    from core.models import GoogleHealthData as _GoogleHealthData  # type: ignore[attr-defined]
-except ImportError:
-    _GoogleHealthData = None  # type: ignore[assignment,misc]
+from core.models import FitbitData, GoogleHealthData, Patient
 from core.services.redcap_service import (
     RedcapError,
     _parse_invalid_fields,
@@ -260,14 +253,11 @@ def _summarize_period(
     start_dt = datetime.combine(window_start, datetime.min.time()).replace(tzinfo=dt_tz.utc)
     end_dt = datetime.combine(window_end, datetime.max.time()).replace(tzinfo=dt_tz.utc)
 
-    records = list(
-        FitbitData.objects(
-            user=user,
-            date__gte=start_dt,
-            date__lte=end_dt,
-        ).order_by("date")
-    )
+    # Prefer GoogleHealthData; fall back to FitbitData for users who haven't migrated yet
+    records = list(GoogleHealthData.objects(user=user, date__gte=start_dt, date__lte=end_dt).order_by("date"))
 
+    if not records:
+        records = list(FitbitData.objects(user=user, date__gte=start_dt, date__lte=end_dt).order_by("date"))
     if not records:
         return None
 
