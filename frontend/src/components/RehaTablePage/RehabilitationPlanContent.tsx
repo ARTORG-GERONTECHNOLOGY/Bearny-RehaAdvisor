@@ -123,10 +123,10 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                   <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
                     {t('Completed')}
                   </Badge>
-                  <Badge variant="dashboard" className="bg-nok/5 border-nok text-nok">
+                  <Badge variant="dashboard" className="bg-pink/5 border-pink text-pink">
                     {t('Missed')}
                   </Badge>
-                  <Badge variant="dashboard" className="bg-blue-50 border-blue-500 text-blue-500">
+                  <Badge variant="dashboard" className="bg-yellow/5 border-yellow text-yellow">
                     {t('today')}
                   </Badge>
                   <Badge

@@ -99,13 +99,21 @@ const InterventionCalendar: React.FC<Props> = ({
     return out;
   }, [patientData, titleMap]);
 
+  // Colors mirror the status legend
   const eventPropGetter = (event: CalendarEvent) => {
     const status = event.resource?.status;
-    if (status === 'completed') return { className: 'rehaEvent rehaEvent--completed' };
-    if (status === 'missed') return { className: 'rehaEvent rehaEvent--missed' };
-    if (status === 'today') return { className: 'rehaEvent rehaEvent--today' };
-    if (status === 'upcoming') return { className: 'rehaEvent rehaEvent--upcoming' };
-    return { className: 'rehaEvent' };
+    const base = '!rounded-lg';
+    if (status === 'completed') return { className: `${base} !bg-ok/5 !text-ok` };
+    if (status === 'missed') return { className: `${base} !bg-pink/5 !text-pink` };
+    if (status === 'today') return { className: `${base} !bg-yellow/5 !text-yellow` };
+    if (status === 'upcoming') return { className: `${base} !bg-chartMuted/5 !text-zinc-500` };
+    return { className: base };
+  };
+
+  // RBC today's cell/column highlight color
+  const dayPropGetter = (day: Date) => {
+    const isToday = day.toDateString() === new Date().toDateString();
+    return isToday ? { className: '!bg-yellow/5' } : {};
   };
 
   const sortedEvents = useMemo(() => {
@@ -135,6 +143,7 @@ const InterventionCalendar: React.FC<Props> = ({
         views={[Views.MONTH, Views.WEEK, Views.DAY, Views.AGENDA]}
         popup
         eventPropGetter={eventPropGetter}
+        dayPropGetter={dayPropGetter}
         onSelectEvent={(ev) => {
           if (onSelectIntervention) onSelectIntervention(ev.resource.intervention);
         }}
@@ -170,11 +179,11 @@ const InterventionCalendar: React.FC<Props> = ({
                 const status = ev.resource.status || '';
                 const rowBg =
                   status === 'completed'
-                    ? 'bg-green-500/10'
+                    ? 'bg-ok/5 text-ok'
                     : status === 'missed'
-                      ? 'bg-red-500/10'
+                      ? 'bg-pink/5 text-pink'
                       : status === 'today'
-                        ? 'bg-blue-500/10'
+                        ? 'bg-yellow/5 text-yellow'
                         : '';
                 return (
                   <tr
