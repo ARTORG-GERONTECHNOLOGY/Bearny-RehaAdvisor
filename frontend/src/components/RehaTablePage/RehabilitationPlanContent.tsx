@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
-import { Alert, Col, Row, Spinner } from 'react-bootstrap';
+import { Alert, Col, Row } from 'react-bootstrap';
 
 import authStore from '@/stores/authStore';
 import { RehabTableStore } from '@/stores/rehabTableStore';
@@ -17,6 +17,7 @@ import InterventionStatsModal from '@/components/RehaTablePage/InterventionStats
 import InterventionFeedbackModal from '@/components/RehaTablePage/InterventionFeedbackModal';
 import '@/assets/styles/RehabTable.css';
 import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
+import { RehabilitationPlanContentLoadingSkeleton } from '@/components/skeletons/TherapistPatientDetailSkeleton';
 
 const safeT = (t: any, key: string, fallback: string) => {
   try {
@@ -82,10 +83,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
           <Col xs={12} lg={4} xl={3} className="rehaCol rehaCol--left">
             <RehaLeftPanelShell>
               {store.loading ? (
-                <div className="p-3 d-flex align-items-center gap-2">
-                  <Spinner animation="border" size="sm" />
-                  <span className="text-muted">{safeT(t, 'Loading', 'Loading')}…</span>
-                </div>
+                <RehabilitationPlanContentLoadingSkeleton />
               ) : (
                 <InterventionLeftPanel
                   tagColors={generateTagColors(getTaxonomyTags())}

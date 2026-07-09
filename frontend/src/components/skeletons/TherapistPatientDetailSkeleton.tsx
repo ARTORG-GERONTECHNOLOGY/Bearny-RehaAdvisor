@@ -55,3 +55,14 @@ export function HealthPageContentLoadingSkeleton() {
     </div>
   );
 }
+
+export function RehabilitationPlanContentLoadingSkeleton() {
+  return (
+    <div className="flex flex-col gap-2 p-2">
+      <Skeleton className="h-24 w-full" />
+      {Array.from({ length: 4 }).map((_, i) => (
+        <Skeleton key={i} className="h-40 w-full" />
+      ))}
+    </div>
+  );
+}
