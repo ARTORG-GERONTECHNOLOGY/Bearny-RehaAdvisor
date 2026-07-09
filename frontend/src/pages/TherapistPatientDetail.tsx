@@ -53,9 +53,9 @@ const TherapistPatientDetail: React.FC = observer(() => {
   const navigate = useNavigate();
   const { patientId = '' } = useParams<{ patientId: string }>();
 
-  useRoleAuthGate('Therapist');
+  const { isAllowed } = useRoleAuthGate('Therapist');
 
-  const { patient, loading, error } = useTherapistPatientDetail(patientId);
+  const { patient, loading, error } = useTherapistPatientDetail(isAllowed ? patientId : '');
   const fullName = patient ? `${patient.first_name || ''} ${patient.name || ''}`.trim() : '';
   const infoItems = [
     patient?.age,

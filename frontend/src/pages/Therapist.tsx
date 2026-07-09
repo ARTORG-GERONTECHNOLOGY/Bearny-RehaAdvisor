@@ -76,11 +76,12 @@ const Therapist: React.FC = observer(() => {
   const store = useMemo(() => new TherapistPatientsStore(), []);
   const [colSortDir, setColSortDir] = useState<Record<string, 'asc' | 'desc'>>({});
 
-  useRoleAuthGate('Therapist');
+  const { isAllowed } = useRoleAuthGate('Therapist');
 
   useEffect(() => {
+    if (!isAllowed) return;
     store.fetchPatients(t);
-  }, [store, t]);
+  }, [isAllowed, store, t]);
 
   // re-fetch after closing add patient popup
   const handleCloseAdd = useCallback(async () => {

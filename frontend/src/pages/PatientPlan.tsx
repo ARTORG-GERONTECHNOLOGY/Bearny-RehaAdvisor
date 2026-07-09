@@ -24,7 +24,7 @@ const PatientPlan: React.FC = observer(() => {
   const navigate = useNavigate();
   const [dayFilter, setDayFilter] = useState<DayFilter>('all');
 
-  useRoleAuthGate('Patient');
+  const { isAllowed } = useRoleAuthGate('Patient');
 
   const patientId = authStore.getStoredUserId();
 
@@ -62,10 +62,9 @@ const PatientPlan: React.FC = observer(() => {
 
   // Fetch interventions on mount
   useEffect(() => {
-    if (patientId) {
-      patientInterventionsStore.fetchPlan(patientId, i18n.language);
-    }
-  }, [patientId, i18n.language]);
+    if (!isAllowed || !patientId) return;
+    patientInterventionsStore.fetchPlan(patientId, i18n.language);
+  }, [isAllowed, patientId, i18n.language]);
 
   return (
     <Layout aria-label={t('Week range and current month')}>
