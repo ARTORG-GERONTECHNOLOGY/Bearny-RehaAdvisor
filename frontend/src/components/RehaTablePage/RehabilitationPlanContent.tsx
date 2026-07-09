@@ -14,7 +14,6 @@ import InterventionRepeatModal from '@/components/RehaTablePage/InterventionRepe
 import InterventionStatsModal from '@/components/RehaTablePage/InterventionStatsModal';
 import InterventionFeedbackModal from '@/components/RehaTablePage/InterventionFeedbackModal';
 import '@/assets/styles/RehabTable.css';
-import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
 import { RehabilitationPlanContentLoadingSkeleton } from '@/components/skeletons/TherapistPatientDetailSkeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -62,7 +61,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
     };
 
     return (
-      <div className="rehaLayout">
+      <div>
         {store.error && (
           <Alert variant="danger" onClose={() => store.setError(null)} dismissible className="my-3">
             {store.error}
@@ -76,12 +75,6 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
               <RehabilitationPlanContentLoadingSkeleton />
             ) : (
               <InterventionLeftPanel
-                tagColors={generateTagColors(getTaxonomyTags())}
-                selectedTab={store.selectedTab}
-                setSelectedTab={(tab) => {
-                  store.setSelectedTab(tab);
-                  store.translateVisibleItems();
-                }}
                 data={{
                   activeItems: store.activePatientItems,
                   pastItems: store.pastPatientItems,
@@ -121,8 +114,8 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
           </div>
 
           {/* RIGHT */}
-          <div className="col-span-1 lg:col-span-8 xl:col-span-9">
-            <Card>
+          <div className="col-span-1 lg:col-span-8 xl:col-span-9 flex flex-col">
+            <Card className="flex flex-col flex-1 min-h-0">
               <CardHeader>
                 <CardTitle>{t('Reha Calendar')}</CardTitle>
                 <CardDescription className="flex flex-wrap items-center gap-1">
@@ -133,7 +126,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                   <Badge variant="dashboard" className="bg-nok/5 border-nok text-nok">
                     {t('Missed')}
                   </Badge>
-                  <Badge variant="dashboard" className="bg-info/5 border-info text-info">
+                  <Badge variant="dashboard" className="bg-blue-50 border-blue-500 text-blue-500">
                     {t('today')}
                   </Badge>
                   <Badge
@@ -188,7 +181,6 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
             onHide={store.closeStatsModal}
             intervention={store.selectedExerciseFromPlan as any}
             patientData={store.patientData as any}
-            t={t as any}
           />
         )}
 

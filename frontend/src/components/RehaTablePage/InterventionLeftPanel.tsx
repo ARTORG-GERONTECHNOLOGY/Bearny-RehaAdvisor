@@ -62,7 +62,6 @@ interface InterventionLeftPanelProps {
   filters: LeftPanelFilters;
   actions: LeftPanelActions;
   patientData: PatientPlan;
-  tagColors: Record<string, string>;
   t: TFunction;
 }
 
@@ -139,7 +138,6 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
   const renderInterventionCard = (
     intervention: any,
     opts: {
-      isPastSection?: boolean;
       inAllTab?: boolean;
       showScheduleAgain?: boolean;
     } = {}
@@ -454,9 +452,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
           {pastItems.length === 0 ? (
             <div className="text-zinc-500">{t('No past interventions.')}</div>
           ) : (
-            pastItems.map((it: any) =>
-              renderInterventionCard(it, { isPastSection: true, showScheduleAgain: true })
-            )
+            pastItems.map((it: any) => renderInterventionCard(it, { showScheduleAgain: true }))
           )}
         </CardContent>
       </Card>

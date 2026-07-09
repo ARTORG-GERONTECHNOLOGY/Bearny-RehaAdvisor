@@ -162,7 +162,6 @@ export class RehabTableStore {
 
   // Tabs
   topTab: 'interventions' | 'questionnaires' = 'interventions';
-  selectedTab: 'patient' | 'all' = 'patient';
 
   // Patient context
   patientUsername = '';
@@ -361,11 +360,6 @@ export class RehabTableStore {
 
   setTopTab(v: 'interventions' | 'questionnaires') {
     this.topTab = v;
-  }
-
-  setSelectedTab(v: 'patient' | 'all') {
-    this.selectedTab = v;
-    if (v === 'all') this.applyAllFilters();
   }
 
   setSearchTerm(v: string) {
@@ -568,13 +562,10 @@ export class RehabTableStore {
   }
 
   // ---------------------------------------------------------------------------
-  // Translations for left list (only the currently visible items)
+  // Translations for left lists (active, past, and all interventions)
   // ---------------------------------------------------------------------------
   async translateVisibleItems() {
-    const items: Intervention[] =
-      this.selectedTab === 'patient'
-        ? this.patientData?.interventions || []
-        : this.filteredRecommendations || [];
+    const items = this.recommendations || [];
 
     if (!items.length) {
       runInAction(() => {
