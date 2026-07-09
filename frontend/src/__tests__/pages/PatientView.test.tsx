@@ -31,7 +31,7 @@ jest.mock('@/stores/authStore', () => ({
     },
     id: 'p1',
     getStoredUserId: jest.fn(function (this: { id: string }) {
-      return localStorage.getItem('id') || this.id || '';
+      return this.id || localStorage.getItem('id') || '';
     }),
   },
 }));
