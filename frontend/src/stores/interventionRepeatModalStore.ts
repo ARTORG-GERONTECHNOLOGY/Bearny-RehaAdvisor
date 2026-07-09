@@ -19,7 +19,7 @@ export class InterventionRepeatModalStore {
   mode: Mode = 'create';
 
   interval = 1;
-  unit: 'day' | 'week' | 'month' = 'week';
+  unit: 'day' | 'week' | 'month' = 'day';
   selectedDays: string[] = [];
 
   endOption: 'never' | 'date' | 'count' = 'never';
@@ -51,7 +51,7 @@ export class InterventionRepeatModalStore {
     this.mode = mode;
 
     this.interval = defaults?.interval ?? 1;
-    this.unit = (defaults?.unit as any) ?? 'week';
+    this.unit = (defaults?.unit as any) ?? 'day';
     this.selectedDays = defaults?.selectedDays ?? [];
 
     this.endOption = defaults?.end?.type ?? 'never';
@@ -192,8 +192,10 @@ export class InterventionRepeatModalStore {
         if (res.status === 200) {
           this.success = true;
           params.onSuccess?.();
-          return;
+        } else {
+          this.error = i18nT('Failed to modify intervention.');
         }
+        return;
       }
 
       const payload = {
