@@ -65,3 +65,15 @@ class Command(BaseCommand):
             },
         )
         self.stdout.write(self.style.SUCCESS(f"{'Created' if created3 else 'Updated'} task: {task3.name}"))
+
+        # Task 4: Fetch Google Health data at midnight for users who have migrated
+        task4, created4 = PeriodicTask.objects.update_or_create(
+            name="Run Fetch Google Health Data",
+            defaults={
+                "crontab": midnight_schedule,
+                "task": "core.tasks.run_fetch_google_health_data",
+                "enabled": True,
+                "args": json.dumps([]),
+            },
+        )
+        self.stdout.write(self.style.SUCCESS(f"{'Created' if created4 else 'Updated'} task: {task4.name}"))
