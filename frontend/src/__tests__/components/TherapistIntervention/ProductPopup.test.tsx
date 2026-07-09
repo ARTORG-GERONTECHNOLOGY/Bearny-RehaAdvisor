@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import ProductPopup from '@/components/TherapistInterventionPage/ProductPopup';
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
@@ -141,12 +141,52 @@ describe('ProductPopup language toggle', () => {
     await waitFor(() => expect(screen.getByText('Titre français')).toBeInTheDocument());
 
     // IT (the stale, older click) resolves after — it must not overwrite FR.
-    // Give the promise chain in switchVariantByLang enough ticks to settle
-    // before asserting it made no further (wrong) change.
-    resolveIt({ data: [{ ...mockItem, language: 'it', title: 'Titolo italiano' }] });
-    await new Promise((r) => setTimeout(r, 50));
+    await act(async () => {
+      resolveIt({ data: [{ ...mockItem, language: 'it', title: 'Titolo italiano' }] });
+      await itPromise;
+    });
 
     expect(screen.getByText('Titre français')).toBeInTheDocument();
+    expect(screen.queryByText('Titolo italiano')).not.toBeInTheDocument();
+  });
+
+  it('ignores a language switch response that resolves after the popup was closed', async () => {
+    const apiClient = jest.requireMock('@/api/client').default;
+
+    let resolveIt: (v: unknown) => void = () => {};
+    const itPromise = new Promise((res) => {
+      resolveIt = res;
+    });
+    apiClient.get.mockImplementation((url: string, config: { params?: { lang?: string } }) => {
+      if (config?.params?.lang === 'it') return itPromise;
+      return Promise.resolve({ data: [] });
+    });
+
+    const { rerender } = render(
+      <ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'IT' }));
+
+    // close while the switch request is still in flight
+    rerender(
+      <ProductPopup show={false} item={mockItem} handleClose={() => {}} tagColors={tagColors} />
+    );
+
+    // the stale request resolves while the popup is closed
+    await act(async () => {
+      resolveIt({ data: [{ ...mockItem, language: 'it', title: 'Titolo italiano' }] });
+      await itPromise;
+    });
+
+    // reopen — should show the original item translated, not the stale IT variant
+    rerender(
+      <ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
+    );
     expect(screen.queryByText('Titolo italiano')).not.toBeInTheDocument();
   });
 });

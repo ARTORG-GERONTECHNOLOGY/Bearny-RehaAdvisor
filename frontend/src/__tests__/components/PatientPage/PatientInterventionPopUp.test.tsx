@@ -22,7 +22,7 @@ jest.mock('@/assets/icons/arrow-right-fill.svg?react', () => ({
   },
 }));
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import PatientInterventionPopUp from '@/components/PatientPage/PatientInterventionPopUp';
 import '@testing-library/jest-dom';
 
@@ -450,11 +450,57 @@ describe('PatientInterventionPopUp Component', () => {
       await waitFor(() => expect(screen.getByText('Titre français')).toBeInTheDocument());
 
       // EN (the stale, older click) resolves after — it must not overwrite FR
-      resolveEn({ data: [{ ...langItem, language: 'en', title: 'English Title' }] });
-      await new Promise((r) => setTimeout(r, 50));
+      await act(async () => {
+        resolveEn({ data: [{ ...langItem, language: 'en', title: 'English Title' }] });
+        await enPromise;
+      });
 
       expect(screen.getByText('Titre français')).toBeInTheDocument();
       expect(screen.queryByText('English Title')).not.toBeInTheDocument();
+    });
+
+    it('ignores a language switch response that resolves after the popup was closed', async () => {
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: `[translated] ${text}`, detectedSourceLanguage: 'de' })
+      );
+
+      let resolveEn: (v: unknown) => void = () => {};
+      const enPromise = new Promise((res) => {
+        resolveEn = res;
+      });
+      (apiClient.get as jest.Mock).mockImplementation(
+        (url: string, config: { params?: { lang?: string } }) => {
+          if (config?.params?.lang === 'en') return enPromise;
+          return Promise.resolve({ data: [] });
+        }
+      );
+
+      const { rerender } = render(
+        <PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+
+      // close while the switch request is still in flight
+      rerender(<PatientInterventionPopUp show={false} item={langItem} handleClose={jest.fn()} />);
+
+      // the stale request resolves while the popup is closed
+      await act(async () => {
+        resolveEn({ data: [{ ...langItem, language: 'en', title: 'English Title' }] });
+        await enPromise;
+      });
+
+      // reopen — should show the original item translated, not the stale EN variant
+      rerender(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+
+      await waitFor(() =>
+        expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
+      );
+      expect(screen.queryByText('English Title')).not.toBeInTheDocument();
+
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: text, detectedSourceLanguage: 'unknown' })
+      );
     });
   });
 });

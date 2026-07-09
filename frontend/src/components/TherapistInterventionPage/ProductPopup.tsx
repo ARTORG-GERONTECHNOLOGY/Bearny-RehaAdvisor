@@ -137,8 +137,17 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
     if (!show) {
       setLocalOverride(null);
       setLangManuallySelected(false);
+      // invalidate any in-flight language switch so its response can't land after close
+      switchRequestIdRef.current += 1;
     }
   }, [show]);
+
+  // also invalidate on unmount, in case it happens without a show=false transition
+  useEffect(() => {
+    return () => {
+      switchRequestIdRef.current += 1;
+    };
+  }, []);
 
   // diagnoses list: kept as you had it (config fallback)
   const diagnosesFromSpec = useMemo(() => {
@@ -183,6 +192,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
     setError('');
     setDiagSearch('');
     setLangOptions([]);
+    switchRequestIdRef.current += 1;
     handleClose();
   }, [assignOpen, handleClose, hasUnsavedChanges, t]);
 

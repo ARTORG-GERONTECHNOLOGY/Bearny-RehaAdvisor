@@ -264,8 +264,17 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
       setLangOptions([]);
       setError('');
       setLangManuallySelected(false);
+      // invalidate any in-flight language switch so its response can't land after close
+      switchRequestIdRef.current += 1;
     }
   }, [show]);
+
+  // also invalidate on unmount, in case it happens without a show=false transition
+  useEffect(() => {
+    return () => {
+      switchRequestIdRef.current += 1;
+    };
+  }, []);
 
   const preferredLang = useMemo(() => {
     const l = (i18n?.language || '').slice(0, 2).toLowerCase();
@@ -583,6 +592,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
     setLangOptions([]);
     setLocalOverride(null);
     setLangManuallySelected(false);
+    switchRequestIdRef.current += 1;
     handleClose();
   }, [handleClose]);
 
