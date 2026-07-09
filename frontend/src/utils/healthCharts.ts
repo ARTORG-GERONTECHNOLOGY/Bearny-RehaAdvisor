@@ -33,7 +33,7 @@ export const toEuroDate = (iso: string | null | undefined): string => {
   return `${d.padStart(2, '0')}.${m.padStart(2, '0')}.${y}`;
 };
 
-export const formatDateEU = (d: Date): string => toEuroDate(d.toISOString().slice(0, 10));
+export const formatDateEU = (d: Date): string => toEuroDate(toLocalYMD(d));
 
 // Fills gaps with null so charts show breaks instead of compressing to just the days with data.
 export const buildDailyRows = <T extends { date: string }, K extends string>(

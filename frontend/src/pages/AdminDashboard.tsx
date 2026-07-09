@@ -15,7 +15,7 @@ import apiClient from '@/api/client';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import LogoutFill from '@/assets/icons/logout-fill.svg?react';
-import { toISODateUTC, formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
+import { toLocalYMD, formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
 type AccessModalState = {
@@ -360,7 +360,7 @@ const AdminDashboard: React.FC = observer(() => {
 
       const url = URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
       const a = document.createElement('a');
-      const today = toISODateUTC(new Date());
+      const today = toLocalYMD(new Date());
       a.href = url;
       a.download = `export_${today}.zip`;
       document.body.appendChild(a);

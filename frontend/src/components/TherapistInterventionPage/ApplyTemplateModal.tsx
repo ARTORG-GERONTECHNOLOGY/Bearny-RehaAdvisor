@@ -4,7 +4,7 @@ import { Modal, Button, Form, Row, Col, Alert, Spinner, Badge } from 'react-boot
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
-import { toISODateUTC } from '@/utils/dateFormat';
+import { toLocalYMD } from '@/utils/dateFormat';
 
 type PatientOption = {
   _id: string;
@@ -53,7 +53,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
   const [diagnosis, setDiagnosis] = useState(defaultDiagnosis || '');
 
   // Shared
-  const [effectiveFrom, setEffectiveFrom] = useState(toISODateUTC(new Date(Date.now() + 86400000)));
+  const [effectiveFrom, setEffectiveFrom] = useState(toLocalYMD(new Date(Date.now() + 86400000)));
   const [overwrite, setOverwrite] = useState(false);
   const [forceVideo, setForceVideo] = useState(false);
   const [notes, setNotes] = useState('');
@@ -152,7 +152,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
   };
 
   const hasUnsavedChanges = useMemo(() => {
-    const baseEff = toISODateUTC(new Date(Date.now() + 86400000));
+    const baseEff = toLocalYMD(new Date(Date.now() + 86400000));
     const baseDiag = defaultDiagnosis || '';
     return (
       selectedIds.size > 0 ||

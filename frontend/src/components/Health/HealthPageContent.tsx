@@ -10,7 +10,7 @@ import HealthMetricsCards from '@/components/Health/HealthMetricsCards';
 
 import { formatDateEU } from '@/utils/healthCharts';
 import { buildHealthCsvBlob, buildHealthPdf } from '@/utils/healthExport';
-import { toISODateUTC } from '@/utils/dateFormat';
+import { toLocalYMD } from '@/utils/dateFormat';
 import HealthPageStore from '@/stores/healthPageStore';
 import { HealthPageContentLoadingSkeleton } from '@/components/skeletons/TherapistPatientDetailSkeleton';
 
@@ -71,8 +71,8 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
     store.fetchThresholds(patientId, t);
     store.fetchCombinedHistoryForPatient(
       patientId,
-      toISODateUTC(store.startDate),
-      toISODateUTC(store.endDate),
+      toLocalYMD(store.startDate),
+      toLocalYMD(store.endDate),
       t
     );
   }, [patientId, store, store.viewMode, store.referenceDate, t]);
@@ -82,13 +82,13 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
 
   const handleExportCSV = (from: Date, to: Date, selections: Record<string, boolean>) => {
     const blob = buildHealthCsvBlob(store, from, to, selections, i18n.language);
-    saveAs(blob, `HealthData_${toISODateUTC(from)}_to_${toISODateUTC(to)}.csv`);
+    saveAs(blob, `HealthData_${toLocalYMD(from)}_to_${toLocalYMD(to)}.csv`);
     setShowExport(false);
   };
 
   const handleExportPDF = async (from: Date, to: Date, selections: Record<string, boolean>) => {
     const doc = await buildHealthPdf(store, svgRefs, from, to, selections, t, i18n.language);
-    doc.save(`HealthCharts_${toISODateUTC(from)}_to_${toISODateUTC(to)}.pdf`);
+    doc.save(`HealthCharts_${toLocalYMD(from)}_to_${toLocalYMD(to)}.pdf`);
     setShowExport(false);
   };
 

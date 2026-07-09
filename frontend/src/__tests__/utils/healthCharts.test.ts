@@ -13,6 +13,7 @@ import {
   thresholdTier,
   worstTier,
 } from '@/utils/healthCharts';
+import * as dateFormat from '@/utils/dateFormat';
 
 describe('isInRange', () => {
   it('is true when no bounds are given', () => {
@@ -116,8 +117,20 @@ describe('toEuroDate', () => {
 });
 
 describe('formatDateEU', () => {
-  it('formats a Date as DD.MM.YYYY in UTC', () => {
-    expect(formatDateEU(new Date(Date.UTC(2024, 2, 7)))).toBe('07.03.2024');
+  it('formats a local calendar date as DD.MM.YYYY', () => {
+    // Local midnight construction, same as store.startDate/endDate — TZ-independent.
+    expect(formatDateEU(new Date(2024, 2, 7))).toBe('07.03.2024');
+  });
+
+  it('delegates to the local-calendar-day helper, not a UTC-based conversion', () => {
+    // Regression guard for the toISOString() day-rollback bug; TZ-independent (see usePatientProcess.test.tsx).
+    const spy = jest.spyOn(dateFormat, 'toLocalYMD');
+    const d = new Date(2026, 6, 1);
+
+    formatDateEU(d);
+
+    expect(spy).toHaveBeenCalledWith(d);
+    spy.mockRestore();
   });
 });
 

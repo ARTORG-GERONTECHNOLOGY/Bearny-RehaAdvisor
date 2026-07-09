@@ -1,8 +1,9 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { usePatientProcess } from '@/hooks/usePatientProcess';
+import { usePatientProcess, getDateWindow } from '@/hooks/usePatientProcess';
 import apiClient from '@/api/client';
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { colors } from '@/lib/colors';
+import * as dateFormat from '@/utils/dateFormat';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
@@ -255,6 +256,18 @@ describe('usePatientProcess', () => {
     expect(today.colors.sleepMinutes).toBe(colors.pink);
     expect(today.colors.bpSys).toBe(colors.yellow);
     expect(today.colors.bpDia).toBe(colors.pink);
+  });
+
+  describe('getDateWindow', () => {
+    it('builds the fetch window from the local calendar day, not a UTC-based conversion', () => {
+      // Regression guard for the toISODateUTC day-rollback bug; TZ-independent (see healthCharts.test.ts).
+      const spy = jest.spyOn(dateFormat, 'toLocalYMD');
+
+      getDateWindow('week');
+
+      expect(spy).toHaveBeenCalled();
+      spy.mockRestore();
+    });
   });
 
   it('surfaces backend error message on request failure', async () => {

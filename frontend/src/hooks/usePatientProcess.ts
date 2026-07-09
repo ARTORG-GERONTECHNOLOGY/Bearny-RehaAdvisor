@@ -4,7 +4,7 @@ import authStore from '@/stores/authStore';
 import { healthPageStore } from '@/stores/healthPageStore';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
 import { colors } from '@/lib/colors';
-import { toISODateUTC, formatDurationMinutes } from '@/utils/dateFormat';
+import { toISODateUTC, toLocalYMD, formatDurationMinutes } from '@/utils/dateFormat';
 
 export type ProcessFilter = 'week' | 'month';
 export type BarMetricKey = 'steps' | 'activeMinutes' | 'sleepMinutes';
@@ -138,7 +138,7 @@ export const getDateWindow = (filter: ProcessFilter) => {
   // Range is inclusive of both `from` and `to`, so subtract days - 1.
   from.setDate(to.getDate() - (days - 1));
 
-  return { from: toISODateUTC(from), to: toISODateUTC(to) };
+  return { from: toLocalYMD(from), to: toLocalYMD(to) };
 };
 
 export function usePatientProcess() {
