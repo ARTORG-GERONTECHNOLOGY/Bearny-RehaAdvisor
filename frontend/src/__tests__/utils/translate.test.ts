@@ -10,6 +10,15 @@ const makeJsonResponse = (data: unknown, ok = true) => ({
   json: () => Promise.resolve(data),
 });
 
+// Freeing a concurrency slot chains several awaits (fetch -> json() -> return
+// -> finally -> resume the next queued acquireSlot()), so a single
+// `await Promise.resolve()` isn't enough to observe the follow-on effect.
+const flushMicrotasks = async (times = 10) => {
+  for (let i = 0; i < times; i++) {
+    await Promise.resolve();
+  }
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
 });
@@ -99,5 +108,45 @@ describe('translateText', () => {
 
     expect(result1).toEqual(result2);
     expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('caps concurrent in-flight requests at 4, queueing the rest', async () => {
+    const resolvers: Array<(value: unknown) => void> = [];
+    mockFetch.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        })
+    );
+
+    // 6 distinct texts so none of them hit the cache/dedup path.
+    const texts = Array.from({ length: 6 }, (_, i) => `Distinct sentence number ${i}`);
+    const calls = texts.map((t) => translateText(t));
+
+    await flushMicrotasks();
+
+    // Only 4 requests (the concurrency cap) should have started so far.
+    expect(mockFetch).toHaveBeenCalledTimes(4);
+
+    // Resolve one as already matching the target language, freeing its slot
+    // without needing a second (translate) fetch.
+    resolvers[0](makeJsonResponse([{ language: 'en' }]));
+    await flushMicrotasks();
+
+    // A 5th request should now have started, still never exceeding the cap.
+    expect(mockFetch).toHaveBeenCalledTimes(5);
+
+    // Resolve the remaining originally-started requests (items 1-4), which
+    // frees enough slots for the 6th (final) request to start too.
+    resolvers.slice(1, 5).forEach((resolve) => resolve(makeJsonResponse([{ language: 'en' }])));
+    await flushMicrotasks();
+
+    expect(mockFetch).toHaveBeenCalledTimes(6);
+    resolvers[5](makeJsonResponse([{ language: 'en' }]));
+
+    const results = await Promise.all(calls);
+
+    expect(results).toHaveLength(6);
+    expect(mockFetch).toHaveBeenCalledTimes(6);
   });
 });
