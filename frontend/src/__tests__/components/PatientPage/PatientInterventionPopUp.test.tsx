@@ -22,7 +22,7 @@ jest.mock('@/assets/icons/arrow-right-fill.svg?react', () => ({
   },
 }));
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import PatientInterventionPopUp from '@/components/PatientPage/PatientInterventionPopUp';
 import '@testing-library/jest-dom';
 
@@ -59,7 +59,15 @@ jest.mock('@/utils/interventions', () => ({
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
+// identity by default so existing assertions on raw text keep working
+jest.mock('@/utils/translate', () => ({
+  translateText: jest.fn((text: string) =>
+    Promise.resolve({ translatedText: text, detectedSourceLanguage: 'unknown' })
+  ),
+}));
+
 import { getMediaTypeLabelFromUrl } from '@/utils/interventions';
+import { translateText } from '@/utils/translate';
 import apiClient from '@/api/client';
 
 const defaultItem = {
@@ -373,6 +381,126 @@ describe('PatientInterventionPopUp Component', () => {
       await waitFor(() => {
         expect(screen.getByText('English Title')).toBeInTheDocument();
       });
+    });
+
+    it('shows a manually picked variant as-is instead of re-translating it to the app language', async () => {
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: `[translated] ${text}`, detectedSourceLanguage: 'de' })
+      );
+      (apiClient.get as jest.Mock).mockResolvedValue({
+        data: [
+          {
+            ...langItem,
+            language: 'en',
+            title: 'English Title',
+            description: 'English description',
+          },
+        ],
+      });
+
+      render(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+
+      // initial variant is translated to the app language (default behavior)
+      await waitFor(() =>
+        expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+
+      // the picked variant is shown verbatim, not re-translated back
+      await waitFor(() => expect(screen.getByText('English Title')).toBeInTheDocument());
+      expect(screen.getByText('English description')).toBeInTheDocument();
+      expect(screen.queryByText(/\[translated\] English Title/)).not.toBeInTheDocument();
+
+      expect(
+        (translateText as jest.Mock).mock.calls.some(([text]: [string]) => text === 'English Title')
+      ).toBe(false);
+
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: text, detectedSourceLanguage: 'unknown' })
+      );
+    });
+
+    it('ignores a stale switch response when a newer switch was triggered first', async () => {
+      let resolveEn: (v: unknown) => void = () => {};
+      let resolveFr: (v: unknown) => void = () => {};
+      const enPromise = new Promise((res) => {
+        resolveEn = res;
+      });
+      const frPromise = new Promise((res) => {
+        resolveFr = res;
+      });
+
+      (apiClient.get as jest.Mock).mockImplementation(
+        (url: string, config: { params?: { lang?: string } }) => {
+          if (config?.params?.lang === 'en') return enPromise;
+          if (config?.params?.lang === 'fr') return frPromise;
+          return Promise.resolve({ data: [] });
+        }
+      );
+
+      render(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+
+      // click EN, then FR before EN's (slower) request resolves
+      fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+      fireEvent.click(screen.getByRole('button', { name: 'FR' }));
+
+      // FR (the newer click) resolves first
+      resolveFr({ data: [{ ...langItem, language: 'fr', title: 'Titre français' }] });
+      await waitFor(() => expect(screen.getByText('Titre français')).toBeInTheDocument());
+
+      // EN (the stale, older click) resolves after — it must not overwrite FR
+      await act(async () => {
+        resolveEn({ data: [{ ...langItem, language: 'en', title: 'English Title' }] });
+        await enPromise;
+      });
+
+      expect(screen.getByText('Titre français')).toBeInTheDocument();
+      expect(screen.queryByText('English Title')).not.toBeInTheDocument();
+    });
+
+    it('ignores a language switch response that resolves after the popup was closed', async () => {
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: `[translated] ${text}`, detectedSourceLanguage: 'de' })
+      );
+
+      let resolveEn: (v: unknown) => void = () => {};
+      const enPromise = new Promise((res) => {
+        resolveEn = res;
+      });
+      (apiClient.get as jest.Mock).mockImplementation(
+        (url: string, config: { params?: { lang?: string } }) => {
+          if (config?.params?.lang === 'en') return enPromise;
+          return Promise.resolve({ data: [] });
+        }
+      );
+
+      const { rerender } = render(
+        <PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+
+      // close while the switch request is still in flight
+      rerender(<PatientInterventionPopUp show={false} item={langItem} handleClose={jest.fn()} />);
+
+      // the stale request resolves while the popup is closed
+      await act(async () => {
+        resolveEn({ data: [{ ...langItem, language: 'en', title: 'English Title' }] });
+        await enPromise;
+      });
+
+      // reopen — should show the original item translated, not the stale EN variant
+      rerender(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+
+      await waitFor(() =>
+        expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
+      );
+      expect(screen.queryByText('English Title')).not.toBeInTheDocument();
+
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: text, detectedSourceLanguage: 'unknown' })
+      );
     });
   });
 });
