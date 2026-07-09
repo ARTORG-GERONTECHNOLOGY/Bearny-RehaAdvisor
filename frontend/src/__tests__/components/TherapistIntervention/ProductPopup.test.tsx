@@ -42,7 +42,7 @@ const mockItem = {
   media_url: null,
   link: null,
   language: 'de',
-  available_languages: ['de', 'it'],
+  available_languages: ['de', 'it', 'fr'],
 };
 
 const tagColors = {
@@ -108,5 +108,45 @@ describe('ProductPopup language toggle', () => {
       false
     );
     expect(translateCallsAfterSwitch).toBeGreaterThan(0);
+  });
+
+  it('ignores a stale switch response when a newer switch was triggered first', async () => {
+    const apiClient = jest.requireMock('@/api/client').default;
+
+    let resolveIt: (v: unknown) => void = () => {};
+    let resolveFr: (v: unknown) => void = () => {};
+    const itPromise = new Promise((res) => {
+      resolveIt = res;
+    });
+    const frPromise = new Promise((res) => {
+      resolveFr = res;
+    });
+
+    apiClient.get.mockImplementation((url: string, config: { params?: { lang?: string } }) => {
+      if (config?.params?.lang === 'it') return itPromise;
+      if (config?.params?.lang === 'fr') return frPromise;
+      return Promise.resolve({ data: [] });
+    });
+
+    render(
+      <ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />
+    );
+
+    // click IT, then FR before IT's (slower) request resolves
+    fireEvent.click(screen.getByRole('button', { name: 'IT' }));
+    fireEvent.click(screen.getByRole('button', { name: 'FR' }));
+
+    // FR (the newer click) resolves first
+    resolveFr({ data: [{ ...mockItem, language: 'fr', title: 'Titre français' }] });
+    await waitFor(() => expect(screen.getByText('Titre français')).toBeInTheDocument());
+
+    // IT (the stale, older click) resolves after — it must not overwrite FR.
+    // Give the promise chain in switchVariantByLang enough ticks to settle
+    // before asserting it made no further (wrong) change.
+    resolveIt({ data: [{ ...mockItem, language: 'it', title: 'Titolo italiano' }] });
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(screen.getByText('Titre français')).toBeInTheDocument();
+    expect(screen.queryByText('Titolo italiano')).not.toBeInTheDocument();
   });
 });

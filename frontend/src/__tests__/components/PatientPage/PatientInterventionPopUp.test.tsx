@@ -420,5 +420,41 @@ describe('PatientInterventionPopUp Component', () => {
         Promise.resolve({ translatedText: text, detectedSourceLanguage: 'unknown' })
       );
     });
+
+    it('ignores a stale switch response when a newer switch was triggered first', async () => {
+      let resolveEn: (v: unknown) => void = () => {};
+      let resolveFr: (v: unknown) => void = () => {};
+      const enPromise = new Promise((res) => {
+        resolveEn = res;
+      });
+      const frPromise = new Promise((res) => {
+        resolveFr = res;
+      });
+
+      (apiClient.get as jest.Mock).mockImplementation(
+        (url: string, config: { params?: { lang?: string } }) => {
+          if (config?.params?.lang === 'en') return enPromise;
+          if (config?.params?.lang === 'fr') return frPromise;
+          return Promise.resolve({ data: [] });
+        }
+      );
+
+      render(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+
+      // click EN, then FR before EN's (slower) request resolves
+      fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+      fireEvent.click(screen.getByRole('button', { name: 'FR' }));
+
+      // FR (the newer click) resolves first
+      resolveFr({ data: [{ ...langItem, language: 'fr', title: 'Titre français' }] });
+      await waitFor(() => expect(screen.getByText('Titre français')).toBeInTheDocument());
+
+      // EN (the stale, older click) resolves after — it must not overwrite FR
+      resolveEn({ data: [{ ...langItem, language: 'en', title: 'English Title' }] });
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(screen.getByText('Titre français')).toBeInTheDocument();
+      expect(screen.queryByText('English Title')).not.toBeInTheDocument();
+    });
   });
 });

@@ -1,5 +1,5 @@
 // components/TherapistInterventionPage/ProductPopup.tsx
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Col,
   Modal,
@@ -124,6 +124,9 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
   // true once the therapist has actively picked a language via the toggle
   const [langManuallySelected, setLangManuallySelected] = useState(false);
+
+  // guards against a slower, older switch response overwriting a newer one
+  const switchRequestIdRef = useRef(0);
 
   const effectiveItem: InterventionLike | null = useMemo(() => {
     const base = isRecord(item) ? (item as InterventionLike) : null;
@@ -259,12 +262,17 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
       if (!ext || !nextLang) return;
       if (nextLang === current) return;
 
+      const requestId = ++switchRequestIdRef.current;
+
       try {
         setLoadingLangs(true);
 
         const res = await apiClient.get('interventions/all/', {
           params: { external_id: ext, lang: nextLang },
         });
+
+        // a newer switch was triggered while this one was in flight — drop it
+        if (requestId !== switchRequestIdRef.current) return;
 
         const data = res.data;
         const arr = Array.isArray(data)
@@ -281,7 +289,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
       } catch {
         // ignore
       } finally {
-        setLoadingLangs(false);
+        if (requestId === switchRequestIdRef.current) setLoadingLangs(false);
       }
     },
     [effectiveItem]
