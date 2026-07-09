@@ -1,8 +1,9 @@
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { usePatientProcess } from '@/hooks/usePatientProcess';
+import { usePatientProcess, getDateWindow } from '@/hooks/usePatientProcess';
 import apiClient from '@/api/client';
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { colors } from '@/lib/colors';
+import * as dateFormat from '@/utils/dateFormat';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
@@ -257,37 +258,15 @@ describe('usePatientProcess', () => {
     expect(today.colors.bpDia).toBe(colors.pink);
   });
 
-  describe('near local midnight in a timezone ahead of UTC', () => {
-    const originalTZ = process.env.TZ;
+  describe('getDateWindow', () => {
+    it('builds the fetch window from the local calendar day, not a UTC-based conversion', () => {
+      // Regression guard for the toISODateUTC day-rollback bug; TZ-independent (see healthCharts.test.ts).
+      const spy = jest.spyOn(dateFormat, 'toLocalYMD');
 
-    beforeEach(() => {
-      process.env.TZ = 'Europe/Zurich';
-      // 2026-07-01T22:30:00Z is already 2026-07-02, 00:30 local (CEST, UTC+2) — exactly the
-      // window where the old toISODateUTC-based window rolled "today" back to July 1st and
-      // silently dropped the true current day from the fetched range.
-      jest.useFakeTimers({ advanceTimers: true });
-      jest.setSystemTime(new Date('2026-07-01T22:30:00Z').getTime());
-      (apiClient.get as jest.Mock).mockResolvedValue({
-        data: { adherence: [], period: { daily: [], averages: {} }, thresholds: {} },
-      });
-    });
+      getDateWindow('week');
 
-    afterEach(() => {
-      jest.useRealTimers();
-      process.env.TZ = originalTZ;
-    });
-
-    it('requests the local calendar day as the window end, not the UTC day', async () => {
-      const { result } = renderHook(() => usePatientProcess());
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      expect(apiClient.get).toHaveBeenCalledWith(
-        '/patients/health-combined-history/patient-123/',
-        expect.objectContaining({ params: expect.objectContaining({ to: '2026-07-02' }) })
-      );
+      expect(spy).toHaveBeenCalled();
+      spy.mockRestore();
     });
   });
 

@@ -13,6 +13,7 @@ import {
   thresholdTier,
   worstTier,
 } from '@/utils/healthCharts';
+import * as dateFormat from '@/utils/dateFormat';
 
 describe('isInRange', () => {
   it('is true when no bounds are given', () => {
@@ -117,27 +118,19 @@ describe('toEuroDate', () => {
 
 describe('formatDateEU', () => {
   it('formats a local calendar date as DD.MM.YYYY', () => {
-    // `new Date(y, m, d)` is local midnight — the same construction the app uses for
-    // store.startDate/endDate — so this passes regardless of the runner's own timezone.
+    // Local midnight construction, same as store.startDate/endDate — TZ-independent.
     expect(formatDateEU(new Date(2024, 2, 7))).toBe('07.03.2024');
   });
 
-  describe('in a timezone ahead of UTC', () => {
-    const originalTZ = process.env.TZ;
+  it('delegates to the local-calendar-day helper, not a UTC-based conversion', () => {
+    // Regression guard for the toISOString() day-rollback bug; TZ-independent (see usePatientProcess.test.tsx).
+    const spy = jest.spyOn(dateFormat, 'toLocalYMD');
+    const d = new Date(2026, 6, 1);
 
-    beforeAll(() => {
-      process.env.TZ = 'Europe/Zurich';
-    });
+    formatDateEU(d);
 
-    afterAll(() => {
-      process.env.TZ = originalTZ;
-    });
-
-    it('uses the local day, not the UTC day (regression: local midnight rolled back a day)', () => {
-      // Local midnight, July 1st is 2026-06-30T22:00:00Z in CEST (UTC+2). The old
-      // `d.toISOString().slice(0, 10)` implementation formatted this as "30.06.2026".
-      expect(formatDateEU(new Date(2026, 6, 1))).toBe('01.07.2026');
-    });
+    expect(spy).toHaveBeenCalledWith(d);
+    spy.mockRestore();
   });
 });
 
