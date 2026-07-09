@@ -122,13 +122,19 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
   // local override to switch variants without parent involvement
   const [localOverride, setLocalOverride] = useState<InterventionLike | null>(null);
 
+  // true once the therapist has actively picked a language via the toggle
+  const [langManuallySelected, setLangManuallySelected] = useState(false);
+
   const effectiveItem: InterventionLike | null = useMemo(() => {
     const base = isRecord(item) ? (item as InterventionLike) : null;
     return localOverride || base;
   }, [item, localOverride]);
 
   useEffect(() => {
-    if (!show) setLocalOverride(null);
+    if (!show) {
+      setLocalOverride(null);
+      setLangManuallySelected(false);
+    }
   }, [show]);
 
   // diagnoses list: kept as you had it (config fallback)
@@ -270,6 +276,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
         if (isRecord(next)) {
           setLocalOverride(next as InterventionLike);
+          setLangManuallySelected(true);
         }
       } catch {
         // ignore
@@ -286,6 +293,15 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
       if (!effectiveItem) {
         setTranslatedText('');
         setTranslatedTitle('');
+        setDetectedLang('');
+        setTitleLang('');
+        return;
+      }
+
+      // manually picked variant: show as-is, don't translate back to app language
+      if (langManuallySelected) {
+        setTranslatedText(String(effectiveItem.description || ''));
+        setTranslatedTitle(String(effectiveItem.title || ''));
         setDetectedLang('');
         setTitleLang('');
         return;
@@ -322,7 +338,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
     };
 
     if (show) void run();
-  }, [effectiveItem, show]);
+  }, [effectiveItem, show, langManuallySelected]);
 
   const refreshAssignments = useCallback(async () => {
     const interventionId = getId(effectiveItem);

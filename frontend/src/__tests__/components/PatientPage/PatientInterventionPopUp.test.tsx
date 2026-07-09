@@ -59,7 +59,15 @@ jest.mock('@/utils/interventions', () => ({
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
+// identity by default so existing assertions on raw text keep working
+jest.mock('@/utils/translate', () => ({
+  translateText: jest.fn((text: string) =>
+    Promise.resolve({ translatedText: text, detectedSourceLanguage: 'unknown' })
+  ),
+}));
+
 import { getMediaTypeLabelFromUrl } from '@/utils/interventions';
+import { translateText } from '@/utils/translate';
 import apiClient from '@/api/client';
 
 const defaultItem = {
@@ -373,6 +381,44 @@ describe('PatientInterventionPopUp Component', () => {
       await waitFor(() => {
         expect(screen.getByText('English Title')).toBeInTheDocument();
       });
+    });
+
+    it('shows a manually picked variant as-is instead of re-translating it to the app language', async () => {
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: `[translated] ${text}`, detectedSourceLanguage: 'de' })
+      );
+      (apiClient.get as jest.Mock).mockResolvedValue({
+        data: [
+          {
+            ...langItem,
+            language: 'en',
+            title: 'English Title',
+            description: 'English description',
+          },
+        ],
+      });
+
+      render(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+
+      // initial variant is translated to the app language (default behavior)
+      await waitFor(() =>
+        expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+
+      // the picked variant is shown verbatim, not re-translated back
+      await waitFor(() => expect(screen.getByText('English Title')).toBeInTheDocument());
+      expect(screen.getByText('English description')).toBeInTheDocument();
+      expect(screen.queryByText(/\[translated\] English Title/)).not.toBeInTheDocument();
+
+      expect(
+        (translateText as jest.Mock).mock.calls.some(([text]: [string]) => text === 'English Title')
+      ).toBe(false);
+
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: text, detectedSourceLanguage: 'unknown' })
+      );
     });
   });
 });
