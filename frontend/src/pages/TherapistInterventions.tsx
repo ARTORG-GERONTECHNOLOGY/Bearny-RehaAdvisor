@@ -292,12 +292,10 @@ const TherapistRecomendations: React.FC = observer(() => {
         return;
       }
 
-      const lang = (i18n.language || 'en').slice(0, 2);
-
       const pairs = await Promise.all(
         recommendations.map(async (rec) => {
           try {
-            const { translatedText, detectedSourceLanguage } = await translateText(rec.title, lang);
+            const { translatedText, detectedSourceLanguage } = await translateText(rec.title);
             return [
               rec._id,
               { title: translatedText || rec.title, lang: detectedSourceLanguage || null },
@@ -327,15 +325,12 @@ const TherapistRecomendations: React.FC = observer(() => {
 
     let cancelled = false;
     (async () => {
-      const lang = (i18n.language || 'en').slice(0, 2);
-
       const pairs = await Promise.all(
         missing.map(async (id) => {
           const it = templateItems.find((x) => x.intervention._id === id)!;
           try {
             const { translatedText, detectedSourceLanguage } = await translateText(
-              it.intervention.title,
-              lang
+              it.intervention.title
             );
             return [
               id,

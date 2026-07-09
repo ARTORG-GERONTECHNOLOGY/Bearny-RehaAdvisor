@@ -135,8 +135,8 @@ class PatientInterventionsStore {
           const title = String(row?.intervention_title || meta?.title || '');
           const desc = String(row?.description || meta?.description || '');
 
-          const t1 = await translateText(title, lang);
-          const t2 = await translateText(desc, lang);
+          const t1 = await translateText(title);
+          const t2 = await translateText(desc);
 
           return {
             intervention_id: String(row?.intervention_id || meta?._id || ''),
