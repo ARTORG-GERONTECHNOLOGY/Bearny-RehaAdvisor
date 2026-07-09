@@ -89,6 +89,23 @@ describe('useRoleAuthGate', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/unauthorized'));
   });
 
+  it('with no role given, allows any authenticated role through', async () => {
+    authStore.isAuthenticated = true;
+    authStore.userType = 'Researcher';
+    const { result } = renderHook(() => useRoleAuthGate(), { wrapper });
+    await waitFor(() => {
+      expect(result.current.isAllowed).toBe(true);
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('with no role given, still redirects an unauthenticated user', async () => {
+    authStore.isAuthenticated = false;
+    authStore.userType = '';
+    renderHook(() => useRoleAuthGate(), { wrapper });
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
+  });
+
   it('does not call setAuthChecked after unmount', async () => {
     let resolveAuth!: () => void;
     (authStore.checkAuthentication as jest.Mock).mockReturnValue(

@@ -10,6 +10,7 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import adminStore from '@/stores/adminStore';
 import authStore from '@/stores/authStore';
 import { AdminDashboardStore } from '@/stores/adminDashboardStore';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import apiClient from '@/api/client';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
@@ -26,6 +27,7 @@ type AccessModalState = {
 const AdminDashboard: React.FC = observer(() => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { isAllowed } = useRoleAuthGate('Admin', '/unauthorized');
 
   const store = useMemo(() => new AdminDashboardStore(), []);
 
@@ -373,12 +375,14 @@ const AdminDashboard: React.FC = observer(() => {
   };
 
   useEffect(() => {
-    store.init(navigate, t);
+    if (!isAllowed) return;
+
+    store.init(t);
     fetchChangeRequests();
     fetchInterventions();
     fetchQuestionnaires();
     fetchExportClinics();
-  }, [store, navigate, t]);
+  }, [isAllowed, store, t]);
 
   const getTherapistIdFromEntry = (entry: any) => {
     return entry.therapistId || entry.therapist_id || entry.therapist || '';

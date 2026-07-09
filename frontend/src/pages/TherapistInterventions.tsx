@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Container, Card, Form, Button, ButtonGroup, Spinner, Modal } from 'react-bootstrap';
 import { FaPlus, FaTrash, FaCopy, FaUpload, FaEdit, FaBell } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
@@ -90,7 +89,6 @@ const defaultTemplatesFilters: TemplatesFiltersState = {
 };
 
 const TherapistRecomendations: React.FC = observer(() => {
-  const navigate = useNavigate();
   const { i18n, t } = useTranslation();
 
   // ─────────────────────────── tabs ───────────────────────────

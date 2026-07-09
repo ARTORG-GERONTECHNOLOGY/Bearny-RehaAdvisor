@@ -138,15 +138,19 @@ describe('UserProfile page', () => {
     renderWithRouter(<UserProfile />);
 
     expect(authStoreMock.checkAuthentication).toHaveBeenCalledTimes(1);
-    expect(userProfileStoreMock.fetchProfile).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(userProfileStoreMock.fetchProfile).toHaveBeenCalledTimes(1);
+    });
   });
 
-  it('redirects to home if not authenticated', () => {
+  it('redirects to home if not authenticated', async () => {
     authStoreMock.isAuthenticated = false;
 
     renderWithRouter(<UserProfile />);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/');
+    });
     expect(userProfileStoreMock.fetchProfile).not.toHaveBeenCalled();
   });
 
