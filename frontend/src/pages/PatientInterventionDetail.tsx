@@ -242,11 +242,7 @@ const OneMedia: React.FC<{ m: InterventionMedia; idx: number }> = ({ m, idx }) =
           )}
         </div>
       ) : m.media_type === 'image' ? (
-        <img
-          src={playable}
-          alt={label}
-          className="w-full max-h-[420px] object-contain rounded-3xl"
-        />
+        <img src={playable} alt={label} className="w-full object-contain rounded-3xl" />
       ) : (
         <PlayableMedia
           m={{

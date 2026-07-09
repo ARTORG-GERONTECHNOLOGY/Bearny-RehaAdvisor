@@ -57,7 +57,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
     // language changes
     useEffect(() => {
       store.setUserLang(i18n.language || 'en');
-      store.translateVisibleItems(i18n.language || 'en');
+      store.translateVisibleItems();
     }, [i18n.language]);
 
     const refreshAfterScheduleChange = async () => {
@@ -66,7 +66,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
         store.patientData,
         store.allInterventions
       );
-      await store.translateVisibleItems(store.userLang);
+      await store.translateVisibleItems();
     };
 
     return (
@@ -92,7 +92,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                   selectedTab={store.selectedTab}
                   setSelectedTab={(tab) => {
                     store.setSelectedTab(tab);
-                    store.translateVisibleItems(store.userLang);
+                    store.translateVisibleItems();
                   }}
                   data={{
                     activeItems: store.activePatientItems,
