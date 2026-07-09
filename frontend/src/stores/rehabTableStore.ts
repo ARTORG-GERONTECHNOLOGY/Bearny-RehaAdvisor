@@ -432,7 +432,7 @@ export class RehabTableStore {
       this.loading = false;
     });
 
-    await this.translateVisibleItems(this.userLang);
+    await this.translateVisibleItems();
   }
 
   async dispose() {
@@ -570,7 +570,7 @@ export class RehabTableStore {
   // ---------------------------------------------------------------------------
   // Translations for left list (only the currently visible items)
   // ---------------------------------------------------------------------------
-  async translateVisibleItems(userLang: string) {
+  async translateVisibleItems() {
     const items: Intervention[] =
       this.selectedTab === 'patient'
         ? this.patientData?.interventions || []
@@ -724,7 +724,7 @@ export class RehabTableStore {
         runInAction(() => {
           this.patientData = this.mergePlanWithCatalog(this.patientData, this.allInterventions);
         });
-        await this.translateVisibleItems(this.userLang);
+        await this.translateVisibleItems();
       }
     } catch (err: unknown) {
       const msg = extractApiError(
