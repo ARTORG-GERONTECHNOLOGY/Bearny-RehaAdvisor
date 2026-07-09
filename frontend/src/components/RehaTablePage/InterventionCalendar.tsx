@@ -7,6 +7,14 @@ import { format, parse, startOfWeek, getDay } from 'date-fns';
 import type { Intervention } from '@/types';
 import StarRating, { getRatingFromDateEntry } from './StarRating';
 import { getDateFnsLocale, LOCALE_MAP } from '@/utils/dateLocale';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 type PatientPlan = { interventions: Intervention[] } & Record<string, any>;
@@ -151,28 +159,22 @@ const InterventionCalendar: React.FC<Props> = ({
 
       {view === Views.AGENDA && (
         <div className="overflow-y-auto max-h-full">
-          <table className="w-full border-collapse text-sm mt-2">
-            <thead>
-              {(() => {
-                const th =
-                  'px-3 py-2 text-left font-semibold bg-gray-50 border-b-2 border-gray-200 align-middle';
-                return (
-                  <tr>
-                    <th className={th}>{t('Date')}</th>
-                    <th className={th}>{t('Time')}</th>
-                    <th className={th}>{t('Event')}</th>
-                    <th className={th}>{t('Rating')}</th>
-                  </tr>
-                );
-              })()}
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('Date')}</TableHead>
+                <TableHead>{t('Time')}</TableHead>
+                <TableHead>{t('Event')}</TableHead>
+                <TableHead>{t('Rating')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {sortedEvents.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-gray-400">
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-zinc-500">
                     {t('No entries found.')}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
               {sortedEvents.map((ev) => {
                 const rating = getRatingFromDateEntry(ev.resource.dateEntry);
@@ -186,25 +188,29 @@ const InterventionCalendar: React.FC<Props> = ({
                         ? 'bg-yellow/5 text-yellow'
                         : '';
                 return (
-                  <tr
+                  <TableRow
                     key={ev.id}
-                    className={`cursor-pointer hover:bg-gray-500/5 ${rowBg}`}
+                    role="button"
+                    tabIndex={0}
+                    className={`cursor-pointer ${rowBg}`}
                     onClick={() => onSelectIntervention?.(ev.resource.intervention)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        onSelectIntervention?.(ev.resource.intervention);
+                      }
+                    }}
                   >
-                    <td className="px-3 py-2 border-b border-chartMuted align-middle">
+                    <TableCell>
                       {(() => {
                         const s = format(ev.start, 'EEE, dd.MM.yyyy', { locale: dateFnsLocale });
                         return s.charAt(0).toUpperCase() + s.slice(1);
                       })()}
-                    </td>
-                    <td className="px-3 py-2 border-b border-chartMuted align-middle whitespace-nowrap tabular-nums">
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap tabular-nums">
                       {format(ev.start, 'HH:mm')} – {format(ev.end, 'HH:mm')}
-                    </td>
-                    <td className="px-3 py-2 border-b border-chartMuted align-middle">
-                      {ev.title}
-                    </td>
-                    <td
-                      className="px-3 py-2 border-b border-chartMuted align-middle"
+                    </TableCell>
+                    <TableCell>{ev.title}</TableCell>
+                    <TableCell
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelectFeedback?.(
@@ -218,12 +224,12 @@ const InterventionCalendar: React.FC<Props> = ({
                       ) : (
                         <span className="text-chartMuted">—</span>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
