@@ -251,9 +251,9 @@ const TemplatesLayout: React.FC<Props> = ({
 
       <Col xs={12} md={8}>
         <Card className="h-100">
-          <CardHeader>
+          <CardContent className="p-4">
             <div className="min-vh-50 overflow-auto">{timeline}</div>
-          </CardHeader>
+          </CardContent>
         </Card>
       </Col>
     </Row>

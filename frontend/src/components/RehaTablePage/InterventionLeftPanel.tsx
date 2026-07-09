@@ -200,7 +200,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="p-3 pt-0">
-          <div onClick={(e) => e.stopPropagation()}>
+          <div onClick={(e) => e.stopPropagation()} className="text-right">
             <ButtonGroup size="sm">
               {/* Stats/Feedback only when assigned */}
               {assigned && (
