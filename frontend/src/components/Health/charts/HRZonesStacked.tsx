@@ -6,6 +6,7 @@ import type { ChartConfig } from '@/components/ui/chart';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
 import { averageNonNull, eachDateInRange, isInRange } from '@/utils/healthCharts';
+import { formatDurationMinutes } from '@/utils/dateFormat';
 
 type Props = {
   data: FitbitEntry[];
@@ -101,10 +102,7 @@ export const filterHRZonesInRange = (
 
 const formatHM = (min: number) => {
   if (!min || min <= 0) return '0m';
-  const total = Math.round(min);
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  return formatDurationMinutes(min);
 };
 
 // The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only

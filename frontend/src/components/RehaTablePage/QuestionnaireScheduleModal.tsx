@@ -6,9 +6,10 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
-import apiClient from '../../api/client';
-import authStore from '../../stores/authStore';
-import StandardModal from '../common/StandardModal';
+import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
+import StandardModal from '@/components/common/StandardModal';
+import { toISODateUTC } from '@/utils/dateFormat';
 
 type Mode = 'create' | 'modify';
 
@@ -231,7 +232,7 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
           patientId,
           questionnaireKey: key,
           questionnaireId: questionnaire._id,
-          ...(isModify ? { effectiveFrom: effectiveFrom?.toISOString().slice(0, 10) } : {}),
+          ...(isModify ? { effectiveFrom: effectiveFrom && toISODateUTC(effectiveFrom) } : {}),
           schedule: {
             interval,
             unit,

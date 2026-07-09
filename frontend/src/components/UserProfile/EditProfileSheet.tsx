@@ -19,6 +19,7 @@ import config from '@/config/config.json';
 import apiClient from '@/api/client';
 import userProfileStore from '@/stores/userProfileStore';
 import { isValidEmail, isValidPhone } from '@/utils/validation';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 import { UserType } from '@/types';
 import Card from '@/components/Card';
 import { FieldGroup } from '@/components/ui/field';
@@ -136,7 +137,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
     try {
       await userProfileStore.updateProfile(formData as any);
     } catch (err: any) {
-      setError(err?.response?.data?.error || err?.message || t('Update failed'));
+      setError(getApiErrorMessage(err, t('Update failed')));
     }
   };
 
@@ -186,7 +187,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
       );
       setHasPending(true);
     } catch (err: any) {
-      setReqError(err?.response?.data?.error || err?.message || t('Failed to submit request.'));
+      setReqError(getApiErrorMessage(err, t('Failed to submit request.')));
     } finally {
       setReqSubmitting(false);
     }

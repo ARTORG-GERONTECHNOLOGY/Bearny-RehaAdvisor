@@ -7,6 +7,7 @@ import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
 import { averageNonNull, eachDateInRange, isInRange, thresholdTier } from '@/utils/healthCharts';
 import type { ThresholdTier } from '@/utils/healthCharts';
+import { formatDurationMinutes } from '@/utils/dateFormat';
 
 type Props = {
   data: FitbitEntry[];
@@ -79,12 +80,7 @@ export const averageSleepMinutes = (
   return averageNonNull(filterSleepInRange(data, start, end).map((r) => r.minutesAsleep));
 };
 
-export const formatSleepDuration = (min: number) => {
-  const total = Math.round(min);
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-};
+export const formatSleepDuration = (min: number) => formatDurationMinutes(min);
 
 // sleep_start/sleep_end are naive local ISO timestamps (e.g. "2026-01-01T22:00:00.000") —
 // slicing avoids a timezone-shifting Date parse for what's just a clock-time display.

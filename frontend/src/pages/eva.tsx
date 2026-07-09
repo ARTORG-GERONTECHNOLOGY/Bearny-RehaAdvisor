@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { toISODateUTC } from '@/utils/dateFormat';
 
 /** ====== DATA ====== */
 const TEST_QUESTION = 'Testlauf Beispiel: Holzhacken';
@@ -203,7 +204,7 @@ export default function HealthSlider() {
 
   /** export CSV */
   const exportResults = (rows: [string, number][]) => {
-    const now = new Date().toISOString().split('T')[0];
+    const now = toISODateUTC(new Date());
     const fileName = `SUBJ_${patientId || 'Unbekannt'}-${VERSION.replace(/\W+/g, '_')}-Date_${now}.csv`;
     const csvRows = ['Frage,Prozent', ...rows.map(([q, a]) => `"${q}",${a}`)];
     const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });

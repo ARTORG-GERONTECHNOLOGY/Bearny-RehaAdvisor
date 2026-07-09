@@ -196,10 +196,12 @@ describe('TherapistPatientDetail Page', () => {
     expect(screen.getByText('Outcomes content for patient-123')).toBeInTheDocument();
   });
 
-  it('calls useTherapistPatientDetail with the patientId from the route', () => {
+  it('calls useTherapistPatientDetail with the patientId from the route once allowed', async () => {
     mockPatientId = 'patient-456';
     renderPage();
 
-    expect(mockUseTherapistPatientDetail).toHaveBeenCalledWith('patient-456');
+    await waitFor(() => {
+      expect(mockUseTherapistPatientDetail).toHaveBeenCalledWith('patient-456');
+    });
   });
 });

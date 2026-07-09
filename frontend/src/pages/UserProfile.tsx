@@ -15,6 +15,7 @@ import Section from '@/components/Section';
 
 import authStore from '@/stores/authStore';
 import userProfileStore from '@/stores/userProfileStore';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 
 import LogoutFill from '@/assets/icons/logout-fill.svg?react';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ import ChangePasswordSheet from '@/components/UserProfile/ChangePasswordSheet';
 const UserProfile: React.FC = observer(() => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { isAllowed } = useRoleAuthGate();
 
   // translate store banners at render-time (store keeps stable keys/messages)
   const errorBanner = useMemo(
@@ -35,15 +37,10 @@ const UserProfile: React.FC = observer(() => {
   );
 
   useEffect(() => {
-    authStore.checkAuthentication();
-
-    if (!authStore.isAuthenticated) {
-      navigate('/', { replace: true });
-      return;
-    }
+    if (!isAllowed) return;
 
     userProfileStore.fetchProfile();
-  }, [navigate, t]);
+  }, [isAllowed]);
 
   const handleLogout = async () => {
     await authStore.logout();

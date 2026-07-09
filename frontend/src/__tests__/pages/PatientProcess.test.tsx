@@ -1,32 +1,9 @@
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
-// ─── Router ──────────────────────────────────────────────────────────────────
-const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => ({
-  useNavigate: () => mockNavigate,
-}));
-
 // ─── date-fns ─────────────────────────────────────────────────────────────────
 jest.mock('date-fns', () => ({
   format: () => '01.05. - 07.05.',
-}));
-
-// ─── authStore ────────────────────────────────────────────────────────────────
-let mockIsAuthenticated = true;
-let mockUserType = 'Patient';
-
-jest.mock('@/stores/authStore', () => ({
-  __esModule: true,
-  default: {
-    checkAuthentication: jest.fn().mockResolvedValue(undefined),
-    get isAuthenticated() {
-      return mockIsAuthenticated;
-    },
-    get userType() {
-      return mockUserType;
-    },
-  },
 }));
 
 // ─── usePatientProcess hook ───────────────────────────────────────────────────
@@ -130,10 +107,7 @@ const renderPage = () => render(<PatientProcess />);
 
 beforeEach(() => {
   mockHookReturn = { ...baseHookReturn };
-  mockNavigate.mockClear();
   mockSetProcessFilter.mockClear();
-  mockIsAuthenticated = true;
-  mockUserType = 'Patient';
 });
 
 describe('PatientProcess', () => {
@@ -194,17 +168,5 @@ describe('PatientProcess', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('recommendations-card')).not.toBeInTheDocument();
     });
-  });
-
-  it('redirects unauthenticated users to /', async () => {
-    mockIsAuthenticated = false;
-    renderPage();
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
-  });
-
-  it('redirects non-Patient users to /', async () => {
-    mockUserType = 'Therapist';
-    renderPage();
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/'));
   });
 });

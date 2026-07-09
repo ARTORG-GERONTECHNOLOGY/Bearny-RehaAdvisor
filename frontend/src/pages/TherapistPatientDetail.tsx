@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import { Separator } from '@/components/ui/separator';
@@ -10,7 +9,7 @@ import { ChartColumn, Calendar, BookUser, FileQuestion, LucideIcon } from 'lucid
 import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import { useTherapistPatientDetail } from '@/hooks/useTherapistPatientDetail';
 import { TherapistPatientDetailLoadingContent } from '@/components/skeletons/TherapistPatientDetailSkeleton';
-import authStore from '@/stores/authStore';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import HealthPageContent from '@/components/Health/HealthPageContent';
 import RehabilitationPlanContent from '@/components/RehaTablePage/RehabilitationPlanContent';
 import QuestionnairesContent from '@/components/RehaTablePage/QuestionnairesContent';
@@ -54,27 +53,9 @@ const TherapistPatientDetail: React.FC = observer(() => {
   const navigate = useNavigate();
   const { patientId = '' } = useParams<{ patientId: string }>();
 
-  useEffect(() => {
-    let alive = true;
+  const { isAllowed } = useRoleAuthGate('Therapist');
 
-    const checkAuth = async () => {
-      await authStore.checkAuthentication();
-
-      if (!alive) return;
-
-      if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-        navigate('/');
-      }
-    };
-
-    checkAuth();
-
-    return () => {
-      alive = false;
-    };
-  }, [navigate]);
-
-  const { patient, loading, error } = useTherapistPatientDetail(patientId);
+  const { patient, loading, error } = useTherapistPatientDetail(isAllowed ? patientId : '');
   const fullName = patient ? `${patient.first_name || ''} ${patient.name || ''}`.trim() : '';
   const infoItems = [
     patient?.age,

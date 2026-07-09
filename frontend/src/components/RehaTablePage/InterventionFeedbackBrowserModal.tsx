@@ -3,8 +3,9 @@ import { Modal, Button, ButtonGroup, Badge, Form } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import ReactPlayer from 'react-player';
 import { FaFilter, FaVideo, FaCommentDots, FaMicrophone } from 'react-icons/fa';
-import { translateText } from '../../utils/translate';
-import { Intervention } from '../../types';
+import { translateText } from '@/utils/translate';
+import { Intervention } from '@/types';
+import { formatLocaleDateTime } from '@/utils/dateFormat';
 
 type Answer = { key: string; translations: { language: string; text: string }[] };
 type Question = { id?: string; translations: { language: string; text: string }[] };
@@ -179,7 +180,7 @@ const InterventionFeedbackBrowserModal: React.FC<Props> = ({
                     key={e.datetime + i}
                     className={`w-100 text-start btn ${active ? 'btn-primary' : 'btn-outline-secondary'} mb-2`}
                     onClick={() => setSelectedIndex(i)}
-                    title={new Date(e.datetime).toLocaleString()}
+                    title={formatLocaleDateTime(e.datetime)}
                   >
                     <div className="d-flex align-items-center justify-content-between">
                       <div>

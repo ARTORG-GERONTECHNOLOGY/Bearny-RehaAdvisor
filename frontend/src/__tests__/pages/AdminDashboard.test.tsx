@@ -29,18 +29,10 @@ jest.mock('@/stores/adminDashboardStore', () => {
       this.error = null;
       this.showDeclineConfirm = false;
       this.declineEntryId = null;
-      this.init = jest.fn(async (navigate: any) => {
+      this.init = jest.fn(async () => {
         // Do not set this.loading — it's a plain property, not React state,
         // so changes won't trigger re-renders and will leave the component
         // stuck showing a spinner.
-        const authStore = jest.requireMock('@/stores/authStore').default;
-        await authStore.checkAuthentication();
-
-        if (!authStore.isAuthenticated || authStore.userType !== 'Admin') {
-          navigate('/unauthorized');
-          return;
-        }
-
         const adminStore = jest.requireMock('@/stores/adminStore').default;
         await adminStore.fetchPendingEntries();
       });

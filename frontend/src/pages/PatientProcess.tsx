@@ -1,14 +1,12 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import Section from '@/components/Section';
 import { Badge } from '@/components/ui/badge';
 import type { ChartConfig } from '@/components/ui/chart';
 import { format } from 'date-fns';
-import authStore from '@/stores/authStore';
 import RecommendationsCard from '@/components/PatientProcess/RecommendationsCard';
 import MetricBarCard from '@/components/PatientProcess/MetricBarCard';
 import BloodPressureCard from '@/components/PatientProcess/BloodPressureCard';
@@ -28,7 +26,6 @@ const THRESHOLD_LINE_PROPS: {
 
 const PatientProcess: React.FC = observer(() => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
 
   const {
     processFilter,
@@ -95,25 +92,6 @@ const PatientProcess: React.FC = observer(() => {
       yMax: chartYMax.sleepMinutes,
     },
   ];
-
-  useEffect(() => {
-    let alive = true;
-
-    const checkAuth = async () => {
-      await authStore.checkAuthentication();
-
-      if (!alive) return;
-      if (!authStore.isAuthenticated || authStore.userType !== 'Patient') {
-        navigate('/');
-      }
-    };
-
-    checkAuth();
-
-    return () => {
-      alive = false;
-    };
-  }, [navigate]);
 
   if (!loading && error) {
     return (

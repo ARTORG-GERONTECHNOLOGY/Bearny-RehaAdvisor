@@ -4,6 +4,7 @@ import { Alert } from 'react-bootstrap';
 
 import apiClient from '@/api/client';
 import { extractApiError } from '@/stores/rehabTableStore';
+import { toISODateUTC } from '@/utils/dateFormat';
 
 import QuestionnairePanel from '@/components/RehaTablePage/QuestionnairePanel';
 import QuestionnaireScheduleModal from '@/components/RehaTablePage/QuestionnaireScheduleModal';
@@ -141,7 +142,7 @@ const QuestionnairesContent: React.FC<QuestionnairesContentProps> = ({ patientId
       setQMode('modify');
       setSelectedQ({ _id: q._id, key: q.key, title: q.title });
       setQDefaults({
-        effectiveFrom: new Date().toISOString().slice(0, 10),
+        effectiveFrom: toISODateUTC(new Date()),
         interval: assigned?.schedule?.interval ?? 1,
         unit: assigned?.schedule?.unit ?? 'month',
         selectedDays: assigned?.schedule?.selectedDays ?? [],

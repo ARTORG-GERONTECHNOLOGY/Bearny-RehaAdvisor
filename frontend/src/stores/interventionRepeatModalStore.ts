@@ -1,7 +1,8 @@
 import { makeAutoObservable } from 'mobx';
 import { t as i18nT } from 'i18next';
-import apiClient from '../api/client';
-import authStore from './authStore';
+import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
+import { toISODateUTC } from '@/utils/dateFormat';
 
 type Mode = 'create' | 'modify';
 
@@ -166,7 +167,7 @@ export class InterventionRepeatModalStore {
           therapistId: params.therapistId || authStore.id,
           patientId: params.patient,
           interventionId: intId,
-          effectiveFrom: this.effectiveFrom?.toISOString().slice(0, 10),
+          effectiveFrom: this.effectiveFrom && toISODateUTC(this.effectiveFrom),
           require_video_feedback: this.requireVideoFeedback,
           keep_current: this.keepCurrent,
           notes: this.personalNote ?? '',

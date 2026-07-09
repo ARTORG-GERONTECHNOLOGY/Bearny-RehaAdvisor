@@ -1,7 +1,8 @@
 // src/stores/templateStore.ts
 import { makeAutoObservable, runInAction } from 'mobx';
-import apiClient from '../api/client';
-import type { TemplateDoc } from '../types/templates';
+import apiClient from '@/api/client';
+import type { TemplateDoc } from '@/types/templates';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
 type Filters = {
   name?: string;
@@ -37,7 +38,7 @@ class TemplateStore {
       });
     } catch (e: any) {
       runInAction(() => {
-        this.error = e?.response?.data?.error || 'Failed to load templates.';
+        this.error = getApiErrorMessage(e, 'Failed to load templates.');
       });
     } finally {
       runInAction(() => {

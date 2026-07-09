@@ -13,6 +13,7 @@ import {
 import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTable';
 import type { FitbitEntry } from '@/types/health';
 import { averageNonNull, eachDateInRange, isInRange } from '@/utils/healthCharts';
+import { formatDurationMinutes } from '@/utils/dateFormat';
 
 type Props = {
   data: FitbitEntry[];
@@ -66,13 +67,6 @@ export const averageExerciseMinutes = (
   return averageNonNull(filterExerciseInRange(data, start, end).map((r) => r.total));
 };
 
-const formatHM = (min: number) => {
-  if (!min || min <= 0) return '0m';
-  const h = Math.floor(min / 60);
-  const m = Math.round(min % 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-};
-
 type SessionTooltipProps = {
   active?: boolean;
   label?: string;
@@ -98,7 +92,7 @@ const SessionTooltip: React.FC<SessionTooltipProps> = ({ active, label, payload 
               {String(entry.payload?.[`${entry.dataKey}Name`] ?? '')}
             </span>
             <span className="font-mono font-medium tabular-nums text-foreground">
-              {formatHM(entry.value ?? 0)}
+              {formatDurationMinutes(entry.value ?? 0)}
             </span>
           </div>
         ))}

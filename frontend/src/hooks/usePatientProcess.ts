@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { usePatientAuthGate } from '@/hooks/usePatientAuthGate';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import authStore from '@/stores/authStore';
 import { healthPageStore } from '@/stores/healthPageStore';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
 import { colors } from '@/lib/colors';
+import { toISODateUTC, formatDurationMinutes } from '@/utils/dateFormat';
 
 export type ProcessFilter = 'week' | 'month';
 export type BarMetricKey = 'steps' | 'activeMinutes' | 'sleepMinutes';
@@ -102,8 +103,6 @@ type ChartYMax = {
   bloodPressure: number;
 };
 
-const toISODate = (date: Date) => date.toISOString().slice(0, 10);
-
 const asNumberOrNull = (value: unknown) => {
   if (value == null) return null;
   const numericValue = Number(value);
@@ -115,13 +114,8 @@ const asPositiveNumberOrNull = (value: unknown) => {
   return numericValue !== null && numericValue > 0 ? numericValue : null;
 };
 
-const formatMinutesToHM = (minutes: number | null) => {
-  if (minutes === null) return null;
-  const totalMinutes = Math.max(0, Math.round(minutes));
-  const hours = Math.floor(totalMinutes / 60);
-  const remainingMinutes = totalMinutes % 60;
-  return `${hours}h ${remainingMinutes}min`;
-};
+const formatMinutesToHM = (minutes: number | null) =>
+  minutes === null ? null : formatDurationMinutes(minutes, 'min');
 
 const minColor = (value: number | null, green: number | null, yellow: number | null): string => {
   if (green === null || value === null) return colors.chartMuted;
@@ -144,11 +138,11 @@ export const getDateWindow = (filter: ProcessFilter) => {
   // Range is inclusive of both `from` and `to`, so subtract days - 1.
   from.setDate(to.getDate() - (days - 1));
 
-  return { from: toISODate(from), to: toISODate(to) };
+  return { from: toISODateUTC(from), to: toISODateUTC(to) };
 };
 
 export function usePatientProcess() {
-  const { isAllowed } = usePatientAuthGate();
+  const { isAllowed } = useRoleAuthGate('Patient');
 
   const [processFilter, setProcessFilter] = useState<ProcessFilter>('week');
   const [loading, setLoading] = useState(false);
@@ -157,7 +151,7 @@ export function usePatientProcess() {
   const [fitbitSummary, setFitbitSummary] = useState<FitbitSummaryResponse | null>(null);
   const [thresholds, setThresholds] = useState<ThresholdsResponse | null>(null);
 
-  const patientId = localStorage.getItem('id') || authStore.id || '';
+  const patientId = authStore.getStoredUserId();
 
   const { from, to } = useMemo(() => getDateWindow(processFilter), [processFilter]);
   const days = processFilter === 'week' ? 7 : 30;
@@ -266,7 +260,7 @@ export function usePatientProcess() {
     const cursor = new Date(start);
 
     while (cursor <= end) {
-      const dayKey = cursor.toISOString().slice(0, 10);
+      const dayKey = toISODateUTC(cursor);
       const metrics = byDay.get(dayKey);
       series.push({
         date: dayKey.slice(5),

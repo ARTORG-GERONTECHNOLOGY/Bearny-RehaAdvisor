@@ -19,6 +19,7 @@ import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import { useTranslation } from 'react-i18next';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import { Badge } from '@/components/ui/badge';
+import authStore from '@/stores/authStore';
 
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 
@@ -141,7 +142,7 @@ const FeedbackPopup: React.FC<Props> = ({
   const previewRef = useRef<HTMLVideoElement | null>(null);
   const timerRef = useRef<number | null>(null);
 
-  const userId = localStorage.getItem('id') || '';
+  const userId = authStore.getStoredUserId();
 
   const currentQuestion = normalizedQuestions[currentQuestionIndex];
 

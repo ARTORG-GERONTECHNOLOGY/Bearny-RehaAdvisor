@@ -2,8 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Alert, Button, Col, Form, Modal, Row, Spinner } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 
-import apiClient from '../../api/client';
-import authStore from '../../stores/authStore';
+import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
 type BuilderType = 'open-answer' | 'one-choice' | 'multiple-choice';
 
@@ -101,11 +102,7 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
       reset();
       onHide();
     } catch (e: any) {
-      const msg =
-        e?.response?.data?.error ||
-        e?.response?.data?.message ||
-        t('Failed to create questionnaire.');
-      setError(String(msg));
+      setError(getApiErrorMessage(e, t('Failed to create questionnaire.')));
     } finally {
       setSubmitting(false);
     }

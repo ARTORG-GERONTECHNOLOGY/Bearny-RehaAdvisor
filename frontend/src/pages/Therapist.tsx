@@ -18,7 +18,7 @@ import {
 } from '@/components/TherapistPatientPage/PatientStatusBadges';
 import Layout from '@/components/Layout';
 
-import authStore from '@/stores/authStore';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import config from '@/config/config.json';
 
 import { TherapistPatientsStore, SortKey, RedcapCandidate } from '@/stores/therapistPatientsStore';
@@ -76,14 +76,12 @@ const Therapist: React.FC = observer(() => {
   const store = useMemo(() => new TherapistPatientsStore(), []);
   const [colSortDir, setColSortDir] = useState<Record<string, 'asc' | 'desc'>>({});
 
+  const { isAllowed } = useRoleAuthGate('Therapist');
+
   useEffect(() => {
-    authStore.checkAuthentication();
-    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-      navigate('/');
-      return;
-    }
+    if (!isAllowed) return;
     store.fetchPatients(t);
-  }, [navigate, store, t]);
+  }, [isAllowed, store, t]);
 
   // re-fetch after closing add patient popup
   const handleCloseAdd = useCallback(async () => {

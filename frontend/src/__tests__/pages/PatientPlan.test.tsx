@@ -14,6 +14,9 @@ jest.mock('@/stores/authStore', () => ({
     isAuthenticated: true,
     userType: 'Patient',
     id: 'patient123',
+    getStoredUserId: jest.fn(function (this: { id: string }) {
+      return this.id || localStorage.getItem('id') || '';
+    }),
   },
 }));
 
@@ -248,10 +251,12 @@ describe('PatientPlan', () => {
   });
 
   describe('Store Initialization', () => {
-    it('fetches interventions on mount', () => {
+    it('fetches interventions on mount once the auth check resolves', async () => {
       render(<PatientPlan />);
 
-      expect(patientInterventionsStore.fetchPlan).toHaveBeenCalledWith('patient123', 'en');
+      await waitFor(() => {
+        expect(patientInterventionsStore.fetchPlan).toHaveBeenCalledWith('patient123', 'en');
+      });
     });
   });
 

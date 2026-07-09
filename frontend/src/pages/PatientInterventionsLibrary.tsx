@@ -8,7 +8,7 @@ import ErrorAlert from '@/components/common/ErrorAlert';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 
-import authStore from '@/stores/authStore';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
 
 import PatientLibraryFilterSheet from '@/components/PatientLibrary/PatientLibraryFilterSheet';
@@ -196,23 +196,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   );
 
   // ─────────────────────────── auth gate ───────────────────────────
-  const [authChecked, setAuthChecked] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        await authStore.checkAuthentication();
-      } finally {
-        if (mounted) setAuthChecked(true);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { isAllowed } = useRoleAuthGate('Patient');
 
   // ─────────────────────────── filters ───────────────────────────
   const initialFilters = useMemo(() => loadFilters(), []);
@@ -272,16 +256,11 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
   // ─────────────────────────── fetch list via store ───────────────────────────
   useEffect(() => {
-    if (!authChecked) return;
-
-    if (!authStore.isAuthenticated || authStore.userType !== 'Patient') {
-      navigate('/');
-      return;
-    }
+    if (!isAllowed) return;
 
     const lang = i18n.language.slice(0, 2);
     patientInterventionsLibraryStore.fetchAll({ mode: 'patient', lang });
-  }, [authChecked, authStore.isAuthenticated, authStore.userType, navigate, i18n.language]);
+  }, [isAllowed, i18n.language]);
 
   const sourceItems = patientInterventionsLibraryStore.visibleItemsForPatient;
   const storeError = patientInterventionsLibraryStore.error;

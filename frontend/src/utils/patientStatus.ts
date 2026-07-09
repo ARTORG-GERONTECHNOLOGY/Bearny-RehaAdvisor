@@ -1,5 +1,6 @@
 // src/utils/patientStatus.ts
 import type { PatientType } from '@/types';
+import { formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
 
 export type Traffic = 'good' | 'warn' | 'bad' | 'unknown';
 
@@ -77,7 +78,7 @@ export const fmtDate = (iso?: string) => {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString();
+  return formatLocaleDate(d);
 };
 
 export const daysSince = (iso?: string) => {
@@ -92,7 +93,7 @@ export const fmtDateTime = (iso?: string) => {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString();
+  return formatLocaleDateTime(d);
 };
 
 export const chipClass = (level: Traffic) => {

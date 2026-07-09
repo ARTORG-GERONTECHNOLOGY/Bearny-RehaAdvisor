@@ -20,7 +20,7 @@ export const normalizeDayKey = (d: string | Date): string => {
 export const useInterventions = (date: Date) => {
   const { i18n } = useTranslation();
   const [busyKey, setBusyKey] = useState<string | null>(null);
-  const patientId = localStorage.getItem('id') || authStore.id || '';
+  const patientId = authStore.getStoredUserId();
 
   // Get interventions for the specified date, deduplicated by external_id
   const interventions = useMemo(() => {

@@ -8,7 +8,8 @@ type ErrorMessageOptions = {
   forbidden?: string;
 };
 
-function extractBackendMessage(data: unknown): string {
+// Pulls the backend's own message out of a response body, or '' if there isn't one.
+export function extractBackendMessage(data: unknown): string {
   if (!data) return '';
   if (typeof data === 'string') {
     const trimmed = data.trim();
@@ -27,6 +28,15 @@ function extractBackendMessage(data: unknown): string {
   return '';
 }
 
+// Backend message, else err.message, else the given fallback — a plain error string.
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  const err = error as { message?: string; response?: { data?: unknown } };
+  const backendMessage = extractBackendMessage(err?.response?.data);
+  if (backendMessage) return backendMessage;
+  return err?.message || fallback;
+}
+
+// Backend message, else a friendly message picked by status code from options.
 export function getFriendlyApiErrorMessage(error: unknown, options: ErrorMessageOptions): string {
   const err = error as {
     code?: string;

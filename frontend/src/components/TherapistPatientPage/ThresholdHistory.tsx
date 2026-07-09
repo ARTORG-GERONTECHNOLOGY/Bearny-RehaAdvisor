@@ -9,6 +9,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { PatientThresholds, ThresholdHistoryItem } from '@/stores/patientPopupStore';
+import { formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
 
 function formatThresholdSnapshot(th: Partial<PatientThresholds>, t: (k: string) => string): string {
   if (!th || Object.keys(th).length === 0) return '—';
@@ -63,7 +64,7 @@ const ThresholdHistory: React.FC<ThresholdHistoryProps> = ({ history }) => {
             className="hover:bg-zinc-100 rounded-lg cursor-pointer"
           >
             <div className="text-sm font-medium">
-              {h.effective_from ? new Date(h.effective_from).toLocaleDateString() : '—'}
+              {h.effective_from ? formatLocaleDate(h.effective_from) : '—'}
             </div>
             <div className="text-xs text-zinc-500">
               {t('Changed by')}: {h.changed_by || '—'}
@@ -81,7 +82,7 @@ const ThresholdHistory: React.FC<ThresholdHistoryProps> = ({ history }) => {
             <SheetTitle>{t('Previous values')}</SheetTitle>
             <SheetDescription>
               {historyEntry?.effective_from
-                ? new Date(historyEntry.effective_from).toLocaleString()
+                ? formatLocaleDateTime(historyEntry.effective_from)
                 : ''}
             </SheetDescription>
           </SheetHeader>

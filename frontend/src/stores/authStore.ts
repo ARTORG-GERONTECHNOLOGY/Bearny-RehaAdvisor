@@ -2,11 +2,13 @@
 import axios from 'axios';
 import * as Sentry from '@sentry/react';
 import { makeAutoObservable, runInAction } from 'mobx';
-import apiClient from '../api/client';
+import apiClient from '@/api/client';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL as string;
 
-type UserType = 'Admin' | 'Therapist' | 'Researcher' | 'Patient' | '';
+export type UserRole = 'Admin' | 'Therapist' | 'Researcher' | 'Patient';
+type UserType = UserRole | '';
 
 class AuthStore {
   // ───────────────────────────
@@ -119,7 +121,7 @@ class AuthStore {
   // ───────────────────────────
   // Helpers
   // ───────────────────────────
-  private _getStoredUserId() {
+  getStoredUserId() {
     return this.id || localStorage.getItem('id') || '';
   }
 
@@ -150,7 +152,7 @@ class AuthStore {
   // 🔥 Fetch profile from backend (and store in authStore)
   // ───────────────────────────
   async fetchAndStoreUserInfo(userId?: string) {
-    const id = userId || this._getStoredUserId();
+    const id = userId || this.getStoredUserId();
     if (!id) return;
 
     try {
@@ -224,7 +226,7 @@ class AuthStore {
       Sentry.logger.info('User logged in', { userId: this.id, userType: this.userType });
     } catch (err: any) {
       runInAction(() => {
-        this.setLoginError(err?.response?.data?.error || 'Login failed');
+        this.setLoginError(getApiErrorMessage(err, 'Login failed'));
         this.isAuthenticated = false;
         this.partialLogin = false;
       });
@@ -251,7 +253,7 @@ class AuthStore {
   // Logout
   // ───────────────────────────
   logout = async () => {
-    const userId = this._getStoredUserId();
+    const userId = this.getStoredUserId();
 
     try {
       if (userId) {

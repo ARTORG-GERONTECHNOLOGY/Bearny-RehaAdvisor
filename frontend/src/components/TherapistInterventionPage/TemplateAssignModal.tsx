@@ -1,9 +1,10 @@
 // components/TherapistInterventionPage/TemplateAssignModal.tsx
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
-import apiClient from '../../api/client';
-import authStore from '../../stores/authStore';
+import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
+import { toISODateUTC } from '@/utils/dateFormat';
 
 type Mode = 'create' | 'modify';
 
@@ -22,7 +23,7 @@ type Props = {
 
 type ErrorMap = Record<string, string>;
 type AutoApplyScope = 'off' | 'future' | 'all_past_and_future';
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () => toISODateUTC(new Date());
 
 const TemplateAssignModal: React.FC<Props> = ({
   show,

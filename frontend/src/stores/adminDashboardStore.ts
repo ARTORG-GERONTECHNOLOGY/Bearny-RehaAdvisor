@@ -1,6 +1,5 @@
 import { makeAutoObservable, runInAction } from 'mobx';
-import adminStore from './adminStore';
-import authStore from './authStore';
+import adminStore from '@/stores/adminStore';
 
 export class AdminDashboardStore {
   loading = true;
@@ -28,18 +27,11 @@ export class AdminDashboardStore {
     this.declineEntryId = null;
   }
 
-  async init(navigate: (path: string) => void, t: (key: string) => string) {
+  async init(t: (key: string) => string) {
     this.loading = true;
     this.error = null;
 
     try {
-      await authStore.checkAuthentication();
-
-      if (!authStore.isAuthenticated || authStore.userType !== 'Admin') {
-        navigate('/unauthorized');
-        return;
-      }
-
       await adminStore.fetchPendingEntries();
     } catch (err) {
       // eslint-disable-next-line no-console
