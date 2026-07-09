@@ -40,7 +40,7 @@ describe('translateText', () => {
       .mockResolvedValueOnce(makeJsonResponse([]))
       .mockResolvedValueOnce(makeJsonResponse({ translatedText: 'Hello' }));
 
-    const result = await translateText('Hallo');
+    const result = await translateText('Hallo, wie geht es dir?');
 
     expect(result.detectedSourceLanguage).toBe('unknown');
   });
@@ -50,16 +50,54 @@ describe('translateText', () => {
       .mockResolvedValueOnce(makeJsonResponse([{ language: 'de' }]))
       .mockResolvedValueOnce(makeJsonResponse(null, false));
 
-    const result = await translateText('Hallo');
+    const result = await translateText('Guten Tag');
 
-    expect(result).toEqual({ translatedText: 'Hallo', detectedSourceLanguage: 'error' });
+    expect(result).toEqual({ translatedText: 'Guten Tag', detectedSourceLanguage: 'error' });
   });
 
   it('returns original text with detectedSourceLanguage "error" when fetch throws', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-    const result = await translateText('Hallo');
+    const result = await translateText('Auf Wiedersehen');
 
-    expect(result).toEqual({ translatedText: 'Hallo', detectedSourceLanguage: 'error' });
+    expect(result).toEqual({ translatedText: 'Auf Wiedersehen', detectedSourceLanguage: 'error' });
+  });
+
+  it('caches results so repeated calls for the same text do not refetch', async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeJsonResponse([{ language: 'de' }]))
+      .mockResolvedValueOnce(makeJsonResponse({ translatedText: 'Good morning' }));
+
+    const first = await translateText('Guten Morgen');
+    const second = await translateText('Guten Morgen');
+
+    expect(first).toEqual(second);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('deduplicates concurrent calls for the same text into a single request', async () => {
+    let resolveDetect: (value: unknown) => void;
+    mockFetch.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveDetect = resolve;
+        })
+    );
+    mockFetch.mockResolvedValueOnce(makeJsonResponse({ translatedText: 'Good evening' }));
+
+    const call1 = translateText('Guten Abend');
+    const call2 = translateText('Guten Abend');
+
+    // Let the microtask queue drain so the (mocked) fetch call is actually made
+    // before we resolve it.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    resolveDetect!(makeJsonResponse([{ language: 'de' }]));
+
+    const [result1, result2] = await Promise.all([call1, call2]);
+
+    expect(result1).toEqual(result2);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });

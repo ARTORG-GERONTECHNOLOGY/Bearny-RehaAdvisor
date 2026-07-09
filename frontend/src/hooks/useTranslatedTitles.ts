@@ -1,7 +1,7 @@
 // src/pages/patient-library/hooks/useTranslatedTitles.ts
 import { useEffect, useState } from 'react';
-import { translateText } from '../utils/translate';
-import type { InterventionTypeTh } from '../types';
+import { translateText } from '@/utils/translate';
+import type { InterventionTypeTh } from '@/types';
 
 export type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -17,15 +17,10 @@ export function useTranslatedTitles(items: InterventionTypeTh[], lang: string) {
         return;
       }
 
-      const targetLang = (lang || 'en').slice(0, 2);
-
       const pairs = await Promise.all(
         items.map(async (rec) => {
           try {
-            const { translatedText, detectedSourceLanguage } = await translateText(
-              rec.title,
-              targetLang
-            );
+            const { translatedText, detectedSourceLanguage } = await translateText(rec.title);
             return [
               rec._id,
               { title: translatedText || rec.title, lang: detectedSourceLanguage || null },

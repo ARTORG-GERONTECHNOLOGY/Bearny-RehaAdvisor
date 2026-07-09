@@ -591,7 +591,7 @@ export class RehabTableStore {
         const title = rec.title;
 
         try {
-          const { translatedText, detectedSourceLanguage } = await translateText(title, userLang);
+          const { translatedText, detectedSourceLanguage } = await translateText(title);
           newTitles[id] = {
             title: translatedText || title,
             lang: detectedSourceLanguage || null,
@@ -608,7 +608,7 @@ export class RehabTableStore {
         const id = rec._id;
         const label = capitalize(getContentType(rec));
         try {
-          const { translatedText } = await translateText(label, userLang);
+          const { translatedText } = await translateText(label);
           newTypes[id] = translatedText || label;
         } catch {
           newTypes[id] = label;
