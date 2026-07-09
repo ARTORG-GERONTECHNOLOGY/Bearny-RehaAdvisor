@@ -4,7 +4,7 @@ import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { filterInterventions } from '@/utils/filterUtils';
 import { translateText } from '@/utils/translate';
-import { toISODateUTC } from '@/utils/dateFormat';
+import { toLocalYMD } from '@/utils/dateFormat';
 import config from '@/config/config.json';
 import type { Intervention } from '@/types';
 
@@ -698,7 +698,7 @@ export class RehabTableStore {
         : undefined;
 
     this.modifyDefaults = {
-      effectiveFrom: toISODateUTC(next ? next : new Date(Date.now() + 86400000)),
+      effectiveFrom: toLocalYMD(next ? next : new Date(Date.now() + 86400000)),
       frequency: typeof freqRaw === 'string' ? freqRaw : toStr(freqRaw),
       notes: typeof notesRaw === 'string' ? notesRaw : toStr(notesRaw),
       require_video_feedback: isTruthy(rvfRaw),
