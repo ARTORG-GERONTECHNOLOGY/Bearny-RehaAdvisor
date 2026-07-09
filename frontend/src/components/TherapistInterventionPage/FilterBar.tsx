@@ -116,11 +116,7 @@ const FilterBar: React.FC<Props> = ({
     (tagFilter?.length ? 1 : 0);
 
   const FiltersGrid = (
-    <div
-      className="filterbar-grid"
-      // ✅ prevent bubbling to any parent click handlers (common in cards/lists)
-      onClick={(e) => e.stopPropagation()}
-    >
+    <div className="filterbar-grid" onClick={(e) => e.stopPropagation()}>
       <Form.Group controlId="filterDiagnosis">
         <Form.Label visuallyHidden>{t('Filter by Primary Diagnosis')}</Form.Label>
         <Select

@@ -109,9 +109,6 @@ const TherapistRecomendations: React.FC = observer(() => {
   const [showPopupAdd, setShowPopupAdd] = useState(false);
 
   // ─────────────────────────── templates (defaults) ───────────────────────────
-  type TemplateLeftTab = 'my' | 'all';
-  const [templateLeftTab, setTemplateLeftTab] = useState<TemplateLeftTab>('my');
-
   const [templateDiag, setTemplateDiag] = useState<string>('');
   const [templateHorizon, setTemplateHorizon] = useState<number>(84);
   const [templateItems, setTemplateItems] = useState<TemplateItem[]>([]);
@@ -1063,9 +1060,6 @@ const TherapistRecomendations: React.FC = observer(() => {
 
             <TemplatesLayout
               t={t}
-              // sub-tab
-              templateLeftTab={templateLeftTab}
-              onTemplateLeftTab={setTemplateLeftTab}
               // my template list
               templateItems={templateItems}
               tLoading={tLoading}
