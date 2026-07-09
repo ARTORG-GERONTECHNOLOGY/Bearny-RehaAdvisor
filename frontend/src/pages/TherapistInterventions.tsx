@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Container, Card, Form, Button, ButtonGroup, Spinner, Modal } from 'react-bootstrap';
 import { FaPlus, FaTrash, FaCopy, FaUpload, FaEdit, FaBell } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
@@ -16,6 +15,7 @@ import TemplateAssignModal from '@/components/TherapistInterventionPage/Template
 import TemplateTimeline from '@/components/TherapistInterventionPage/TemplateTimeline';
 
 import authStore from '@/stores/authStore';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { therapistInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
 import templateStore from '@/stores/templateStore';
 import ApplyTemplateModal from '@/components/TherapistInterventionPage/ApplyTemplateModal';
@@ -26,6 +26,7 @@ import apiClient from '@/api/client';
 import { filterInterventions } from '@/utils/filterUtils';
 import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
 import { translateText } from '@/utils/translate';
+import { formatLocaleDate } from '@/utils/dateFormat';
 
 import type { TemplateItem, TemplatePayload } from '@/types/templates';
 import type { InterventionTypeTh } from '@/types';
@@ -88,7 +89,6 @@ const defaultTemplatesFilters: TemplatesFiltersState = {
 };
 
 const TherapistRecomendations: React.FC = observer(() => {
-  const navigate = useNavigate();
   const { i18n, t } = useTranslation();
 
   // ─────────────────────────── tabs ───────────────────────────
@@ -96,7 +96,7 @@ const TherapistRecomendations: React.FC = observer(() => {
   const [mainTab, setMainTab] = useState<MainTab>('library');
 
   // ─────────────────────────── auth gate ───────────────────────────
-  const [authChecked, setAuthChecked] = useState(false);
+  const { isAllowed } = useRoleAuthGate('Therapist');
 
   // ─────────────────────────── global ui state ───────────────────────────
   const [error, setError] = useState('');
@@ -266,35 +266,15 @@ const TherapistRecomendations: React.FC = observer(() => {
     });
   }, [recommendations, templatesFilters, translatedTitles, t]);
 
-  // ─────────────────────────── auth check ───────────────────────────
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        await authStore.checkAuthentication();
-      } finally {
-        if (mounted) setAuthChecked(true);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   // ─────────────────────────── load library via MobX store ───────────────────────────
   useEffect(() => {
-    if (!authChecked) return;
-
-    if (!authStore.isAuthenticated || authStore.userType !== 'Therapist') {
-      navigate('/');
-      return;
-    }
+    if (!isAllowed) return;
 
     therapistInterventionsLibraryStore.fetchAll({
       mode: 'therapist',
       lang: i18n.language.slice(0, 2),
     });
-  }, [authChecked, authStore.isAuthenticated, authStore.userType, navigate, i18n.language]);
+  }, [isAllowed, i18n.language]);
 
   // surface store errors in existing ErrorAlert
   useEffect(() => {
@@ -1026,8 +1006,7 @@ const TherapistRecomendations: React.FC = observer(() => {
                                 >
                                   <FaBell />
                                   <small>
-                                    {t('Updated')}: {new Date(diff.date).toLocaleDateString()} (
-                                    {totalChanges})
+                                    {t('Updated')}: {formatLocaleDate(diff.date)} ({totalChanges})
                                   </small>
                                   <small>{showDiff ? '▲' : '▼'}</small>
                                 </button>

@@ -65,8 +65,16 @@ describe('templateStore', () => {
       expect(templateStore.loading).toBe(false);
     });
 
-    it('falls back to default error message when response has no error field', async () => {
+    it('surfaces err.message when the response has no backend error field', async () => {
       (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+
+      await templateStore.fetchTemplates();
+
+      expect(templateStore.error).toBe('Network error');
+    });
+
+    it('falls back to the default error message when nothing else is available', async () => {
+      (apiClient.get as jest.Mock).mockRejectedValueOnce({});
 
       await templateStore.fetchTemplates();
 

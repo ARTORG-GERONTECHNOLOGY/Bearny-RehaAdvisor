@@ -2,6 +2,7 @@
 import { makeAutoObservable, reaction, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import { SessionCache } from '@/utils/sessionCache';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 import type { InterventionTypeTh } from '@/types';
 
 export type LibraryMode = 'patient' | 'therapist';
@@ -222,19 +223,7 @@ export class InterventionsLibraryStore {
         this.items = mode === 'patient' ? asTyped.filter((x) => !isPrivate(x)) : asTyped;
       });
     } catch (e: unknown) {
-      // axios-like error shape without `any`
-      const msg =
-        isRecord(e) && isRecord(e.response) && isRecord(e.response.data)
-          ? asString(
-              e.response.data.message ??
-                e.response.data.error ??
-                e.response.data.detail ??
-                e.message,
-              'Failed to fetch interventions.'
-            )
-          : isRecord(e)
-            ? asString(e.message, 'Failed to fetch interventions.')
-            : 'Failed to fetch interventions.';
+      const msg = getApiErrorMessage(e, 'Failed to fetch interventions.');
 
       runInAction(() => {
         this.error = msg;

@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import authStore from '@/stores/authStore';
 import apiClient from '@/api/client';
 import handleApiError from '@/utils/errorHandler';
+import { extractBackendMessage } from '@/utils/apiErrorMessages';
 import InputField from '@/components/forms/input/InputField';
 import OTPField from '@/components/forms/input/OTPField';
 import PasswordField from '@/components/forms/input/PasswordField';
@@ -106,7 +107,7 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
         setError(t('Verification failed. Please try again.'));
       }
     } catch (err: any) {
-      const backendMsg = err?.response?.data?.error || err?.response?.data?.detail;
+      const backendMsg = extractBackendMessage(err?.response?.data);
       setError(backendMsg ? t(backendMsg) : t('Verification failed. Please try again.'));
     }
   };

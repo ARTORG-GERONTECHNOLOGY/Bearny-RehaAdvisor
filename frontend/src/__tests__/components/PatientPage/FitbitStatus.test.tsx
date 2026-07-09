@@ -13,6 +13,9 @@ jest.mock('@/stores/authStore', () => ({
     get id() {
       return mockAuthId;
     },
+    getStoredUserId: jest.fn(function (this: { id: string }) {
+      return this.id || localStorage.getItem('id') || '';
+    }),
   },
 }));
 
@@ -34,6 +37,7 @@ describe('FitbitStatus', () => {
   });
 
   it('fetches status using localStorage patient id', async () => {
+    mockAuthId = '';
     localStorage.setItem('id', 'storage-patient-id');
     render(<FitbitConnectButton />);
 
@@ -63,6 +67,7 @@ describe('FitbitStatus', () => {
   });
 
   it('renders fitbit authorize link when disconnected', async () => {
+    mockAuthId = '';
     localStorage.setItem('id', 'patient-77');
     render(<FitbitConnectButton />);
 

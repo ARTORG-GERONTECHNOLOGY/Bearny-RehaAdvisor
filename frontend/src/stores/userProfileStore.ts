@@ -1,22 +1,9 @@
 // src/stores/userProfileStore.ts
 import { makeAutoObservable, runInAction } from 'mobx';
-import apiClient from '../api/client';
-import authStore from './authStore';
-import { UserType } from '../types';
-
-// ---- typed error helpers (no `any`) ----
-type ApiErrorResponse = {
-  data?: {
-    error?: string;
-    message?: string;
-    detail?: string;
-  };
-};
-
-type ApiErrorLike = {
-  response?: ApiErrorResponse;
-  message?: string;
-};
+import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
+import { UserType } from '@/types';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
 class UserProfileStore {
   showEditProfile = false;
@@ -162,14 +149,7 @@ class UserProfileStore {
         this.showChangePassword = false;
       });
     } catch (err: unknown) {
-      const e = err as ApiErrorLike;
-
-      const msg =
-        e?.response?.data?.error ||
-        e?.response?.data?.message ||
-        e?.response?.data?.detail ||
-        e?.message ||
-        'Update failed';
+      const msg = getApiErrorMessage(err, 'Update failed');
 
       runInAction(() => {
         this.setError(msg);

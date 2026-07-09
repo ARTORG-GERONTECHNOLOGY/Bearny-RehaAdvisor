@@ -32,6 +32,8 @@
 import React, { useState } from 'react';
 import { Button, Table, Spinner, Container, Row, Col, Form } from 'react-bootstrap';
 import { zipSync, strToU8 } from 'fflate';
+import { toISODateUTC, formatLocaleDateTime } from '@/utils/dateFormat';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 import axios from 'axios';
 import apiClient from '../api/client';
 
@@ -62,7 +64,7 @@ export default function DownloadsPage() {
       await axios.post('/api/healthslider/auth/', { password: authPassword, email: authEmail });
       setStep('code');
     } catch (e: any) {
-      setAuthError(e?.response?.data?.error || 'Authentication failed');
+      setAuthError(getApiErrorMessage(e, 'Authentication failed'));
     } finally {
       setAuthLoading(false);
     }
@@ -76,7 +78,7 @@ export default function DownloadsPage() {
       sessionStorage.setItem('healthslider_token', res.data.token);
       setHlsToken(res.data.token);
     } catch (e: any) {
-      setAuthError(e?.response?.data?.error || 'Invalid code');
+      setAuthError(getApiErrorMessage(e, 'Invalid code'));
     } finally {
       setAuthLoading(false);
     }
@@ -137,7 +139,7 @@ export default function DownloadsPage() {
     setLoading(true);
 
     const zipData: Record<string, Uint8Array> = {};
-    const dateStr = new Date().toISOString().split('T')[0];
+    const dateStr = toISODateUTC(new Date());
 
     const csvRows = [
       [
@@ -306,7 +308,7 @@ export default function DownloadsPage() {
               <td>
                 <div className="fw-semibold">{it.questionText}</div>
                 <small className="text-muted">
-                  {it.answeredAt ? new Date(it.answeredAt).toLocaleString('de-DE') : ''}
+                  {it.answeredAt ? formatLocaleDateTime(it.answeredAt) : ''}
                 </small>
               </td>
               <td className="text-center">

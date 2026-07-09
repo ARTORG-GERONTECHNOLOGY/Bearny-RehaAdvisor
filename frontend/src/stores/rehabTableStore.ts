@@ -1,11 +1,12 @@
 // src/stores/rehabTableStore.ts
 import { makeAutoObservable, runInAction } from 'mobx';
-import apiClient from '../api/client';
-import authStore from './authStore';
-import { filterInterventions } from '../utils/filterUtils';
-import { translateText } from '../utils/translate';
-import config from '../config/config.json';
-import type { Intervention } from '../types';
+import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
+import { filterInterventions } from '@/utils/filterUtils';
+import { translateText } from '@/utils/translate';
+import { toISODateUTC } from '@/utils/dateFormat';
+import config from '@/config/config.json';
+import type { Intervention } from '@/types';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 type TypeMap = Record<string, string>;
@@ -697,7 +698,7 @@ export class RehabTableStore {
         : undefined;
 
     this.modifyDefaults = {
-      effectiveFrom: (next ? next : new Date(Date.now() + 86400000)).toISOString().slice(0, 10),
+      effectiveFrom: toISODateUTC(next ? next : new Date(Date.now() + 86400000)),
       frequency: typeof freqRaw === 'string' ? freqRaw : toStr(freqRaw),
       notes: typeof notesRaw === 'string' ? notesRaw : toStr(notesRaw),
       require_video_feedback: isTruthy(rvfRaw),
