@@ -286,6 +286,8 @@ describe('PatientView', () => {
 
   it('uses patient id from localStorage when available', async () => {
     const fitbitStore = getFitbitStore();
+    const authStore = getAuthStore();
+    authStore.id = '';
     localStorage.setItem('id', 'patient-from-storage');
 
     render(<PatientView />);

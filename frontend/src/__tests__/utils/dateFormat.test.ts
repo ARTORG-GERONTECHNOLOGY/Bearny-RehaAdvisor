@@ -22,11 +22,22 @@ describe('toISODateUTC', () => {
     expect(toISODateUTC(new Date(Date.UTC(2024, 2, 7)))).toBe('2024-03-07');
   });
 
-  it('disagrees with toLocalYMD near a UTC day boundary in a positive-offset timezone', () => {
-    // 2024-03-07T23:30 UTC is already 2024-03-08 local in any timezone ahead of UTC (this
-    // test suite runs in Europe/Zurich) — this is exactly the discrepancy the two functions
-    // exist to keep separate; conflating them is the class of bug this pair guards against.
-    const d = new Date(Date.UTC(2024, 2, 7, 23, 30));
+  it('can disagree with toLocalYMD near a UTC day boundary when not running in UTC', () => {
+    const offset = new Date().getTimezoneOffset();
+
+    // In UTC, local and UTC calendar dates are identical.
+    if (offset === 0) {
+      const d = new Date(Date.UTC(2024, 2, 7, 12, 0));
+      expect(toLocalYMD(d)).toBe(toISODateUTC(d));
+      return;
+    }
+
+    // Pick a boundary time that will cross a local-day boundary in the current offset direction.
+    const d =
+      offset < 0
+        ? new Date(Date.UTC(2024, 2, 7, 23, 30)) // ahead of UTC => next local day
+        : new Date(Date.UTC(2024, 2, 7, 0, 30)); // behind UTC => previous local day
+
     expect(toISODateUTC(d)).toBe('2024-03-07');
     expect(toLocalYMD(d)).not.toBe(toISODateUTC(d));
   });
