@@ -167,6 +167,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
         className="cursor-pointer hover:shadow-md transition-shadow"
         onClick={() => handleExerciseClick(intervention)}
         onKeyDown={(e) => {
+          if (e.currentTarget !== e.target) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             handleExerciseClick(intervention);
@@ -306,7 +307,6 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
 
   const selectStyles: StylesConfig<{ value: string; label: string }, true> = {
     container: (base) => ({ ...base, width: '100%', minWidth: 0 }),
-    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
   };
 
   const renderFiltersBar = () => (
@@ -369,7 +369,6 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                 onChange={(opts) => setTagFilter((opts || []).map((opt: any) => opt.value))}
                 placeholder={t('Filter by Tags')}
                 styles={selectStyles}
-                menuPortalTarget={document.body}
               />
             </Form.Group>
 
@@ -385,7 +384,6 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                 onChange={(opts) => setBenefitForFilter((opts || []).map((opt: any) => opt.value))}
                 placeholder={t('Filter by Benefit')}
                 styles={selectStyles}
-                menuPortalTarget={document.body}
               />
             </Form.Group>
 
@@ -398,7 +396,6 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                 onChange={(opts) => setLanguageFilter((opts || []).map((opt: any) => opt.value))}
                 placeholder={t('Filter by Language')}
                 styles={selectStyles}
-                menuPortalTarget={document.body}
               />
             </Form.Group>
 

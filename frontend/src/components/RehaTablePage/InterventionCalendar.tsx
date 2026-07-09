@@ -196,6 +196,7 @@ const InterventionCalendar: React.FC<Props> = ({
                     onClick={() => onSelectIntervention?.(ev.resource.intervention)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
                         onSelectIntervention?.(ev.resource.intervention);
                       }
                     }}
