@@ -20,7 +20,7 @@
      <strong>Operator:</strong> ARTORG Center for Biomedical Engineering Research, University of Bern<br />
      <strong>Website:</strong> <a href="https://reha-advisor.ch">https://reha-advisor.ch</a><br />
      <strong>Effective Date:</strong> May 9, 2025<br />
-     <strong>Last Updated:</strong> June 16, 2026</p>
+     <strong>Last Updated:</strong> July 6, 2026</p>
 
   <p>This web application is operated for <strong>research and clinical telerehabilitation purposes</strong>. We are
   committed to protecting your privacy and ensuring transparency in how your data is used.</p>
@@ -64,42 +64,28 @@
   <p>We may update this policy as needed to reflect legal or methodological changes. Any updates will be posted
   within the application and on this page.</p>
 
-  <h4>7. Google Health &amp; Fitness API Data</h4>
-  <p>Bearny integrates with the <strong>Google Fit / Google Health REST API</strong> to collect wearable health
+  <h4>7. Google Health API Data</h4>
+  <p>Bearny integrates with the <strong>Google Health API</strong> to collect wearable health
   metrics for rehabilitation monitoring. This section explains how we handle data obtained through Google APIs.</p>
 
   <p><strong>Scopes requested and their purpose:</strong></p>
   <ul>
     <li>
-      <strong><code>https://www.googleapis.com/auth/fitness.activity.read</code></strong> —
-      Provides daily step count, walking distance, calories burned, and active minutes. Used to track whether the
-      patient is meeting their prescribed movement goals during rehabilitation.
+      <strong><code>https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly</code></strong> —
+      Provides daily step count, walking distance, calories burned, active minutes, exercise sessions, and heart
+      rate zone data. Used to track whether the patient is meeting their prescribed movement goals and exercising
+      at the correct intensity during rehabilitation.
     </li>
     <li>
-      <strong><code>https://www.googleapis.com/auth/fitness.heart_rate.read</code></strong> —
-      Provides resting heart rate and time spent in heart rate zones (fat-burn, cardio, peak). Used by the
-      physiotherapist to verify that the patient is exercising at the correct intensity as specified in their
-      rehabilitation plan.
+      <strong><code>https://www.googleapis.com/auth/googlehealth.sleep.readonly</code></strong> —
+      Provides sleep duration, sleep stages, time actually asleep, and number of awakenings. Sleep quality is a
+      key recovery indicator in post-surgical rehabilitation.
     </li>
     <li>
-      <strong><code>https://www.googleapis.com/auth/fitness.sleep.read</code></strong> —
-      Provides sleep duration, time actually asleep, and number of awakenings. Sleep quality is a key recovery
-      indicator in post-surgical rehabilitation.
-    </li>
-    <li>
-      <strong><code>https://www.googleapis.com/auth/fitness.body.read</code></strong> —
-      Provides body weight data. Tracked alongside other health metrics where clinically relevant to the patient's
-      rehabilitation outcome.
-    </li>
-    <li>
-      <strong><code>https://www.googleapis.com/auth/fitness.oxygen_saturation.read</code></strong> —
-      Provides blood oxygen saturation (SpO2). For patients recovering from cardiopulmonary conditions, SpO2 is an
-      important safety and recovery metric.
-    </li>
-    <li>
-      <strong><code>https://www.googleapis.com/auth/fitness.body_temperature.read</code></strong> —
-      Provides skin temperature data. Elevated temperature can be an early indicator of post-operative infection or
-      inflammation.
+      <strong><code>https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.readonly</code></strong> —
+      Provides resting heart rate, heart rate variability (HRV), and body weight. These metrics are used by the
+      physiotherapist to monitor cardiovascular recovery and track clinically relevant body composition changes
+      during rehabilitation.
     </li>
   </ul>
 
