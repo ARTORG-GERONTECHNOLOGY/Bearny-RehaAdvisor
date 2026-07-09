@@ -99,20 +99,6 @@ const InterventionCalendar: React.FC<Props> = ({
     return out;
   }, [patientData, titleMap]);
 
-  // legend content
-  const legend = useMemo(
-    () => (
-      <div className="rehaLegend">
-        <span className="rehaLegend__label">{t('Status')}:</span>
-        <span className="rehaLegend__item rehaLegend__item--completed">✓ {t('Completed')}</span>
-        <span className="rehaLegend__item rehaLegend__item--missed">✕ {t('Missed')}</span>
-        <span className="rehaLegend__item rehaLegend__item--today">● {t('today')}</span>
-        <span className="rehaLegend__item rehaLegend__item--upcoming">○ {t('Upcoming')}</span>
-      </div>
-    ),
-    [t]
-  );
-
   const eventPropGetter = (event: CalendarEvent) => {
     const status = event.resource?.status;
     if (status === 'completed') return { className: 'rehaEvent rehaEvent--completed' };
@@ -135,10 +121,6 @@ const InterventionCalendar: React.FC<Props> = ({
 
   return (
     <div className="rehaCalendar">
-      <div className="rehaCalendar__topbar">
-        <div className="rehaCalendar__legendWrap">{legend}</div>
-      </div>
-
       <div
         className={`rehaCalendar__body${view === Views.AGENDA ? ' rehaCalendar__body--agenda' : ''}`}
       >

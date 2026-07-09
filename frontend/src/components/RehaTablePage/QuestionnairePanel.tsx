@@ -1,12 +1,13 @@
 import React from 'react';
 import { Row, Col } from 'react-bootstrap';
 import { TFunction } from 'i18next';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import QuestionnaireAvailableCard from './QuestionnaireAvailableCard';
 import QuestionnaireAssignedCard from './QuestionnaireAssignedCard';
 import QuestionnaireDetailSheet from './QuestionnaireDetailSheet';
 import { FaPlus } from 'react-icons/fa';
+import { Badge } from '@/components/ui/badge';
 
 type QuestionTranslation = { language: string; text: string };
 
@@ -115,6 +116,9 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
           <Card>
             <CardHeader>
               <CardTitle>{t('Available questionnaires')}</CardTitle>
+              <CardAction>
+                <Badge variant="dashboard">{questionnaires.length}</Badge>
+              </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
               {questionnaires.length === 0 && (
@@ -138,6 +142,9 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
           <Card>
             <CardHeader>
               <CardTitle>{t('Assigned questionnaires')}</CardTitle>
+              <CardAction>
+                <Badge variant="dashboard">{assignedQuestionnaires.length}</Badge>
+              </CardAction>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
               {assignedQuestionnaires.length === 0 && (
