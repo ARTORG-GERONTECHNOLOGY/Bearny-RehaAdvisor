@@ -133,7 +133,7 @@ const TemplatesLayout: React.FC<Props> = ({
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-3">
             <CardTitle>{t('Browse All')}</CardTitle>
             <CardAction>
               <Badge variant="dashboard">{browseAllItems.length}</Badge>
@@ -155,7 +155,7 @@ const TemplatesLayout: React.FC<Props> = ({
               onReset={onResetFilters}
             />
 
-            <div className="p-2 mt-3 flex flex-col gap-2 max-h-[420px] overflow-y-auto">
+            <div className="mt-3 flex flex-col gap-2 max-h-[420px] overflow-y-auto">
               {browseAllItems.length === 0 && (
                 <div className="text-muted px-2">{t('No interventions match your filters.')}</div>
               )}

@@ -52,7 +52,7 @@ describe('usePatientProcess', () => {
   });
 
   it('fetches and computes process metrics for the weekly range', async () => {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = dateFormat.toLocalYMD(new Date());
 
     (apiClient.get as jest.Mock).mockImplementation((url: string) => {
       if (url.includes('/patients/health-combined-history/')) {
@@ -205,7 +205,7 @@ describe('usePatientProcess', () => {
   });
 
   it('assigns yellow and pink colors for values in and below the yellow threshold range', async () => {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = dateFormat.toLocalYMD(new Date());
 
     (apiClient.get as jest.Mock).mockImplementation((url: string) => {
       if (url.includes('/patients/health-combined-history/')) {

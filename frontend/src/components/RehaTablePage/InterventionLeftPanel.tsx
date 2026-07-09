@@ -310,7 +310,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
   };
 
   const renderFiltersBar = () => (
-    <div className="d-flex align-items-center gap-2">
+    <div className="flex items-center gap-2">
       <Form.Group controlId="searchInput" className="flex-grow-1">
         <Form.Control
           type="text"
@@ -458,19 +458,21 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-3">
           <CardTitle>{t('All interventions')}</CardTitle>
           <CardAction>
             <Badge variant="dashboard">{visibleItems.length}</Badge>
           </CardAction>
-          {renderFiltersBar()}
         </CardHeader>
-        <CardContent className="flex flex-col gap-2 h-96 overflow-auto">
-          {visibleItems.length === 0 ? (
-            <div className="text-zinc-500">{t('No interventions match the filters.')}</div>
-          ) : (
-            visibleItems.map((it: any) => renderInterventionCard(it, { inAllTab: true }))
-          )}
+        <CardContent>
+          {renderFiltersBar()}
+          <div className="mt-3 flex flex-col gap-2 h-96 overflow-auto" ref={listScrollRef}>
+            {visibleItems.length === 0 ? (
+              <div className="text-zinc-500">{t('No interventions match the filters.')}</div>
+            ) : (
+              visibleItems.map((it: any) => renderInterventionCard(it, { inAllTab: true }))
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
