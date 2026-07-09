@@ -257,6 +257,40 @@ describe('usePatientProcess', () => {
     expect(today.colors.bpDia).toBe(colors.pink);
   });
 
+  describe('near local midnight in a timezone ahead of UTC', () => {
+    const originalTZ = process.env.TZ;
+
+    beforeEach(() => {
+      process.env.TZ = 'Europe/Zurich';
+      // 2026-07-01T22:30:00Z is already 2026-07-02, 00:30 local (CEST, UTC+2) — exactly the
+      // window where the old toISODateUTC-based window rolled "today" back to July 1st and
+      // silently dropped the true current day from the fetched range.
+      jest.useFakeTimers({ advanceTimers: true });
+      jest.setSystemTime(new Date('2026-07-01T22:30:00Z').getTime());
+      (apiClient.get as jest.Mock).mockResolvedValue({
+        data: { adherence: [], period: { daily: [], averages: {} }, thresholds: {} },
+      });
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+      process.env.TZ = originalTZ;
+    });
+
+    it('requests the local calendar day as the window end, not the UTC day', async () => {
+      const { result } = renderHook(() => usePatientProcess());
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/patients/health-combined-history/patient-123/',
+        expect.objectContaining({ params: expect.objectContaining({ to: '2026-07-02' }) })
+      );
+    });
+  });
+
   it('surfaces backend error message on request failure', async () => {
     (apiClient.get as jest.Mock).mockRejectedValue({
       response: { data: { detail: 'Backend unavailable' } },

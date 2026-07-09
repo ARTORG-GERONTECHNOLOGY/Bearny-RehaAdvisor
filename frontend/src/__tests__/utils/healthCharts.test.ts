@@ -116,8 +116,28 @@ describe('toEuroDate', () => {
 });
 
 describe('formatDateEU', () => {
-  it('formats a Date as DD.MM.YYYY in UTC', () => {
-    expect(formatDateEU(new Date(Date.UTC(2024, 2, 7)))).toBe('07.03.2024');
+  it('formats a local calendar date as DD.MM.YYYY', () => {
+    // `new Date(y, m, d)` is local midnight — the same construction the app uses for
+    // store.startDate/endDate — so this passes regardless of the runner's own timezone.
+    expect(formatDateEU(new Date(2024, 2, 7))).toBe('07.03.2024');
+  });
+
+  describe('in a timezone ahead of UTC', () => {
+    const originalTZ = process.env.TZ;
+
+    beforeAll(() => {
+      process.env.TZ = 'Europe/Zurich';
+    });
+
+    afterAll(() => {
+      process.env.TZ = originalTZ;
+    });
+
+    it('uses the local day, not the UTC day (regression: local midnight rolled back a day)', () => {
+      // Local midnight, July 1st is 2026-06-30T22:00:00Z in CEST (UTC+2). The old
+      // `d.toISOString().slice(0, 10)` implementation formatted this as "30.06.2026".
+      expect(formatDateEU(new Date(2026, 6, 1))).toBe('01.07.2026');
+    });
   });
 });
 
