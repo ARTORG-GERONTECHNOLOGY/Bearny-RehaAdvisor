@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Col,
   Modal,
@@ -239,6 +239,12 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   const [localOverride, setLocalOverride] = useState<any | null>(null);
   const effectiveItem = localOverride || item;
 
+  // true once the patient has actively picked a language via the toggle
+  const [langManuallySelected, setLangManuallySelected] = useState(false);
+
+  // guards against a slower, older switch response overwriting a newer one
+  const switchRequestIdRef = useRef(0);
+
   const [translatedText, setTranslatedText] = useState('');
   const [translatedTitle, setTranslatedTitle] = useState('');
   const [detectedLang, setDetectedLang] = useState('');
@@ -257,7 +263,13 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
       setLocalOverride(null);
       setLangOptions([]);
       setError('');
+      setLangManuallySelected(false);
     }
+    // invalidate any in-flight language switch so its response can't land after
+    // close or unmount — runs on every show change and on unmount
+    return () => {
+      switchRequestIdRef.current += 1;
+    };
   }, [show]);
 
   const preferredLang = useMemo(() => {
@@ -330,11 +342,16 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
       const externalId = norm(effectiveItem?.external_id);
       if (!externalId) return;
 
+      const requestId = ++switchRequestIdRef.current;
+
       try {
         setLoadingLangs(true);
         const res = await apiClient.get('interventions/all/', {
           params: { external_id: externalId, lang: nextLang },
         });
+
+        // a newer switch was triggered while this one was in flight — drop it
+        if (requestId !== switchRequestIdRef.current) return;
 
         const arr = Array.isArray(res.data)
           ? res.data
@@ -342,11 +359,14 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
             ? res.data.data
             : [];
         const next = arr?.[0];
-        if (next) setLocalOverride(next);
+        if (next) {
+          setLocalOverride(next);
+          setLangManuallySelected(true);
+        }
       } catch {
         // ignore
       } finally {
-        setLoadingLangs(false);
+        if (requestId === switchRequestIdRef.current) setLoadingLangs(false);
       }
     },
     [currentLang, effectiveItem?.external_id]
@@ -355,6 +375,15 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   // keep translations in sync with effectiveItem
   useEffect(() => {
     if (!show) return;
+
+    // manually picked variant: show as-is, don't translate back to app language
+    if (langManuallySelected) {
+      setTranslatedText(effectiveItem?.description || '');
+      setTranslatedTitle(effectiveItem?.title || effectiveItem?.intervention_title || '');
+      setDetectedLang('');
+      setTitleLang('');
+      return;
+    }
 
     const run = async () => {
       try {
@@ -386,7 +415,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
     };
 
     run();
-  }, [show, effectiveItem]);
+  }, [show, effectiveItem, langManuallySelected]);
 
   const effectiveMediaList: InterventionMedia[] = useMemo(
     () => getAllMedia(effectiveItem),
@@ -558,6 +587,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
     setError('');
     setLangOptions([]);
     setLocalOverride(null);
+    setLangManuallySelected(false);
     handleClose();
   }, [handleClose]);
 
