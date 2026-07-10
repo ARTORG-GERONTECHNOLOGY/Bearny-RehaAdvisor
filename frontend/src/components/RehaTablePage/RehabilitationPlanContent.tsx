@@ -1,31 +1,22 @@
 import React, { useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
-import { Alert, Col, Row, Spinner } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 
 import authStore from '@/stores/authStore';
 import { RehabTableStore } from '@/stores/rehabTableStore';
 
 import InterventionLeftPanel from '@/components/RehaTablePage/InterventionLeftPanel';
 import InterventionCalendar from '@/components/RehaTablePage/InterventionCalendar';
-import RehaLeftPanelShell from '@/components/RehaTablePage/layout/RehaLeftPanelShell';
-import RehaCalendarPanelShell from '@/components/RehaTablePage/layout/RehaCalendarPanelShell';
 
 import PatientInterventionPopUp from '@/components/PatientPage/PatientInterventionPopUp';
 import InterventionRepeatModal from '@/components/RehaTablePage/InterventionRepeatModal';
 import InterventionStatsModal from '@/components/RehaTablePage/InterventionStatsModal';
 import InterventionFeedbackModal from '@/components/RehaTablePage/InterventionFeedbackModal';
 import '@/assets/styles/RehabTable.css';
-import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
-
-const safeT = (t: any, key: string, fallback: string) => {
-  try {
-    const v = typeof t === 'function' ? t(key, { defaultValue: fallback }) : fallback;
-    return typeof v === 'string' ? v : fallback;
-  } catch {
-    return fallback;
-  }
-};
+import { RehabilitationPlanContentLoadingSkeleton } from '@/components/skeletons/TherapistPatientDetailSkeleton';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 interface RehabilitationPlanContentProps {
   patientId: string;
@@ -70,95 +61,105 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
     };
 
     return (
-      <div className="rehaLayout">
+      <div>
         {store.error && (
           <Alert variant="danger" onClose={() => store.setError(null)} dismissible className="my-3">
             {store.error}
           </Alert>
         )}
 
-        <Row className="rehaGrid g-3">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
           {/* LEFT */}
-          <Col xs={12} lg={4} xl={3} className="rehaCol rehaCol--left">
-            <RehaLeftPanelShell>
-              {store.loading ? (
-                <div className="p-3 d-flex align-items-center gap-2">
-                  <Spinner animation="border" size="sm" />
-                  <span className="text-muted">{safeT(t, 'Loading', 'Loading')}…</span>
-                </div>
-              ) : (
-                <InterventionLeftPanel
-                  tagColors={generateTagColors(getTaxonomyTags())}
-                  selectedTab={store.selectedTab}
-                  setSelectedTab={(tab) => {
-                    store.setSelectedTab(tab);
-                    store.translateVisibleItems();
-                  }}
-                  data={{
-                    activeItems: store.activePatientItems,
-                    pastItems: store.pastPatientItems,
-                    visibleItems: store.filteredRecommendations,
-                    allItems: store.recommendations,
-                    titleMap: store.titleMap,
-                    typeMap: store.typeMap,
-                    diagnoses: store.diagnoses,
-                  }}
-                  filters={{
-                    searchTerm: store.searchTerm,
-                    setSearchTerm: store.setSearchTerm,
-                    patientTypeFilter: store.patientTypeFilter,
-                    setPatientTypeFilter: store.setPatientTypeFilter,
-                    contentTypeFilter: store.contentTypeFilter,
-                    setContentTypeFilter: store.setContentTypeFilter,
-                    tagFilter: store.tagFilter,
-                    setTagFilter: store.setTagFilter,
-                    benefitForFilter: store.benefitForFilter,
-                    setBenefitForFilter: store.setBenefitForFilter,
-                    languageFilter: store.languageFilter,
-                    setLanguageFilter: store.setLanguageFilter,
-                    resetAllFilters: store.resetAllFilters,
-                  }}
-                  actions={{
-                    handleExerciseClick: store.handleExerciseClick,
-                    showStats: store.showStats,
-                    openFeedbackBrowser: store.openFeedbackBrowser,
-                    handleModifyIntervention: store.openModifyIntervention,
-                    handleDeleteExercise: (id: string) => store.deleteExercise(id, t as any),
-                    handleAddIntervention: store.openAddIntervention,
-                  }}
-                  patientData={store.patientData as any}
-                  t={t as any}
-                />
-              )}
-            </RehaLeftPanelShell>
-          </Col>
+          <div className="col-span-1 lg:col-span-4 xl:col-span-3">
+            {store.loading ? (
+              <RehabilitationPlanContentLoadingSkeleton />
+            ) : (
+              <InterventionLeftPanel
+                data={{
+                  activeItems: store.activePatientItems,
+                  pastItems: store.pastPatientItems,
+                  visibleItems: store.filteredRecommendations,
+                  allItems: store.recommendations,
+                  titleMap: store.titleMap,
+                  typeMap: store.typeMap,
+                  diagnoses: store.diagnoses,
+                }}
+                filters={{
+                  searchTerm: store.searchTerm,
+                  setSearchTerm: store.setSearchTerm,
+                  patientTypeFilter: store.patientTypeFilter,
+                  setPatientTypeFilter: store.setPatientTypeFilter,
+                  contentTypeFilter: store.contentTypeFilter,
+                  setContentTypeFilter: store.setContentTypeFilter,
+                  tagFilter: store.tagFilter,
+                  setTagFilter: store.setTagFilter,
+                  benefitForFilter: store.benefitForFilter,
+                  setBenefitForFilter: store.setBenefitForFilter,
+                  languageFilter: store.languageFilter,
+                  setLanguageFilter: store.setLanguageFilter,
+                  resetAllFilters: store.resetAllFilters,
+                }}
+                actions={{
+                  handleExerciseClick: store.handleExerciseClick,
+                  showStats: store.showStats,
+                  openFeedbackBrowser: store.openFeedbackBrowser,
+                  handleModifyIntervention: store.openModifyIntervention,
+                  handleDeleteExercise: (id: string) => store.deleteExercise(id, t as any),
+                  handleAddIntervention: store.openAddIntervention,
+                }}
+                patientData={store.patientData as any}
+                t={t as any}
+              />
+            )}
+          </div>
 
           {/* RIGHT */}
-          <Col xs={12} lg={8} xl={9} className="rehaCol rehaCol--right">
-            <RehaCalendarPanelShell title={safeT(t, 'Reha Calendar', 'Reha Calendar')}>
-              <div className="rehaCalendarWrap">
+          <div className="col-span-1 lg:col-span-8 xl:col-span-9 flex flex-col">
+            <Card className="flex flex-col flex-1 min-h-0">
+              <CardHeader>
+                <CardTitle>{t('Reha Calendar')}</CardTitle>
+                <CardDescription className="flex flex-wrap items-center gap-1">
+                  {t('Status')}:
+                  <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
+                    {t('Completed')}
+                  </Badge>
+                  <Badge variant="dashboard" className="bg-pink/5 border-pink text-pink">
+                    {t('Missed')}
+                  </Badge>
+                  <Badge variant="dashboard" className="bg-yellow/5 border-yellow text-yellow">
+                    {t('today')}
+                  </Badge>
+                  <Badge
+                    variant="dashboard"
+                    className="bg-chartMuted/5 border-chartMuted text-zinc-500"
+                  >
+                    {t('Upcoming')}
+                  </Badge>
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="rehaCalendarWrap">
                 <InterventionCalendar
                   patientData={store.patientData as any}
                   titleMap={store.titleMap}
                   onSelectIntervention={store.handleExerciseClick}
                   onSelectFeedback={store.openFeedbackBrowser}
                 />
-              </div>
-            </RehaCalendarPanelShell>
-          </Col>
-        </Row>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
         {/* INFO POPUP */}
-        {store.showInfoInterventionModal && store.selectedExerciseFromPlan ? (
+        {store.showInfoInterventionModal && store.selectedExerciseFromPlan && (
           <PatientInterventionPopUp
             show
             item={store.selectedExerciseFromPlan as any}
             handleClose={store.closeInfoModal}
           />
-        ) : null}
+        )}
 
         {/* REPEAT MODAL */}
-        {store.showRepeatModal && store.selectedExerciseFromPlan ? (
+        {store.showRepeatModal && store.selectedExerciseFromPlan && (
           <InterventionRepeatModal
             show
             onHide={store.closeRepeatModal}
@@ -171,28 +172,27 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
               await refreshAfterScheduleChange();
             }}
           />
-        ) : null}
+        )}
 
         {/* STATS MODAL */}
-        {store.showExerciseStats && store.selectedExerciseFromPlan ? (
+        {store.showExerciseStats && store.selectedExerciseFromPlan && (
           <InterventionStatsModal
             show
             onHide={store.closeStatsModal}
             intervention={store.selectedExerciseFromPlan as any}
             patientData={store.patientData as any}
-            t={t as any}
           />
-        ) : null}
+        )}
 
         {/* FEEDBACK MODAL */}
-        {store.showFeedbackBrowser && store.feedbackBrowserIntervention ? (
+        {store.showFeedbackBrowser && store.feedbackBrowserIntervention && (
           <InterventionFeedbackModal
             show
             onHide={store.closeFeedbackBrowser}
             intervention={store.feedbackBrowserIntervention as any}
             initialDatetime={store.feedbackInitialDatetime ?? undefined}
           />
-        ) : null}
+        )}
       </div>
     );
   }

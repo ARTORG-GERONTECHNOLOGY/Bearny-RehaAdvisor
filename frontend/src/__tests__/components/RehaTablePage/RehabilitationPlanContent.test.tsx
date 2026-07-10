@@ -11,14 +11,6 @@ jest.mock('@/components/RehaTablePage/InterventionLeftPanel', () => () => (
 jest.mock('@/components/RehaTablePage/InterventionCalendar', () => () => (
   <div data-testid="intervention-calendar" />
 ));
-jest.mock('@/components/RehaTablePage/layout/RehaLeftPanelShell', () => ({
-  __esModule: true,
-  default: ({ children }: any) => <div>{children}</div>,
-}));
-jest.mock('@/components/RehaTablePage/layout/RehaCalendarPanelShell', () => ({
-  __esModule: true,
-  default: ({ children }: any) => <div>{children}</div>,
-}));
 jest.mock('@/components/PatientPage/PatientInterventionPopUp', () => () => null);
 jest.mock('@/components/RehaTablePage/InterventionRepeatModal', () => () => null);
 jest.mock('@/components/RehaTablePage/InterventionStatsModal', () => () => null);
@@ -33,7 +25,6 @@ const mockStore = {
   loading: false,
   error: null as string | null,
   topTab: 'interventions',
-  selectedTab: 'patient',
   patientData: { interventions: [] },
   allInterventions: [],
   recommendations: [],
@@ -65,7 +56,6 @@ const mockStore = {
   setUserLang: jest.fn(),
   translateVisibleItems: jest.fn().mockResolvedValue(undefined),
   applyAllFilters: jest.fn(),
-  setSelectedTab: jest.fn(),
   setSearchTerm: jest.fn(),
   setPatientTypeFilter: jest.fn(),
   setContentTypeFilter: jest.fn(),
