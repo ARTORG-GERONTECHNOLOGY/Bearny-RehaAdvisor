@@ -2607,12 +2607,8 @@ def reschedule_intervention_date(request):
     # ----------------------
     # Resolve Patient
     # ----------------------
-    try:
-        if isinstance(patient_id, str) and len(patient_id) == 24:
-            patient = Patient.objects.get(pk=ObjectId(patient_id))
-        else:
-            patient = Patient.objects.get(userId=ObjectId(patient_id))
-    except Patient.DoesNotExist:
+    patient = _resolve_patient_flexible(str(patient_id))
+    if not patient:
         return JsonResponse(
             {
                 "success": False,
