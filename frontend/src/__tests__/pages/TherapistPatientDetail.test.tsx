@@ -73,9 +73,9 @@ const mockPatient: PatientDetail = {
   diagnosis: ['Stroke', 'Parkinson'],
 };
 
-const renderPage = () =>
+const renderPage = (initialEntries: string[] = ['/']) =>
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <TherapistPatientDetail />
     </MemoryRouter>
   );
@@ -188,6 +188,19 @@ describe('TherapistPatientDetail Page', () => {
 
     expect(screen.getByTestId('questionnaires-content')).toBeInTheDocument();
     expect(screen.queryByTestId('outcomes-content')).not.toBeInTheDocument();
+  });
+
+  it('selects the tab from the ?tab= URL param on initial render', () => {
+    renderPage(['/?tab=questionnaires']);
+
+    expect(screen.getByTestId('questionnaires-content')).toBeInTheDocument();
+    expect(screen.queryByTestId('outcomes-content')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the outcomes tab when the ?tab= param is invalid', () => {
+    renderPage(['/?tab=not-a-real-tab']);
+
+    expect(screen.getByTestId('outcomes-content')).toBeInTheDocument();
   });
 
   it('passes the patientId from the route to the active tab content', () => {

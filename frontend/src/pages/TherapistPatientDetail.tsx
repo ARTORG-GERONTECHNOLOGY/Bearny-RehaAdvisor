@@ -54,8 +54,9 @@ const TherapistPatientDetail: React.FC = observer(() => {
   const { patientId = '' } = useParams<{ patientId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const activeTab = TABS.some((tab) => tab.value === searchParams.get('tab'))
-    ? (searchParams.get('tab') as string)
+  const tabParam = searchParams.get('tab');
+  const activeTab = TABS.some((tab) => tab.value === tabParam)
+    ? (tabParam as string)
     : TABS[0].value;
 
   const { isAllowed } = useRoleAuthGate('Therapist');
