@@ -49,7 +49,7 @@ describe('BloodPressureChart', () => {
   it('shows the empty state when all entries fall outside the date range', () => {
     const data = [makeEntry('2026-01-01', 120, 80)];
     render(
-      <BloodPressureChart data={data} start={new Date('2026-02-01')} end={new Date('2026-02-28')} />
+      <BloodPressureChart data={data} start={new Date(2026, 1, 1)} end={new Date(2026, 1, 28)} />
     );
     expect(screen.getByText('No blood pressure data')).toBeInTheDocument();
   });
@@ -63,7 +63,7 @@ describe('BloodPressureChart', () => {
   it('renders the chart when in-range data is present', () => {
     const data = [makeEntry('2026-01-01', 120, 80), makeEntry('2026-01-02', 130, 85)];
     const { container } = render(
-      <BloodPressureChart data={data} start={new Date('2026-01-01')} end={new Date('2026-01-31')} />
+      <BloodPressureChart data={data} start={new Date(2026, 0, 1)} end={new Date(2026, 0, 31)} />
     );
     expect(container.querySelector('svg')).toBeInTheDocument();
     expect(screen.queryByText('No blood pressure data')).not.toBeInTheDocument();
@@ -90,20 +90,38 @@ describe('filterBloodPressureInRange', () => {
     expect(filterBloodPressureInRange([])).toEqual([]);
   });
 
-  it('excludes entries outside the start/end range', () => {
+  it('excludes entries outside the start/end range, filling remaining days with null', () => {
     const data = [
       makeEntry('2026-01-01', 120, 80),
       makeEntry('2026-01-10', 130, 85),
       makeEntry('2026-01-20', 140, 90),
     ];
-    const rows = filterBloodPressureInRange(data, new Date('2026-01-05'), new Date('2026-01-15'));
-    expect(rows).toEqual([{ date: '2026-01-10', sys: 130, dia: 85 }]);
+    const rows = filterBloodPressureInRange(data, new Date(2026, 0, 9), new Date(2026, 0, 11));
+    expect(rows).toEqual([
+      { date: '2026-01-09', sys: null, dia: null },
+      { date: '2026-01-10', sys: 130, dia: 85 },
+      { date: '2026-01-11', sys: null, dia: null },
+    ]);
   });
 
-  it('excludes entries with no sys and no dia reading', () => {
+  it('fills in every day between start and end, even without a reading', () => {
+    const data = [makeEntry('2026-01-01', 120, 80), makeEntry('2026-01-03', 130, 85)];
+    const rows = filterBloodPressureInRange(data, new Date(2026, 0, 1), new Date(2026, 0, 4));
+    expect(rows).toEqual([
+      { date: '2026-01-01', sys: 120, dia: 80 },
+      { date: '2026-01-02', sys: null, dia: null },
+      { date: '2026-01-03', sys: 130, dia: 85 },
+      { date: '2026-01-04', sys: null, dia: null },
+    ]);
+  });
+
+  it('keeps a day with no sys/dia reading as nulls rather than dropping it', () => {
     const data = [makeEntry('2026-01-01', null, null), makeEntry('2026-01-02', 120, null)];
     const rows = filterBloodPressureInRange(data);
-    expect(rows).toEqual([{ date: '2026-01-02', sys: 120, dia: null }]);
+    expect(rows).toEqual([
+      { date: '2026-01-01', sys: null, dia: null },
+      { date: '2026-01-02', sys: 120, dia: null },
+    ]);
   });
 
   it('preserves a null dia value alongside a sys reading', () => {
@@ -133,7 +151,7 @@ describe('averageBloodPressure', () => {
       makeEntry('2026-01-10', 140, 90),
       makeEntry('2026-01-20', 140, 90),
     ];
-    const avg = averageBloodPressure(data, new Date('2026-01-05'), new Date('2026-01-31'));
+    const avg = averageBloodPressure(data, new Date(2026, 0, 5), new Date(2026, 0, 31));
     expect(avg).toEqual({ sys: 140, dia: 90 });
   });
 });
