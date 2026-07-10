@@ -2735,11 +2735,7 @@ def reschedule_intervention_date(request):
     # ----------------------
     # Collision check (exclude the slot being moved)
     # ----------------------
-    collides = any(
-        abs((d - new_dt_utc).total_seconds()) < 1
-        for i, d in enumerate(existing_utc)
-        if i != match_idx
-    )
+    collides = any(abs((d - new_dt_utc).total_seconds()) < 1 for i, d in enumerate(existing_utc) if i != match_idx)
     if collides:
         return JsonResponse(
             {

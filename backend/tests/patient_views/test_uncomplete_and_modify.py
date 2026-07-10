@@ -574,8 +574,7 @@ def test_reschedule_intervention_date_success(mongo_mock):
 
     updated_plan = RehabilitationPlan.objects(patientId=patient).first()
     updated_dates = [
-        d.replace(tzinfo=py_utc.utc) if d.tzinfo is None else d
-        for d in updated_plan.interventions[0].dates
+        d.replace(tzinfo=py_utc.utc) if d.tzinfo is None else d for d in updated_plan.interventions[0].dates
     ]
     old_dt_utc = old_dt.replace(tzinfo=py_utc.utc)
     assert not any(abs((d - old_dt_utc).total_seconds()) < 1 for d in updated_dates)
