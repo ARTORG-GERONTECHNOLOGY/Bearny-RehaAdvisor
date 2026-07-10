@@ -6,6 +6,7 @@ Endpoints covered
 -----------------
 ``POST /api/interventions/uncomplete/``   → ``unmark_intervention_completed``
 ``POST /api/interventions/modify-patient/`` → ``modify_intervention_from_date``
+``POST /api/interventions/reschedule-date/`` → ``reschedule_intervention_date``
 
 Coverage goals
 --------------
@@ -38,6 +39,7 @@ InterventionAssignment).  Each test gets a fresh isolated mongomock DB via the
 
 import json
 from datetime import datetime, timedelta
+from datetime import timezone as py_utc
 from unittest.mock import patch
 
 import mongomock
@@ -136,6 +138,7 @@ def setup_patient_with_plan():
 
 UNCOMPLETE_URL = "/api/interventions/uncomplete/"
 MODIFY_URL = "/api/interventions/modify-patient/"
+RESCHEDULE_URL = "/api/interventions/reschedule-date/"
 
 
 # ===========================================================================
@@ -529,3 +532,289 @@ def test_modify_intervention_from_date_internal_date_conversion_error(_, mongo_m
     )
     assert resp.status_code == 500
     assert "Internal date conversion error" in resp.json()["message"]
+
+
+# ===========================================================================
+# reschedule_intervention_date  —  POST /api/interventions/reschedule-date/
+# ===========================================================================
+
+
+def _as_utc_iso(naive_dt):
+    """Label a naive datetime as UTC, matching how ``_as_aware_utc`` treats
+    values already stored on ``InterventionAssignment.dates``."""
+    return naive_dt.replace(tzinfo=py_utc.utc).isoformat()
+
+
+def test_reschedule_intervention_date_success(mongo_mock):
+    """
+    Moving one of the seeded future dates to a new future datetime updates
+    only that single occurrence: the old value is gone, the new value is
+    present, and the other seeded dates are untouched.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    assignment = plan.interventions[0]
+    old_dt = assignment.dates[1]
+    new_dt = datetime.now(py_utc.utc) + timedelta(days=5)
+
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": _as_utc_iso(old_dt),
+                "newDatetime": new_dt.isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json().get("success") is True
+
+    updated_plan = RehabilitationPlan.objects(patientId=patient).first()
+    updated_dates = [
+        d.replace(tzinfo=py_utc.utc) if d.tzinfo is None else d
+        for d in updated_plan.interventions[0].dates
+    ]
+    old_dt_utc = old_dt.replace(tzinfo=py_utc.utc)
+    assert not any(abs((d - old_dt_utc).total_seconds()) < 1 for d in updated_dates)
+    assert any(abs((d - new_dt).total_seconds()) < 1 for d in updated_dates)
+    assert len(updated_dates) == 3
+
+
+def test_reschedule_intervention_date_success_with_naive_old_datetime(mongo_mock):
+    """
+    A naive ``oldDatetime`` (no offset, as the frontend actually sends) must
+    still match — it should be treated as UTC, not local time.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    assignment = plan.interventions[0]
+    old_dt = assignment.dates[1]
+    new_dt = datetime.now(py_utc.utc) + timedelta(days=5)
+
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": old_dt.isoformat(),  # naive — no offset suffix, like the real GET response
+                "newDatetime": new_dt.isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json().get("success") is True
+
+
+def test_reschedule_intervention_date_missing_fields(mongo_mock):
+    """
+    Empty body returns 400 with ``field_errors`` naming all four required
+    fields: ``patientId``, ``interventionId``, ``oldDatetime``, ``newDatetime``.
+    """
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps({}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    errors = resp.json().get("field_errors", {})
+    assert "patientId" in errors
+    assert "interventionId" in errors
+    assert "oldDatetime" in errors
+    assert "newDatetime" in errors
+
+
+def test_reschedule_intervention_date_patient_not_found(mongo_mock):
+    """Unknown patient ObjectId returns 404."""
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(ObjectId()),
+                "interventionId": str(ObjectId()),
+                "oldDatetime": datetime.now(py_utc.utc).isoformat(),
+                "newDatetime": (datetime.now(py_utc.utc) + timedelta(days=1)).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404
+
+
+def test_reschedule_intervention_date_no_rehab_plan(mongo_mock):
+    """Patient exists but has no rehabilitation plan yet returns 404."""
+    therapist_user = User(
+        username="th_resch_np",
+        email="th_resch_np@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    therapist = Therapist(userId=therapist_user, clinics=["Inselspital"]).save()
+    patient_user = User(
+        username="p_resch_np",
+        email="p_resch_np@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    patient = Patient(userId=patient_user, patient_code="PAT_RESCH_NP", therapist=therapist).save()
+
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(ObjectId()),
+                "oldDatetime": datetime.now(py_utc.utc).isoformat(),
+                "newDatetime": (datetime.now(py_utc.utc) + timedelta(days=1)).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404
+    assert "Rehabilitation plan not found" in resp.json()["message"]
+
+
+def test_reschedule_intervention_date_intervention_not_assigned(mongo_mock):
+    """Intervention not assigned to the patient returns 404."""
+    patient, _, _, _ = setup_patient_with_plan()
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(ObjectId()),
+                "oldDatetime": datetime.now(py_utc.utc).isoformat(),
+                "newDatetime": (datetime.now(py_utc.utc) + timedelta(days=1)).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404
+
+
+def test_reschedule_intervention_date_old_datetime_not_found(mongo_mock):
+    """
+    ``oldDatetime`` that doesn't match any entry in ``dates`` returns 404
+    with a descriptive message.
+    """
+    patient, _, intervention, _ = setup_patient_with_plan()
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": (datetime.now(py_utc.utc) + timedelta(days=100)).isoformat(),
+                "newDatetime": (datetime.now(py_utc.utc) + timedelta(days=101)).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404
+    assert "not found" in resp.json().get("message", "")
+
+
+def test_reschedule_intervention_date_collision(mongo_mock):
+    """
+    ``newDatetime`` colliding with another already-scheduled occurrence
+    returns 400 with a descriptive message instead of silently creating a
+    duplicate slot.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    assignment = plan.interventions[0]
+    old_dt = assignment.dates[0]
+    colliding_dt = assignment.dates[2]
+
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": _as_utc_iso(old_dt),
+                "newDatetime": _as_utc_iso(colliding_dt),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    assert "already exists" in resp.json().get("message", "")
+
+
+def test_reschedule_intervention_date_past_new_datetime(mongo_mock):
+    """``newDatetime`` in the past returns 400 with a descriptive message."""
+    patient, _, intervention, plan = setup_patient_with_plan()
+    old_dt = plan.interventions[0].dates[1]
+
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": _as_utc_iso(old_dt),
+                "newDatetime": (datetime.now(py_utc.utc) - timedelta(days=1)).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    assert "past" in resp.json().get("message", "")
+
+
+def test_reschedule_intervention_date_past_old_datetime(mongo_mock):
+    """
+    Attempting to move an occurrence that has already passed returns 400,
+    even though the requested ``newDatetime`` is valid — history stays
+    immutable via this endpoint (defense in depth; the frontend already
+    restricts dragging to upcoming/today events client-side).
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    assignment = plan.interventions[0]
+    past_dt = datetime.now() - timedelta(days=2)
+    assignment.dates[0] = past_dt
+    plan.save()
+
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": _as_utc_iso(past_dt),
+                "newDatetime": (datetime.now(py_utc.utc) + timedelta(days=1)).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    assert "past" in resp.json().get("message", "")
+
+
+def test_reschedule_intervention_date_get_method_not_allowed(mongo_mock):
+    """GET to the reschedule endpoint returns 405. Only POST is accepted."""
+    resp = client.get(RESCHEDULE_URL, HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 405
+
+
+def test_reschedule_intervention_date_invalid_json_body(mongo_mock):
+    resp = client.post(
+        RESCHEDULE_URL,
+        data="{bad",
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    assert "Invalid JSON body" in resp.json()["message"]

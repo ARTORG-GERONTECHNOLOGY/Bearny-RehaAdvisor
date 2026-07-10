@@ -129,6 +129,11 @@ urlpatterns = [
         name="modify_rehabilitation_plan",
     ),
     path(
+        "api/interventions/reschedule-date/",
+        patient_views.reschedule_intervention_date,
+        name="reschedule_rehabilitation_plan_intervention_date",
+    ),
+    path(
         "api/interventions/remove-from-patient/",
         patient_views.remove_intervention_from_patient,
         name="del_rehabilitation_plan_intervention",

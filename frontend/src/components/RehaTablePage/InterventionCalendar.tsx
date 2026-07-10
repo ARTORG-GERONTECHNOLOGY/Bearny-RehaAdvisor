@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar, dateFnsLocalizer, Views, type View } from 'react-big-calendar';
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 
 import type { Intervention } from '@/types';
@@ -54,11 +56,18 @@ const safeDate = (v: string): Date | null => {
 
 const addMinutes = (d: Date, minutes: number) => new Date(d.getTime() + minutes * 60_000);
 
+const DnDCalendar = withDragAndDrop(Calendar);
+
 interface Props {
   patientData: PatientPlan;
   titleMap?: TitleMap;
   onSelectIntervention?: (it: Intervention) => void;
   onSelectFeedback?: (it: Intervention, datetime?: string) => void;
+  onRescheduleEvent?: (
+    interventionId: string,
+    oldDatetime: string,
+    newStart: Date
+  ) => Promise<boolean> | void;
 }
 
 const InterventionCalendar: React.FC<Props> = ({
@@ -66,11 +75,16 @@ const InterventionCalendar: React.FC<Props> = ({
   titleMap = {},
   onSelectIntervention,
   onSelectFeedback,
+  onRescheduleEvent,
 }) => {
   const { t, i18n } = useTranslation();
   const dateFnsLocale = getDateFnsLocale(i18n.language);
   const [view, setView] = useState<View>(Views.AGENDA);
   const [date, setDate] = useState<Date>(new Date());
+  // Optimistic override for dropped event
+  const [pendingMove, setPendingMove] = useState<{ id: string; start: Date; end: Date } | null>(
+    null
+  );
 
   const events: CalendarEvent[] = useMemo(() => {
     const planItems = Array.isArray(patientData?.interventions) ? patientData.interventions : [];
@@ -107,6 +121,13 @@ const InterventionCalendar: React.FC<Props> = ({
     return out;
   }, [patientData, titleMap]);
 
+  const displayEvents = useMemo(() => {
+    if (!pendingMove) return events;
+    return events.map((ev) =>
+      ev.id === pendingMove.id ? { ...ev, start: pendingMove.start, end: pendingMove.end } : ev
+    );
+  }, [events, pendingMove]);
+
   // Colors mirror the status legend
   const eventPropGetter = (event: CalendarEvent) => {
     const status = event.resource?.status;
@@ -121,7 +142,7 @@ const InterventionCalendar: React.FC<Props> = ({
   // RBC today's cell/column highlight color
   const dayPropGetter = (day: Date) => {
     const isToday = day.toDateString() === new Date().toDateString();
-    return isToday ? { className: '!bg-yellow/5' } : {};
+    return isToday ? { className: '!bg-yellow/10' } : {};
   };
 
   const sortedEvents = useMemo(() => {
@@ -130,18 +151,18 @@ const InterventionCalendar: React.FC<Props> = ({
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + 30);
-    return [...events]
+    return [...displayEvents]
       .filter((ev) => ev.start >= start && ev.start < end)
       .sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [events, date]);
+  }, [displayEvents, date]);
 
   return (
     <div
       className={`rehaCalendar__body${view === Views.AGENDA ? ' rehaCalendar__body--agenda' : ''}`}
     >
-      <Calendar
+      <DnDCalendar
         localizer={localizer}
-        events={events}
+        events={displayEvents}
         startAccessor="start"
         endAccessor="end"
         view={view}
@@ -154,6 +175,28 @@ const InterventionCalendar: React.FC<Props> = ({
         dayPropGetter={dayPropGetter}
         onSelectEvent={(ev) => {
           if (onSelectIntervention) onSelectIntervention(ev.resource.intervention);
+        }}
+        draggableAccessor={(event: CalendarEvent) =>
+          event.resource?.status !== 'completed' && event.resource?.status !== 'missed'
+        }
+        resizable={false}
+        resizableAccessor={() => false}
+        onEventDrop={({ event, start }: { event: CalendarEvent; start: Date; end: Date }) => {
+          const status = event.resource?.status;
+          if (status === 'completed' || status === 'missed') return;
+
+          const durationMs = event.end.getTime() - event.start.getTime();
+          setPendingMove({ id: event.id, start, end: new Date(start.getTime() + durationMs) });
+
+          Promise.resolve(
+            onRescheduleEvent?.(
+              event.resource.interventionId,
+              event.resource.dateEntry.datetime,
+              start
+            )
+          ).then((ok) => {
+            if (ok === false) setPendingMove(null);
+          });
         }}
       />
 

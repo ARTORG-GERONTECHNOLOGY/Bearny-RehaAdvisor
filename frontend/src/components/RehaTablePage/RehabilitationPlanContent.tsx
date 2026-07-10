@@ -143,6 +143,14 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                   titleMap={store.titleMap}
                   onSelectIntervention={store.handleExerciseClick}
                   onSelectFeedback={store.openFeedbackBrowser}
+                  onRescheduleEvent={(interventionId, oldDatetime, newStart) =>
+                    store.rescheduleInterventionDate(
+                      interventionId,
+                      oldDatetime,
+                      newStart,
+                      t as any
+                    )
+                  }
                 />
               </CardContent>
             </Card>
