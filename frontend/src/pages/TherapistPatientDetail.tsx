@@ -4,7 +4,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ChartColumn, Calendar, BookUser, FileQuestion, LucideIcon } from 'lucide-react';
 import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import { useTherapistPatientDetail } from '@/hooks/useTherapistPatientDetail';
@@ -52,6 +52,12 @@ const TherapistPatientDetail: React.FC = observer(() => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { patientId = '' } = useParams<{ patientId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const tabParam = searchParams.get('tab');
+  const activeTab = TABS.some((tab) => tab.value === tabParam)
+    ? (tabParam as string)
+    : TABS[0].value;
 
   const { isAllowed } = useRoleAuthGate('Therapist');
 
@@ -88,7 +94,16 @@ const TherapistPatientDetail: React.FC = observer(() => {
 
       <Separator className="my-3" />
 
-      <Tabs defaultValue="outcomes">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) =>
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.set('tab', value);
+            return next;
+          })
+        }
+      >
         <TabsList>
           {TABS.map(({ value, icon: Icon, label }) => (
             <TabsTrigger key={value} value={value}>
