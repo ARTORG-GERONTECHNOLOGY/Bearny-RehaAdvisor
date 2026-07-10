@@ -2442,14 +2442,14 @@ def modify_intervention_from_date(request):
     # ----------------------
     try:
         existing_utc = [_as_aware_utc(d) for d in (target.dates or [])]
-    except Exception as e:
+    except Exception:
         logger.exception("[modify_intervention_from_date] Failed to convert existing UTC dates")
         return JsonResponse(
             {
                 "success": False,
                 "message": "Internal date conversion error.",
                 "field_errors": {},
-                "non_field_errors": [str(e)],
+                "non_field_errors": [],
             },
             status=500,
         )
@@ -2499,14 +2499,14 @@ def modify_intervention_from_date(request):
 
         new_local = _generate_dates_from(schedule, eff_dt_local, plan_end_local)
         new_utc = [dt.astimezone(datetime.timezone.utc) for dt in new_local]
-    except Exception as e:
+    except Exception:
         logger.exception("[modify_intervention_from_date] Schedule generation failed")
         return JsonResponse(
             {
                 "success": False,
                 "message": "Failed to generate new schedule.",
                 "field_errors": {"schedule": ["Schedule generation failed."]},
-                "non_field_errors": [str(e)],
+                "non_field_errors": [],
             },
             status=400,
         )
@@ -2693,14 +2693,14 @@ def reschedule_intervention_date(request):
     # ----------------------
     try:
         existing_utc = [_as_aware_utc(d) for d in (target.dates or [])]
-    except Exception as e:
+    except Exception:
         logger.exception("[reschedule_intervention_date] Failed to convert existing UTC dates")
         return JsonResponse(
             {
                 "success": False,
                 "message": "Internal date conversion error.",
                 "field_errors": {},
-                "non_field_errors": [str(e)],
+                "non_field_errors": [],
             },
             status=500,
         )
