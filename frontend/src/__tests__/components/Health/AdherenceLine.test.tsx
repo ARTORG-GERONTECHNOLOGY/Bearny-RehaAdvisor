@@ -48,16 +48,14 @@ describe('AdherenceLine', () => {
 
   it('shows the empty state when all entries fall outside the date range', () => {
     const data = [makeEntry('2026-01-01', 80)];
-    render(
-      <AdherenceLine data={data} start={new Date('2026-02-01')} end={new Date('2026-02-28')} />
-    );
+    render(<AdherenceLine data={data} start={new Date(2026, 1, 1)} end={new Date(2026, 1, 28)} />);
     expect(screen.getByText('No adherence data')).toBeInTheDocument();
   });
 
   it('renders the chart when in-range data is present', () => {
     const data = [makeEntry('2026-01-01', 50), makeEntry('2026-01-02', 100)];
     const { container } = render(
-      <AdherenceLine data={data} start={new Date('2026-01-01')} end={new Date('2026-01-31')} />
+      <AdherenceLine data={data} start={new Date(2026, 0, 1)} end={new Date(2026, 0, 31)} />
     );
     expect(container.querySelector('svg')).toBeInTheDocument();
     expect(screen.queryByText('No adherence data')).not.toBeInTheDocument();
@@ -78,7 +76,7 @@ describe('filterAdherenceInRange', () => {
 
   it('fills in every day between start and end, even without a reading', () => {
     const data = [makeEntry('2026-01-01', 50), makeEntry('2026-01-03', 80)];
-    const rows = filterAdherenceInRange(data, new Date('2026-01-01'), new Date('2026-01-04'));
+    const rows = filterAdherenceInRange(data, new Date(2026, 0, 1), new Date(2026, 0, 4));
     expect(rows).toEqual([
       { date: '2026-01-01', pct: 50 },
       { date: '2026-01-02', pct: null },
@@ -93,7 +91,7 @@ describe('filterAdherenceInRange', () => {
       makeEntry('2026-01-10', 80),
       makeEntry('2026-01-20', 90),
     ];
-    const rows = filterAdherenceInRange(data, new Date('2026-01-09'), new Date('2026-01-11'));
+    const rows = filterAdherenceInRange(data, new Date(2026, 0, 9), new Date(2026, 0, 11));
     expect(rows).toEqual([
       { date: '2026-01-09', pct: null },
       { date: '2026-01-10', pct: 80 },
@@ -124,6 +122,27 @@ describe('filterAdherenceInRange', () => {
     const rows = filterAdherenceInRange(data);
     expect(rows).toEqual([{ date: '2026-01-01', pct: null }]);
   });
+
+  it('nulls out future days even when the backend reports a 0% reading, without shrinking the axis', () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 6, 10).getTime());
+    const data = [
+      makeEntry('2026-07-09', 100),
+      makeEntry('2026-07-10', 50),
+      makeEntry('2026-07-11', 0),
+      makeEntry('2026-07-31', 0),
+    ];
+    const rows = filterAdherenceInRange(data, new Date(2026, 6, 1), new Date(2026, 6, 31));
+    // Full month is still represented on the axis...
+    expect(rows).toHaveLength(31);
+    expect(rows[0]).toEqual({ date: '2026-07-01', pct: null });
+    expect(rows[rows.length - 1]).toEqual({ date: '2026-07-31', pct: null });
+    // ...but only past/today values survive; future days are nulled out regardless
+    // of what the backend sent.
+    expect(rows.find((r) => r.date === '2026-07-09')).toEqual({ date: '2026-07-09', pct: 100 });
+    expect(rows.find((r) => r.date === '2026-07-10')).toEqual({ date: '2026-07-10', pct: 50 });
+    expect(rows.find((r) => r.date === '2026-07-11')).toEqual({ date: '2026-07-11', pct: null });
+    jest.useRealTimers();
+  });
 });
 
 describe('averageAdherencePct', () => {
@@ -151,7 +170,7 @@ describe('averageAdherencePct', () => {
       makeEntry('2026-01-10', 100),
       makeEntry('2026-01-20', 100),
     ];
-    const avg = averageAdherencePct(data, new Date('2026-01-05'), new Date('2026-01-31'));
+    const avg = averageAdherencePct(data, new Date(2026, 0, 5), new Date(2026, 0, 31));
     expect(avg).toBe(100);
   });
 });

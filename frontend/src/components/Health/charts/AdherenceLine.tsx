@@ -5,6 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { AdherenceEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
+import { toLocalYMD } from '@/utils/dateFormat';
 import { averageNonNull, buildDailyRows } from '@/utils/healthCharts';
 
 type Props = {
@@ -17,14 +18,19 @@ type AdherenceRow = { date: string; pct: number | null };
 
 const clampPct = (v: number) => Math.max(0, Math.min(100, v));
 
+// Adherence should only be displayed for days that have already happened
+const isFutureDate = (date: string): boolean => date > toLocalYMD(new Date());
+
 export const filterAdherenceInRange = (
   data: AdherenceEntry[],
   start?: Date | null,
   end?: Date | null
-): AdherenceRow[] =>
-  buildDailyRows(data, start, end, 'pct', (r) =>
+): AdherenceRow[] => {
+  const rows = buildDailyRows(data, start, end, 'pct', (r) =>
     Number.isFinite(r.pct) ? clampPct(r.pct as number) : null
   );
+  return rows.map((row) => (isFutureDate(row.date) ? { ...row, pct: null } : row));
+};
 
 export const averageAdherencePct = (
   data: AdherenceEntry[],

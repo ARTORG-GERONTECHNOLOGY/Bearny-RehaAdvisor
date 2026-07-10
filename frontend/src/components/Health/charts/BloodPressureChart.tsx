@@ -5,7 +5,13 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { averageNonNull, isInRange, thresholdTier, worstTier } from '@/utils/healthCharts';
+import {
+  averageNonNull,
+  eachDateInRange,
+  isInRange,
+  thresholdTier,
+  worstTier,
+} from '@/utils/healthCharts';
 import type { ThresholdTier } from '@/utils/healthCharts';
 
 type Props = {
@@ -26,17 +32,25 @@ const TIER_COLOR: Record<ThresholdTier, string> = {
 
 type BloodPressureRow = { date: string; sys: number | null; dia: number | null };
 
-// Filters fitbit entries with a systolic or diastolic reading to the visible date range.
+// Every calendar day in the visible range, with null sys/dia on days without a reading
 export const filterBloodPressureInRange = (
   data: FitbitEntry[],
   start?: Date | null,
   end?: Date | null
 ): BloodPressureRow[] => {
   const raw = Array.isArray(data) ? data : [];
+  const byDate = new Map(
+    raw
+      .filter((d) => isInRange(d.date, start, end))
+      .map((d) => [d.date, { sys: d.bp_sys ?? null, dia: d.bp_dia ?? null }])
+  );
 
-  return raw
-    .filter((d) => (d.bp_sys != null || d.bp_dia != null) && isInRange(d.date, start, end))
-    .map((d) => ({ date: d.date, sys: d.bp_sys ?? null, dia: d.bp_dia ?? null }));
+  const dates = start && end ? eachDateInRange(start, end) : [...byDate.keys()].sort();
+
+  return dates.map((date) => {
+    const entry = byDate.get(date);
+    return { date, sys: entry?.sys ?? null, dia: entry?.dia ?? null };
+  });
 };
 
 // Mean systolic/diastolic across the visible date range; either can be null if no readings.
@@ -79,6 +93,7 @@ const BloodPressureChart = forwardRef<HTMLDivElement, Props>(
       () => toBandRows(filterBloodPressureInRange(data, start, end)),
       [data, start, end]
     );
+    const hasReadings = useMemo(() => rows.some((r) => r.sys != null || r.dia != null), [rows]);
 
     // Worse of the systolic/diastolic tier for that day — a single reading out of range is
     // enough to flag the day, so the dot color reflects whichever metric is doing worse.
@@ -99,7 +114,7 @@ const BloodPressureChart = forwardRef<HTMLDivElement, Props>(
         return <circle key={`dot-${index}`} cx={cx} cy={cy} r={radius} fill={dotColor(payload)} />;
       };
 
-    if (!rows.length) {
+    if (!hasReadings) {
       return (
         <div
           ref={ref}
