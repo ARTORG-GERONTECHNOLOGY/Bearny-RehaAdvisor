@@ -325,6 +325,7 @@ const Therapist: React.FC = observer(() => {
                     onClick={() => handlePatientClick(mongoId)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
                         handlePatientClick(mongoId);
                       }
                     }}
@@ -400,6 +401,7 @@ const Therapist: React.FC = observer(() => {
                         onClick={() => handlePatientClick(mongoId)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
                             handlePatientClick(mongoId);
                           }
                         }}

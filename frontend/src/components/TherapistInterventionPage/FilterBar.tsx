@@ -116,11 +116,7 @@ const FilterBar: React.FC<Props> = ({
     (tagFilter?.length ? 1 : 0);
 
   const FiltersGrid = (
-    <div
-      className="filterbar-grid"
-      // ✅ prevent bubbling to any parent click handlers (common in cards/lists)
-      onClick={(e) => e.stopPropagation()}
-    >
+    <div className="filterbar-grid" onClick={(e) => e.stopPropagation()}>
       <Form.Group controlId="filterDiagnosis">
         <Form.Label visuallyHidden>{t('Filter by Primary Diagnosis')}</Form.Label>
         <Select
@@ -195,11 +191,7 @@ const FilterBar: React.FC<Props> = ({
   );
 
   return (
-    <Card
-      ref={rootRef as any}
-      className="p-3 shadow-sm w-100"
-      aria-label={t('Filter Interventions')}
-    >
+    <div ref={rootRef as any} aria-label={t('Filter Interventions')}>
       {/* top row */}
       <div className="filterbar-top">
         <Form.Group className="flex-grow-1" controlId="searchInput">
@@ -304,7 +296,7 @@ const FilterBar: React.FC<Props> = ({
           .filterbar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
       `}</style>
-    </Card>
+    </div>
   );
 };
 
