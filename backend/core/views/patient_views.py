@@ -2380,6 +2380,32 @@ def modify_intervention_from_date(request):
         )
 
     # ----------------------
+    # Authorization (match get_patient_plan_for_therapist)
+    # ----------------------
+    from django.conf import settings as _dj_settings
+
+    if not getattr(_dj_settings, "TESTING", False):
+        try:
+            _caller = User.objects.get(pk=ObjectId(request.user.id))
+            _is_admin = _caller.role == "Admin" and _caller.isActive
+        except Exception:
+            _is_admin = False
+
+        if not _is_admin:
+            _caller_therapist = get_therapist_for_user(request.user)
+            _patient_clinic = getattr(patient, "clinic", None)
+            if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "You are not authorised to access this patient's data.",
+                        "field_errors": {},
+                        "non_field_errors": [],
+                    },
+                    status=403,
+                )
+
+    # ----------------------
     # Resolve plan
     # ----------------------
     plan = RehabilitationPlan.objects(patientId=patient).first()
@@ -2618,6 +2644,32 @@ def reschedule_intervention_date(request):
             },
             status=404,
         )
+
+    # ----------------------
+    # Authorization (match get_patient_plan_for_therapist)
+    # ----------------------
+    from django.conf import settings as _dj_settings
+
+    if not getattr(_dj_settings, "TESTING", False):
+        try:
+            _caller = User.objects.get(pk=ObjectId(request.user.id))
+            _is_admin = _caller.role == "Admin" and _caller.isActive
+        except Exception:
+            _is_admin = False
+
+        if not _is_admin:
+            _caller_therapist = get_therapist_for_user(request.user)
+            _patient_clinic = getattr(patient, "clinic", None)
+            if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "You are not authorised to access this patient's data.",
+                        "field_errors": {},
+                        "non_field_errors": [],
+                    },
+                    status=403,
+                )
 
     # ----------------------
     # Resolve plan

@@ -7,7 +7,7 @@ security contract without over-specifying implementation details.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -19,7 +19,15 @@ from django.contrib.auth.hashers import make_password
 from django.test import Client
 from rest_framework.test import APIClient
 
-from core.models import Therapist, User, VerifyAttempt
+from core.models import (
+    Intervention,
+    InterventionAssignment,
+    Patient,
+    RehabilitationPlan,
+    Therapist,
+    User,
+    VerifyAttempt,
+)
 from utils.utils import check_verify_rate_limit, increment_verify_attempt
 
 # ---------------------------------------------------------------------------
@@ -69,6 +77,42 @@ def _make_therapist(username, clinics):
     u = _make_user(username)
     t = Therapist(userId=u, clinics=clinics, projects=[]).save()
     return u, t
+
+
+def _make_patient_with_plan(tag, clinic, owning_therapist):
+    """Patient (with a clinic) → Intervention → RehabilitationPlan with one assignment."""
+    patient_user = _make_user(f"patient_{tag}", role="Patient")
+    patient = Patient(
+        userId=patient_user,
+        patient_code=f"PAT_{tag}",
+        therapist=owning_therapist,
+        clinic=clinic,
+    ).save()
+    intervention = Intervention(
+        external_id=f"iv_{tag}",
+        language="en",
+        title="Yoga",
+        description="Yoga session",
+        content_type="Video",
+    ).save()
+    assignment = InterventionAssignment(
+        interventionId=intervention,
+        frequency="Daily",
+        dates=[datetime.now() + timedelta(days=i) for i in range(3)],
+    )
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=owning_therapist,
+        startDate=datetime.now(),
+        endDate=datetime.now() + timedelta(days=30),
+        status="active",
+        interventions=[assignment],
+    ).save()
+    return patient, intervention, plan
+
+
+MODIFY_URL = "/api/interventions/modify-patient/"
+RESCHEDULE_URL = "/api/interventions/reschedule-date/"
 
 
 # ===========================================================================
@@ -607,6 +651,74 @@ def test_fixfp5_user_views_carry_api_view_decorator():
         assert hasattr(view_fn, "cls"), (
             f"{view_fn.__name__} must be wrapped with @api_view " "so DRF enforces authentication"
         )
+
+
+# ===========================================================================
+# Fix FP6 — reschedule/modify-intervention authorization gap
+# ===========================================================================
+
+
+def test_fixfp6_therapist_cannot_access_other_clinics_patient():
+    """
+    POST /api/interventions/reschedule-date/ and /api/interventions/modify-patient/
+    must return 403 when Therapist B (a different clinic) supplies Therapist A's
+    patientId — previously both endpoints only checked IsAuthenticated and trusted
+    patientId from the body, letting any authenticated caller reschedule or modify
+    any patient's rehabilitation plan.
+    """
+    from django.conf import settings as _ds
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.patient_views import (
+        modify_intervention_from_date,
+        reschedule_intervention_date,
+    )
+
+    _, th_a = _make_therapist("th_a_fp6", ["Inselspital"])
+    th_user_b, _ = _make_therapist("th_b_fp6", ["Bern"])
+    patient, intervention, plan = _make_patient_with_plan("fp6", "Inselspital", th_a)
+    old_dt = plan.interventions[0].dates[1]
+
+    cases = [
+        (
+            reschedule_intervention_date,
+            RESCHEDULE_URL,
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": old_dt.isoformat(),
+                "newDatetime": (old_dt + timedelta(days=5)).isoformat(),
+            },
+        ),
+        (
+            modify_intervention_from_date,
+            MODIFY_URL,
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "effectiveFrom": "2025-01-01T00:00:00",
+                "keep_current": True,
+            },
+        ),
+    ]
+
+    factory = APIRequestFactory()
+    for view_fn, url, payload in cases:
+        request = factory.post(url, data=json.dumps(payload), content_type="application/json")
+        force_authenticate(
+            request,
+            user=SimpleNamespace(is_authenticated=True, id=str(th_user_b.id), role="Therapist"),
+        )
+
+        _ds.TESTING = False
+        try:
+            resp = view_fn(request)
+        finally:
+            _ds.TESTING = True
+
+        assert (
+            resp.status_code == 403
+        ), f"Therapist B must not be able to call {view_fn.__name__} on Therapist A's patient"
 
 
 # ===========================================================================
