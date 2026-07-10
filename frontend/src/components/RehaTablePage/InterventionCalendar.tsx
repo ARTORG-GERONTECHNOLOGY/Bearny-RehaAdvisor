@@ -58,6 +58,9 @@ const addMinutes = (d: Date, minutes: number) => new Date(d.getTime() + minutes 
 
 const DnDCalendar = withDragAndDrop(Calendar);
 
+const isEventDraggable = (event: CalendarEvent) =>
+  event.resource?.status !== 'completed' && event.resource?.status !== 'missed';
+
 interface Props {
   patientData: PatientPlan;
   titleMap?: TitleMap;
@@ -133,7 +136,7 @@ const InterventionCalendar: React.FC<Props> = ({
   // Colors mirror the status legend
   const eventPropGetter = (event: CalendarEvent) => {
     const status = event.resource?.status;
-    const base = '!rounded-lg';
+    const base = `!rounded-lg ${isEventDraggable(event) ? 'rbc-event--draggable cursor-grab active:cursor-grabbing' : ''}`;
     if (status === 'completed') return { className: `${base} !bg-ok/10 !text-ok` };
     if (status === 'missed') return { className: `${base} !bg-pink/20 !text-pink` };
     if (status === 'today') return { className: `${base} !bg-yellow/15 !text-yellow` };
@@ -179,14 +182,11 @@ const InterventionCalendar: React.FC<Props> = ({
           if (Date.now() - lastDropAtRef.current < 300) return;
           if (onSelectIntervention) onSelectIntervention(ev.resource.intervention);
         }}
-        draggableAccessor={(event: CalendarEvent) =>
-          event.resource?.status !== 'completed' && event.resource?.status !== 'missed'
-        }
+        draggableAccessor={isEventDraggable}
         resizable={false}
         resizableAccessor={() => false}
         onEventDrop={({ event, start }: { event: CalendarEvent; start: Date; end: Date }) => {
-          const status = event.resource?.status;
-          if (status === 'completed' || status === 'missed') return;
+          if (!isEventDraggable(event)) return;
 
           lastDropAtRef.current = Date.now();
           const durationMs = event.end.getTime() - event.start.getTime();
