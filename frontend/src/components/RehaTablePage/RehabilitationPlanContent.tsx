@@ -148,7 +148,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                       interventionId,
                       oldDatetime,
                       newStart,
-                      t as any
+                      (k: string) => t(k)
                     )
                   }
                 />

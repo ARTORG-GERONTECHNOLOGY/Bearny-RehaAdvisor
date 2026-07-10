@@ -59,7 +59,7 @@ const addMinutes = (d: Date, minutes: number) => new Date(d.getTime() + minutes 
 const DnDCalendar = withDragAndDrop(Calendar);
 
 const isEventDraggable = (event: CalendarEvent) =>
-  event.resource?.status !== 'completed' && event.resource?.status !== 'missed';
+  event.resource?.status === 'today' || event.resource?.status === 'upcoming';
 
 interface Props {
   patientData: PatientPlan;
@@ -185,22 +185,25 @@ const InterventionCalendar: React.FC<Props> = ({
         draggableAccessor={isEventDraggable}
         resizable={false}
         resizableAccessor={() => false}
-        onEventDrop={({ event, start }: { event: CalendarEvent; start: Date; end: Date }) => {
-          if (!isEventDraggable(event)) return;
+        onEventDrop={async ({ event, start }: { event: CalendarEvent; start: Date; end: Date }) => {
+          if (!isEventDraggable(event) || !onRescheduleEvent) return;
 
           lastDropAtRef.current = Date.now();
           const durationMs = event.end.getTime() - event.start.getTime();
           setPendingMove({ id: event.id, start, end: new Date(start.getTime() + durationMs) });
 
-          Promise.resolve(
-            onRescheduleEvent?.(
+          try {
+            const ok = await onRescheduleEvent(
               event.resource.interventionId,
               event.resource.dateEntry.datetime,
               start
-            )
-          ).then((ok) => {
-            if (ok === false) setPendingMove(null);
-          });
+            );
+            if (ok === false) return;
+          } catch (err) {
+            console.error('Failed to reschedule intervention:', err);
+          } finally {
+            setPendingMove(null);
+          }
         }}
       />
 
