@@ -2856,7 +2856,7 @@ def get_patient_plan_for_therapist(request, patient_id):
         # ── Adherence (7d & overall) ─────────────────────────────
         adh_7, adh_total = _adherence(patient)
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         plan_data = {
             "success": True,
             "startDate": plan.startDate.isoformat() if plan.startDate else None,
@@ -2913,15 +2913,16 @@ def get_patient_plan_for_therapist(request, patient_id):
 
             for date in all_dates:
                 log = next((l for l in logs if l.date.date() == date.date()), None)
+                date_local = timezone.localtime(_as_aware_utc(date)).date()
 
                 if log and "completed" in (log.status or []):
                     status = "completed"
                     completed_count += 1
                     current_total_count += 1
-                elif date.date() < today:
+                elif date_local < today:
                     status = "missed"
                     current_total_count += 1
-                elif date.date() == today:
+                elif date_local == today:
                     status = "today"
                 else:
                     status = "upcoming"

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar, dateFnsLocalizer, Views, type View } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
@@ -85,6 +85,8 @@ const InterventionCalendar: React.FC<Props> = ({
   const [pendingMove, setPendingMove] = useState<{ id: string; start: Date; end: Date } | null>(
     null
   );
+  // Suppresses the spurious click that fires right after a drag-drop opening the modal
+  const lastDropAtRef = useRef(0);
 
   const events: CalendarEvent[] = useMemo(() => {
     const planItems = Array.isArray(patientData?.interventions) ? patientData.interventions : [];
@@ -132,10 +134,10 @@ const InterventionCalendar: React.FC<Props> = ({
   const eventPropGetter = (event: CalendarEvent) => {
     const status = event.resource?.status;
     const base = '!rounded-lg';
-    if (status === 'completed') return { className: `${base} !bg-ok/5 !text-ok` };
-    if (status === 'missed') return { className: `${base} !bg-pink/5 !text-pink` };
-    if (status === 'today') return { className: `${base} !bg-yellow/5 !text-yellow` };
-    if (status === 'upcoming') return { className: `${base} !bg-chartMuted/5 !text-zinc-500` };
+    if (status === 'completed') return { className: `${base} !bg-ok/10 !text-ok` };
+    if (status === 'missed') return { className: `${base} !bg-pink/20 !text-pink` };
+    if (status === 'today') return { className: `${base} !bg-yellow/15 !text-yellow` };
+    if (status === 'upcoming') return { className: `${base} !bg-chartMuted/50 !text-zinc-500` };
     return { className: base };
   };
 
@@ -174,6 +176,7 @@ const InterventionCalendar: React.FC<Props> = ({
         eventPropGetter={eventPropGetter}
         dayPropGetter={dayPropGetter}
         onSelectEvent={(ev) => {
+          if (Date.now() - lastDropAtRef.current < 300) return;
           if (onSelectIntervention) onSelectIntervention(ev.resource.intervention);
         }}
         draggableAccessor={(event: CalendarEvent) =>
@@ -185,6 +188,7 @@ const InterventionCalendar: React.FC<Props> = ({
           const status = event.resource?.status;
           if (status === 'completed' || status === 'missed') return;
 
+          lastDropAtRef.current = Date.now();
           const durationMs = event.end.getTime() - event.start.getTime();
           setPendingMove({ id: event.id, start, end: new Date(start.getTime() + durationMs) });
 

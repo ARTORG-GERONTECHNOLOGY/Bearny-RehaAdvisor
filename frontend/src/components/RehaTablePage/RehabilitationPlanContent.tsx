@@ -63,7 +63,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
     return (
       <div>
         {store.error && (
-          <Alert variant="danger" onClose={() => store.setError(null)} dismissible className="my-3">
+          <Alert variant="danger" onClose={() => store.setError(null)} dismissible className="mb-2">
             {store.error}
           </Alert>
         )}
