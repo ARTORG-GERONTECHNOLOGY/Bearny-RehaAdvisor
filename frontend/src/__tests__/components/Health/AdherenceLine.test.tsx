@@ -124,6 +124,27 @@ describe('filterAdherenceInRange', () => {
     const rows = filterAdherenceInRange(data);
     expect(rows).toEqual([{ date: '2026-01-01', pct: null }]);
   });
+
+  it('nulls out future days even when the backend reports a 0% reading, without shrinking the axis', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-07-10').getTime());
+    const data = [
+      makeEntry('2026-07-09', 100),
+      makeEntry('2026-07-10', 50),
+      makeEntry('2026-07-11', 0),
+      makeEntry('2026-07-31', 0),
+    ];
+    const rows = filterAdherenceInRange(data, new Date('2026-07-01'), new Date('2026-07-31'));
+    // Full month is still represented on the axis...
+    expect(rows).toHaveLength(31);
+    expect(rows[0]).toEqual({ date: '2026-07-01', pct: null });
+    expect(rows[rows.length - 1]).toEqual({ date: '2026-07-31', pct: null });
+    // ...but only past/today values survive; future days are nulled out regardless
+    // of what the backend sent.
+    expect(rows.find((r) => r.date === '2026-07-09')).toEqual({ date: '2026-07-09', pct: 100 });
+    expect(rows.find((r) => r.date === '2026-07-10')).toEqual({ date: '2026-07-10', pct: 50 });
+    expect(rows.find((r) => r.date === '2026-07-11')).toEqual({ date: '2026-07-11', pct: null });
+    jest.useRealTimers();
+  });
 });
 
 describe('averageAdherencePct', () => {
