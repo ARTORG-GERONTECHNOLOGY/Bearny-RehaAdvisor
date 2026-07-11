@@ -729,4 +729,43 @@ export class RehabTableStore {
       });
     }
   }
+
+  async rescheduleInterventionDate(
+    interventionId: string,
+    oldDatetime: string,
+    newDate: Date,
+    t: (k: string) => unknown
+  ): Promise<boolean> {
+    try {
+      // POST /api/interventions/reschedule-date/
+      const res = await apiClient.post('interventions/reschedule-date/', {
+        patientId: this.patientIdForCalls,
+        interventionId,
+        oldDatetime,
+        newDatetime: newDate.toISOString(),
+      });
+
+      if (res.status === 200 || res.status === 201) {
+        await Promise.all([this.fetchAll(t), this.fetchInts(t)]);
+        runInAction(() => {
+          this.patientData = this.mergePlanWithCatalog(this.patientData, this.allInterventions);
+          this.error = null;
+        });
+        await this.translateVisibleItems();
+        return true;
+      }
+      return false;
+    } catch (err: unknown) {
+      const msg = extractApiError(
+        err,
+        typeof t === 'function'
+          ? String(t('Failed to reschedule the intervention. Try again now or later.'))
+          : 'Failed to reschedule.'
+      );
+      runInAction(() => {
+        this.error = msg;
+      });
+      return false;
+    }
+  }
 }

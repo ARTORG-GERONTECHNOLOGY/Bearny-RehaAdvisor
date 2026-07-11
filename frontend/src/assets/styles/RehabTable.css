@@ -28,6 +28,33 @@
   pointer-events: auto;
 }
 
+/* Drag-handle dots, anchored to .rbc-event (not .rbc-event-content) so
+   narrow week-view columns can't clip them. */
+.rbc-month-view .rbc-event {
+  position: relative;
+}
+.rbc-event--draggable {
+  padding-right: 14px;
+}
+/* Fixed-size backdrop chip behind the dots, since a width-based mask would
+   land in the wrong spot on wrapped event text. */
+.rbc-event--draggable::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  transform: translateY(-50%);
+  border-radius: 3px;
+  pointer-events: none;
+  background-color: rgba(255, 255, 255, 0.8);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 10px 10px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23111827' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='9' cy='5' r='1'/><circle cx='9' cy='12' r='1'/><circle cx='9' cy='19' r='1'/><circle cx='15' cy='5' r='1'/><circle cx='15' cy='12' r='1'/><circle cx='15' cy='19' r='1'/></svg>");
+}
+
 /* Hide the built-in rbc agenda table — replaced by custom one with rating column */
 .rehaCalendar__body--agenda .rbc-agenda-view {
   display: none;

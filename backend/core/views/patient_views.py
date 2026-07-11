@@ -2380,6 +2380,32 @@ def modify_intervention_from_date(request):
         )
 
     # ----------------------
+    # Authorization (match get_patient_plan_for_therapist)
+    # ----------------------
+    from django.conf import settings as _dj_settings
+
+    if not getattr(_dj_settings, "TESTING", False):
+        try:
+            _caller = User.objects.get(pk=ObjectId(request.user.id))
+            _is_admin = _caller.role == "Admin" and _caller.isActive
+        except Exception:
+            _is_admin = False
+
+        if not _is_admin:
+            _caller_therapist = get_therapist_for_user(request.user)
+            _patient_clinic = getattr(patient, "clinic", None)
+            if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "You are not authorised to access this patient's data.",
+                        "field_errors": {},
+                        "non_field_errors": [],
+                    },
+                    status=403,
+                )
+
+    # ----------------------
     # Resolve plan
     # ----------------------
     plan = RehabilitationPlan.objects(patientId=patient).first()
@@ -2442,14 +2468,14 @@ def modify_intervention_from_date(request):
     # ----------------------
     try:
         existing_utc = [_as_aware_utc(d) for d in (target.dates or [])]
-    except Exception as e:
+    except Exception:
         logger.exception("[modify_intervention_from_date] Failed to convert existing UTC dates")
         return JsonResponse(
             {
                 "success": False,
                 "message": "Internal date conversion error.",
                 "field_errors": {},
-                "non_field_errors": [str(e)],
+                "non_field_errors": [],
             },
             status=500,
         )
@@ -2499,14 +2525,14 @@ def modify_intervention_from_date(request):
 
         new_local = _generate_dates_from(schedule, eff_dt_local, plan_end_local)
         new_utc = [dt.astimezone(datetime.timezone.utc) for dt in new_local]
-    except Exception as e:
+    except Exception:
         logger.exception("[modify_intervention_from_date] Schedule generation failed")
         return JsonResponse(
             {
                 "success": False,
                 "message": "Failed to generate new schedule.",
                 "field_errors": {"schedule": ["Schedule generation failed."]},
-                "non_field_errors": [str(e)],
+                "non_field_errors": [],
             },
             status=400,
         )
@@ -2521,6 +2547,274 @@ def modify_intervention_from_date(request):
             "success": True,
             "message": "Updated schedule.",
             "updatedCount": len(target.dates),
+            "field_errors": {},
+            "non_field_errors": [],
+        },
+        status=200,
+    )
+
+
+# -----------------------------
+# Reschedule single occurrence endpoint
+# -----------------------------
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def reschedule_intervention_date(request):
+    """
+    POST /api/interventions/reschedule-date/
+
+    Moves a single occurrence within an InterventionAssignment.dates list to
+    a new datetime (drag-and-drop reschedule). Does not regenerate the
+    recurrence and does not touch PatientInterventionLogs.
+
+    Always returns:
+    {
+        "success": false/true,
+        "message": "...",
+        "field_errors": {...},
+        "non_field_errors": [...]
+    }
+    """
+    field_errors = {}
+    non_field_errors = []
+
+    def ferr(field, msg):
+        field_errors.setdefault(field, []).append(msg)
+
+    def nerr(msg):
+        non_field_errors.append(msg)
+
+    # ----------------------
+    # Parse JSON safely
+    # ----------------------
+    try:
+        body = json.loads(request.body or "{}")
+    except Exception:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid JSON body.",
+                "field_errors": {},
+                "non_field_errors": ["Request body is not valid JSON."],
+            },
+            status=400,
+        )
+
+    patient_id = body.get("patientId")
+    intervention_id = body.get("interventionId")
+    old_dt_raw = body.get("oldDatetime")
+    new_dt_raw = body.get("newDatetime")
+
+    # ----------------------
+    # Validate required fields
+    # ----------------------
+    if not patient_id:
+        ferr("patientId", "Patient ID is required.")
+    if not intervention_id:
+        ferr("interventionId", "Intervention ID is required.")
+    if not old_dt_raw:
+        ferr("oldDatetime", "Old datetime is required.")
+    if not new_dt_raw:
+        ferr("newDatetime", "New datetime is required.")
+
+    if field_errors:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Validation error.",
+                "field_errors": field_errors,
+                "non_field_errors": non_field_errors,
+            },
+            status=400,
+        )
+
+    # ----------------------
+    # Resolve Patient
+    # ----------------------
+    patient = _resolve_patient_flexible(str(patient_id))
+    if not patient:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Patient not found.",
+                "field_errors": {"patientId": ["No patient exists with this ID."]},
+                "non_field_errors": [],
+            },
+            status=404,
+        )
+
+    # ----------------------
+    # Authorization (match get_patient_plan_for_therapist)
+    # ----------------------
+    from django.conf import settings as _dj_settings
+
+    if not getattr(_dj_settings, "TESTING", False):
+        try:
+            _caller = User.objects.get(pk=ObjectId(request.user.id))
+            _is_admin = _caller.role == "Admin" and _caller.isActive
+        except Exception:
+            _is_admin = False
+
+        if not _is_admin:
+            _caller_therapist = get_therapist_for_user(request.user)
+            _patient_clinic = getattr(patient, "clinic", None)
+            if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "You are not authorised to access this patient's data.",
+                        "field_errors": {},
+                        "non_field_errors": [],
+                    },
+                    status=403,
+                )
+
+    # ----------------------
+    # Resolve plan
+    # ----------------------
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    if not plan:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Rehabilitation plan not found.",
+                "field_errors": {},
+                "non_field_errors": ["No rehabilitation plan exists for this patient."],
+            },
+            status=404,
+        )
+
+    # ----------------------
+    # Find intervention assignment
+    # ----------------------
+    target = next(
+        (a for a in plan.interventions if str(a.interventionId.id) == str(intervention_id)),
+        None,
+    )
+
+    if not target:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Intervention assignment not found.",
+                "field_errors": {"interventionId": ["This intervention is not assigned to the patient."]},
+                "non_field_errors": [],
+            },
+            status=404,
+        )
+
+    # ----------------------
+    # Parse old/new datetimes
+    # ----------------------
+    try:
+        # oldDatetime may be naive (no offset) — treat as UTC like target.dates,
+        # not local time like _parse_iso would.
+        old_dt_utc = _as_aware_utc(datetime.datetime.fromisoformat(str(old_dt_raw).replace("Z", "+00:00")))
+        new_dt_utc = _parse_iso(str(new_dt_raw)).astimezone(datetime.timezone.utc)
+    except Exception:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Invalid date format.",
+                "field_errors": {
+                    "oldDatetime": ["Must be ISO format."],
+                    "newDatetime": ["Must be ISO format."],
+                },
+                "non_field_errors": [],
+            },
+            status=400,
+        )
+
+    now_utc = timezone.now().astimezone(datetime.timezone.utc)
+
+    if new_dt_utc < now_utc:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Cannot reschedule to a past date.",
+                "field_errors": {},
+                "non_field_errors": [],
+            },
+            status=400,
+        )
+
+    # ----------------------
+    # Locate the occurrence to move
+    # ----------------------
+    try:
+        existing_utc = [_as_aware_utc(d) for d in (target.dates or [])]
+    except Exception:
+        logger.exception("[reschedule_intervention_date] Failed to convert existing UTC dates")
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Internal date conversion error.",
+                "field_errors": {},
+                "non_field_errors": [],
+            },
+            status=500,
+        )
+
+    match_idx = next(
+        (i for i, d in enumerate(existing_utc) if abs((d - old_dt_utc).total_seconds()) < 1),
+        None,
+    )
+
+    if match_idx is None:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "The requested occurrence was not found.",
+                "field_errors": {},
+                "non_field_errors": [],
+            },
+            status=404,
+        )
+
+    if existing_utc[match_idx] < now_utc:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "Cannot reschedule a past occurrence.",
+                "field_errors": {},
+                "non_field_errors": [],
+            },
+            status=400,
+        )
+
+    # ----------------------
+    # Collision check (exclude the slot being moved)
+    # ----------------------
+    collides = any(abs((d - new_dt_utc).total_seconds()) < 1 for i, d in enumerate(existing_utc) if i != match_idx)
+    if collides:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "A session already exists at that time.",
+                "field_errors": {},
+                "non_field_errors": [],
+            },
+            status=400,
+        )
+
+    # ----------------------
+    # Apply and save
+    # ----------------------
+    existing_utc[match_idx] = new_dt_utc
+    existing_utc.sort()
+    target.dates = existing_utc
+
+    plan.updatedAt = timezone.now()
+    plan.save()
+
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Session rescheduled.",
+            "oldDatetime": old_dt_utc.isoformat(),
+            "newDatetime": new_dt_utc.isoformat(),
             "field_errors": {},
             "non_field_errors": [],
         },
@@ -2614,7 +2908,7 @@ def get_patient_plan_for_therapist(request, patient_id):
         # ── Adherence (7d & overall) ─────────────────────────────
         adh_7, adh_total = _adherence(patient)
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         plan_data = {
             "success": True,
             "startDate": plan.startDate.isoformat() if plan.startDate else None,
@@ -2671,15 +2965,16 @@ def get_patient_plan_for_therapist(request, patient_id):
 
             for date in all_dates:
                 log = next((l for l in logs if l.date.date() == date.date()), None)
+                date_local = timezone.localtime(_as_aware_utc(date)).date()
 
                 if log and "completed" in (log.status or []):
                     status = "completed"
                     completed_count += 1
                     current_total_count += 1
-                elif date.date() < today:
+                elif date_local < today:
                     status = "missed"
                     current_total_count += 1
-                elif date.date() == today:
+                elif date_local == today:
                     status = "today"
                 else:
                     status = "upcoming"
@@ -2736,7 +3031,9 @@ def get_patient_plan_for_therapist(request, patient_id):
                 display_dt = log.createdAt if log and getattr(log, "createdAt", None) else date
                 intervention_dates.append(
                     {
-                        "datetime": display_dt.isoformat(),
+                        # Attach the UTC offset explicitly — a naive isoformat string
+                        # gets misparsed as local time by the frontend's `new Date()`.
+                        "datetime": _as_aware_utc(display_dt).isoformat(),
                         "status": status,
                         "feedback": feedback_entries,
                         **({"video": video_feedback} if video_feedback else {}),

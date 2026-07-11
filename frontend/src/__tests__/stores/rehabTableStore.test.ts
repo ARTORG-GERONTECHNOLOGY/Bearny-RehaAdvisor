@@ -162,3 +162,122 @@ describe('rehabTableStore.mergePlanWithCatalog — external_id fallback (regress
     expect(item.preview_img).toBe('a.png'); // matched via _id, not external_id
   });
 });
+
+// ---------------------------------------------------------------------------
+// rescheduleInterventionDate — drag-and-drop calendar reschedule
+// ---------------------------------------------------------------------------
+
+describe('rehabTableStore.rescheduleInterventionDate', () => {
+  let mockApiClient: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockApiClient = require('@/api/client').default;
+
+    // Default mock for GET endpoints used by fetchAll/fetchInts on success
+    mockApiClient.get.mockResolvedValue({
+      status: 200,
+      data: { interventions: [] },
+    });
+  });
+
+  it('posts the correct payload and returns true on success', async () => {
+    const store = makeStore();
+    const mockT = jest.fn((key: string) => key);
+    const newDate = new Date('2026-07-21T14:00:00.000Z');
+
+    mockApiClient.post.mockResolvedValueOnce({ status: 200, data: { success: true } });
+
+    const result = await store.rescheduleInterventionDate(
+      'int-1',
+      '2026-07-21T09:00:00',
+      newDate,
+      mockT
+    );
+
+    expect(mockApiClient.post).toHaveBeenCalledWith('interventions/reschedule-date/', {
+      patientId: store.patientIdForCalls,
+      interventionId: 'int-1',
+      oldDatetime: '2026-07-21T09:00:00',
+      newDatetime: newDate.toISOString(),
+    });
+    expect(result).toBe(true);
+    expect(store.error).toBeNull();
+  });
+
+  it('returns false without refetching when the response status is not 200/201', async () => {
+    const store = makeStore();
+    const mockT = jest.fn((key: string) => key);
+
+    mockApiClient.post.mockResolvedValueOnce({ status: 204, data: {} });
+
+    const result = await store.rescheduleInterventionDate(
+      'int-1',
+      '2026-07-21T09:00:00',
+      new Date('2026-07-21T14:00:00.000Z'),
+      mockT
+    );
+
+    expect(result).toBe(false);
+    expect(mockApiClient.get).not.toHaveBeenCalled();
+  });
+
+  it('returns false and sets a field-error message when the API rejects', async () => {
+    const store = makeStore();
+    const mockT = jest.fn((key: string) => key);
+
+    mockApiClient.post.mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: {
+          message: 'A session already exists at that time.',
+          field_errors: { newDatetime: ['Another session is already scheduled at this time.'] },
+        },
+      },
+    });
+
+    const result = await store.rescheduleInterventionDate(
+      'int-1',
+      '2026-07-21T09:00:00',
+      new Date('2026-07-21T14:00:00.000Z'),
+      mockT
+    );
+
+    expect(result).toBe(false);
+    expect(store.error).toContain('A session already exists at that time.');
+    expect(store.error).toContain('Another session is already scheduled at this time.');
+  });
+
+  it('never throws — callers can await it without a try/catch', async () => {
+    mockApiClient.post.mockRejectedValueOnce(new Error('Network timeout'));
+    const store = makeStore();
+
+    await expect(
+      store.rescheduleInterventionDate(
+        'int-1',
+        '2026-07-21T09:00:00',
+        new Date('2026-07-21T14:00:00.000Z'),
+        jest.fn((key: string) => key)
+      )
+    ).resolves.toBe(false);
+    expect(store.error).toBeTruthy();
+  });
+
+  it('uses the fallback message when the API response lacks detail', async () => {
+    const store = makeStore();
+    const mockT = jest.fn((key: string) => `translated:${key}`);
+
+    mockApiClient.post.mockRejectedValueOnce({ response: { status: 500, data: {} } });
+
+    await store.rescheduleInterventionDate(
+      'int-1',
+      '2026-07-21T09:00:00',
+      new Date('2026-07-21T14:00:00.000Z'),
+      mockT
+    );
+
+    expect(store.error).toBe(
+      'translated:Failed to reschedule the intervention. Try again now or later.'
+    );
+  });
+});

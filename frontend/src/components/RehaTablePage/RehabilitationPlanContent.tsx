@@ -63,7 +63,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
     return (
       <div>
         {store.error && (
-          <Alert variant="danger" onClose={() => store.setError(null)} dismissible className="my-3">
+          <Alert variant="danger" onClose={() => store.setError(null)} dismissible className="mb-2">
             {store.error}
           </Alert>
         )}
@@ -143,6 +143,14 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                   titleMap={store.titleMap}
                   onSelectIntervention={store.handleExerciseClick}
                   onSelectFeedback={store.openFeedbackBrowser}
+                  onRescheduleEvent={(interventionId, oldDatetime, newStart) =>
+                    store.rescheduleInterventionDate(
+                      interventionId,
+                      oldDatetime,
+                      newStart,
+                      (k: string) => t(k)
+                    )
+                  }
                 />
               </CardContent>
             </Card>
