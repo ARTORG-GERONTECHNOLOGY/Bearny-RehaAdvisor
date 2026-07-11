@@ -1,7 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar, dateFnsLocalizer, Views, type View } from 'react-big-calendar';
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 
 import type { Intervention } from '@/types';
@@ -54,11 +56,21 @@ const safeDate = (v: string): Date | null => {
 
 const addMinutes = (d: Date, minutes: number) => new Date(d.getTime() + minutes * 60_000);
 
+const DnDCalendar = withDragAndDrop(Calendar);
+
+const isEventDraggable = (event: CalendarEvent) =>
+  event.resource?.status === 'today' || event.resource?.status === 'upcoming';
+
 interface Props {
   patientData: PatientPlan;
   titleMap?: TitleMap;
   onSelectIntervention?: (it: Intervention) => void;
   onSelectFeedback?: (it: Intervention, datetime?: string) => void;
+  onRescheduleEvent?: (
+    interventionId: string,
+    oldDatetime: string,
+    newStart: Date
+  ) => Promise<boolean> | void;
 }
 
 const InterventionCalendar: React.FC<Props> = ({
@@ -66,11 +78,18 @@ const InterventionCalendar: React.FC<Props> = ({
   titleMap = {},
   onSelectIntervention,
   onSelectFeedback,
+  onRescheduleEvent,
 }) => {
   const { t, i18n } = useTranslation();
   const dateFnsLocale = getDateFnsLocale(i18n.language);
   const [view, setView] = useState<View>(Views.AGENDA);
   const [date, setDate] = useState<Date>(new Date());
+  // Optimistic override for dropped event
+  const [pendingMove, setPendingMove] = useState<{ id: string; start: Date; end: Date } | null>(
+    null
+  );
+  // Suppresses the spurious click that fires right after a drag-drop opening the modal
+  const lastDropAtRef = useRef(0);
 
   const events: CalendarEvent[] = useMemo(() => {
     const planItems = Array.isArray(patientData?.interventions) ? patientData.interventions : [];
@@ -107,21 +126,28 @@ const InterventionCalendar: React.FC<Props> = ({
     return out;
   }, [patientData, titleMap]);
 
+  const displayEvents = useMemo(() => {
+    if (!pendingMove) return events;
+    return events.map((ev) =>
+      ev.id === pendingMove.id ? { ...ev, start: pendingMove.start, end: pendingMove.end } : ev
+    );
+  }, [events, pendingMove]);
+
   // Colors mirror the status legend
   const eventPropGetter = (event: CalendarEvent) => {
     const status = event.resource?.status;
-    const base = '!rounded-lg';
-    if (status === 'completed') return { className: `${base} !bg-ok/5 !text-ok` };
-    if (status === 'missed') return { className: `${base} !bg-pink/5 !text-pink` };
-    if (status === 'today') return { className: `${base} !bg-yellow/5 !text-yellow` };
-    if (status === 'upcoming') return { className: `${base} !bg-chartMuted/5 !text-zinc-500` };
+    const base = `!rounded-lg ${isEventDraggable(event) ? 'rbc-event--draggable cursor-grab active:cursor-grabbing' : ''}`;
+    if (status === 'completed') return { className: `${base} !bg-ok/10 !text-ok` };
+    if (status === 'missed') return { className: `${base} !bg-pink/20 !text-pink` };
+    if (status === 'today') return { className: `${base} !bg-yellow/15 !text-yellow` };
+    if (status === 'upcoming') return { className: `${base} !bg-chartMuted/50 !text-zinc-500` };
     return { className: base };
   };
 
   // RBC today's cell/column highlight color
   const dayPropGetter = (day: Date) => {
     const isToday = day.toDateString() === new Date().toDateString();
-    return isToday ? { className: '!bg-yellow/5' } : {};
+    return isToday ? { className: '!bg-yellow/10' } : {};
   };
 
   const sortedEvents = useMemo(() => {
@@ -130,18 +156,18 @@ const InterventionCalendar: React.FC<Props> = ({
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + 30);
-    return [...events]
+    return [...displayEvents]
       .filter((ev) => ev.start >= start && ev.start < end)
       .sort((a, b) => a.start.getTime() - b.start.getTime());
-  }, [events, date]);
+  }, [displayEvents, date]);
 
   return (
     <div
       className={`rehaCalendar__body${view === Views.AGENDA ? ' rehaCalendar__body--agenda' : ''}`}
     >
-      <Calendar
+      <DnDCalendar
         localizer={localizer}
-        events={events}
+        events={displayEvents}
         startAccessor="start"
         endAccessor="end"
         view={view}
@@ -153,7 +179,31 @@ const InterventionCalendar: React.FC<Props> = ({
         eventPropGetter={eventPropGetter}
         dayPropGetter={dayPropGetter}
         onSelectEvent={(ev) => {
+          if (Date.now() - lastDropAtRef.current < 300) return;
           if (onSelectIntervention) onSelectIntervention(ev.resource.intervention);
+        }}
+        draggableAccessor={isEventDraggable}
+        resizable={false}
+        resizableAccessor={() => false}
+        onEventDrop={async ({ event, start }: { event: CalendarEvent; start: Date; end: Date }) => {
+          if (!isEventDraggable(event) || !onRescheduleEvent) return;
+
+          lastDropAtRef.current = Date.now();
+          const durationMs = event.end.getTime() - event.start.getTime();
+          setPendingMove({ id: event.id, start, end: new Date(start.getTime() + durationMs) });
+
+          try {
+            const ok = await onRescheduleEvent(
+              event.resource.interventionId,
+              event.resource.dateEntry.datetime,
+              start
+            );
+            if (ok === false) return;
+          } catch (err) {
+            console.error('Failed to reschedule intervention:', err);
+          } finally {
+            setPendingMove(null);
+          }
         }}
       />
 
