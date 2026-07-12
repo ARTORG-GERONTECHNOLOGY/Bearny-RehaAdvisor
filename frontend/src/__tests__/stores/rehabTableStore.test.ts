@@ -14,7 +14,8 @@
  * falls back to it when the primary _id lookup fails.
  */
 
-import { RehabTableStore } from '@/stores/rehabTableStore';
+import { RehabTableStore, extractApiError } from '@/stores/rehabTableStore';
+import { toLocalYMD } from '@/utils/dateFormat';
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -279,5 +280,610 @@ describe('rehabTableStore.rescheduleInterventionDate', () => {
     expect(store.error).toBe(
       'translated:Failed to reschedule the intervention. Try again now or later.'
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractApiError
+// ---------------------------------------------------------------------------
+
+describe('extractApiError', () => {
+  it('returns the fallback when there is no response payload', () => {
+    expect(extractApiError({}, 'fallback')).toBe('fallback');
+    expect(extractApiError(new Error('boom'), 'fallback')).toBe('fallback');
+  });
+
+  it('combines message, non_field_errors, and field_errors', () => {
+    const err = {
+      response: {
+        data: {
+          message: 'Validation failed',
+          non_field_errors: ['Overlaps with existing session'],
+          field_errors: { date: ['is required'] },
+        },
+      },
+    };
+    const msg = extractApiError(err, 'fallback');
+    expect(msg).toContain('Validation failed');
+    expect(msg).toContain('Overlaps with existing session');
+    expect(msg).toContain('date: is required');
+  });
+
+  it('falls back to error/detail/details fields when there is no message', () => {
+    expect(
+      extractApiError({ response: { data: { error: 'Server exploded' } } }, 'fallback')
+    ).toBe('Server exploded');
+    expect(
+      extractApiError({ response: { data: { details: 'more info' } } }, 'fallback')
+    ).toBe('more info');
+  });
+
+  it('returns the fallback when the payload has no usable fields', () => {
+    expect(extractApiError({ response: { data: {} } }, 'fallback')).toBe('fallback');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Getters
+// ---------------------------------------------------------------------------
+
+describe('getters', () => {
+  const authStoreMock = jest.requireMock('@/stores/authStore').default;
+
+  afterEach(() => {
+    authStoreMock.specialisations = undefined;
+  });
+
+  it('patientIdForCalls prefers explicitPatientId over patientUsername', () => {
+    const store = makeStore();
+    store.patientUsername = 'uname-1';
+    expect(store.patientIdForCalls).toBe('uname-1');
+    (store as any).explicitPatientId = 'explicit-1';
+    expect(store.patientIdForCalls).toBe('explicit-1');
+  });
+
+  it('specialisations trims and filters authStore.specialisations', () => {
+    authStoreMock.specialisations = [' Cardiology ', '', 'Neurology'];
+    const store = makeStore();
+    expect(store.specialisations).toEqual(['Cardiology', 'Neurology']);
+  });
+
+  it('specialisations is empty when authStore has none', () => {
+    authStoreMock.specialisations = undefined;
+    const store = makeStore();
+    expect(store.specialisations).toEqual([]);
+  });
+
+  it('diagnoses flattens diagnosis lists for each specialisation', () => {
+    authStoreMock.specialisations = ['Cardiology', 'Neurology'];
+    const store = makeStore();
+    expect(store.diagnoses).toEqual(
+      expect.arrayContaining(['Stroke', 'Heart Failure'])
+    );
+  });
+
+  it('activePatientItems / pastPatientItems split by future dates', () => {
+    const store = makeStore();
+    const future = new Date(Date.now() + 86400000).toISOString();
+    const past = new Date(Date.now() - 86400000).toISOString();
+
+    (store as any).allInterventions = [
+      { _id: 'a', title: 'Active One' },
+      { _id: 'b', title: 'Past One' },
+    ];
+    (store as any).patientData = {
+      interventions: [
+        { _id: 'a', dates: [{ datetime: future }] },
+        { _id: 'b', dates: [{ datetime: past }] },
+      ],
+    };
+
+    expect(store.activePatientItems.map((x) => x._id)).toEqual(['a']);
+    expect(store.pastPatientItems.map((x) => x._id)).toEqual(['b']);
+  });
+
+  it('selectedExerciseFromPlan prefers the plan item, then falls back to the catalog', () => {
+    const store = makeStore();
+    (store as any).allInterventions = [{ _id: 'cat-1', title: 'Catalog Item' }];
+    (store as any).patientData = {
+      interventions: [{ _id: 'plan-1', title: 'Plan Item' }],
+    };
+
+    store.selectedExerciseId = 'plan-1';
+    expect(store.selectedExerciseFromPlan?.title).toBe('Plan Item');
+
+    store.selectedExerciseId = 'cat-1';
+    expect(store.selectedExerciseFromPlan?.title).toBe('Catalog Item');
+
+    store.selectedExerciseId = null;
+    expect(store.selectedExerciseFromPlan).toBeNull();
+  });
+
+  it('selectedAssignment only looks at the patient plan, not the catalog', () => {
+    const store = makeStore();
+    (store as any).allInterventions = [{ _id: 'cat-1', title: 'Catalog Item' }];
+    (store as any).patientData = { interventions: [] };
+
+    store.selectedExerciseId = 'cat-1';
+    expect(store.selectedAssignment).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Setters / filters
+// ---------------------------------------------------------------------------
+
+describe('setters', () => {
+  it('setUserLang defaults to "en" for falsy input', () => {
+    const store = makeStore();
+    store.setUserLang('de');
+    expect(store.userLang).toBe('de');
+    store.setUserLang('');
+    expect(store.userLang).toBe('en');
+  });
+
+  it('setError / setTopTab update state directly', () => {
+    const store = makeStore();
+    store.setError('oops');
+    expect(store.error).toBe('oops');
+    store.setTopTab('questionnaires');
+    expect(store.topTab).toBe('questionnaires');
+  });
+
+  it('filter setters update state and recompute filteredRecommendations', () => {
+    const store = makeStore();
+    (store as any).recommendations = [{ _id: '1' }, { _id: '2' }];
+
+    store.setSearchTerm('abc');
+    expect(store.searchTerm).toBe('abc');
+    store.setPatientTypeFilter('Stroke');
+    expect(store.patientTypeFilter).toBe('Stroke');
+    store.setContentTypeFilter('Video');
+    expect(store.contentTypeFilter).toBe('Video');
+    store.setTagFilter(['tag1']);
+    expect(store.tagFilter).toEqual(['tag1']);
+    store.setBenefitForFilter(['benefit1']);
+    expect(store.benefitForFilter).toEqual(['benefit1']);
+    store.setLanguageFilter(['EN']);
+    expect(store.languageFilter).toEqual(['EN']);
+
+    // The shared filterInterventions mock echoes back its 2nd arg (titleMap),
+    // so each setter having triggered applyAllFilters is what this confirms.
+    expect(store.filteredRecommendations).toEqual(store.titleMap);
+  });
+
+  it('setTagFilter/setBenefitForFilter/setLanguageFilter coerce non-arrays to []', () => {
+    const store = makeStore();
+    store.setTagFilter(null as any);
+    expect(store.tagFilter).toEqual([]);
+    store.setBenefitForFilter(undefined as any);
+    expect(store.benefitForFilter).toEqual([]);
+    store.setLanguageFilter('not-an-array' as any);
+    expect(store.languageFilter).toEqual([]);
+  });
+
+  it('resetAllFilters clears every filter field', () => {
+    const store = makeStore();
+    store.setSearchTerm('x');
+    store.setPatientTypeFilter('y');
+    store.setContentTypeFilter('z');
+    store.setTagFilter(['a']);
+    store.setBenefitForFilter(['b']);
+    store.setLanguageFilter(['c']);
+
+    store.resetAllFilters();
+
+    expect(store.searchTerm).toBe('');
+    expect(store.patientTypeFilter).toBe('');
+    expect(store.contentTypeFilter).toBe('');
+    expect(store.tagFilter).toEqual([]);
+    expect(store.benefitForFilter).toEqual([]);
+    expect(store.languageFilter).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fetchAll / fetchInts / initForPatient
+// ---------------------------------------------------------------------------
+
+describe('fetchAll', () => {
+  let mockApiClient: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockApiClient = require('@/api/client').default;
+  });
+
+  it('stores the returned interventions on success', async () => {
+    const store = makeStore();
+    store.explicitPatientId = 'p1';
+    mockApiClient.get.mockResolvedValueOnce({
+      data: { interventions: [{ _id: 'i1' }], frequency: 'Daily' },
+    });
+
+    await store.fetchAll(jest.fn((k: string) => k));
+
+    expect(mockApiClient.get).toHaveBeenCalledWith(
+      'patients/rehabilitation-plan/therapist/p1/'
+    );
+    expect(store.patientData.interventions).toHaveLength(1);
+  });
+
+  it('treats a success:false envelope (with no interventions key) as an error', async () => {
+    const store = makeStore();
+    store.explicitPatientId = 'p1';
+    mockApiClient.get.mockResolvedValueOnce({
+      data: { success: false, message: 'Plan not found' },
+    });
+
+    await store.fetchAll(jest.fn((k: string) => k));
+
+    expect(store.error).toBe('Plan not found');
+    expect(store.patientData.interventions).toEqual([]);
+  });
+
+  it('sets an error message when the request rejects', async () => {
+    const store = makeStore();
+    store.explicitPatientId = 'p1';
+    mockApiClient.get.mockRejectedValueOnce({
+      response: { data: { error: 'Network down' } },
+    });
+
+    await store.fetchAll(jest.fn((k: string) => k));
+
+    expect(store.error).toBe('Network down');
+    expect(store.patientData).toEqual({ interventions: [] });
+  });
+
+  it('merges with the catalog immediately when allInterventions is already loaded', async () => {
+    const store = makeStore();
+    store.explicitPatientId = 'p1';
+    (store as any).allInterventions = [{ _id: 'i1', preview_img: 'x.png' }];
+    mockApiClient.get.mockResolvedValueOnce({
+      data: { interventions: [{ _id: 'i1', title: 'Plan title' }] },
+    });
+
+    await store.fetchAll(jest.fn((k: string) => k));
+
+    expect((store.patientData.interventions[0] as any).preview_img).toBe('x.png');
+  });
+});
+
+describe('fetchInts', () => {
+  let mockApiClient: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockApiClient = require('@/api/client').default;
+  });
+
+  it('accepts a bare array response and dedupes by _id', async () => {
+    const store = makeStore();
+    store.explicitPatientId = 'p1';
+    mockApiClient.get.mockResolvedValueOnce({
+      data: [{ _id: 'i1' }, { _id: 'i1' }, { _id: 'i2' }],
+    });
+
+    await store.fetchInts(jest.fn((k: string) => k));
+
+    expect(mockApiClient.get).toHaveBeenCalledWith('interventions/all/p1/');
+    expect(store.allInterventions).toHaveLength(2);
+    expect(store.recommendations).toEqual(store.allInterventions);
+    // applyAllFilters() ran — confirmed via the shared filterInterventions mock,
+    // which echoes back its 2nd arg (titleMap).
+    expect(store.filteredRecommendations).toEqual(store.titleMap);
+  });
+
+  it('accepts a { interventions: [...] } envelope', async () => {
+    const store = makeStore();
+    mockApiClient.get.mockResolvedValueOnce({
+      data: { interventions: [{ _id: 'i1' }] },
+    });
+
+    await store.fetchInts(jest.fn((k: string) => k));
+
+    expect(store.allInterventions).toHaveLength(1);
+  });
+
+  it('defaults to an empty list for an unrecognized payload shape', async () => {
+    const store = makeStore();
+    mockApiClient.get.mockResolvedValueOnce({ data: {} });
+
+    await store.fetchInts(jest.fn((k: string) => k));
+
+    expect(store.allInterventions).toEqual([]);
+  });
+
+  it('sets an error message when the request rejects', async () => {
+    const store = makeStore();
+    mockApiClient.get.mockRejectedValueOnce({
+      response: { data: { error: 'Catalog unavailable' } },
+    });
+
+    await store.fetchInts(jest.fn((k: string) => k));
+
+    expect(store.error).toBe('Catalog unavailable');
+  });
+
+  it('re-merges patientData with the catalog when a plan is already loaded', async () => {
+    const store = makeStore();
+    (store as any).patientData = {
+      interventions: [{ _id: 'i1', title: 'Plan title' }],
+    };
+    mockApiClient.get.mockResolvedValueOnce({
+      data: [{ _id: 'i1', preview_img: 'y.png' }],
+    });
+
+    await store.fetchInts(jest.fn((k: string) => k));
+
+    expect((store.patientData.interventions[0] as any).preview_img).toBe('y.png');
+  });
+});
+
+describe('initForPatient', () => {
+  let mockApiClient: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockApiClient = require('@/api/client').default;
+    mockApiClient.get.mockResolvedValue({ data: { interventions: [] } });
+  });
+
+  it('sets an error and stops early when no patientId is given', async () => {
+    const store = makeStore();
+    await store.initForPatient('', jest.fn((k: string) => k));
+
+    expect(store.error).toBe('No patient selected.');
+    expect(store.loading).toBe(false);
+    expect(mockApiClient.get).not.toHaveBeenCalled();
+  });
+
+  it('loads plan + catalog, merges them, and stops loading', async () => {
+    const store = makeStore();
+    mockApiClient.get
+      .mockResolvedValueOnce({ data: { interventions: [{ _id: 'i1', title: 'Plan' }] } })
+      .mockResolvedValueOnce({ data: [{ _id: 'i1', preview_img: 'z.png' }] });
+
+    await store.initForPatient('patient-1', jest.fn((k: string) => k));
+
+    expect(store.explicitPatientId).toBe('patient-1');
+    expect(store.loading).toBe(false);
+    expect(store.error).toBeNull();
+    expect((store.patientData.interventions[0] as any).preview_img).toBe('z.png');
+  });
+});
+
+describe('dispose', () => {
+  let mockApiClient: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockApiClient = require('@/api/client').default;
+  });
+
+  it('logs analytics with the viewed patient and duration', async () => {
+    const store = makeStore();
+    store.explicitPatientId = 'patient-1';
+    mockApiClient.post.mockResolvedValueOnce({});
+
+    await store.dispose();
+
+    expect(mockApiClient.post).toHaveBeenCalledWith(
+      '/analytics/log',
+      expect.objectContaining({
+        action: 'REHATABLE',
+        patient: 'patient-1',
+        user: 'therapist-1',
+      })
+    );
+  });
+
+  it('swallows analytics failures silently', async () => {
+    const store = makeStore();
+    mockApiClient.post.mockRejectedValueOnce(new Error('log endpoint down'));
+    await expect(store.dispose()).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// translateVisibleItems
+// ---------------------------------------------------------------------------
+
+describe('translateVisibleItems', () => {
+  it('clears titleMap/typeMap when there are no recommendations', async () => {
+    const store = makeStore();
+    (store as any).titleMap = { stale: { title: 'x', lang: null } };
+    (store as any).recommendations = [];
+
+    await store.translateVisibleItems();
+
+    expect(store.titleMap).toEqual({});
+    expect(store.typeMap).toEqual({});
+  });
+
+  it('builds titleMap and typeMap for each recommendation', async () => {
+    const store = makeStore();
+    (store as any).recommendations = [
+      { _id: 'i1', title: 'Breathing', content_type: 'video' },
+    ];
+
+    await store.translateVisibleItems();
+
+    expect(store.titleMap.i1.title).toBe('Breathing');
+    expect(store.typeMap.i1).toBe('Video');
+  });
+
+  it('falls back to the original title/type when translation throws', async () => {
+    const { translateText } = require('@/utils/translate');
+    (translateText as jest.Mock).mockRejectedValueOnce(new Error('translate down'));
+    (translateText as jest.Mock).mockRejectedValueOnce(new Error('translate down'));
+
+    const store = makeStore();
+    (store as any).recommendations = [
+      { _id: 'i1', title: 'Breathing', content_type: 'video' },
+    ];
+
+    await store.translateVisibleItems();
+
+    expect(store.titleMap.i1).toEqual({ title: 'Breathing', lang: null });
+    expect(store.typeMap.i1).toBe('Video');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Modal open/close handlers
+// ---------------------------------------------------------------------------
+
+describe('modal handlers', () => {
+  it('handleExerciseClick selects the item and opens the info modal', () => {
+    const store = makeStore();
+    store.handleExerciseClick({ _id: 'i1' });
+    expect(store.selectedExerciseId).toBe('i1');
+    expect(store.showInfoInterventionModal).toBe(true);
+
+    store.closeInfoModal();
+    expect(store.showInfoInterventionModal).toBe(false);
+  });
+
+  it('showStats selects the item and opens the stats modal', () => {
+    const store = makeStore();
+    store.showStats({ id: 'i2' });
+    expect(store.selectedExerciseId).toBe('i2');
+    expect(store.showExerciseStats).toBe(true);
+
+    store.closeStatsModal();
+    expect(store.showExerciseStats).toBe(false);
+  });
+
+  it('openFeedbackBrowser prefers the merged plan item over the raw argument', () => {
+    const store = makeStore();
+    (store as any).patientData = {
+      interventions: [{ _id: 'i1', title: 'Plan Item' }],
+    };
+
+    store.openFeedbackBrowser({ _id: 'i1', title: 'Raw Item' }, '2026-01-01T10:00:00Z');
+
+    expect(store.feedbackBrowserIntervention).toEqual({ _id: 'i1', title: 'Plan Item' });
+    expect(store.feedbackInitialDatetime).toBe('2026-01-01T10:00:00Z');
+    expect(store.showFeedbackBrowser).toBe(true);
+
+    store.closeFeedbackBrowser();
+    expect(store.showFeedbackBrowser).toBe(false);
+    expect(store.feedbackBrowserIntervention).toBeNull();
+    expect(store.feedbackInitialDatetime).toBeNull();
+  });
+
+  it('openFeedbackBrowser falls back to the raw argument when there is no plan match', () => {
+    const store = makeStore();
+    (store as any).patientData = { interventions: [] };
+
+    store.openFeedbackBrowser({ _id: 'i9', title: 'Raw Only' });
+
+    expect(store.feedbackBrowserIntervention).toEqual({ _id: 'i9', title: 'Raw Only' });
+    expect(store.feedbackInitialDatetime).toBeNull();
+  });
+
+  it('openAddIntervention resets to create mode with no defaults', () => {
+    const store = makeStore();
+    store.modifyDefaults = { effectiveFrom: 'x', frequency: 'y', notes: 'z', require_video_feedback: true };
+
+    store.openAddIntervention({ _id: 'i1' });
+
+    expect(store.repeatMode).toBe('create');
+    expect(store.selectedExerciseId).toBe('i1');
+    expect(store.modifyDefaults).toBeNull();
+    expect(store.showRepeatModal).toBe(true);
+
+    store.closeRepeatModal();
+    expect(store.showRepeatModal).toBe(false);
+  });
+
+  it('openModifyIntervention computes defaults from the next future date', () => {
+    const store = makeStore();
+    const futureDate = new Date(Date.now() + 2 * 86400000);
+    const pastDate = new Date(Date.now() - 86400000);
+    (store as any).patientData = {
+      interventions: [
+        {
+          _id: 'i1',
+          dates: [{ datetime: pastDate.toISOString() }, { datetime: futureDate.toISOString() }],
+          frequency: 'Daily',
+          notes: 'Take it slow',
+          require_video_feedback: true,
+        },
+      ],
+    };
+
+    store.openModifyIntervention({ _id: 'i1' });
+
+    expect(store.repeatMode).toBe('modify');
+    expect(store.modifyDefaults?.frequency).toBe('Daily');
+    expect(store.modifyDefaults?.notes).toBe('Take it slow');
+    expect(store.modifyDefaults?.require_video_feedback).toBe(true);
+    // Compare via the same local-calendar-day helper the store uses (toLocalYMD),
+    // not toISOString(), which is UTC and can be off by a day depending on TZ.
+    expect(store.modifyDefaults?.effectiveFrom).toBe(toLocalYMD(futureDate));
+    expect(store.showRepeatModal).toBe(true);
+  });
+
+  it('openModifyIntervention defaults to tomorrow when there is no future date', () => {
+    const store = makeStore();
+    (store as any).patientData = {
+      interventions: [{ _id: 'i1', dates: [], frequency: '', notes: '', require_video_feedback: false }],
+    };
+
+    store.openModifyIntervention({ _id: 'i1' });
+
+    const tomorrow = toLocalYMD(new Date(Date.now() + 86400000));
+    expect(store.modifyDefaults?.effectiveFrom).toBe(tomorrow);
+    expect(store.modifyDefaults?.require_video_feedback).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteExercise
+// ---------------------------------------------------------------------------
+
+describe('deleteExercise', () => {
+  let mockApiClient: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockApiClient = require('@/api/client').default;
+    mockApiClient.get.mockResolvedValue({ data: { interventions: [] } });
+  });
+
+  it('posts the removal request and refetches on success', async () => {
+    const store = makeStore();
+    store.explicitPatientId = 'p1';
+    mockApiClient.post.mockResolvedValueOnce({ status: 200 });
+
+    await store.deleteExercise('int-1', jest.fn((k: string) => k));
+
+    expect(mockApiClient.post).toHaveBeenCalledWith('interventions/remove-from-patient/', {
+      patientId: 'p1',
+      intervention: 'int-1',
+    });
+    expect(mockApiClient.get).toHaveBeenCalledTimes(2); // fetchAll + fetchInts
+  });
+
+  it('sets an error message when the removal request fails', async () => {
+    const store = makeStore();
+    mockApiClient.post.mockRejectedValueOnce({
+      response: { data: { error: 'Cannot remove active session' } },
+    });
+
+    await store.deleteExercise('int-1', jest.fn((k: string) => k));
+
+    expect(store.error).toBe('Cannot remove active session');
+  });
+
+  it('does not refetch when the response status is not 200/201', async () => {
+    const store = makeStore();
+    mockApiClient.post.mockResolvedValueOnce({ status: 204 });
+
+    await store.deleteExercise('int-1', jest.fn((k: string) => k));
+
+    expect(mockApiClient.get).not.toHaveBeenCalled();
   });
 });

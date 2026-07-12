@@ -4,6 +4,7 @@ import Therapist from '@/pages/Therapist';
 import { MemoryRouter } from 'react-router-dom';
 import authStore from '@/stores/authStore';
 import apiClient from '@/api/client';
+import { appModeStore } from '@/stores/appModeStore';
 
 import '@testing-library/jest-dom';
 
@@ -152,6 +153,9 @@ const mockStore = {
     mockStore.diseaseFilter = disease;
   }),
   setSortKey: jest.fn(),
+  setSortBy: jest.fn((key: string) => {
+    mockStore.sortBy = key as any;
+  }),
   isCompletedPatient: jest.fn((p: any) => {
     const status = p.rehab_status;
     const end = p.rehab_end_date;
@@ -174,6 +178,19 @@ const mockStore = {
   closeAddPatient: jest.fn(() => {
     mockStore.showAddPatientPopup = false;
   }),
+  openImportRedcap: jest.fn(() => {
+    mockStore.showImportRedcapModal = true;
+  }),
+  closeImportRedcap: jest.fn(() => {
+    mockStore.showImportRedcapModal = false;
+  }),
+  fetchRedcapCandidates: jest.fn().mockResolvedValue(undefined),
+  importOneFromRedcap: jest.fn().mockResolvedValue(undefined),
+  setRedcapRowPassword: jest.fn(),
+  redcapRowPasswords: {} as Record<string, string>,
+  importingKey: null as string | null,
+  importedKeys: {} as Record<string, boolean>,
+  showCompleted: false,
 };
 
 jest.mock('@/stores/therapistPatientsStore', () => ({
@@ -182,46 +199,79 @@ jest.mock('@/stores/therapistPatientsStore', () => ({
   SortKey: 'created',
 }));
 
-describe('Therapist Page', () => {
-  const patientsMock = [
-    {
-      _id: '67d588798c0494979e4633e5',
-      therapist: 'Angelva',
-      created_at: '2025-03-15T14:02:33.107000',
-      username: 'p1',
-      age: '1986-03-06',
-      sex: 'Male',
-      first_name: 'Mark',
-      name: 'Ruffalo',
-      diagnosis: ['Heart attack'],
-      duration: 291,
-    },
-    {
-      _id: '67ecd69fdf1c4c467641ae76',
-      therapist: 'Angelva',
-      created_at: '2025-04-02T06:18:07.973000',
-      username: 'p2',
-      age: '2024-02-05',
-      sex: 'Female',
-      first_name: 'Jennifer',
-      name: 'Anniston',
-      diagnosis: ['Heart attack'],
-      duration: 120,
-    },
-    {
-      _id: '67f6098279d28b282644dd9f',
-      therapist: 'Angelva',
-      created_at: '2025-04-09T05:45:38.258000',
-      username: 'p3',
-      age: '1994-12-14',
-      sex: 'Male',
-      first_name: 'Tom',
-      name: 'Day',
-      diagnosis: ['Stroke'],
-      duration: 235,
-    },
-  ];
+// Applies to every test in this file (not just those nested under "Therapist Page")
+// so mutable mock state never leaks between describe blocks.
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockStore.patients = [];
+  mockStore.loading = false;
+  mockStore.error = '';
+  mockStore.errorDetails = null;
+  mockStore.showErrorDetails = false;
+  mockStore.showAddPatientPopup = false;
+  mockStore.showImportRedcapModal = false;
+  mockStore.redcapLoading = false;
+  mockStore.redcapError = '';
+  mockStore.redcapCandidates = [];
+  mockStore.redcapRowPasswords = {};
+  mockStore.importingKey = null;
+  mockStore.importedKeys = {};
+  mockStore.showCompleted = false;
+  mockStore.selectedSex = 'All';
+  mockStore.selectedDuration = 'All';
+  mockStore.searchTerm = '';
+  mockStore.sexFilter = '';
+  mockStore.durationFilter = '';
+  mockStore.diseaseFilter = '';
+  mockStore.sortBy = 'created';
+  appModeStore.loaded = true;
+  appModeStore.showManualCreate = true;
+  appModeStore.showRedcapImport = false;
+  authStore.isAuthenticated = true;
+  authStore.userType = 'Therapist';
+  (apiClient.get as jest.Mock).mockResolvedValue({ data: [] });
+});
 
+const patientsMock = [
+  {
+    _id: '67d588798c0494979e4633e5',
+    therapist: 'Angelva',
+    created_at: '2025-03-15T14:02:33.107000',
+    username: 'p1',
+    age: '1986-03-06',
+    sex: 'Male',
+    first_name: 'Mark',
+    name: 'Ruffalo',
+    diagnosis: ['Heart attack'],
+    duration: 291,
+  },
+  {
+    _id: '67ecd69fdf1c4c467641ae76',
+    therapist: 'Angelva',
+    created_at: '2025-04-02T06:18:07.973000',
+    username: 'p2',
+    age: '2024-02-05',
+    sex: 'Female',
+    first_name: 'Jennifer',
+    name: 'Anniston',
+    diagnosis: ['Heart attack'],
+    duration: 120,
+  },
+  {
+    _id: '67f6098279d28b282644dd9f',
+    therapist: 'Angelva',
+    created_at: '2025-04-09T05:45:38.258000',
+    username: 'p3',
+    age: '1994-12-14',
+    sex: 'Male',
+    first_name: 'Tom',
+    name: 'Day',
+    diagnosis: ['Stroke'],
+    duration: 235,
+  },
+];
+
+describe('Therapist Page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (apiClient.get as jest.Mock).mockResolvedValue({ data: patientsMock });
@@ -235,6 +285,22 @@ describe('Therapist Page', () => {
     mockStore.sexFilter = '';
     mockStore.durationFilter = '';
     mockStore.diseaseFilter = '';
+    mockStore.sortBy = 'created';
+    mockStore.errorDetails = null;
+    mockStore.showErrorDetails = false;
+    mockStore.showImportRedcapModal = false;
+    mockStore.redcapLoading = false;
+    mockStore.redcapError = '';
+    mockStore.redcapCandidates = [];
+    mockStore.redcapRowPasswords = {};
+    mockStore.importingKey = null;
+    mockStore.importedKeys = {};
+    mockStore.showCompleted = false;
+    appModeStore.loaded = true;
+    appModeStore.showManualCreate = true;
+    appModeStore.showRedcapImport = false;
+    authStore.isAuthenticated = true;
+    authStore.userType = 'Therapist';
   });
 
   test('renders therapist page with patients', async () => {
@@ -673,5 +739,334 @@ describe('Diagnosis translation in patient table', () => {
     await waitFor(() => {
       expect(screen.getByRole('cell', { name: 'Herzinfarkt, Schlaganfall' })).toBeInTheDocument();
     });
+  });
+});
+
+describe('Column sorting', () => {
+  const sortablePatients = [
+    {
+      _id: 'p-a',
+      created_at: '2026-01-01T00:00:00',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'Alpha',
+      name: 'One',
+      diagnosis: ['Stroke'],
+      duration: 30,
+      user_last_login: new Date(Date.now() - 1 * 86400000).toISOString(),
+      adherence_rate: 90,
+    },
+    {
+      _id: 'p-b',
+      created_at: '2026-01-02T00:00:00',
+      age: '1990-01-01',
+      sex: 'Male',
+      first_name: 'Beta',
+      name: 'Two',
+      diagnosis: ['Stroke'],
+      duration: 30,
+      user_last_login: new Date(Date.now() - 5 * 86400000).toISOString(),
+      adherence_rate: 40,
+    },
+  ];
+
+  const renderSortable = () => {
+    mockStore.patients = sortablePatients as any;
+    return render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+  };
+
+  const getBodyRowNames = () =>
+    screen.getAllByRole('cell', { name: /One|Two/ }).map((c) => c.textContent);
+
+  test('clicking the Login header sorts by days since last login (asc = most stale first)', async () => {
+    renderSortable();
+    await screen.findByText('Alpha One');
+
+    fireEvent.click(screen.getByText('Login'));
+
+    await waitFor(() => {
+      expect(mockStore.setSortBy).toHaveBeenCalledWith('last_login');
+    });
+    expect(getBodyRowNames()).toEqual(['Beta Two', 'Alpha One']);
+  });
+
+  test('clicking the same header again reverses the sort direction', async () => {
+    renderSortable();
+    fireEvent.click(screen.getByText('Login'));
+    await waitFor(() => expect(getBodyRowNames()).toEqual(['Beta Two', 'Alpha One']));
+
+    fireEvent.click(screen.getByText('Login'));
+    await waitFor(() => expect(getBodyRowNames()).toEqual(['Alpha One', 'Beta Two']));
+  });
+
+  test('clicking the Adherence header sorts by adherence rate (asc = worst first)', async () => {
+    renderSortable();
+    await screen.findByText('Alpha One');
+
+    fireEvent.click(screen.getByText('Adherence'));
+
+    await waitFor(() => {
+      expect(mockStore.setSortBy).toHaveBeenCalledWith('adherence');
+    });
+    expect(getBodyRowNames()).toEqual(['Beta Two', 'Alpha One']);
+  });
+
+  test('clicking the Feedback header triggers a feedback-based sort', async () => {
+    renderSortable();
+    fireEvent.click(screen.getByText('Feedback'));
+    await waitFor(() => expect(mockStore.setSortBy).toHaveBeenCalledWith('feedback'));
+  });
+
+  test('clicking the Wear header triggers a wear-based sort', async () => {
+    renderSortable();
+    fireEvent.click(screen.getByText('Wear'));
+    await waitFor(() => expect(mockStore.setSortBy).toHaveBeenCalledWith('wear'));
+  });
+});
+
+describe('Patient row navigation', () => {
+  beforeEach(() => {
+    mockStore.patients = patientsMock;
+  });
+
+  test('clicking a patient row navigates to their detail page', async () => {
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    const row = (await screen.findByText('Mark Ruffalo')).closest('[role="link"]')!;
+    fireEvent.click(row);
+    expect(mockNavigate).toHaveBeenCalledWith('/therapist-patient-detail/67d588798c0494979e4633e5');
+  });
+
+  test('pressing Enter on a patient row navigates to their detail page', async () => {
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    const row = (await screen.findByText('Mark Ruffalo')).closest('[role="link"]')!;
+    fireEvent.keyDown(row, { key: 'Enter' });
+    expect(mockNavigate).toHaveBeenCalledWith('/therapist-patient-detail/67d588798c0494979e4633e5');
+  });
+
+  test('ignores unrelated keys on a patient row', async () => {
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    const row = (await screen.findByText('Mark Ruffalo')).closest('[role="link"]')!;
+    fireEvent.keyDown(row, { key: 'Tab' });
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+});
+
+describe('Error banner', () => {
+  test('shows the error message and a Retry button that refetches patients', async () => {
+    mockStore.error = 'Failed to load patients';
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Failed to load patients')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Retry/i }));
+    expect(mockStore.fetchPatients).toHaveBeenCalled();
+  });
+
+  test('disables Retry and shows a loading label while loading', async () => {
+    mockStore.error = 'Failed to load patients';
+    mockStore.loading = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    const retryBtn = await screen.findByRole('button', { name: /Loading\.\.\./i });
+    expect(retryBtn).toBeDisabled();
+  });
+
+  test('toggles error details visibility via Show/Hide details', async () => {
+    mockStore.error = 'Failed to load patients';
+    mockStore.errorDetails = 'Stack trace details';
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByText('Stack trace details')).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /Show details/i }));
+    expect(mockStore.toggleErrorDetails).toHaveBeenCalled();
+  });
+
+  test('renders errorDetails text once showErrorDetails is true', async () => {
+    mockStore.error = 'Failed to load patients';
+    mockStore.errorDetails = 'Stack trace details';
+    mockStore.showErrorDetails = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Stack trace details')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Hide details/i })).toBeInTheDocument();
+  });
+
+  test('does not show the Show/Hide details button when there are no errorDetails', async () => {
+    mockStore.error = 'Failed to load patients';
+    mockStore.errorDetails = null;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Failed to load patients');
+    expect(screen.queryByRole('button', { name: /Show details/i })).not.toBeInTheDocument();
+  });
+});
+
+describe('Header action buttons', () => {
+  test('shows skeleton placeholders instead of action buttons while appModeStore is not loaded', () => {
+    appModeStore.loaded = false;
+    const { container } = render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('button', { name: /Add a New Patient/i })).not.toBeInTheDocument();
+    expect(container.querySelectorAll('.animate-pulse, [class*="skeleton"]').length).toBeGreaterThanOrEqual(0);
+  });
+
+  test('hides the Add Patient button when showManualCreate is false', () => {
+    appModeStore.showManualCreate = false;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('button', { name: /Add a New Patient/i })).not.toBeInTheDocument();
+  });
+
+  test('shows the Import from REDCap button when showRedcapImport is true and opens the modal', async () => {
+    appModeStore.showRedcapImport = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    const btn = screen.getByRole('button', { name: /Import from REDCap/i });
+    fireEvent.click(btn);
+
+    expect(mockStore.openImportRedcap).toHaveBeenCalled();
+    await waitFor(() => expect(mockStore.fetchRedcapCandidates).toHaveBeenCalled());
+  });
+
+  test('does not render the Import Modal wrapper when showRedcapImport is false', () => {
+    appModeStore.showRedcapImport = false;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    expect(screen.queryByText('Import Modal')).not.toBeInTheDocument();
+  });
+
+  test('renders the Import Modal wrapper when showRedcapImport is true', () => {
+    appModeStore.showRedcapImport = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Import Modal')).toBeInTheDocument();
+  });
+});
+
+describe('Completed patients section', () => {
+  const completedPatient = {
+    _id: 'completed-1',
+    created_at: '2026-01-01T00:00:00',
+    age: '1990-01-01',
+    sex: 'Female',
+    first_name: 'Done',
+    name: 'Patient',
+    diagnosis: ['Stroke'],
+    duration: 100,
+    rehab_status: 'completed',
+    rehab_end_date: '2026-03-01T00:00:00',
+  };
+
+  test('shows the completed patient with a Discharged date when expanded', async () => {
+    mockStore.patients = [completedPatient] as any;
+    mockStore.showCompleted = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Done Patient')).toBeInTheDocument();
+    expect(screen.getByText(/Discharged/)).toBeInTheDocument();
+  });
+
+  test('shows "No completed patients" when the completed list is empty', async () => {
+    mockStore.patients = [] as any;
+    mockStore.showCompleted = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('No completed patients')).toBeInTheDocument();
+  });
+
+  test('navigates when a completed row is clicked', async () => {
+    mockStore.patients = [completedPatient] as any;
+    mockStore.showCompleted = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    const row = (await screen.findByText('Done Patient')).closest('[role="link"]')!;
+    fireEvent.click(row);
+    expect(mockNavigate).toHaveBeenCalledWith('/therapist-patient-detail/completed-1');
+  });
+});
+
+describe('Empty / loading states', () => {
+  test('shows "No active patients" when there are none and not loading', async () => {
+    mockStore.patients = [] as any;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('No active patients')).toBeInTheDocument();
+  });
+
+  test('shows "Loading patients..." when loading with no active patients yet', async () => {
+    mockStore.patients = [] as any;
+    mockStore.loading = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Loading patients...')).toBeInTheDocument();
   });
 });

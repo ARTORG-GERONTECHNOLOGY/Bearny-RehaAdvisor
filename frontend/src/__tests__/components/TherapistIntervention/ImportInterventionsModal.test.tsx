@@ -7,8 +7,10 @@ jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 // Provide stable observable mocks so MobX observer() doesn't blow up
 const mockImportStore = {
   loading: false,
-  error: '',
-  result: null,
+  error: '' as string,
+  errorCode: undefined as string | undefined,
+  availableSheets: [] as string[],
+  result: null as any,
   reset: jest.fn(),
   clearError: jest.fn(),
   importFromExcel: jest.fn(),
@@ -56,7 +58,10 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockImportStore.loading = false;
   mockImportStore.error = '';
+  mockImportStore.errorCode = undefined;
+  mockImportStore.availableSheets = [];
   mockImportStore.result = null;
+  mockImportStore.importFromExcel.mockReset();
   mockVideoStore.loading = false;
   mockVideoStore.error = '';
   mockVideoStore.results = null;
@@ -376,5 +381,344 @@ describe('Upload results display', () => {
     // Exact matches avoid collisions with naming-convention example text
     expect(screen.getByText('fr')).toBeInTheDocument();
     expect(screen.getByText('3500_pdf')).toBeInTheDocument();
+  });
+});
+
+// ── Close behavior ─────────────────────────────────────────────────────────
+
+describe('Close behavior', () => {
+  // Bootstrap's modal header dismiss (X) button also has aria-label "Close";
+  // the footer text button is the last one in DOM order.
+  function getFooterCloseButton() {
+    const buttons = screen.getAllByRole('button', { name: /^Close$/i });
+    return buttons[buttons.length - 1];
+  }
+
+  it('resets both stores and calls onHide when Close is clicked', () => {
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.click(getFooterCloseButton());
+
+    expect(mockImportStore.reset).toHaveBeenCalled();
+    expect(mockVideoStore.reset).toHaveBeenCalled();
+    expect(defaultProps.onHide).toHaveBeenCalled();
+  });
+
+  it('does not close while an excel import is in progress', () => {
+    mockImportStore.loading = true;
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.click(getFooterCloseButton());
+    expect(defaultProps.onHide).not.toHaveBeenCalled();
+  });
+
+  it('does not close while a media upload is in progress', () => {
+    mockVideoStore.loading = true;
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.click(getFooterCloseButton());
+    expect(defaultProps.onHide).not.toHaveBeenCalled();
+  });
+});
+
+// ── Excel file selection & submission ──────────────────────────────────────
+
+describe('Excel file selection & submission', () => {
+  // Form.Group here has no controlId, so labels aren't associated to their
+  // inputs via "for"/"id" — query by type/position instead of label text.
+  function getExcelInput() {
+    return document.querySelector('input[type="file"]') as HTMLInputElement;
+  }
+  function getSheetNameInput() {
+    return document.querySelectorAll('input.form-control')[1] as HTMLInputElement;
+  }
+  function getLanguageSelect() {
+    return document.querySelector('select') as HTMLSelectElement;
+  }
+  function getLimitInput() {
+    return document.querySelectorAll('input.form-control')[2] as HTMLInputElement;
+  }
+
+  it('enables Import once a file is selected', () => {
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.change(getExcelInput(), {
+      target: { files: [new File(['x'], 'sheet.xlsx')] },
+    });
+    expect(screen.getByRole('button', { name: /^Import$/i })).not.toBeDisabled();
+  });
+
+  it('rejects an excel file over 50MB with an inline error and clears the selection', () => {
+    render(<ImportInterventionsModal {...defaultProps} />);
+    const bigFile = new File(['x'], 'huge.xlsx');
+    Object.defineProperty(bigFile, 'size', { value: 51 * 1024 * 1024 });
+
+    fireEvent.change(getExcelInput(), { target: { files: [bigFile] } });
+
+    expect(screen.getByText(/Excel file is too large/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Import$/i })).toBeDisabled();
+  });
+
+  it('submits with the sheet name, default language, and no limit when limit is blank', async () => {
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.change(getExcelInput(), {
+      target: { files: [new File(['x'], 'sheet.xlsx')] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Import$/i }));
+
+    await waitFor(() => {
+      expect(mockImportStore.importFromExcel).toHaveBeenCalledWith(
+        expect.any(File),
+        { sheet_name: 'Content', default_lang: 'en', limit: null }
+      );
+    });
+  });
+
+  it('parses a numeric limit and forwards it', async () => {
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.change(getExcelInput(), {
+      target: { files: [new File(['x'], 'sheet.xlsx')] },
+    });
+    fireEvent.change(getLimitInput(), { target: { value: '25' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Import$/i }));
+
+    await waitFor(() => {
+      expect(mockImportStore.importFromExcel).toHaveBeenCalledWith(
+        expect.any(File),
+        expect.objectContaining({ limit: 25 })
+      );
+    });
+  });
+
+  it('treats a non-numeric or non-positive limit as null', async () => {
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.change(getExcelInput(), {
+      target: { files: [new File(['x'], 'sheet.xlsx')] },
+    });
+    fireEvent.change(getLimitInput(), { target: { value: '-5' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Import$/i }));
+
+    await waitFor(() => {
+      expect(mockImportStore.importFromExcel).toHaveBeenCalledWith(
+        expect.any(File),
+        expect.objectContaining({ limit: null })
+      );
+    });
+  });
+
+  it('lowercases a custom sheet name and language selection', async () => {
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.change(getExcelInput(), {
+      target: { files: [new File(['x'], 'sheet.xlsx')] },
+    });
+    fireEvent.change(getSheetNameInput(), { target: { value: 'MySheet' } });
+    // The <select> only has lowercase option values (jsdom won't apply an
+    // unmatched value), so 'de' both selects it and exercises the lowercasing.
+    fireEvent.change(getLanguageSelect(), { target: { value: 'de' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Import$/i }));
+
+    await waitFor(() => {
+      expect(mockImportStore.importFromExcel).toHaveBeenCalledWith(
+        expect.any(File),
+        expect.objectContaining({ sheet_name: 'MySheet', default_lang: 'de' })
+      );
+    });
+  });
+
+  it('calls onSuccess when the import completes without error and a result is present', async () => {
+    mockImportStore.importFromExcel.mockImplementation(async () => {
+      mockImportStore.result = { created: 1, updated: 0, skipped: 0 } as any;
+    });
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.change(getExcelInput(), {
+      target: { files: [new File(['x'], 'sheet.xlsx')] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Import$/i }));
+
+    await waitFor(() => expect(defaultProps.onSuccess).toHaveBeenCalled());
+  });
+
+  it('does not call onSuccess when the store reports an error', async () => {
+    mockImportStore.importFromExcel.mockImplementation(async () => {
+      mockImportStore.error = 'Something broke';
+    });
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.change(getExcelInput(), {
+      target: { files: [new File(['x'], 'sheet.xlsx')] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Import$/i }));
+
+    await waitFor(() => expect(mockImportStore.importFromExcel).toHaveBeenCalled());
+    expect(defaultProps.onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('shows a spinner and "Importing..." label while loading', () => {
+    mockImportStore.loading = true;
+    render(<ImportInterventionsModal {...defaultProps} />);
+    expect(screen.getByText(/Importing.../i)).toBeInTheDocument();
+  });
+});
+
+// ── Drag & drop onto the media zone ─────────────────────────────────────────
+
+describe('Media drag & drop', () => {
+  function makeDropEvent(files: File[]) {
+    return { dataTransfer: { files } } as any;
+  }
+
+  it('adds files dropped with an accepted extension', () => {
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+
+    const dropZone = screen.getByLabelText(/Drop zone for media files/i);
+    fireEvent.drop(dropZone, makeDropEvent([new File(['x'], '3500_web_de.mp4')]));
+
+    expect(screen.getAllByTestId('video-file-row')).toHaveLength(1);
+  });
+
+  it('filters out dropped files with an unsupported extension', () => {
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+
+    const dropZone = screen.getByLabelText(/Drop zone for media files/i);
+    fireEvent.drop(dropZone, makeDropEvent([new File(['x'], 'clip.avi')]));
+
+    expect(screen.queryAllByTestId('video-file-row')).toHaveLength(0);
+  });
+
+  it('does not duplicate a dropped file that was already added', () => {
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+
+    const dropZone = screen.getByLabelText(/Drop zone for media files/i);
+    const file = new File(['x'], '3500_web_de.mp4');
+    fireEvent.drop(dropZone, makeDropEvent([file]));
+    fireEvent.drop(dropZone, makeDropEvent([file]));
+
+    expect(screen.getAllByTestId('video-file-row')).toHaveLength(1);
+  });
+});
+
+// ── Excel import result rendering ───────────────────────────────────────────
+
+describe('Excel import result rendering', () => {
+  it('shows created/updated/skipped counts and a zero-errors badge when there are none', () => {
+    mockImportStore.result = { created: 3, updated: 2, skipped: 1, message: 'Done.' } as any;
+    render(<ImportInterventionsModal {...defaultProps} />);
+
+    expect(screen.getByText('Done.')).toBeInTheDocument();
+    expect(screen.getByText(/Created: 3/)).toBeInTheDocument();
+    expect(screen.getByText(/Updated: 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Skipped: 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Errors: 0/)).toBeInTheDocument();
+  });
+
+  it('derives error/warning counts from the errors array when explicit counts are absent', () => {
+    mockImportStore.result = {
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [
+        { row: 2, external_id: 'a', error: 'Bad row', severity: 'error' },
+        { row: 3, external_id: 'b', error: 'Missing field', severity: 'warning' },
+      ],
+    } as any;
+    render(<ImportInterventionsModal {...defaultProps} />);
+
+    expect(screen.getByText(/Errors: 1/)).toBeInTheDocument();
+    expect(screen.getByText(/Warnings: 1/)).toBeInTheDocument();
+    expect(screen.getByText('Bad row')).toBeInTheDocument();
+    expect(screen.getByText('Missing field')).toBeInTheDocument();
+    expect(screen.getByText('Warning')).toBeInTheDocument();
+    expect(screen.getByText('Error')).toBeInTheDocument();
+  });
+
+  it('uses explicit errors_count/warnings fields when provided', () => {
+    mockImportStore.result = {
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      errors_count: 5,
+      warnings: 2,
+      errors: [],
+    } as any;
+    render(<ImportInterventionsModal {...defaultProps} />);
+
+    expect(screen.getByText(/Errors: 5/)).toBeInTheDocument();
+    expect(screen.getByText(/Warnings: 2/)).toBeInTheDocument();
+  });
+
+  it('truncates the error detail list beyond 200 entries', () => {
+    mockImportStore.result = {
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      errors: Array.from({ length: 201 }, (_, i) => ({
+        row: i,
+        external_id: `id-${i}`,
+        error: 'boom',
+        severity: 'error',
+      })),
+    } as any;
+    render(<ImportInterventionsModal {...defaultProps} />);
+
+    expect(screen.getByText(/Too many issues to display/i)).toBeInTheDocument();
+  });
+
+  it('shows a fallback dash when a row/id is missing from an error entry', () => {
+    mockImportStore.result = {
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      errors: [{ error: 'boom' }],
+    } as any;
+    render(<ImportInterventionsModal {...defaultProps} />);
+
+    const idLine = screen.getByText(/Row:/).closest('span')!;
+    expect(idLine.textContent).toContain('-');
+  });
+});
+
+// ── Excel error alert rendering ─────────────────────────────────────────────
+
+describe('Excel error alert rendering', () => {
+  it('shows a sheet_not_found message with the list of available sheets', () => {
+    mockImportStore.error = 'Sheet missing';
+    (mockImportStore as any).errorCode = 'sheet_not_found';
+    (mockImportStore as any).availableSheets = ['Sheet1', 'Data'];
+    render(<ImportInterventionsModal {...defaultProps} />);
+
+    expect(screen.getByText(/Sheet not found in the Excel file\./i)).toBeInTheDocument();
+    expect(screen.getByText('Sheet1, Data')).toBeInTheDocument();
+  });
+
+  it('shows a sheet_not_found message without a sheet list when none are available', () => {
+    mockImportStore.error = 'Sheet missing';
+    (mockImportStore as any).errorCode = 'sheet_not_found';
+    (mockImportStore as any).availableSheets = [];
+    render(<ImportInterventionsModal {...defaultProps} />);
+
+    expect(screen.getByText(/Sheet not found in the Excel file\./i)).toBeInTheDocument();
+    expect(screen.queryByText(/Available sheets:/i)).not.toBeInTheDocument();
+  });
+
+  it('shows a missing_column message', () => {
+    mockImportStore.error = 'col missing';
+    (mockImportStore as any).errorCode = 'missing_column';
+    render(<ImportInterventionsModal {...defaultProps} />);
+
+    expect(screen.getByText(/Required column missing in the Excel file\./i)).toBeInTheDocument();
+  });
+
+  it('shows the raw error message for an unrecognized error code', () => {
+    mockImportStore.error = 'Something else went wrong';
+    (mockImportStore as any).errorCode = undefined;
+    render(<ImportInterventionsModal {...defaultProps} />);
+
+    expect(screen.getByText('Something else went wrong')).toBeInTheDocument();
+  });
+
+  it('shows the media upload store error on the media tab', () => {
+    mockVideoStore.error = 'Upload failed';
+    render(<ImportInterventionsModal {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+
+    expect(screen.getByText('Upload failed')).toBeInTheDocument();
   });
 });
