@@ -107,17 +107,15 @@ describe('HealthSlider (Full Sync)', () => {
       toJSON: () => {},
     } as any);
 
-    // capture downloads
+    // capture downloads — use real anchor nodes (not plain objects) so that
+    // document.body.appendChild(a) in downloadBlob doesn't throw; only stub
+    // click() so jsdom doesn't attempt to navigate.
     const created: any[] = [];
     const originalCreateElement = document.createElement.bind(document);
     jest.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
       if (tagName === 'a') {
-        const a = {
-          href: '',
-          download: '',
-          click: jest.fn(),
-          remove: jest.fn(),
-        } as any;
+        const a = originalCreateElement('a') as HTMLAnchorElement;
+        a.click = jest.fn();
         created.push(a);
         return a;
       }
@@ -148,9 +146,7 @@ describe('HealthSlider (Full Sync)', () => {
     });
   });
 
-  it.skip('shows "middle slider" modal if user clicks Weiter without moving (still 50)', async () => {
-    // This test needs to be updated for eva2.tsx behavior
-    // The modal might appear differently or have different timing
+  it('shows "middle slider" modal if user clicks Weiter without moving (still 50)', async () => {
     renderICF();
     await enterPatientId();
     await startPracticeMode();
@@ -166,17 +162,18 @@ describe('HealthSlider (Full Sync)', () => {
       expect(screen.queryByText(/ÜBUNGSMODUS/i)).not.toBeInTheDocument();
     });
 
-    // now in real mode -> Weiter exists
-    fireEvent.click(await screen.findByRole('button', { name: 'Weiter' }));
+    // now in real mode -> wait for the 3s question lock to lift, then click Weiter
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled(), {
+      timeout: 5000,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
 
     expect(
       await screen.findByText(/Möchten Sie den Schieber in der Mitte belassen/i)
     ).toBeInTheDocument();
-  });
+  }, 10_000);
 
-  it.skip('sliderPosition resets to 50 after next (practice → real), and after successful real Next', async () => {
-    // This test needs to be updated for eva2.tsx slider behavior
-    // The slider attributes and timing may differ from eva.tsx
+  it('sliderPosition resets to 50 after next (practice → real), and after successful real Next', async () => {
     renderICF();
     await enterPatientId();
     await startPracticeMode();
@@ -188,13 +185,10 @@ describe('HealthSlider (Full Sync)', () => {
 
     // Practice -> Start should reset to 50 (it already is, but we prove it can move and is reset)
     const slider = screen.getByRole('slider');
-    const track = slider.parentElement as HTMLElement;
+    const track = screen.getByRole('group', { name: 'Schieberegler vertikal' });
 
-    // move slider (pointer down at top => ~97)
-    act(() => {
-      fireEvent.pointerDown(track, { clientY: 0, pointerId: 1 });
-      fireEvent.pointerUp(track, { pointerId: 1 });
-    });
+    // move slider (click at top => 100)
+    fireEvent.click(track, { clientY: 0 });
 
     // Wait for slider value to update
     await waitFor(() => {
@@ -212,13 +206,14 @@ describe('HealthSlider (Full Sync)', () => {
       expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '50');
     });
 
-    // move slider again for Q1 so we avoid modal
-    const slider2 = screen.getByRole('slider');
-    const track2 = slider2.parentElement as HTMLElement;
-    act(() => {
-      fireEvent.pointerDown(track2, { clientY: 0, pointerId: 2 });
-      fireEvent.pointerUp(track2, { pointerId: 2 });
+    // wait for the 3s question lock to lift before interacting again
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled(), {
+      timeout: 5000,
     });
+
+    // move slider again for Q1 so we avoid modal
+    const track2 = screen.getByRole('group', { name: 'Schieberegler vertikal' });
+    fireEvent.click(track2, { clientY: 0 });
 
     fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
 
@@ -226,33 +221,11 @@ describe('HealthSlider (Full Sync)', () => {
     await waitFor(() => {
       expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '50');
     });
-  });
+  }, 10_000);
 
-  it.skip('corrupted localStorage survey_index shows warning banner and clears keys', async () => {
-    // Note: eva2.tsx doesn't have localStorage corruption detection
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    localStorage.setItem('survey_index', 'not-a-number');
-    localStorage.setItem('survey_sessionId', 'abc');
-
-    renderICF();
-
-    // banner appears
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Gespeicherter Fortschritt war beschädigt und wurde zurückgesetzt.'
-    );
-
-    expect(warnSpy).toHaveBeenCalled();
-    expect(localStorage.getItem('survey_index')).toBeNull();
-    expect(localStorage.getItem('survey_sessionId')).toBeNull();
-
-    warnSpy.mockRestore();
-  });
-
-  it.skip('upload failure opens modal and download filenames include patientId + sessionId + qXX + timestamp', async () => {
-    // This test needs to be updated for eva2.tsx upload error handling
-    // The upload failure modal and download behavior may differ
+  it('upload failure opens modal and download filenames include patientId + sessionId + qXX + timestamp', async () => {
     jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-02-01T10:11:12.000Z'));
+    jest.setSystemTime(new Date('2026-02-01T10:11:12.000Z').getTime());
 
     // make upload fail
     (window.fetch as any).mockResolvedValueOnce({ ok: false, status: 500 });
@@ -274,13 +247,17 @@ describe('HealthSlider (Full Sync)', () => {
       expect(screen.queryByText(/ÜBUNGSMODUS/i)).not.toBeInTheDocument();
     });
 
-    // move slider so modal doesn't block
-    const slider = screen.getByRole('slider');
-    const track = slider.parentElement as HTMLElement;
+    // move slider so the "still 50" modal doesn't block
+    const track = screen.getByRole('group', { name: 'Schieberegler vertikal' });
+    fireEvent.click(track, { clientY: 0 });
+
+    // let the 3s question lock lift, then pin the clock back to the fixed instant
+    // so the downloaded filenames carry the exact expected timestamp
     act(() => {
-      fireEvent.pointerDown(track, { clientY: 0, pointerId: 1 });
-      fireEvent.pointerUp(track, { pointerId: 1 });
+      jest.advanceTimersByTime(3100);
     });
+    jest.setSystemTime(new Date('2026-02-01T10:11:12.000Z').getTime());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled());
 
     fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
 
@@ -302,25 +279,34 @@ describe('HealthSlider (Full Sync)', () => {
     expect(jsonName).toBeTruthy();
     expect(audioName).toBeTruthy();
 
-    // base includes P01 + sessionId + q01 + timestamp
-    expect(jsonName).toMatch(/^P01_.+_q01_2026-02-01T10-11-12-000Z\.json$/);
-    expect(audioName).toMatch(/^P01_.+_q01_2026-02-01T10-11-12-000Z\.(webm|m4a)$/);
+    // base includes patientId + sessionId + q01 + timestamp. The millisecond
+    // component may drift slightly because RTL auto-advances fake timers while
+    // polling (findByText), so only the date/time-to-the-second is asserted exactly.
+    expect(jsonName).toMatch(/^P001-001T1_.+_q01_2026-02-01T10-11-12-\d{3}Z\.json$/);
+    expect(audioName).toMatch(/^P001-001T1_.+_q01_2026-02-01T10-11-12-\d{3}Z\.(webm|m4a)$/);
 
     jest.useRealTimers();
-  });
+  }, 10_000);
 
-  it.skip('ding toggle: when Ton aus, no AudioContext is constructed on question cue', async () => {
-    // This test needs to be updated for eva2.tsx audio cue behavior
-    // The ding toggle functionality may work differently
-    // Spy AudioContext construction
+  it('ding toggle: when Ton aus, no ding is played for the question cue', async () => {
+    // jsdom has no real AudioContext, so other tests rely on it being absent
+    // (the component's try/catch around AudioContext usage silently no-ops).
+    // Save/restore it here so this test's mock doesn't leak into later tests.
+    const originalAudioContext = (global as any).AudioContext;
+
+    // The shared AudioContext is also used to route <audio> playback, so it gets
+    // constructed as soon as the survey view mounts regardless of the ding toggle.
+    // What the toggle actually gates is whether playDing() calls createOscillator(),
+    // so that's what we spy on here instead of the AudioContext constructor itself.
+    const createOscillator = jest.fn(() => ({
+      type: 'sine',
+      frequency: { setValueAtTime: jest.fn() },
+      connect: jest.fn(),
+      start: jest.fn(),
+      stop: jest.fn(),
+    }));
     const ACtor = jest.fn(() => ({
-      createOscillator: () => ({
-        type: 'sine',
-        frequency: { setValueAtTime: jest.fn() },
-        connect: jest.fn(),
-        start: jest.fn(),
-        stop: jest.fn(),
-      }),
+      createOscillator,
       createGain: () => ({
         gain: {
           setValueAtTime: jest.fn(),
@@ -328,6 +314,10 @@ describe('HealthSlider (Full Sync)', () => {
         },
         connect: jest.fn(),
       }),
+      createMediaElementSource: () => ({ connect: jest.fn() }),
+      createMediaStreamSource: () => ({ connect: jest.fn() }),
+      createMediaStreamDestination: () => ({ stream: {} }),
+      resume: jest.fn().mockResolvedValue(undefined),
       currentTime: 0,
       destination: {},
     }));
@@ -335,48 +325,57 @@ describe('HealthSlider (Full Sync)', () => {
     // @ts-expect-error -- replacing global AudioContext with mock constructor in jsdom
     global.AudioContext = ACtor;
 
-    renderICF();
-    await enterPatientId();
+    try {
+      renderICF();
+      await enterPatientId();
 
-    // Start mic -> leaves testMode, enters practice UI
-    await startPracticeMode();
+      // Start mic -> leaves testMode, enters practice UI
+      await startPracticeMode();
 
-    // Wait for practice mode to load
-    await waitFor(() => {
-      expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument();
-    });
+      // Wait for practice mode to load
+      await waitFor(() => {
+        expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument();
+      });
 
-    // Turn ding OFF (button has aria-label "Ton an" initially)
-    fireEvent.click(await screen.findByRole('button', { name: 'Ton an' }));
+      // The initial cue for the practice question already rang (dingActive=true by default)
+      await waitFor(() => expect(createOscillator).toHaveBeenCalledTimes(1));
 
-    // Now it should be "Ton aus"
-    expect(screen.getByRole('button', { name: 'Ton aus' })).toBeInTheDocument();
+      // Turn ding OFF (button has aria-label "Ton an" initially)
+      fireEvent.click(await screen.findByRole('button', { name: 'Ton an' }));
 
-    // Practice -> Start (transitions into real mode)
-    fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+      // Now it should be "Ton aus"
+      expect(screen.getByRole('button', { name: 'Ton aus' })).toBeInTheDocument();
 
-    // Wait for transition to real mode
-    await waitFor(() => {
-      expect(screen.queryByText(/ÜBUNGSMODUS/i)).not.toBeInTheDocument();
-    });
+      // Practice -> Start (transitions into real mode)
+      fireEvent.click(screen.getByRole('button', { name: 'Start' }));
 
-    // Move slider once to avoid the "middle" modal
-    const slider = screen.getByRole('slider');
-    const track = slider.parentElement as HTMLElement;
-    act(() => {
-      fireEvent.pointerDown(track, { clientY: 0, pointerId: 1 });
-      fireEvent.pointerUp(track, { pointerId: 1 });
-    });
+      // Wait for transition to real mode
+      await waitFor(() => {
+        expect(screen.queryByText(/ÜBUNGSMODUS/i)).not.toBeInTheDocument();
+      });
 
-    // "Weiter" advances to next question and triggers the cue effect
-    fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
+      // wait for the 3s question lock to lift before interacting again
+      await waitFor(
+        () => expect(screen.getByRole('button', { name: 'Weiter' })).not.toBeDisabled(),
+        { timeout: 5000 }
+      );
 
-    // Wait a tick for effects
-    await act(async () => {});
+      // Move slider once to avoid the "middle" modal
+      const track = screen.getByRole('group', { name: 'Schieberegler vertikal' });
+      fireEvent.click(track, { clientY: 0 });
 
-    // Since dingActive=false, playDing should early-return and AudioContext should never be constructed
-    expect(ACtor).not.toHaveBeenCalled();
-  });
+      // "Weiter" advances to next question and triggers the cue effect
+      fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
+
+      await waitFor(() => expect(screen.getByText('/ 29')).toBeInTheDocument());
+      await act(async () => {});
+
+      // Since dingActive=false, playDing should early-return before creating a new oscillator
+      expect(createOscillator).toHaveBeenCalledTimes(1);
+    } finally {
+      global.AudioContext = originalAudioContext;
+    }
+  }, 10_000);
 
   // ─── Centering ────────────────────────────────────────────────────────────
   it('practice mode: Start button is visible and bell/play buttons are available', async () => {
