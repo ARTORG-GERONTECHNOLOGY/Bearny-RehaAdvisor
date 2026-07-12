@@ -206,14 +206,18 @@ describe('FormRegisterPatient Component', () => {
       fireEvent.change(screen.getByLabelText(/^Project/i), { target: { value: 'COPAIN' } });
       expect((screen.getByLabelText(/^Project/i) as HTMLSelectElement).value).toBe('COPAIN');
 
-      fireEvent.change(screen.getByLabelText(/^Clinic/i), { target: { value: 'Berner Reha Centrum' } });
+      fireEvent.change(screen.getByLabelText(/^Clinic/i), {
+        target: { value: 'Berner Reha Centrum' },
+      });
       expect((screen.getByLabelText(/^Project/i) as HTMLSelectElement).value).toBe('');
     });
 
     it('only offers projects allowed for the selected clinic', async () => {
       renderComponent();
       await goToStep1();
-      fireEvent.change(screen.getByLabelText(/^Clinic/i), { target: { value: 'Berner Reha Centrum' } });
+      fireEvent.change(screen.getByLabelText(/^Clinic/i), {
+        target: { value: 'Berner Reha Centrum' },
+      });
 
       const projectSelect = screen.getByLabelText(/^Project/i) as HTMLSelectElement;
       const values = Array.from(projectSelect.options).map((o) => o.value);
@@ -230,9 +234,10 @@ describe('FormRegisterPatient Component', () => {
       fireEvent.click(within(screen.getByTestId('select-function')).getByText('Cardiology'));
       await screen.findByTestId('select-diagnosis');
       fireEvent.click(within(screen.getByTestId('select-diagnosis')).getByText('Stroke'));
-      expect(
-        within(screen.getByTestId('select-diagnosis')).getByText('Stroke')
-      ).toHaveAttribute('data-selected', 'true');
+      expect(within(screen.getByTestId('select-diagnosis')).getByText('Stroke')).toHaveAttribute(
+        'data-selected',
+        'true'
+      );
 
       // Deselecting the speciality clears the previously chosen diagnosis
       // (handleMultiSelectChange resets `diagnosis: []` whenever `function` changes).
@@ -255,7 +260,6 @@ describe('FormRegisterPatient Component', () => {
       expect(within(diagnosisOptions).getByText('High blood pressure')).toBeInTheDocument();
       expect(within(diagnosisOptions).queryByText('Diabetes')).not.toBeInTheDocument();
     });
-
   });
 
   describe('Rehabilitation / study end date cross-validation', () => {
@@ -292,7 +296,6 @@ describe('FormRegisterPatient Component', () => {
         await screen.findByText(/Rehabilitation end date must be before the study end date/i)
       ).toBeInTheDocument();
     });
-
   });
 
   describe('Submission', () => {
@@ -314,9 +317,7 @@ describe('FormRegisterPatient Component', () => {
       await fillMinimalValidForm();
       fireEvent.click(screen.getByRole('button', { name: /^Submit$/i }));
 
-      expect(
-        await screen.findByText(/The patient has been registered/i)
-      ).toBeInTheDocument();
+      expect(await screen.findByText(/The patient has been registered/i)).toBeInTheDocument();
       expect(screen.getByText('PAT-123')).toBeInTheDocument();
       expect(screen.getByText(/Click here to log in/i)).toBeInTheDocument();
     });
@@ -351,9 +352,7 @@ describe('FormRegisterPatient Component', () => {
       await fillMinimalValidForm();
       fireEvent.click(screen.getByRole('button', { name: /^Submit$/i }));
 
-      expect(
-        await screen.findByText('Registration is temporarily disabled.')
-      ).toBeInTheDocument();
+      expect(await screen.findByText('Registration is temporarily disabled.')).toBeInTheDocument();
     });
 
     it('falls back to a generic error message when nothing else is available', async () => {
@@ -382,9 +381,7 @@ describe('FormRegisterPatient Component', () => {
       fireEvent.click(screen.getByText('Back'));
       fireEvent.change(screen.getByLabelText(/^First Name/i), { target: { value: 'Timmy' } });
 
-      expect(
-        screen.queryByText('Registration is temporarily disabled.')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText('Registration is temporarily disabled.')).not.toBeInTheDocument();
     });
   });
 });

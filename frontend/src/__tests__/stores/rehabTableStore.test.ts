@@ -310,12 +310,12 @@ describe('extractApiError', () => {
   });
 
   it('falls back to error/detail/details fields when there is no message', () => {
-    expect(
-      extractApiError({ response: { data: { error: 'Server exploded' } } }, 'fallback')
-    ).toBe('Server exploded');
-    expect(
-      extractApiError({ response: { data: { details: 'more info' } } }, 'fallback')
-    ).toBe('more info');
+    expect(extractApiError({ response: { data: { error: 'Server exploded' } } }, 'fallback')).toBe(
+      'Server exploded'
+    );
+    expect(extractApiError({ response: { data: { details: 'more info' } } }, 'fallback')).toBe(
+      'more info'
+    );
   });
 
   it('returns the fallback when the payload has no usable fields', () => {
@@ -357,9 +357,7 @@ describe('getters', () => {
   it('diagnoses flattens diagnosis lists for each specialisation', () => {
     authStoreMock.specialisations = ['Cardiology', 'Neurology'];
     const store = makeStore();
-    expect(store.diagnoses).toEqual(
-      expect.arrayContaining(['Stroke', 'Heart Failure'])
-    );
+    expect(store.diagnoses).toEqual(expect.arrayContaining(['Stroke', 'Heart Failure']));
   });
 
   it('activePatientItems / pastPatientItems split by future dates', () => {
@@ -503,9 +501,7 @@ describe('fetchAll', () => {
 
     await store.fetchAll(jest.fn((k: string) => k));
 
-    expect(mockApiClient.get).toHaveBeenCalledWith(
-      'patients/rehabilitation-plan/therapist/p1/'
-    );
+    expect(mockApiClient.get).toHaveBeenCalledWith('patients/rehabilitation-plan/therapist/p1/');
     expect(store.patientData.interventions).toHaveLength(1);
   });
 
@@ -631,7 +627,10 @@ describe('initForPatient', () => {
 
   it('sets an error and stops early when no patientId is given', async () => {
     const store = makeStore();
-    await store.initForPatient('', jest.fn((k: string) => k));
+    await store.initForPatient(
+      '',
+      jest.fn((k: string) => k)
+    );
 
     expect(store.error).toBe('No patient selected.');
     expect(store.loading).toBe(false);
@@ -644,7 +643,10 @@ describe('initForPatient', () => {
       .mockResolvedValueOnce({ data: { interventions: [{ _id: 'i1', title: 'Plan' }] } })
       .mockResolvedValueOnce({ data: [{ _id: 'i1', preview_img: 'z.png' }] });
 
-    await store.initForPatient('patient-1', jest.fn((k: string) => k));
+    await store.initForPatient(
+      'patient-1',
+      jest.fn((k: string) => k)
+    );
 
     expect(store.explicitPatientId).toBe('patient-1');
     expect(store.loading).toBe(false);
@@ -703,9 +705,7 @@ describe('translateVisibleItems', () => {
 
   it('builds titleMap and typeMap for each recommendation', async () => {
     const store = makeStore();
-    (store as any).recommendations = [
-      { _id: 'i1', title: 'Breathing', content_type: 'video' },
-    ];
+    (store as any).recommendations = [{ _id: 'i1', title: 'Breathing', content_type: 'video' }];
 
     await store.translateVisibleItems();
 
@@ -719,9 +719,7 @@ describe('translateVisibleItems', () => {
     (translateText as jest.Mock).mockRejectedValueOnce(new Error('translate down'));
 
     const store = makeStore();
-    (store as any).recommendations = [
-      { _id: 'i1', title: 'Breathing', content_type: 'video' },
-    ];
+    (store as any).recommendations = [{ _id: 'i1', title: 'Breathing', content_type: 'video' }];
 
     await store.translateVisibleItems();
 
@@ -785,7 +783,12 @@ describe('modal handlers', () => {
 
   it('openAddIntervention resets to create mode with no defaults', () => {
     const store = makeStore();
-    store.modifyDefaults = { effectiveFrom: 'x', frequency: 'y', notes: 'z', require_video_feedback: true };
+    store.modifyDefaults = {
+      effectiveFrom: 'x',
+      frequency: 'y',
+      notes: 'z',
+      require_video_feedback: true,
+    };
 
     store.openAddIntervention({ _id: 'i1' });
 
@@ -829,7 +832,9 @@ describe('modal handlers', () => {
   it('openModifyIntervention defaults to tomorrow when there is no future date', () => {
     const store = makeStore();
     (store as any).patientData = {
-      interventions: [{ _id: 'i1', dates: [], frequency: '', notes: '', require_video_feedback: false }],
+      interventions: [
+        { _id: 'i1', dates: [], frequency: '', notes: '', require_video_feedback: false },
+      ],
     };
 
     store.openModifyIntervention({ _id: 'i1' });
@@ -858,7 +863,10 @@ describe('deleteExercise', () => {
     store.explicitPatientId = 'p1';
     mockApiClient.post.mockResolvedValueOnce({ status: 200 });
 
-    await store.deleteExercise('int-1', jest.fn((k: string) => k));
+    await store.deleteExercise(
+      'int-1',
+      jest.fn((k: string) => k)
+    );
 
     expect(mockApiClient.post).toHaveBeenCalledWith('interventions/remove-from-patient/', {
       patientId: 'p1',
@@ -873,7 +881,10 @@ describe('deleteExercise', () => {
       response: { data: { error: 'Cannot remove active session' } },
     });
 
-    await store.deleteExercise('int-1', jest.fn((k: string) => k));
+    await store.deleteExercise(
+      'int-1',
+      jest.fn((k: string) => k)
+    );
 
     expect(store.error).toBe('Cannot remove active session');
   });
@@ -882,7 +893,10 @@ describe('deleteExercise', () => {
     const store = makeStore();
     mockApiClient.post.mockResolvedValueOnce({ status: 204 });
 
-    await store.deleteExercise('int-1', jest.fn((k: string) => k));
+    await store.deleteExercise(
+      'int-1',
+      jest.fn((k: string) => k)
+    );
 
     expect(mockApiClient.get).not.toHaveBeenCalled();
   });

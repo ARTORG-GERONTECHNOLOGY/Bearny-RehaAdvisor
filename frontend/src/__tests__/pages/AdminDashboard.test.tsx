@@ -477,7 +477,12 @@ describe('AdminDashboard', () => {
       mockApiGet({
         interventions: [
           sampleIntervention,
-          { ...sampleIntervention, _id: 'iv-2', external_id: '3600_aud', title: 'Relaxation Audio' },
+          {
+            ...sampleIntervention,
+            _id: 'iv-2',
+            external_id: '3600_aud',
+            title: 'Relaxation Audio',
+          },
         ],
       });
 
@@ -819,7 +824,9 @@ describe('AdminDashboard', () => {
       );
 
       await waitFor(() =>
-        expect(screen.getByRole('heading', { name: 'Admin Dashboard', level: 1 })).toBeInTheDocument()
+        expect(
+          screen.getByRole('heading', { name: 'Admin Dashboard', level: 1 })
+        ).toBeInTheDocument()
       );
       expect(screen.getByText('Click the Analytics tab to load data.')).toBeInTheDocument();
     });

@@ -210,7 +210,11 @@ describe('InterventionCalendar agenda table', () => {
     render(
       <InterventionCalendar
         patientData={
-          { interventions: [{ _id: 'itv-2', title: 'Bad Date', dates: [{ datetime: 'not-a-date' }] }] } as any
+          {
+            interventions: [
+              { _id: 'itv-2', title: 'Bad Date', dates: [{ datetime: 'not-a-date' }] },
+            ],
+          } as any
         }
         onSelectIntervention={jest.fn()}
         onSelectFeedback={jest.fn()}
@@ -338,9 +342,7 @@ describe('InterventionCalendar big-calendar wiring', () => {
       />
     );
     fireEvent.click(screen.getByText('select event'));
-    expect(onSelectIntervention).toHaveBeenCalledWith(
-      expect.objectContaining({ _id: 'itv-1' })
-    );
+    expect(onSelectIntervention).toHaveBeenCalledWith(expect.objectContaining({ _id: 'itv-1' }));
   });
 
   it('reschedules a draggable event via onRescheduleEvent and clears the pending move', async () => {
@@ -357,11 +359,7 @@ describe('InterventionCalendar big-calendar wiring', () => {
     fireEvent.click(screen.getByText('drop event'));
 
     await screen.findByTestId('mock-calendar');
-    expect(onRescheduleEvent).toHaveBeenCalledWith(
-      'itv-1',
-      TODAY.toISOString(),
-      expect.any(Date)
-    );
+    expect(onRescheduleEvent).toHaveBeenCalledWith('itv-1', TODAY.toISOString(), expect.any(Date));
   });
 
   it('does not reschedule a non-draggable (completed) event on drop', () => {

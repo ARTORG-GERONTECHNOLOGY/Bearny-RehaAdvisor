@@ -564,7 +564,10 @@ describe('TherapistInterventions — Templates tab', () => {
   });
 
   it('filters the template search autocomplete and selects a match', async () => {
-    mockApiGet([makeDoc({ id: 'tpl-2', name: 'Cardio Plan' }), makeDoc({ id: 'tpl-3', name: 'Ortho Plan' })]);
+    mockApiGet([
+      makeDoc({ id: 'tpl-2', name: 'Cardio Plan' }),
+      makeDoc({ id: 'tpl-3', name: 'Ortho Plan' }),
+    ]);
     await goToTemplatesTab();
     await screen.findByText(/Cardio Plan/);
 
@@ -577,7 +580,9 @@ describe('TherapistInterventions — Templates tab', () => {
       '.position-absolute.bg-white'
     ) as HTMLElement;
     expect(within(dropdown).queryByText(/Ortho/)).not.toBeInTheDocument();
-    const match = within(dropdown).getByText((_, el) => el?.tagName === 'SPAN' && /Plan/.test(el.textContent || ''));
+    const match = within(dropdown).getByText(
+      (_, el) => el?.tagName === 'SPAN' && /Plan/.test(el.textContent || '')
+    );
     fireEvent.mouseDown(match.closest('[style*="cursor"]')!);
 
     await waitFor(() => {
@@ -639,7 +644,9 @@ describe('TherapistInterventions — Templates tab', () => {
     fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
       target: { value: 'tpl-2' },
     });
-    await waitFor(() => expect(screen.getByRole('button', { name: /^Apply$/i })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^Apply$/i })).toBeInTheDocument()
+    );
 
     fireEvent.click(screen.getByTitle('Copy template'));
     expect(screen.getByDisplayValue('Copy of Original')).toBeInTheDocument();
@@ -734,15 +741,13 @@ describe('TherapistInterventions — Templates tab', () => {
     await goToTemplatesTab();
     (apiClient.get as jest.Mock).mockClear();
 
-    const diagSelect = screen.getAllByRole('combobox').find((el) =>
-      within(el as HTMLElement).queryByText('All')
-    ) as HTMLSelectElement;
+    const diagSelect = screen
+      .getAllByRole('combobox')
+      .find((el) => within(el as HTMLElement).queryByText('All')) as HTMLSelectElement;
     fireEvent.change(diagSelect, { target: { value: 'Coronary Artery Disease' } });
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith(
-        expect.stringContaining('diagnosis=Coronary')
-      );
+      expect(apiClient.get).toHaveBeenCalledWith(expect.stringContaining('diagnosis=Coronary'));
     });
   });
 
@@ -764,7 +769,9 @@ describe('TherapistInterventions — Templates tab', () => {
     fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
       target: { value: 'tpl-2' },
     });
-    await waitFor(() => expect(screen.getByRole('button', { name: /^Apply$/i })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^Apply$/i })).toBeInTheDocument()
+    );
 
     fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
     fireEvent.click(await screen.findByText('apply ok'));
@@ -784,7 +791,9 @@ describe('TherapistInterventions — Templates tab', () => {
     fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
       target: { value: 'tpl-2' },
     });
-    await waitFor(() => expect(screen.getByRole('button', { name: /^Apply$/i })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^Apply$/i })).toBeInTheDocument()
+    );
 
     fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
     fireEvent.click(await screen.findByText('apply partial'));

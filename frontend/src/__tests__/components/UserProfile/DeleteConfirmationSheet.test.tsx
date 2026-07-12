@@ -53,7 +53,9 @@ describe('DeleteConfirmation', () => {
 
   it('does not call handleClose when dismissed via the close (X) button while loading', () => {
     const handleClose = jest.fn();
-    render(<DeleteConfirmation show handleClose={handleClose} handleConfirm={jest.fn()} isLoading />);
+    render(
+      <DeleteConfirmation show handleClose={handleClose} handleConfirm={jest.fn()} isLoading />
+    );
 
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
     expect(handleClose).not.toHaveBeenCalled();
@@ -70,7 +72,9 @@ describe('DeleteConfirmation', () => {
 
   it('ignores Escape while loading', () => {
     const handleClose = jest.fn();
-    render(<DeleteConfirmation show handleClose={handleClose} handleConfirm={jest.fn()} isLoading />);
+    render(
+      <DeleteConfirmation show handleClose={handleClose} handleConfirm={jest.fn()} isLoading />
+    );
 
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
     expect(handleClose).not.toHaveBeenCalled();

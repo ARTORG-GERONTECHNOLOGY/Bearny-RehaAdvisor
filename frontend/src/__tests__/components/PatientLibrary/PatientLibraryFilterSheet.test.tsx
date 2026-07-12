@@ -135,10 +135,7 @@ describe('PatientLibraryFilterSheet', () => {
     it('toggles a content-type (Medium) value', () => {
       const setContentTypeFilter = jest.fn();
       render(
-        <PatientLibraryFilterSheet
-          {...baseProps}
-          setContentTypeFilter={setContentTypeFilter}
-        />
+        <PatientLibraryFilterSheet {...baseProps} setContentTypeFilter={setContentTypeFilter} />
       );
 
       // Switch order: 2 type options, then 2 content options -> index 2 is "video"
@@ -151,9 +148,7 @@ describe('PatientLibraryFilterSheet', () => {
 
     it('toggles a language value', () => {
       const setLanguageFilter = jest.fn();
-      render(
-        <PatientLibraryFilterSheet {...baseProps} setLanguageFilter={setLanguageFilter} />
-      );
+      render(<PatientLibraryFilterSheet {...baseProps} setLanguageFilter={setLanguageFilter} />);
 
       // Switch order: 2 type + 2 content + 1 language -> index 4 is "en"
       const switches = screen.getAllByRole('button', { name: 'switch' });
@@ -189,10 +184,7 @@ describe('PatientLibraryFilterSheet', () => {
     it('renders rating labels and updates the rating range', () => {
       const setRatingFilterIndices = jest.fn();
       render(
-        <PatientLibraryFilterSheet
-          {...baseProps}
-          setRatingFilterIndices={setRatingFilterIndices}
-        />
+        <PatientLibraryFilterSheet {...baseProps} setRatingFilterIndices={setRatingFilterIndices} />
       );
 
       baseProps.ratingLabels.forEach((label) => {

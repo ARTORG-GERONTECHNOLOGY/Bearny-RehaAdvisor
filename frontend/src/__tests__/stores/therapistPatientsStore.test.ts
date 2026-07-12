@@ -568,9 +568,9 @@ describe('TherapistPatientsStore', () => {
     });
 
     it('is true when rehab_end_date is set', () => {
-      expect(
-        store.isCompletedPatient(makePatient({ rehab_end_date: '2026-01-01' }) as any)
-      ).toBe(true);
+      expect(store.isCompletedPatient(makePatient({ rehab_end_date: '2026-01-01' }) as any)).toBe(
+        true
+      );
     });
 
     it('is false otherwise', () => {

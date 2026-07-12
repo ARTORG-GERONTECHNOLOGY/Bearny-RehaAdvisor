@@ -198,7 +198,9 @@ describe('patientFitbitStore', () => {
 
     it('skips fetchStatus when connected is already known', async () => {
       patientFitbitStore.connected = true;
-      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { period: { days: 7, daily: [] } } });
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { period: { days: 7, daily: [] } },
+      });
 
       await patientFitbitStore.refresh('p1');
 

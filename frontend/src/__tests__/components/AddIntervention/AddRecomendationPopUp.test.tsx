@@ -284,9 +284,7 @@ describe('AddRecomendationPopUp', () => {
       expect(screen.getByText('Description is required')).toBeInTheDocument();
       expect(screen.getByText('Duration must be greater than 0')).toBeInTheDocument();
       expect(screen.getByText('Please select a content type.')).toBeInTheDocument();
-      expect(
-        screen.getByText('Please correct the highlighted fields.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Please correct the highlighted fields.')).toBeInTheDocument();
       expect(mockApiClient.post).not.toHaveBeenCalled();
     });
 
@@ -300,9 +298,7 @@ describe('AddRecomendationPopUp', () => {
         fireEvent.click(screen.getByRole('button', { name: /submit/i }));
       });
 
-      expect(
-        screen.getByText('Duration seems too high (max 600 minutes).')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Duration seems too high (max 600 minutes).')).toBeInTheDocument();
     });
 
     it('requires a URL for an external media item', async () => {
@@ -327,9 +323,7 @@ describe('AddRecomendationPopUp', () => {
         fireEvent.click(screen.getByRole('button', { name: /submit/i }));
       });
 
-      expect(
-        screen.getByText('URL must start with http:// or https://')
-      ).toBeInTheDocument();
+      expect(screen.getByText('URL must start with http:// or https://')).toBeInTheDocument();
     });
 
     it('requires a file when the media kind is "Upload file"', async () => {
@@ -510,10 +504,7 @@ describe('AddRecomendationPopUp', () => {
       renderPopup();
       const diagnosisSelect = screen.getByTestId('select-primaryDiagnosis');
       fireEvent.click(within(diagnosisSelect).getByText('Stroke'));
-      expect(within(diagnosisSelect).getByText('Stroke')).toHaveAttribute(
-        'data-selected',
-        'true'
-      );
+      expect(within(diagnosisSelect).getByText('Stroke')).toHaveAttribute('data-selected', 'true');
     });
   });
 
@@ -541,9 +532,7 @@ describe('AddRecomendationPopUp', () => {
     it('submits a well-formed FormData payload and shows the success alert', async () => {
       (mockApiClient.post as jest.Mock).mockResolvedValueOnce({ status: 201, data: {} });
       const onSuccess = jest.fn();
-      render(
-        <AddRecomendationPopUp show handleClose={jest.fn()} onSuccess={onSuccess} />
-      );
+      render(<AddRecomendationPopUp show handleClose={jest.fn()} onSuccess={onSuccess} />);
 
       fillRequiredFields();
 

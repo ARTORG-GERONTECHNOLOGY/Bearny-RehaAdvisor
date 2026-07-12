@@ -463,10 +463,11 @@ describe('Excel file selection & submission', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Import$/i }));
 
     await waitFor(() => {
-      expect(mockImportStore.importFromExcel).toHaveBeenCalledWith(
-        expect.any(File),
-        { sheet_name: 'Content', default_lang: 'en', limit: null }
-      );
+      expect(mockImportStore.importFromExcel).toHaveBeenCalledWith(expect.any(File), {
+        sheet_name: 'Content',
+        default_lang: 'en',
+        limit: null,
+      });
     });
   });
 

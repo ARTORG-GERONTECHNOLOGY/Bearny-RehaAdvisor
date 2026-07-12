@@ -945,7 +945,9 @@ describe('Header action buttons', () => {
       </MemoryRouter>
     );
     expect(screen.queryByRole('button', { name: /Add a New Patient/i })).not.toBeInTheDocument();
-    expect(container.querySelectorAll('.animate-pulse, [class*="skeleton"]').length).toBeGreaterThanOrEqual(0);
+    expect(
+      container.querySelectorAll('.animate-pulse, [class*="skeleton"]').length
+    ).toBeGreaterThanOrEqual(0);
   });
 
   test('hides the Add Patient button when showManualCreate is false', () => {
