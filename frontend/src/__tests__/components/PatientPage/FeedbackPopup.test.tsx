@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
 import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
@@ -450,40 +450,31 @@ describe('FeedbackPopup Component', () => {
 // ── FeedbackPopup - ErrorAlert rendering ─────────────────────────────────────
 
 describe('FeedbackPopup - ErrorAlert rendering', () => {
-  it('renders and dismisses ErrorAlert when error is set', async () => {
-    const { rerender } = render(
+  it('renders and dismisses a real ErrorAlert triggered by an oversized video upload', () => {
+    render(
       <FeedbackPopup
         show={true}
         interventionId="intervention1"
         questions={
-          [{ questionKey: 'q1', label: 'How do you feel?', type: 'text', options: [] }] as any
+          [
+            {
+              questionKey: 'q1',
+              answerType: 'video' as const,
+              translations: [{ language: 'en', text: 'Record yourself' }],
+            },
+          ] as any
         }
         onClose={jest.fn()}
       />
     );
 
-    rerender(
-      <FeedbackPopup
-        show={true}
-        interventionId="intervention1"
-        questions={
-          [{ questionKey: 'q1', label: 'How do you feel?', type: 'text', options: [] }] as any
-        }
-        onClose={jest.fn()}
-      />
-    );
+    const bigFile = new File(['x'], 'big.webm', { type: 'video/webm' });
+    Object.defineProperty(bigFile, 'size', { value: 51 * 1024 * 1024 });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [bigFile] } });
 
-    // Manually simulate an error element to verify dismissal
-    const errorText = 'Test error message';
-    const errorAlert = document.createElement('div');
-    errorAlert.textContent = errorText;
-    errorAlert.setAttribute('data-testid', 'error-alert');
-    document.body.appendChild(errorAlert);
-
-    expect(screen.getByText(errorText)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: /close/i }));
-    document.body.removeChild(errorAlert);
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/Video too large/i);
   });
 });
 
@@ -815,5 +806,141 @@ describe('FeedbackPopup - description intro screen', () => {
 
     expect(screen.getByText('Read me.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Continue/i })).toBeInTheDocument();
+  });
+
+  it('shows a safe "no questions" sheet when there are no valid questions', () => {
+    const onClose = jest.fn();
+    render(<FeedbackPopup show interventionId="" questions={[]} onClose={onClose} />);
+
+    expect(screen.getByText('No feedback questions available.')).toBeInTheDocument();
+
+    // Sheet renders its own X close button (sr-only "Close") in addition to the
+    // footer's "Close" button — the footer one is last in DOM order.
+    const closeButtons = screen.getAllByRole('button', { name: /Close/i });
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('falls back to the raw questionKey when no translation matches the current language', () => {
+    render(
+      <FeedbackPopup
+        show
+        interventionId=""
+        questions={
+          [
+            {
+              questionKey: 'untranslated_q',
+              answerType: 'text' as const,
+              translations: [{ language: 'de', text: 'Nur Deutsch' }],
+            },
+          ] as any
+        }
+        onClose={jest.fn()}
+      />
+    );
+
+    // pickText: no exact 'en', no 'en-*' base match, no separate 'en' entry either
+    // -> falls through to the questionKey fallback.
+    expect(screen.getByText('untranslated_q')).toBeInTheDocument();
+  });
+
+  it('still allows recording after the microphone permission check throws', async () => {
+    Object.defineProperty(navigator, 'permissions', {
+      writable: true,
+      value: { query: jest.fn().mockRejectedValue(new Error('unsupported')) },
+    });
+    Object.defineProperty(navigator, 'mediaDevices', {
+      writable: true,
+      value: { getUserMedia: jest.fn().mockResolvedValue({ getTracks: () => [{ stop: jest.fn() }] }) },
+    });
+    class MockMediaRecorder {
+      ondataavailable: ((e: any) => void) | null = null;
+      onstop: (() => void) | null = null;
+      start = jest.fn();
+      stop = jest.fn();
+      static isTypeSupported = jest.fn(() => true);
+    }
+    (global as any).MediaRecorder = MockMediaRecorder;
+
+    render(
+      <FeedbackPopup
+        show
+        interventionId=""
+        questions={
+          [
+            {
+              questionKey: 'q1',
+              answerType: 'text' as const,
+              translations: [{ language: 'en', text: 'How do you feel?' }],
+            },
+          ] as any
+        }
+        onClose={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText(/Audio mode/i));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Start Recording/i }));
+    });
+
+    expect(screen.getByRole('button', { name: /Stop/i })).toBeInTheDocument();
+  });
+
+  it('completes a video recording countdown, stops, and stores the resulting blob', async () => {
+    jest.useFakeTimers();
+
+    Object.defineProperty(navigator, 'mediaDevices', {
+      writable: true,
+      value: {
+        getUserMedia: jest.fn().mockResolvedValue({ getTracks: () => [{ stop: jest.fn() }] }),
+      },
+    });
+
+    class MockVideoRecorder {
+      ondataavailable: ((e: any) => void) | null = null;
+      onstop: (() => void) | null = null;
+      start = jest.fn();
+      stop = jest.fn(() => {
+        this.ondataavailable?.({ data: new Blob(['clip'], { type: 'video/webm' }) });
+        this.onstop?.();
+      });
+      static isTypeSupported = jest.fn(() => true);
+    }
+    (global as any).MediaRecorder = MockVideoRecorder;
+
+    render(
+      <FeedbackPopup
+        show
+        interventionId=""
+        questions={
+          [
+            {
+              questionKey: 'q1',
+              answerType: 'video' as const,
+              translations: [{ language: 'en', text: 'Record yourself' }],
+            },
+          ] as any
+        }
+        onClose={jest.fn()}
+      />
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /Record Video/i }));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(/Starting in 10s/i)).toBeInTheDocument();
+
+    await act(async () => {
+      jest.advanceTimersByTime(10000);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Stop/i }));
+
+    expect(screen.getByRole('button', { name: /Delete/i })).toBeInTheDocument();
+
+    jest.useRealTimers();
   });
 });

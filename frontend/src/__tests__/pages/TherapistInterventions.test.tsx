@@ -166,15 +166,51 @@ jest.mock(
 jest.mock(
   '@/components/TherapistInterventionPage/TemplateAssignModal',
   () =>
-    function TemplateAssignModal() {
-      return null;
+    function TemplateAssignModal(props: any) {
+      return (
+        <div data-testid="assign-modal">
+          mode:{props.mode} intervention:{props.interventionId} diag:{props.defaultDiagnosis}
+        </div>
+      );
     }
 );
 jest.mock(
   '@/components/TherapistInterventionPage/TemplatesLayout',
   () =>
-    function TemplatesLayout() {
-      return null;
+    function TemplatesLayout(props: any) {
+      const item = props.templateItems?.[0];
+      const browseItem = props.browseAllItems?.[0];
+      return (
+        <div>
+          {item && (
+            <>
+              <button onClick={() => props.onTemplateItemClick(item)}>click-item</button>
+              <button onClick={() => props.onModifyTemplate(item)}>modify-item</button>
+              <button
+                onClick={() =>
+                  props.onRemoveTemplateItem(item.diagnosis, item.intervention._id, 1)
+                }
+              >
+                remove-item
+              </button>
+              <div data-testid="segment-summary">
+                {props.segmentSummary(props.getSegments(item)[0], item)}
+              </div>
+            </>
+          )}
+          <button onClick={() => props.onOpenAssign('int-2', 'Some Title', 'create')}>
+            open-assign
+          </button>
+          {browseItem && (
+            <button onClick={() => props.onBrowseItemClick(browseItem)}>browse-click</button>
+          )}
+          {browseItem && (
+            <div data-testid="find-template-for">
+              {String(!!props.findTemplateFor(browseItem._id))}
+            </div>
+          )}
+        </div>
+      );
     }
 );
 
@@ -802,5 +838,257 @@ describe('TherapistInterventions — Templates tab', () => {
       expect.stringContaining('Some sessions could not be scheduled.')
     );
     expect(screen.getByTestId('apply-modal')).toBeInTheDocument();
+  });
+
+  it('recovers when the stored templateSeenMap is corrupted JSON', async () => {
+    localStorage.setItem('templateSeenMap', 'not-json{{{');
+    mockApiGet([makeDoc()]);
+    await goToTemplatesTab();
+    expect(await screen.findByText('My Template')).toBeInTheDocument();
+    localStorage.removeItem('templateSeenMap');
+  });
+
+  it('falls back to raw title/description when translateText rejects for a template item', async () => {
+    const { translateText } = jest.requireMock('@/utils/translate');
+    (translateText as jest.Mock).mockRejectedValueOnce(new Error('translate down'));
+
+    const planItem = {
+      intervention: { _id: '675a88cc8ea37a32e90afe68', title: 'Stretching for 30 minutes' },
+      diagnosis: 'heart failure',
+      schedule: { start_day: 1, end_day: 10, interval: 2, unit: 'day', selectedDays: [] },
+      occurrences: [{ day: 1 }],
+    };
+    mockApiGet([makeDoc({ id: 'tpl-2', name: 'Cardio Plan' })], [planItem]);
+    await goToTemplatesTab();
+    fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
+      target: { value: 'tpl-2' },
+    });
+
+    await waitFor(() => expect(translateText).toHaveBeenCalled());
+    expect(await screen.findByTestId('segment-summary')).toBeInTheDocument();
+  });
+
+  it('sets templateItems to an empty array when fetching the template plan fails', async () => {
+    mockApiGet([makeDoc({ id: 'tpl-2', name: 'Errs' })]);
+    await goToTemplatesTab();
+    (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/calendar/')) return Promise.reject(new Error('down'));
+      return Promise.resolve({ data: {} });
+    });
+
+    fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
+      target: { value: 'tpl-2' },
+    });
+
+    await waitFor(() => expect(screen.queryByTestId('segment-summary')).not.toBeInTheDocument());
+  });
+
+  it('dismisses the page-level error banner', async () => {
+    store.error = 'Library fetch failed';
+    render(
+      <MemoryRouter>
+        <TherapistInterventions />
+      </MemoryRouter>
+    );
+
+    const alert = await screen.findByText('Library fetch failed');
+    const closeBtn = alert.parentElement!.querySelector('[aria-label="Close"], button')!;
+    fireEvent.click(closeBtn);
+
+    await waitFor(() => {
+      expect(store.clearError).toHaveBeenCalled();
+    });
+  });
+
+  describe('template item callbacks (via TemplatesLayout)', () => {
+    const planItem = {
+      intervention: { _id: '675a88cc8ea37a32e90afe68', title: 'Stretching for 30 minutes' },
+      diagnosis: 'heart failure',
+      schedule: { start_day: 1, end_day: 10, interval: 2, unit: 'day', selectedDays: ['Mon'] },
+      occurrences: [{ day: 1 }, { day: 3 }],
+    };
+
+    it('opens the ProductPopup when the clicked template item exists in the library', async () => {
+      mockApiGet([makeDoc({ id: 'tpl-2', name: 'HasItems' })], [planItem]);
+      await goToTemplatesTab();
+      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
+        target: { value: 'tpl-2' },
+      });
+
+      fireEvent.click(await screen.findByText('click-item'));
+      expect(screen.getByText('Product Popup')).toBeInTheDocument();
+    });
+
+    it('shows an error when the clicked template item is not in the loaded library', async () => {
+      const missingItem = {
+        ...planItem,
+        intervention: { _id: 'not-in-library', title: 'Ghost intervention' },
+      };
+      mockApiGet([makeDoc({ id: 'tpl-2', name: 'HasItems' })], [missingItem]);
+      await goToTemplatesTab();
+      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
+        target: { value: 'tpl-2' },
+      });
+
+      fireEvent.click(await screen.findByText('click-item'));
+      expect(
+        await screen.findByText(/Full details for this intervention are not loaded yet/i)
+      ).toBeInTheDocument();
+    });
+
+    it('opens the assign modal in modify mode via onModifyTemplate', async () => {
+      mockApiGet([makeDoc({ id: 'tpl-2', name: 'HasItems' })], [planItem]);
+      await goToTemplatesTab();
+      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
+        target: { value: 'tpl-2' },
+      });
+
+      fireEvent.click(await screen.findByText('modify-item'));
+      const modal = await screen.findByTestId('assign-modal');
+      expect(modal).toHaveTextContent('mode:modify');
+      expect(modal).toHaveTextContent('intervention:675a88cc8ea37a32e90afe68');
+    });
+
+    it('opens the assign modal in create mode via onOpenAssign', async () => {
+      await goToTemplatesTab();
+      fireEvent.click(await screen.findByText('open-assign'));
+
+      const modal = await screen.findByTestId('assign-modal');
+      expect(modal).toHaveTextContent('mode:create');
+      expect(modal).toHaveTextContent('intervention:int-2');
+    });
+
+    it('removes a template item and refetches the plan', async () => {
+      mockApiGet([makeDoc({ id: 'tpl-2', name: 'HasItems' })], [planItem]);
+      await goToTemplatesTab();
+      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
+        target: { value: 'tpl-2' },
+      });
+      await screen.findByText('remove-item');
+
+      (apiClient.delete as jest.Mock).mockResolvedValueOnce({});
+      fireEvent.click(screen.getByText('remove-item'));
+
+      await waitFor(() => {
+        expect(apiClient.delete).toHaveBeenCalledWith(
+          expect.stringContaining('templates/tpl-2/interventions/675a88cc8ea37a32e90afe68/')
+        );
+      });
+    });
+
+    it('shows a field-error message when removing a template item fails', async () => {
+      mockApiGet([makeDoc({ id: 'tpl-2', name: 'HasItems' })], [planItem]);
+      await goToTemplatesTab();
+      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
+        target: { value: 'tpl-2' },
+      });
+      await screen.findByText('remove-item');
+
+      (apiClient.delete as jest.Mock).mockRejectedValueOnce({
+        response: { data: { field_errors: { diagnosis: ['Required'] } } },
+      });
+      fireEvent.click(screen.getByText('remove-item'));
+
+      expect(await screen.findByText(/diagnosis: Required/)).toBeInTheDocument();
+    });
+
+    it('removes an implicit-template item via the remove-from-patient-types endpoint', async () => {
+      mockApiGet([], [planItem]);
+      render(
+        <MemoryRouter>
+          <TherapistInterventions />
+        </MemoryRouter>
+      );
+      fireEvent.click(await screen.findByText('Templates Tab'));
+      await screen.findByText('remove-item');
+
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({});
+      fireEvent.click(screen.getByText('remove-item'));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalledWith(
+          expect.stringContaining('interventions/remove-from-patient-types/'),
+          expect.objectContaining({ intervention_id: '675a88cc8ea37a32e90afe68' })
+        );
+      });
+    });
+
+    it('opens the ProductPopup for a browse-all item click', async () => {
+      mockApiGet([makeDoc({ id: 'tpl-2', name: 'HasItems' })], [planItem]);
+      await goToTemplatesTab();
+      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
+        target: { value: 'tpl-2' },
+      });
+
+      fireEvent.click(await screen.findByText('browse-click'));
+      expect(screen.getByText('Product Popup')).toBeInTheDocument();
+    });
+  });
+
+  describe('update-notification diff banner', () => {
+    it('computes and renders an intervention diff for a public template updated by someone else', async () => {
+      const oldSnapshot = {
+        'tpl-2': {
+          updatedAt: '2025-12-01T00:00:00Z',
+          name: 'Shared',
+          description: '',
+          intervention_count: 1,
+          interventions: [
+            {
+              id: 'old-int',
+              title: 'Old Intervention',
+              diagnosis: 'heart failure',
+              start_day: 1,
+              end_day: 5,
+              unit: 'day',
+              interval: 1,
+              selectedDays: [],
+            },
+          ],
+        },
+      };
+      localStorage.setItem('templateSeenMap', JSON.stringify(oldSnapshot));
+
+      const planItem = {
+        intervention: { _id: '675a88cc8ea37a32e90afe68', title: 'Stretching for 30 minutes' },
+        diagnosis: 'heart failure',
+        schedule: { start_day: 2, end_day: 8, interval: 3, unit: 'day', selectedDays: ['Tue'] },
+        occurrences: [{ day: 2 }],
+      };
+      mockApiGet(
+        [
+          makeDoc({
+            id: 'tpl-2',
+            name: 'Shared',
+            created_by: 'other-therapist',
+            updatedAt: '2026-01-15T00:00:00Z',
+          }),
+        ],
+        [planItem]
+      );
+
+      await goToTemplatesTab();
+      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
+        target: { value: 'tpl-2' },
+      });
+
+      // Wait for the template-plan calendar fetch (and the resulting full diff
+      // merge, which fills in `modified`) to settle before opening the banner —
+      // the meta-only diff set synchronously on select doesn't include it yet.
+      await waitFor(() => {
+        expect(apiClient.get).toHaveBeenCalledWith(
+          expect.stringContaining('templates/tpl-2/calendar/')
+        );
+      });
+
+      const updatedButton = await screen.findByRole('button', { name: /Updated:/i });
+      fireEvent.click(updatedButton);
+
+      // Expanded diff shows the added new intervention and the removed old one.
+      expect(await screen.findByText(/Stretching for 30 minutes/)).toBeInTheDocument();
+      expect(screen.getByText(/Old Intervention/)).toBeInTheDocument();
+
+      localStorage.removeItem('templateSeenMap');
+    });
   });
 });
