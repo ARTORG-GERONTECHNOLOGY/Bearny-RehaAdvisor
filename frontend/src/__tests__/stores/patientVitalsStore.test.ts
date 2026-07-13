@@ -82,3 +82,46 @@ describe('patientVitalsStore.submit — Sentry capture', () => {
     expect(patientVitalsStore.error).toBe('');
   });
 });
+
+describe('patientVitalsStore.checkExists', () => {
+  it('sets exists from the API response and clears loading', async () => {
+    mockGet.mockResolvedValueOnce({ data: { exists: true } });
+
+    await patientVitalsStore.checkExists('patient-1');
+
+    expect(mockGet).toHaveBeenCalledWith(
+      '/patients/vitals/exists/patient-1/',
+      expect.objectContaining({ params: expect.objectContaining({ date: expect.any(String) }) })
+    );
+    expect(patientVitalsStore.exists).toBe(true);
+    expect(patientVitalsStore.loading).toBe(false);
+  });
+
+  it('defaults exists to false when the response omits it', async () => {
+    mockGet.mockResolvedValueOnce({ data: {} });
+
+    await patientVitalsStore.checkExists('patient-1');
+
+    expect(patientVitalsStore.exists).toBe(false);
+  });
+
+  it('sets a generic error message when the check fails', async () => {
+    mockGet.mockRejectedValueOnce(new Error('down'));
+
+    await patientVitalsStore.checkExists('patient-1');
+
+    expect(patientVitalsStore.error).toBe("Failed to check today's vitals.");
+    expect(patientVitalsStore.loading).toBe(false);
+  });
+
+  it('clears prior messages before checking', async () => {
+    (patientVitalsStore as any).error = 'stale error';
+    (patientVitalsStore as any).successMsg = 'stale success';
+    mockGet.mockResolvedValueOnce({ data: { exists: false } });
+
+    await patientVitalsStore.checkExists('patient-1');
+
+    expect(patientVitalsStore.error).toBe('');
+    expect(patientVitalsStore.successMsg).toBe('');
+  });
+});

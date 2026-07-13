@@ -128,6 +128,80 @@ describe('PatientInfoActionToolbar', () => {
     expect(store.showPasswordReset).toBe(true);
   });
 
+  it('copies missing fields from REDCap into the manual form', () => {
+    const store = makeStore();
+    store.isEditing = true;
+    store.redcapRows = [{ record_id: '1' }];
+    store.formData = { name: '' };
+    store.redcapFlat = { name: 'RC-Alice' };
+
+    render(<PatientInfoActionToolbar store={store} onDeleted={jest.fn()} />);
+    fireEvent.click(screen.getByText('Copy from REDCap'));
+
+    expect(store.formData.name).toBe('RC-Alice');
+  });
+
+  it('syncs wearables to REDCap when a project is set', async () => {
+    (apiClient.post as jest.Mock).mockResolvedValue({ data: { results: {} } });
+    const store = makeStore();
+    store.redcapProject = 'COMPASS';
+
+    render(<PatientInfoActionToolbar store={store} onDeleted={jest.fn()} />);
+    fireEvent.click(screen.getByText('Sync Wearables'));
+
+    await waitFor(() =>
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/wearables/sync-to-redcap/patient-1/',
+        expect.any(Object)
+      )
+    );
+  });
+
+  it('force re-syncs wearables only after confirming the overwrite warning', async () => {
+    (apiClient.post as jest.Mock).mockResolvedValue({ data: { results: {} } });
+    const store = makeStore();
+    store.redcapProject = 'COMPASS';
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+    render(<PatientInfoActionToolbar store={store} onDeleted={jest.fn()} />);
+    fireEvent.click(screen.getByText('Force Re-sync'));
+
+    expect(apiClient.post).not.toHaveBeenCalled();
+
+    confirmSpy.mockReturnValue(true);
+    fireEvent.click(screen.getByText('Force Re-sync'));
+
+    await waitFor(() =>
+      expect(apiClient.post).toHaveBeenCalledWith(
+        '/wearables/sync-to-redcap/patient-1/',
+        expect.objectContaining({ force: true })
+      )
+    );
+
+    confirmSpy.mockRestore();
+  });
+
+  it('wires the password reset sheet fields and submit through to the store', async () => {
+    (apiClient.put as jest.Mock).mockResolvedValue({ data: {} });
+    const store = makeStore();
+    store.showPasswordReset = true;
+
+    render(<PatientInfoActionToolbar store={store} onDeleted={jest.fn()} />);
+
+    fireEvent.change(screen.getByLabelText('NewPassword'), { target: { value: 'abc123' } });
+    fireEvent.change(screen.getByLabelText('ConfirmPassword'), { target: { value: 'abc123' } });
+    expect(store.passwordNew).toBe('abc123');
+    expect(store.passwordConfirm).toBe('abc123');
+
+    fireEvent.click(screen.getByText('SetNewPassword'));
+
+    await waitFor(() =>
+      expect(apiClient.put).toHaveBeenCalledWith('/patients/patient-1/reset-password/', {
+        new_password: 'abc123',
+      })
+    );
+  });
+
   it('saves changes when SaveChanges is clicked', async () => {
     (apiClient.put as jest.Mock).mockResolvedValue({ data: {} });
     const store = makeStore();

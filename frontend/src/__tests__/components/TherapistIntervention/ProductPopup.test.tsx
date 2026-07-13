@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import ProductPopup from '@/components/TherapistInterventionPage/ProductPopup';
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
@@ -22,6 +22,14 @@ jest.mock('@/stores/authStore', () => ({
     userType: 'Therapist',
   },
 }));
+
+jest.mock(
+  '@/components/TherapistInterventionPage/TemplateAssignModal',
+  () =>
+    function TemplateAssignModal(props: any) {
+      return <div data-testid="template-assign-modal">assign-mode:{props.mode}</div>;
+    }
+);
 
 jest.mock('@/utils/translate', () => ({
   translateText: jest.fn((text: string) =>
@@ -188,5 +196,168 @@ describe('ProductPopup language toggle', () => {
       expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
     );
     expect(screen.queryByText('Titolo italiano')).not.toBeInTheDocument();
+  });
+});
+
+describe('ProductPopup close behavior', () => {
+  it('closes immediately when there are no unsaved changes', async () => {
+    const apiClient = jest.requireMock('@/api/client').default;
+    apiClient.get.mockResolvedValue({ data: { items: [] } });
+    const handleClose = jest.fn();
+
+    render(<ProductPopup show={true} item={mockItem} handleClose={handleClose} tagColors={tagColors} />);
+    await waitFor(() => expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument());
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(handleClose).toHaveBeenCalled();
+  });
+
+  it('confirms before closing when the diagnosis search has text', async () => {
+    const apiClient = jest.requireMock('@/api/client').default;
+    apiClient.get.mockResolvedValue({ data: { items: [] } });
+    const handleClose = jest.fn();
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+    render(<ProductPopup show={true} item={mockItem} handleClose={handleClose} tagColors={tagColors} />);
+    await waitFor(() => expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByPlaceholderText('Search diagnoses'), {
+      target: { value: 'heart' },
+    });
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(handleClose).not.toHaveBeenCalled();
+
+    confirmSpy.mockRestore();
+  });
+});
+
+describe('ProductPopup diagnosis assignment', () => {
+  it('filters the diagnosis list by search text', async () => {
+    const apiClient = jest.requireMock('@/api/client').default;
+    apiClient.get.mockResolvedValue({ data: { items: [] } });
+
+    render(<ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />);
+    await waitFor(() => expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByPlaceholderText('Search diagnoses'), {
+      target: { value: 'copd' },
+    });
+
+    expect(screen.getByText('copd')).toBeInTheDocument();
+    expect(screen.queryByText('minor stroke')).not.toBeInTheDocument();
+  });
+
+  it('shows "no diagnoses match" for an unmatched search', async () => {
+    const apiClient = jest.requireMock('@/api/client').default;
+    apiClient.get.mockResolvedValue({ data: { items: [] } });
+
+    render(<ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />);
+    await waitFor(() => expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByPlaceholderText('Search diagnoses'), {
+      target: { value: 'nonexistent-xyz' },
+    });
+
+    expect(screen.getByText('No diagnoses match your search.')).toBeInTheDocument();
+  });
+
+  it('marks a diagnosis as Assigned when it is present in the template plan', async () => {
+    const apiClient = jest.requireMock('@/api/client').default;
+    apiClient.get.mockImplementation((url: string) => {
+      if (url.includes('template-plan')) {
+        return Promise.resolve({
+          data: { items: [{ intervention: { _id: 'abc123' }, diagnosis: 'copd' }] },
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+
+    render(<ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />);
+    await waitFor(() => expect(screen.getByText('Assigned')).toBeInTheDocument());
+  });
+
+  it('removes a diagnosis assignment and refreshes the list on success', async () => {
+    const apiClient = jest.requireMock('@/api/client').default;
+    apiClient.get.mockImplementation((url: string) => {
+      if (url.includes('template-plan')) {
+        return Promise.resolve({
+          data: { items: [{ intervention: { _id: 'abc123' }, diagnosis: 'copd' }] },
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    apiClient.post.mockResolvedValue({ data: {} });
+
+    render(<ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />);
+    await waitFor(() => expect(screen.getByText('Assigned')).toBeInTheDocument());
+
+    const row = screen.getByText('Assigned').closest('.d-flex.align-items-center.justify-content-between')!;
+    const buttons = within(row as HTMLElement).getAllByRole('button');
+    fireEvent.click(buttons[buttons.length - 1]);
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        expect.stringContaining('remove-from-patient-types'),
+        expect.objectContaining({ diagnosis: 'copd', intervention_id: 'abc123' })
+      );
+    });
+  });
+
+  it('shows an error banner when removing a diagnosis assignment fails', async () => {
+    const apiClient = jest.requireMock('@/api/client').default;
+    apiClient.get.mockImplementation((url: string) => {
+      if (url.includes('template-plan')) {
+        return Promise.resolve({
+          data: { items: [{ intervention: { _id: 'abc123' }, diagnosis: 'copd' }] },
+        });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    apiClient.post.mockRejectedValue({ response: { data: { error: 'Cannot remove' } } });
+
+    render(<ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />);
+    await waitFor(() => expect(screen.getByText('Assigned')).toBeInTheDocument());
+
+    const row = screen.getByText('Assigned').closest('.d-flex.align-items-center.justify-content-between')!;
+    const buttons = within(row as HTMLElement).getAllByRole('button');
+    fireEvent.click(buttons[buttons.length - 1]);
+
+    expect(await screen.findByText('Cannot remove')).toBeInTheDocument();
+  });
+
+  it('opens the assign modal in create mode for an unassigned diagnosis', async () => {
+    const apiClient = jest.requireMock('@/api/client').default;
+    apiClient.get.mockResolvedValue({ data: { items: [] } });
+
+    render(<ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />);
+    await waitFor(() => expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument());
+
+    const row = screen.getByText('heart failure').closest('.d-flex.align-items-center.justify-content-between')!;
+    fireEvent.click(within(row as HTMLElement).getByRole('button'));
+
+    expect(await screen.findByTestId('template-assign-modal')).toHaveTextContent(
+      'assign-mode:create'
+    );
+  });
+
+  it('disables template assignment for private interventions', async () => {
+    const apiClient = jest.requireMock('@/api/client').default;
+    apiClient.get.mockResolvedValue({ data: { items: [] } });
+
+    render(
+      <ProductPopup
+        show={true}
+        item={{ ...mockItem, is_private: true }}
+        handleClose={() => {}}
+        tagColors={tagColors}
+      />
+    );
+
+    expect(
+      await screen.findByText(/Template assignment by diagnosis is disabled/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Search diagnoses')).not.toBeInTheDocument();
   });
 });

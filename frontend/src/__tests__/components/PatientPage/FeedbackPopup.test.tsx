@@ -21,6 +21,16 @@ jest.mock(
     }
 );
 
+// react-player lazily dynamic-imports its underlying players, which fails
+// under Jest's CJS transform without --experimental-vm-modules. Stub it.
+jest.mock(
+  'react-player',
+  () =>
+    function ReactPlayer(props: any) {
+      return <div data-testid="react-player">{props.url}</div>;
+    }
+);
+
 // ── Shared test data ──────────────────────────────────────────────────────────
 
 const defaultProps = {
@@ -642,6 +652,128 @@ describe('FeedbackPopup - description intro screen', () => {
 
     expect(screen.queryByRole('button', { name: /Continue/i })).not.toBeInTheDocument();
     expect(screen.getByText('How do you feel?')).toBeInTheDocument();
+  });
+
+  it('star rating: selecting a star marks it pressed and lower stars highlighted', () => {
+    const starProps = {
+      ...defaultProps,
+      questions: [
+        {
+          questionKey: 'rating_stars_q1',
+          answerType: 'select' as const,
+          translations: [{ language: 'en', text: 'Rate it' }],
+          possibleAnswers: [
+            { key: '1', translations: [{ language: 'en', text: '1' }] },
+            { key: '2', translations: [{ language: 'en', text: '2' }] },
+            { key: '3', translations: [{ language: 'en', text: '3' }] },
+          ],
+        },
+      ],
+    };
+
+    render(<FeedbackPopup {...starProps} />);
+
+    const threeStars = screen.getByRole('button', { name: '3 stars' });
+    fireEvent.click(threeStars);
+
+    expect(threeStars).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '1 star' })).toHaveAttribute('title', '1/5');
+  });
+
+  it('video question: uploading an oversized file shows an error and does not set videoURL', () => {
+    const videoProps = {
+      ...defaultProps,
+      questions: [
+        {
+          questionKey: 'q1',
+          answerType: 'video' as const,
+          translations: [{ language: 'en', text: 'Record yourself' }],
+        },
+      ],
+    };
+
+    render(<FeedbackPopup {...videoProps} />);
+
+    const bigFile = new File(['x'], 'big.webm', { type: 'video/webm' });
+    Object.defineProperty(bigFile, 'size', { value: 51 * 1024 * 1024 });
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [bigFile] } });
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/Video too large/i);
+  });
+
+  it('video question: uploading a valid file shows the player and delete button', () => {
+    const videoProps = {
+      ...defaultProps,
+      questions: [
+        {
+          questionKey: 'q1',
+          answerType: 'video' as const,
+          translations: [{ language: 'en', text: 'Record yourself' }],
+        },
+      ],
+    };
+
+    render(<FeedbackPopup {...videoProps} />);
+
+    const file = new File(['x'], 'clip.webm', { type: 'video/webm' });
+    Object.defineProperty(file, 'size', { value: 1024 });
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    const deleteButton = screen.getByRole('button', { name: /Delete/i });
+    expect(deleteButton).toBeInTheDocument();
+
+    fireEvent.click(deleteButton);
+    expect(screen.getByRole('button', { name: /Record Video/i })).toBeInTheDocument();
+  });
+
+  it('video question: does nothing when the file input change has no file', () => {
+    const videoProps = {
+      ...defaultProps,
+      questions: [
+        {
+          questionKey: 'q1',
+          answerType: 'video' as const,
+          translations: [{ language: 'en', text: 'Record yourself' }],
+        },
+      ],
+    };
+
+    render(<FeedbackPopup {...videoProps} />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [] } });
+
+    expect(screen.getByRole('button', { name: /Record Video/i })).toBeInTheDocument();
+  });
+
+  it('submits a video Blob answer with a _video field suffix', async () => {
+    (apiClient.post as jest.Mock).mockResolvedValue({});
+    const videoProps = {
+      ...defaultProps,
+      questions: [
+        {
+          questionKey: 'q1',
+          answerType: 'video' as const,
+          translations: [{ language: 'en', text: 'Record yourself' }],
+        },
+      ],
+    };
+
+    render(<FeedbackPopup {...videoProps} />);
+
+    const file = new File(['x'], 'clip.webm', { type: 'video/webm' });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Submit/i }));
+
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalled());
+    const formData = (apiClient.post as jest.Mock).mock.calls[0][1] as FormData;
+    expect(formData.get('q1_video')).toBeInstanceOf(File);
   });
 
   it('intro screen resets when popup is closed and reopened', () => {

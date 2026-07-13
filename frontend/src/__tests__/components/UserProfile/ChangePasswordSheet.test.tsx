@@ -94,4 +94,68 @@ describe('ChangePasswordForm', () => {
     // saving label shows
     expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled();
   });
+
+  it('clears the fields after a successful submit (no errorBanner)', async () => {
+    renderWithRouter(<ChangePasswordForm show onCancel={jest.fn()} />);
+
+    fireEvent.change(screen.getByLabelText('Old Password'), { target: { value: 'oldpwd123' } });
+    fireEvent.change(screen.getByLabelText('New Password'), { target: { value: 'newpassword' } });
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'newpassword' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change Password' }));
+
+    await waitFor(() => expect(mockStore.changePassword).toHaveBeenCalled());
+    expect((screen.getByLabelText('Old Password') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('New Password') as HTMLInputElement).value).toBe('');
+  });
+
+  it('keeps the fields populated after a submit that sets an errorBanner', async () => {
+    mockStore.changePassword = jest.fn(async () => {
+      mockStore.errorBanner = 'Old password incorrect';
+    });
+
+    renderWithRouter(<ChangePasswordForm show onCancel={jest.fn()} />);
+
+    fireEvent.change(screen.getByLabelText('Old Password'), { target: { value: 'oldpwd123' } });
+    fireEvent.change(screen.getByLabelText('New Password'), { target: { value: 'newpassword' } });
+    fireEvent.change(screen.getByLabelText('Confirm New Password'), {
+      target: { value: 'newpassword' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Change Password' }));
+
+    await waitFor(() => expect(mockStore.changePassword).toHaveBeenCalled());
+    expect((screen.getByLabelText('Old Password') as HTMLInputElement).value).toBe('oldpwd123');
+  });
+
+  it('resets the fields and local error when the sheet is hidden', () => {
+    const { rerender } = renderWithRouter(<ChangePasswordForm show onCancel={jest.fn()} />);
+
+    fireEvent.change(screen.getByLabelText('Old Password'), { target: { value: 'typed' } });
+    expect((screen.getByLabelText('Old Password') as HTMLInputElement).value).toBe('typed');
+
+    rerender(<ChangePasswordForm show={false} onCancel={jest.fn()} />);
+    rerender(<ChangePasswordForm show onCancel={jest.fn()} />);
+
+    expect((screen.getByLabelText('Old Password') as HTMLInputElement).value).toBe('');
+  });
+
+  it('calls onCancel via handleOpenChange when the sheet closes and not saving', () => {
+    const onCancel = jest.fn();
+    renderWithRouter(<ChangePasswordForm show onCancel={onCancel} />);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('does not call onCancel via Escape while saving', () => {
+    mockStore.saving = true;
+    const onCancel = jest.fn();
+    renderWithRouter(<ChangePasswordForm show onCancel={onCancel} />);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+  });
 });

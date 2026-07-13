@@ -274,4 +274,71 @@ describe('EditTherapistInfo', () => {
       );
     });
   });
+
+  it('shows an error banner when updateProfile rejects', async () => {
+    mockStore.updateProfile = jest.fn().mockRejectedValue({
+      response: { data: { error: 'Update rejected' } },
+    });
+    setup();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Update rejected');
+    });
+  });
+
+  it('closes via handleOpenChange when not saving', () => {
+    const onCancel = jest.fn();
+    setup(baseUser, onCancel);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('does not close via Escape while saving', () => {
+    mockStore.saving = true;
+    const onCancel = jest.fn();
+    setup(baseUser, onCancel);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('prunes previously selected projects when the request clinics no longer include them', async () => {
+    setup({ ...baseUser, clinics: ['Inselspital', 'Berner Reha Centrum'], projects: ['COPAIN'] });
+    fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
+    await waitFor(() =>
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument()
+    );
+
+    // req-clinics select shows options ['Inselspital', 'Berner Reha Centrum']; picking
+    // a clinic re-derives the allowed project set via the mocked react-select onChange.
+    const clinicsSelect = screen.getByRole('combobox', { name: 'select' });
+    fireEvent.change(clinicsSelect, { target: { value: 'Berner Reha Centrum' } });
+
+    // Submitting should now reflect the updated (pruned) clinics selection.
+    fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        'therapist/access-change-request/',
+        expect.objectContaining({ clinics: ['Berner Reha Centrum'] })
+      );
+    });
+  });
+
+  it('cancels the access-change sheet without submitting', async () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
+    await waitFor(() =>
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument()
+    );
+
+    const cancelButtons = screen.getAllByRole('button', { name: 'Cancel' });
+    fireEvent.click(cancelButtons[cancelButtons.length - 1]);
+
+    expect(screen.queryByText('Request clinic / project change')).not.toBeInTheDocument();
+    expect(apiClient.post).not.toHaveBeenCalled();
+  });
 });

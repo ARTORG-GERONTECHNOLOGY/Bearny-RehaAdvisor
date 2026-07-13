@@ -253,4 +253,89 @@ describe('buildHealthPdf', () => {
     const captions = textMock.mock.calls.map((call) => call[0]);
     expect(captions.some((c) => typeof c === 'string' && c.includes('avg'))).toBe(true);
   });
+
+  it('builds a two-part sys/dia caption for blood pressure, in mmHg', async () => {
+    const refs: SvgRefs = { ...emptySvgRefs, bloodPressure: svgRef() };
+    await buildHealthPdf(store, refs, from, to, { ...noSelections, bloodPressure: true }, t, 'en');
+
+    const captions = textMock.mock.calls.map((call) => call[0]);
+    const caption = captions.find((c) => typeof c === 'string' && c.includes('mmHg'));
+    expect(caption).toContain('Blood pressure systolic');
+    expect(caption).toContain('Blood pressure diastolic');
+    expect(caption).toMatch(/mmHg$/);
+  });
+
+  it('builds captions for weight, exercise, sleep and breathing sections', async () => {
+    const refs: SvgRefs = {
+      ...emptySvgRefs,
+      weight: svgRef(),
+      exercise: svgRef(),
+      sleep: svgRef(),
+      breathing: svgRef(),
+    };
+    await buildHealthPdf(
+      store,
+      refs,
+      from,
+      to,
+      { ...noSelections, weight: true, exercise: true, sleep: true, breathing: true },
+      t,
+      'en'
+    );
+
+    const captions = textMock.mock.calls.map((call) => call[0]);
+    expect(captions.some((c) => typeof c === 'string' && c.includes('kg'))).toBe(true);
+  });
+
+  it('shows "No data available" for the questionnaire section when nothing is in range', async () => {
+    const outOfRangeStore = {
+      ...store,
+      questionnaireData: [{ ...questionnaireData[0], date: '2024-05-01' }],
+    };
+    await buildHealthPdf(
+      outOfRangeStore,
+      emptySvgRefs,
+      from,
+      to,
+      { ...noSelections, questionnaire: true },
+      t,
+      'en'
+    );
+
+    expect(textMock).toHaveBeenCalledWith(
+      'No data available',
+      expect.any(Number),
+      expect.any(Number),
+      { align: 'center' }
+    );
+    expect(autoTableMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the English translation when the requested language is missing', async () => {
+    const deStore = {
+      ...store,
+      questionnaireData: [
+        {
+          date: '2024-03-01',
+          questionKey: 'q1',
+          answers: [{ key: '3', translations: [{ language: 'en', text: 'Good' }] }],
+          questionTranslations: [{ language: 'en', text: 'How was your day?' }],
+        },
+      ],
+    };
+    await buildHealthPdf(
+      deStore,
+      emptySvgRefs,
+      from,
+      to,
+      { ...noSelections, questionnaire: true },
+      t,
+      'de'
+    );
+
+    expect(autoTableMock).toHaveBeenCalledTimes(1);
+    const [[, opts]] = autoTableMock.mock.calls;
+    const bodyText = JSON.stringify(opts.body);
+    expect(bodyText).toContain('How was your day?');
+  });
 });
