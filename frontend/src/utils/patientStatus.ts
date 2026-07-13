@@ -219,7 +219,13 @@ export const getWearInfo = (p: PatientType) => {
   const device = String((p as any).wearable_device ?? 'fitbit') as 'fitbit' | 'omron' | 'none';
 
   if (device === 'omron' || device === 'none') {
-    return { level: 'unknown' as Traffic, daysSinceWorn: null, avgMin: null, revoked: false, device };
+    return {
+      level: 'unknown' as Traffic,
+      daysSinceWorn: null,
+      avgMin: null,
+      revoked: false,
+      device,
+    };
   }
 
   const b = getBio(p);

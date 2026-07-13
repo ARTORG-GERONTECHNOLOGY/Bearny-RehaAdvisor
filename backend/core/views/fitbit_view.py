@@ -441,8 +441,12 @@ def fitbit_status(request, patient_id):
     pt = Patient.objects(userId=user).first()
     wearable_device = getattr(pt, "wearable_device", None) or "fitbit"
 
-    logger.info("[fitbit_status] status connected=%s has_data=%s wearable_device=%s", connected, has_data, wearable_device)
-    return JsonResponse({"connected": connected, "has_data": has_data, "last_data": last_data, "wearable_device": wearable_device})
+    logger.info(
+        "[fitbit_status] status connected=%s has_data=%s wearable_device=%s", connected, has_data, wearable_device
+    )
+    return JsonResponse(
+        {"connected": connected, "has_data": has_data, "last_data": last_data, "wearable_device": wearable_device}
+    )
 
 
 @api_view(["GET"])

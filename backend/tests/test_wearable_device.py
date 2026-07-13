@@ -58,6 +58,7 @@ def mongo_mock():
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_therapist(email="th@test.com"):
     th_user = User(
         username=f"th-{ObjectId()}",
@@ -333,11 +334,14 @@ def _register_patient(th_user_id, extra=None):
     }
     if extra:
         payload.update(extra)
-    return client.post(
-        "/api/auth/register/",
-        data=json.dumps(payload),
-        content_type="application/json",
-    ), payload["email"]
+    return (
+        client.post(
+            "/api/auth/register/",
+            data=json.dumps(payload),
+            content_type="application/json",
+        ),
+        payload["email"],
+    )
 
 
 def test_register_patient_wearable_device_omron_persisted(mongo_mock):
