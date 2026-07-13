@@ -35,10 +35,7 @@ function skipUnlessTherapist(t: typeof test) {
 function skipUnlessPatient(t: typeof test) {
   const login = process.env.E2E_PATIENT_LOGIN;
   const password = process.env.E2E_PATIENT_PASSWORD;
-  t.skip(
-    !login || !password,
-    'Missing E2E_PATIENT_LOGIN / E2E_PATIENT_PASSWORD'
-  );
+  t.skip(!login || !password, 'Missing E2E_PATIENT_LOGIN / E2E_PATIENT_PASSWORD');
 }
 
 /** Build a minimal patient list row returned by the therapist patients endpoint. */
@@ -103,7 +100,9 @@ test.describe('WearBadge on therapist patient list', () => {
     await expect(page.getByText('Disconnected')).not.toBeVisible();
   });
 
-  test('shows neutral "No device" badge for patient with wearable_device=none', async ({ page }) => {
+  test('shows neutral "No device" badge for patient with wearable_device=none', async ({
+    page,
+  }) => {
     skipUnlessTherapist(test);
 
     await mockPatientList(page, 'none');
@@ -163,7 +162,12 @@ test.describe('Patient page Fitbit connect card visibility', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ connected: false, has_data: false, last_data: null, wearable_device: 'omron' }),
+        body: JSON.stringify({
+          connected: false,
+          has_data: false,
+          last_data: null,
+          wearable_device: 'omron',
+        }),
       });
     });
 
@@ -183,7 +187,12 @@ test.describe('Patient page Fitbit connect card visibility', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ connected: false, has_data: false, last_data: null, wearable_device: 'none' }),
+        body: JSON.stringify({
+          connected: false,
+          has_data: false,
+          last_data: null,
+          wearable_device: 'none',
+        }),
       });
     });
 
@@ -200,7 +209,12 @@ test.describe('Patient page Fitbit connect card visibility', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ connected: false, has_data: false, last_data: null, wearable_device: 'fitbit' }),
+        body: JSON.stringify({
+          connected: false,
+          has_data: false,
+          last_data: null,
+          wearable_device: 'fitbit',
+        }),
       });
     });
 
