@@ -90,7 +90,10 @@ describe('MultiSelectField Component', () => {
     const getStyles = () => {
       render(<MultiSelectField {...defaultProps} />);
       const selectMock = Select as unknown as jest.Mock;
-      return selectMock.mock.calls[0][0].styles as Record<string, (provided: any, state?: any) => any>;
+      return selectMock.mock.calls[0][0].styles as Record<
+        string,
+        (provided: any, state?: any) => any
+      >;
     };
 
     it('styles the control', () => {

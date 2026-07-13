@@ -851,7 +851,9 @@ describe('FeedbackPopup - description intro screen', () => {
     });
     Object.defineProperty(navigator, 'mediaDevices', {
       writable: true,
-      value: { getUserMedia: jest.fn().mockResolvedValue({ getTracks: () => [{ stop: jest.fn() }] }) },
+      value: {
+        getUserMedia: jest.fn().mockResolvedValue({ getTracks: () => [{ stop: jest.fn() }] }),
+      },
     });
     class MockMediaRecorder {
       ondataavailable: ((e: any) => void) | null = null;

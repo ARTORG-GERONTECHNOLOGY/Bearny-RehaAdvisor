@@ -228,7 +228,9 @@ describe('TemplateAssignModal', () => {
       render(<TemplateAssignModal {...defaultProps} templateId="tpl-1" />);
       fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 
-      await waitFor(() => expect(screen.getByText('Intervention successfully added')).toBeInTheDocument());
+      await waitFor(() =>
+        expect(screen.getByText('Intervention successfully added')).toBeInTheDocument()
+      );
 
       jest.advanceTimersByTime(1500);
       expect(defaultProps.onHide).toHaveBeenCalled();
@@ -277,7 +279,9 @@ describe('TemplateAssignModal', () => {
     it('sends auto_apply_starting_from only for all_past_and_future scope', async () => {
       (apiClient.post as jest.Mock).mockResolvedValueOnce({ status: 200, data: {} });
 
-      render(<TemplateAssignModal {...defaultProps} templateId="tpl-1" defaultDiagnosis="Stroke" />);
+      render(
+        <TemplateAssignModal {...defaultProps} templateId="tpl-1" defaultDiagnosis="Stroke" />
+      );
       const scopeSelects = screen.getAllByRole('combobox');
       fireEvent.change(scopeSelects[scopeSelects.length - 1], {
         target: { value: 'all_past_and_future' },
@@ -351,7 +355,9 @@ describe('TemplateAssignModal', () => {
       expect(defaultProps.onHide).not.toHaveBeenCalled();
 
       resolvePost({ status: 200, data: {} });
-      await waitFor(() => expect(screen.getByText('Intervention successfully added')).toBeInTheDocument());
+      await waitFor(() =>
+        expect(screen.getByText('Intervention successfully added')).toBeInTheDocument()
+      );
     });
   });
 });

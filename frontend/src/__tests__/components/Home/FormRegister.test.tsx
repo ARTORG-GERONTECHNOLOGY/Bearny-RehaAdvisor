@@ -692,9 +692,7 @@ describe('FormRegister — UX behaviour', () => {
     fireEvent.submit(form!);
 
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(confirmSpy).toHaveBeenCalledWith(
-      '[t]A request is in progress. Do you want to close?'
-    );
+    expect(confirmSpy).toHaveBeenCalledWith('[t]A request is in progress. Do you want to close?');
     expect(screen.getByTestId('modal')).toBeInTheDocument();
 
     confirmSpy.mockRestore();

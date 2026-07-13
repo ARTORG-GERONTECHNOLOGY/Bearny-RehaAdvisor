@@ -205,8 +205,12 @@ describe('ProductPopup close behavior', () => {
     apiClient.get.mockResolvedValue({ data: { items: [] } });
     const handleClose = jest.fn();
 
-    render(<ProductPopup show={true} item={mockItem} handleClose={handleClose} tagColors={tagColors} />);
-    await waitFor(() => expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument());
+    render(
+      <ProductPopup show={true} item={mockItem} handleClose={handleClose} tagColors={tagColors} />
+    );
+    await waitFor(() =>
+      expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
+    );
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(handleClose).toHaveBeenCalled();
@@ -218,8 +222,12 @@ describe('ProductPopup close behavior', () => {
     const handleClose = jest.fn();
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
 
-    render(<ProductPopup show={true} item={mockItem} handleClose={handleClose} tagColors={tagColors} />);
-    await waitFor(() => expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument());
+    render(
+      <ProductPopup show={true} item={mockItem} handleClose={handleClose} tagColors={tagColors} />
+    );
+    await waitFor(() =>
+      expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
+    );
 
     fireEvent.change(screen.getByPlaceholderText('Search diagnoses'), {
       target: { value: 'heart' },
@@ -238,8 +246,12 @@ describe('ProductPopup diagnosis assignment', () => {
     const apiClient = jest.requireMock('@/api/client').default;
     apiClient.get.mockResolvedValue({ data: { items: [] } });
 
-    render(<ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />);
-    await waitFor(() => expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument());
+    render(
+      <ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />
+    );
+    await waitFor(() =>
+      expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
+    );
 
     fireEvent.change(screen.getByPlaceholderText('Search diagnoses'), {
       target: { value: 'copd' },
@@ -253,8 +265,12 @@ describe('ProductPopup diagnosis assignment', () => {
     const apiClient = jest.requireMock('@/api/client').default;
     apiClient.get.mockResolvedValue({ data: { items: [] } });
 
-    render(<ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />);
-    await waitFor(() => expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument());
+    render(
+      <ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />
+    );
+    await waitFor(() =>
+      expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
+    );
 
     fireEvent.change(screen.getByPlaceholderText('Search diagnoses'), {
       target: { value: 'nonexistent-xyz' },
@@ -274,7 +290,9 @@ describe('ProductPopup diagnosis assignment', () => {
       return Promise.resolve({ data: [] });
     });
 
-    render(<ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />);
+    render(
+      <ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />
+    );
     await waitFor(() => expect(screen.getByText('Assigned')).toBeInTheDocument());
   });
 
@@ -290,10 +308,14 @@ describe('ProductPopup diagnosis assignment', () => {
     });
     apiClient.post.mockResolvedValue({ data: {} });
 
-    render(<ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />);
+    render(
+      <ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />
+    );
     await waitFor(() => expect(screen.getByText('Assigned')).toBeInTheDocument());
 
-    const row = screen.getByText('Assigned').closest('.d-flex.align-items-center.justify-content-between')!;
+    const row = screen
+      .getByText('Assigned')
+      .closest('.d-flex.align-items-center.justify-content-between')!;
     const buttons = within(row as HTMLElement).getAllByRole('button');
     fireEvent.click(buttons[buttons.length - 1]);
 
@@ -317,10 +339,14 @@ describe('ProductPopup diagnosis assignment', () => {
     });
     apiClient.post.mockRejectedValue({ response: { data: { error: 'Cannot remove' } } });
 
-    render(<ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />);
+    render(
+      <ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />
+    );
     await waitFor(() => expect(screen.getByText('Assigned')).toBeInTheDocument());
 
-    const row = screen.getByText('Assigned').closest('.d-flex.align-items-center.justify-content-between')!;
+    const row = screen
+      .getByText('Assigned')
+      .closest('.d-flex.align-items-center.justify-content-between')!;
     const buttons = within(row as HTMLElement).getAllByRole('button');
     fireEvent.click(buttons[buttons.length - 1]);
 
@@ -331,10 +357,16 @@ describe('ProductPopup diagnosis assignment', () => {
     const apiClient = jest.requireMock('@/api/client').default;
     apiClient.get.mockResolvedValue({ data: { items: [] } });
 
-    render(<ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />);
-    await waitFor(() => expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument());
+    render(
+      <ProductPopup show={true} item={mockItem} handleClose={() => {}} tagColors={tagColors} />
+    );
+    await waitFor(() =>
+      expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
+    );
 
-    const row = screen.getByText('heart failure').closest('.d-flex.align-items-center.justify-content-between')!;
+    const row = screen
+      .getByText('heart failure')
+      .closest('.d-flex.align-items-center.justify-content-between')!;
     fireEvent.click(within(row as HTMLElement).getByRole('button'));
 
     expect(await screen.findByTestId('template-assign-modal')).toHaveTextContent(

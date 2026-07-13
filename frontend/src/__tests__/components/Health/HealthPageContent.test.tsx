@@ -27,17 +27,23 @@ jest.mock('@/components/Health/HealthViewControls', () => (props: any) => (
     open-export
   </button>
 ));
-jest.mock('@/components/Health/ExportModal', () => (props: any) =>
-  props.show ? (
-    <div data-testid="export-modal">
-      <button onClick={() => props.onExportCSV(props.initialFrom, props.initialTo, props.selections)}>
-        export-csv
-      </button>
-      <button onClick={() => props.onExportPDF(props.initialFrom, props.initialTo, props.selections)}>
-        export-pdf
-      </button>
-    </div>
-  ) : null
+jest.mock(
+  '@/components/Health/ExportModal',
+  () => (props: any) =>
+    props.show ? (
+      <div data-testid="export-modal">
+        <button
+          onClick={() => props.onExportCSV(props.initialFrom, props.initialTo, props.selections)}
+        >
+          export-csv
+        </button>
+        <button
+          onClick={() => props.onExportPDF(props.initialFrom, props.initialTo, props.selections)}
+        >
+          export-pdf
+        </button>
+      </div>
+    ) : null
 );
 
 // Mock the store class — gives full control over state returned per test.

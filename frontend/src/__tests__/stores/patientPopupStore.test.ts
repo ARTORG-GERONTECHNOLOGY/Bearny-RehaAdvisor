@@ -318,7 +318,11 @@ describe('PatientPopupStore', () => {
 
       await store.fetchPatientData(t);
 
-      expect(store.rawPatient).toEqual({ name: 'Alice', redcap_project: 'P1', patient_code: 'PC-1' });
+      expect(store.rawPatient).toEqual({
+        name: 'Alice',
+        redcap_project: 'P1',
+        patient_code: 'PC-1',
+      });
       expect(store.redcapProject).toBe('P1');
       expect(store.redcapIdentifier).toBe('PC-1');
       expect(store.loading).toBe(false);
@@ -385,7 +389,10 @@ describe('PatientPopupStore', () => {
   describe('fetchThresholds', () => {
     it('normalizes and stores thresholds on success', async () => {
       (mockApiClient.get as jest.Mock).mockResolvedValueOnce({
-        data: { thresholds: { steps_goal: 7000 }, history: [{ effective_from: null, thresholds: {} }] },
+        data: {
+          thresholds: { steps_goal: 7000 },
+          history: [{ effective_from: null, thresholds: {} }],
+        },
       });
 
       await store.fetchThresholds(t);

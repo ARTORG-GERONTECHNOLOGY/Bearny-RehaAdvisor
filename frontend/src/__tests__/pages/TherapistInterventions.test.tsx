@@ -187,9 +187,7 @@ jest.mock(
               <button onClick={() => props.onTemplateItemClick(item)}>click-item</button>
               <button onClick={() => props.onModifyTemplate(item)}>modify-item</button>
               <button
-                onClick={() =>
-                  props.onRemoveTemplateItem(item.diagnosis, item.intervention._id, 1)
-                }
+                onClick={() => props.onRemoveTemplateItem(item.diagnosis, item.intervention._id, 1)}
               >
                 remove-item
               </button>

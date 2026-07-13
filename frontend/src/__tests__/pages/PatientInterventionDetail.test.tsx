@@ -582,7 +582,12 @@ describe('PatientInterventionDetail', () => {
           _id: 'int-1',
           aim: 'Education',
           media: [
-            { kind: 'external', media_type: 'pdf', url: 'https://example.com/doc.pdf', title: 'Doc' },
+            {
+              kind: 'external',
+              media_type: 'pdf',
+              url: 'https://example.com/doc.pdf',
+              title: 'Doc',
+            },
           ],
         },
       }),
@@ -598,7 +603,12 @@ describe('PatientInterventionDetail', () => {
           _id: 'int-1',
           aim: 'Education',
           media: [
-            { kind: 'external', media_type: 'image', url: 'https://example.com/pic.png', title: 'Pic' },
+            {
+              kind: 'external',
+              media_type: 'image',
+              url: 'https://example.com/pic.png',
+              title: 'Pic',
+            },
           ],
         },
       }),
@@ -615,8 +625,18 @@ describe('PatientInterventionDetail', () => {
           _id: 'int-1',
           aim: 'Exercise',
           media: [
-            { kind: 'external', media_type: 'video', url: 'https://example.com/v.mp4', title: 'Vid' },
-            { kind: 'external', media_type: 'audio', url: 'https://example.com/a.mp3', title: 'Aud' },
+            {
+              kind: 'external',
+              media_type: 'video',
+              url: 'https://example.com/v.mp4',
+              title: 'Vid',
+            },
+            {
+              kind: 'external',
+              media_type: 'audio',
+              url: 'https://example.com/a.mp3',
+              title: 'Aud',
+            },
           ],
         },
       }),
@@ -733,7 +753,12 @@ describe('PatientInterventionDetail', () => {
           aim: 'Exercise',
           duration: 15,
           media: [
-            { kind: 'external', media_type: 'video', url: 'https://example.com/v.mp4', title: 'Vid' },
+            {
+              kind: 'external',
+              media_type: 'video',
+              url: 'https://example.com/v.mp4',
+              title: 'Vid',
+            },
           ],
         },
       }),

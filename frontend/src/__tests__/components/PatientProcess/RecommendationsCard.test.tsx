@@ -67,13 +67,17 @@ describe('RecommendationsCard', () => {
   });
 
   it('renders bar labels with the value text when there are completed items', () => {
-    render(<RecommendationsCard {...baseProps} adherenceTotals={{ completed: 3, uncompleted: 1 }} />);
+    render(
+      <RecommendationsCard {...baseProps} adherenceTotals={{ completed: 3, uncompleted: 1 }} />
+    );
     // Two <LabelList> render, one per <Bar> (completed and uncompleted)
     expect(screen.getAllByText('42')).toHaveLength(2);
   });
 
   it('omits bar labels when there are zero completed items', () => {
-    render(<RecommendationsCard {...baseProps} adherenceTotals={{ completed: 0, uncompleted: 0 }} />);
+    render(
+      <RecommendationsCard {...baseProps} adherenceTotals={{ completed: 0, uncompleted: 0 }} />
+    );
     expect(screen.queryByText('42')).not.toBeInTheDocument();
   });
 });
