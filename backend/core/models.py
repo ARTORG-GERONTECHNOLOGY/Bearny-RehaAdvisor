@@ -21,7 +21,7 @@ from mongoengine import (
     StringField,
 )
 
-from utils.config import config
+from utils.config import WEARABLE_DEVICE_CHOICES, config
 
 all_diagnoses = [
     diagnosis for category in config["patientInfo"]["function"].values() for diagnosis in category["diagnosis"]
@@ -603,8 +603,8 @@ class Patient(Document):
     # "none": no wearable; Fitbit UI hidden; badge shows "No device".
     wearable_device = StringField(
         max_length=20,
-        choices=["fitbit", "omron", "none"],
-        default="fitbit",
+        choices=WEARABLE_DEVICE_CHOICES,
+        default=WEARABLE_DEVICE_CHOICES[0],
         required=False,
     )
 
