@@ -37,6 +37,12 @@ const getContactsFields = (store: PatientPopupStore): PatientFieldConfig[] => {
     },
     { be_name: 'reha_end_date', label: 'Rehabilitation End Date', type: 'date' },
     { be_name: 'study_end_date', label: 'Study / After-Rehab Plan End Date', type: 'date' },
+    {
+      be_name: 'wearable_device',
+      label: 'Wearable Device',
+      type: 'dropdown',
+      options: ['fitbit', 'omron', 'none'],
+    },
   ];
 };
 

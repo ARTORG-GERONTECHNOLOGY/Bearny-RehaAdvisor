@@ -438,8 +438,11 @@ def fitbit_status(request, patient_id):
     has_data = latest_row is not None
     last_data = latest_row.date.isoformat() if latest_row else None
 
-    logger.info("[fitbit_status] status connected=%s has_data=%s", connected, has_data)
-    return JsonResponse({"connected": connected, "has_data": has_data, "last_data": last_data})
+    pt = Patient.objects(userId=user).first()
+    wearable_device = getattr(pt, "wearable_device", None) or "fitbit"
+
+    logger.info("[fitbit_status] status connected=%s has_data=%s wearable_device=%s", connected, has_data, wearable_device)
+    return JsonResponse({"connected": connected, "has_data": has_data, "last_data": last_data, "wearable_device": wearable_device})
 
 
 @api_view(["GET"])

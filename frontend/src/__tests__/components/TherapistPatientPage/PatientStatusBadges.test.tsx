@@ -153,4 +153,42 @@ describe('WearBadge', () => {
     );
     expect(screen.getByText(/^today$/i)).toBeInTheDocument();
   });
+
+  it('shows "Omron" neutral badge for a patient with wearable_device=omron', () => {
+    renderWithI18n(<WearBadge patient={makePatient({ wearable_device: 'omron' })} />);
+    expect(screen.getByText('Omron')).toBeInTheDocument();
+    expect(screen.queryByText('Disconnected')).not.toBeInTheDocument();
+    expect(screen.queryByText('No data')).not.toBeInTheDocument();
+  });
+
+  it('shows "No device" neutral badge for a patient with wearable_device=none', () => {
+    renderWithI18n(<WearBadge patient={makePatient({ wearable_device: 'none' })} />);
+    expect(screen.getByText('No device')).toBeInTheDocument();
+    expect(screen.queryByText('Disconnected')).not.toBeInTheDocument();
+  });
+
+  it('does not show red Disconnected badge for omron even with revoked flag set', () => {
+    renderWithI18n(
+      <WearBadge
+        patient={makePatient({
+          wearable_device: 'omron',
+          biomarker: { fitbit_revoked: true },
+        })}
+      />
+    );
+    expect(screen.getByText('Omron')).toBeInTheDocument();
+    expect(screen.queryByText('Disconnected')).not.toBeInTheDocument();
+  });
+
+  it('still shows Fitbit Disconnected badge for fitbit patients with revoked token', () => {
+    renderWithI18n(
+      <WearBadge
+        patient={makePatient({
+          wearable_device: 'fitbit',
+          biomarker: { wear_time_days_since: null, wear_time_avg_min: null, fitbit_revoked: true },
+        })}
+      />
+    );
+    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+  });
 });

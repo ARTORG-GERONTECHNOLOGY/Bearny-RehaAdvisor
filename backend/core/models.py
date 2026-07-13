@@ -597,6 +597,17 @@ class Patient(Document):
     care_giver = StringField(max_length=80, required=False, default="")
     initial_questionnaire_enabled = BooleanField(default=False)
 
+    # Wearable device type — controls whether Fitbit UI is shown.
+    # "fitbit" (default): Fitbit connect button shown, wear-time badge active.
+    # "omron": Fitbit UI hidden; therapist badge shows neutral "Omron" label.
+    # "none": no wearable; Fitbit UI hidden; badge shows "No device".
+    wearable_device = StringField(
+        max_length=20,
+        choices=["fitbit", "omron", "none"],
+        default="fitbit",
+        required=False,
+    )
+
     reha_end_date = DateTimeField(required=False, null=True)  # actual end of the rehabilitation programme
     study_end_date = DateTimeField(required=False, null=True)  # end of the study / after-rehab monitoring plan
 

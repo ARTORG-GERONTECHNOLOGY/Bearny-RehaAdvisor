@@ -839,6 +839,11 @@ def register_view(request):
                 # ✅ FIX: correct key (your payload uses "careGiver")
                 care_giver=sanitize_text(data.get("careGiver", ""), True),
                 initial_questionnaire_enabled=bool(data.get("initialQuestionnaireEnabled", False)),
+                wearable_device=(
+                    data.get("wearableDevice", "fitbit")
+                    if data.get("wearableDevice") in ("fitbit", "omron", "none")
+                    else "fitbit"
+                ),
             )
 
             try:

@@ -590,6 +590,7 @@ def list_therapist_patients(request, therapist_id):
                 "userId",
                 "reha_end_date",
                 "thresholds",
+                "wearable_device",
             )
             .no_dereference()
         )
@@ -709,6 +710,7 @@ def list_therapist_patients(request, therapist_id):
                     "biomarker": biomarker,
                     "adherence_rate": adh_7,
                     "adherence_total": adh_total,
+                    "wearable_device": getattr(patient, "wearable_device", None) or "fitbit",
                 }
             )
 

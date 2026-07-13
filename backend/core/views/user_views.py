@@ -324,6 +324,7 @@ def user_profile_view(request, user_id):
         "personal_goals": list,
         "social_support": list,
         "initial_questionnaire_enabled": bool,
+        # wearable_device handled explicitly below (enum validation)
     }
 
     TH_ALLOWED_USER = {"username": str, "email": str, "phone": str}
@@ -574,6 +575,11 @@ def user_profile_view(request, user_id):
                 if "initial_questionnaire_enabled" in raw:
                     patient.initial_questionnaire_enabled = bool(raw["initial_questionnaire_enabled"])
                     updated["initial_questionnaire_enabled"] = patient.initial_questionnaire_enabled
+
+                # wearable_device: validated enum
+                if "wearable_device" in raw and raw["wearable_device"] in ("fitbit", "omron", "none"):
+                    patient.wearable_device = raw["wearable_device"]
+                    updated["wearable_device"] = patient.wearable_device
 
                 user.save()
                 patient.save()
