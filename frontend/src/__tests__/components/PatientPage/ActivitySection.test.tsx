@@ -80,6 +80,26 @@ describe('ActivitySection', () => {
     expect(onOpenManualStepsEntry).toHaveBeenCalledTimes(1);
   });
 
+  it('hides the Fitbit connect button when wearableDevice is omron', () => {
+    render(<ActivitySection {...baseProps} connected={false} wearableDevice="omron" />);
+    expect(screen.queryByTestId('fitbit-connect-button')).not.toBeInTheDocument();
+  });
+
+  it('hides the Fitbit connect button when wearableDevice is none', () => {
+    render(<ActivitySection {...baseProps} connected={false} wearableDevice="none" />);
+    expect(screen.queryByTestId('fitbit-connect-button')).not.toBeInTheDocument();
+  });
+
+  it('shows the Fitbit connect button when wearableDevice is fitbit and disconnected', () => {
+    render(<ActivitySection {...baseProps} connected={false} wearableDevice="fitbit" />);
+    expect(screen.getByTestId('fitbit-connect-button')).toBeInTheDocument();
+  });
+
+  it('shows the Fitbit connect button when wearableDevice is unset and disconnected', () => {
+    render(<ActivitySection {...baseProps} connected={false} />);
+    expect(screen.getByTestId('fitbit-connect-button')).toBeInTheDocument();
+  });
+
   it('renders connected metrics and formatted minute values', () => {
     render(
       <ActivitySection

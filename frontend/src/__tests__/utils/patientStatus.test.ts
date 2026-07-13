@@ -6,6 +6,7 @@ import {
   fmtDate,
   getPatientIdStr,
   getPatientMongoId,
+  getWearInfo,
   loginLevel,
 } from '@/utils/patientStatus';
 import type { PatientType } from '@/types';
@@ -169,6 +170,46 @@ describe('feedbackLevel', () => {
         })
       )
     ).toBe('good');
+  });
+});
+
+describe('getWearInfo', () => {
+  it('returns unknown level and device=omron for omron patients, skipping Fitbit logic', () => {
+    const result = getWearInfo(makePatient({ wearable_device: 'omron' }));
+    expect(result.device).toBe('omron');
+    expect(result.level).toBe('unknown');
+    expect(result.revoked).toBe(false);
+  });
+
+  it('returns unknown level and device=none for none patients', () => {
+    const result = getWearInfo(makePatient({ wearable_device: 'none' }));
+    expect(result.device).toBe('none');
+    expect(result.level).toBe('unknown');
+  });
+
+  it('does not return Disconnected for omron even when revoked flag is set', () => {
+    const result = getWearInfo(
+      makePatient({ wearable_device: 'omron', biomarker: { fitbit_revoked: true } })
+    );
+    expect(result.device).toBe('omron');
+    expect(result.revoked).toBe(false);
+    expect(result.level).toBe('unknown');
+  });
+
+  it('returns device=fitbit and applies Fitbit wear logic for default patients', () => {
+    const result = getWearInfo(
+      makePatient({ biomarker: { wear_time_days_since: 0, wear_time_avg_min: 750 } })
+    );
+    expect(result.device).toBe('fitbit');
+    expect(result.level).toBe('good');
+  });
+
+  it('returns bad level for Fitbit patient not worn for 2+ days', () => {
+    const result = getWearInfo(
+      makePatient({ biomarker: { wear_time_days_since: 3, wear_time_avg_min: 700 } })
+    );
+    expect(result.device).toBe('fitbit');
+    expect(result.level).toBe('bad');
   });
 });
 

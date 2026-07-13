@@ -531,9 +531,12 @@ JWT required. Accepts either a User ID or a Patient ID.
   "personal_goals": [],
   "social_support": [],
   "initial_questionnaire_enabled": false,
-  "created_by": "Jane Doe"
+  "created_by": "Jane Doe",
+  "wearable_device": "fitbit"
 }
 ```
+
+`wearable_device` is one of `"fitbit"` (default), `"omron"`, or `"none"`. Existing patients without the field stored return `"fitbit"`.
 
 **Errors:** 404 not found · 500
 
@@ -551,6 +554,8 @@ JWT required.
 | `newPassword`  | string | yes      | 8+ chars, upper, lower, digit, special |
 
 **To update profile fields**, include any subset of the allowed fields listed in the GET response above. Date fields must be `YYYY-MM-DD`. Arrays replace the entire field.
+
+`wearable_device` accepts `"fitbit"`, `"omron"`, or `"none"`. Any other value is silently ignored and the field is left unchanged.
 
 **Response 200:**
 
@@ -1410,7 +1415,18 @@ Stores the Fitbit token and redirects to the app.
 
 JWT required.
 
-**Response 200:** `{ "connected": true, "last_sync": "2025-03-01T08:00:00Z" }`
+**Response 200:**
+
+```json
+{
+  "connected": true,
+  "has_data": true,
+  "last_data": "2025-03-01",
+  "wearable_device": "fitbit"
+}
+```
+
+`wearable_device` is one of `"fitbit"`, `"omron"`, or `"none"`. The patient page uses this field to decide whether to show the Fitbit connect button — it is hidden when the value is `"omron"` or `"none"`.
 
 **Errors:** 404 patient not found · 500
 

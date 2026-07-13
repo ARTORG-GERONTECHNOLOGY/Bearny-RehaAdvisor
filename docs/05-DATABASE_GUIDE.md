@@ -111,7 +111,8 @@ rehaadvisor/
   },
   "created_at": ISODate("2024-01-15"),
   "updated_at": ISODate("2024-02-17"),
-  "status": "active"  // active, inactive, completed
+  "status": "active",  // active, inactive, completed
+  "wearable_device": "fitbit"  // "fitbit" | "omron" | "none" — defaults to "fitbit"
 }
 ```
 

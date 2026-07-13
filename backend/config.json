@@ -232,6 +232,14 @@
           "be_name": "care_giver"
         },
         {
+          "name": "wearableDevice",
+          "label": "Wearable Device",
+          "type": "dropdown",
+          "required": false,
+          "be_name": "wearable_device",
+          "options": ["fitbit", "omron", "none"]
+        },
+        {
           "name": "password",
           "label": "Password",
           "type": "text",

@@ -167,7 +167,31 @@ export const FeedbackBadge: React.FC<Props> = ({ patient }) => {
 
 export const WearBadge: React.FC<Props> = ({ patient }) => {
   const { t } = useTranslation();
-  const { level, daysSinceWorn, avgMin, revoked } = getWearInfo(patient);
+  const { level, daysSinceWorn, avgMin, revoked, device } = getWearInfo(patient);
+
+  if (device === 'omron') {
+    return (
+      <StatusChip
+        label={String(t('Wear'))}
+        level="unknown"
+        tip={String(t('Patient uses Omron — steps entered manually'))}
+      >
+        Omron
+      </StatusChip>
+    );
+  }
+
+  if (device === 'none') {
+    return (
+      <StatusChip
+        label={String(t('Wear'))}
+        level="unknown"
+        tip={String(t('No wearable configured'))}
+      >
+        {String(t('No device'))}
+      </StatusChip>
+    );
+  }
 
   if (level === 'unknown') {
     return (
