@@ -90,6 +90,7 @@ class PatientFitbitStore {
 
   connected: boolean | null = null;
   statusLoading = false;
+  wearableDevice: 'fitbit' | 'omron' | 'none' = 'fitbit';
 
   summary: FitbitSummary | null = null;
   summaryLoading = false;
@@ -134,6 +135,9 @@ class PatientFitbitStore {
       const { data } = await apiClient.get(`/fitbit/status/${patientId}/`);
       runInAction(() => {
         this.connected = !!data?.connected;
+        if (data?.wearable_device && ['fitbit', 'omron', 'none'].includes(data.wearable_device)) {
+          this.wearableDevice = data.wearable_device;
+        }
       });
     } catch {
       runInAction(() => {

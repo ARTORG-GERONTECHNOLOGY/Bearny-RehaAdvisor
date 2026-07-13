@@ -38,7 +38,7 @@ from core.models import (
 )
 from core.tasks import fetch_fitbit_data_async
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
-from utils.config import config
+from utils.config import WEARABLE_DEVICE_CHOICES, config
 from utils.scheduling import _expand_dates
 from utils.utils import (
     check_rate_limit,
@@ -839,6 +839,11 @@ def register_view(request):
                 # ✅ FIX: correct key (your payload uses "careGiver")
                 care_giver=sanitize_text(data.get("careGiver", ""), True),
                 initial_questionnaire_enabled=bool(data.get("initialQuestionnaireEnabled", False)),
+                wearable_device=(
+                    data.get("wearableDevice", WEARABLE_DEVICE_CHOICES[0])
+                    if data.get("wearableDevice") in WEARABLE_DEVICE_CHOICES
+                    else WEARABLE_DEVICE_CHOICES[0]
+                ),
             )
 
             try:

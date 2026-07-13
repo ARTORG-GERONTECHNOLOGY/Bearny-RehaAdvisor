@@ -148,6 +148,7 @@ const PatientView: React.FC = observer(() => {
           sleepMinutes={patientFitbitStore.summary?.today?.sleep_minutes}
           sleepMinutesGoal={patientFitbitStore.summary?.thresholds?.sleep_green_min}
           onOpenManualStepsEntry={() => setShowManualStepsEntry(true)}
+          wearableDevice={patientFitbitStore.wearableDevice}
         />
 
         <HealthCheckInSection
