@@ -54,7 +54,22 @@ The dashboard provides a quick overview of your activity:
    - Phone number
    - Gender
    - Medical history
+   - **Wearable Device** — select the wearable the patient uses:
+     - **Fitbit** (default) — patient connects via OAuth; wear-time badge shown
+     - **Omron** — patient enters steps manually; a neutral grey "Omron" badge is shown instead of "Disconnected"
+     - **None** — no wearable; "No device" badge shown; Fitbit connect card hidden on the patient page
 3. Click **Create Patient**
+
+#### Changing a Patient's Wearable Device
+
+If a patient switches devices after registration:
+
+1. Open the patient's profile
+2. Click **Edit**
+3. Change the **Wearable Device** dropdown
+4. Click **Save**
+
+The WearBadge on the therapist patient list and the Fitbit connect card on the patient page update immediately.
 
 #### Viewing Patient Details
 
