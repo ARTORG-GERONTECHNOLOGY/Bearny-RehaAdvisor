@@ -437,6 +437,11 @@ class InterventionTemplate(Document):
                 private templates are visible only to their creator.
     Copy:       any therapist can copy a template they can see — the copy
                 becomes their own private template.
+
+    Traceability: ``creator_name`` is a denormalized snapshot of the creator's
+    display name captured at creation time.  It is never overwritten, so it
+    survives account deletion and gives an audit trail even when ``created_by``
+    can no longer be dereferenced.
     """
 
     meta = {"collection": "InterventionTemplates"}
@@ -445,6 +450,8 @@ class InterventionTemplate(Document):
     description = StringField(default="")
     is_public = BooleanField(default=False)
     created_by = ReferenceField("Therapist", required=True)
+    # Denormalized snapshot — set once at creation, never updated.
+    creator_name = StringField(max_length=200, default="")
 
     # Optional metadata used for filtering / search
     specialization = StringField(max_length=200, required=False, null=True, default=None)
