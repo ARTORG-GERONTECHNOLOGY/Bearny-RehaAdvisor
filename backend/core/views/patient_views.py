@@ -2985,7 +2985,7 @@ def get_patient_plan_for_therapist(request, patient_id):
 
             for date in all_dates:
                 date_local = timezone.localtime(_as_aware_utc(date)).date()
-                log = next((l for l in logs if l.date.date() == date_local), None)
+                log = next((l for l in logs if _as_aware_local(l.date).date() == date_local), None)
 
                 if log and "completed" in (log.status or []):
                     status = "completed"
