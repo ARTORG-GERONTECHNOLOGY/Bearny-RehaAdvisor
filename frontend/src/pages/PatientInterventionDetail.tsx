@@ -387,7 +387,10 @@ const PatientInterventionDetail: React.FC = observer(() => {
     if (Number.isNaN(parsed.getTime())) return none;
 
     const dateKey = format(parsed, 'yyyy-MM-dd');
-    const matchedIso = selectedRec.dates.find((d) => format(new Date(d), 'yyyy-MM-dd') === dateKey);
+    const matchedIso = selectedRec.dates.find((d) => {
+      const dt = new Date(d);
+      return !Number.isNaN(dt.getTime()) && format(dt, 'yyyy-MM-dd') === dateKey;
+    });
 
     return matchedIso ? { targetDate: parsed, targetOccurrenceIso: matchedIso } : none;
   }, [searchParams, selectedRec]);

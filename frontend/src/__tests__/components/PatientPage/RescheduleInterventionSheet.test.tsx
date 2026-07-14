@@ -32,7 +32,8 @@ describe('RescheduleInterventionSheet', () => {
   it('defaults the date picker to the current occurrence date, capped at today', () => {
     render(<RescheduleInterventionSheet {...baseProps} />);
     const dateInput = screen.getByLabelText('Date') as HTMLInputElement;
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     expect(dateInput.value).toBe('2026-03-16');
     expect(dateInput.min).toBe(today);
   });
