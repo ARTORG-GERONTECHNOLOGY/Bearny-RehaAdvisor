@@ -580,9 +580,9 @@ def test_modify_intervention_from_date_expired_plan_still_generates_dates(mongo_
     assert resp.status_code == 200, resp.content.decode()
     assert resp.json().get("success") is True
     # Must have generated new sessions (not zero/deleted)
-    assert resp.json().get("updatedCount", 0) >= 5, (
-        "Expired plan caused 0 new sessions — Bug #439 plan_end guard not applied"
-    )
+    assert (
+        resp.json().get("updatedCount", 0) >= 5
+    ), "Expired plan caused 0 new sessions — Bug #439 plan_end guard not applied"
 
 
 def test_modify_intervention_end_date_includes_same_day_session(mongo_mock):
@@ -621,9 +621,9 @@ def test_modify_intervention_end_date_includes_same_day_session(mongo_mock):
     assert resp.status_code == 200, resp.content.decode()
     assert resp.json().get("success") is True
     # The session at 08:00 today must be included — updatedCount >= 1
-    assert resp.json().get("updatedCount", 0) >= 1, (
-        "Session on end date was excluded — end-of-day boundary fix not applied"
-    )
+    assert (
+        resp.json().get("updatedCount", 0) >= 1
+    ), "Session on end date was excluded — end-of-day boundary fix not applied"
 
 
 @patch("core.views.patient_views._as_aware_utc", side_effect=Exception("boom"))

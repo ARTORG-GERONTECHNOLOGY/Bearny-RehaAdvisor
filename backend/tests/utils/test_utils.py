@@ -362,6 +362,6 @@ def test_generate_repeat_dates_sessions_on_end_date_included():
     dates = generate_repeat_dates(patient_end_date, repeat_data)
 
     # The session at 08:00 on the end date should be included
-    assert any(d.date() == today.date() for d in dates), (
-        "Session on end date day was excluded — end-of-day boundary not applied"
-    )
+    assert any(
+        d.date() == today.date() for d in dates
+    ), "Session on end date day was excluded — end-of-day boundary not applied"
