@@ -36,8 +36,33 @@ describe('ManualWeightSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
-      expect(baseProps.onSubmit).toHaveBeenCalledWith(72.3);
+      expect(baseProps.onSubmit).toHaveBeenCalledWith(
+        72.3,
+        expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
+      );
       expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('renders a date picker defaulting to today and capped at today', () => {
+    render(<ManualWeightSheet {...baseProps} />);
+    const dateInput = screen.getByLabelText('Date') as HTMLInputElement;
+    const today = new Date().toISOString().slice(0, 10);
+    expect(dateInput).toBeInTheDocument();
+    expect(dateInput.value).toBe(today);
+    expect(dateInput.max).toBe(today);
+  });
+
+  it('sends the selected past date to onSubmit', async () => {
+    render(<ManualWeightSheet {...baseProps} />);
+
+    const dateInput = screen.getByLabelText('Date');
+    fireEvent.change(dateInput, { target: { value: '2026-01-15' } });
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '68.5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(baseProps.onSubmit).toHaveBeenCalledWith(68.5, '2026-01-15');
     });
   });
 

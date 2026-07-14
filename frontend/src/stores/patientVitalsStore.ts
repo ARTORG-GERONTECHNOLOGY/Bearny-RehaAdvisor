@@ -48,13 +48,14 @@ class PatientVitalsStore {
 
   async submit(
     userId: string,
-    payload: { weight_kg?: number | null; bp_sys?: number | null; bp_dia?: number | null }
+    payload: { weight_kg?: number | null; bp_sys?: number | null; bp_dia?: number | null },
+    date?: string
   ) {
     this.posting = true;
     this.clearMessages();
     try {
       await apiClient.post(`/patients/vitals/manual/${userId}/`, {
-        date: new Date().toISOString(),
+        date: date ? new Date(date).toISOString() : new Date().toISOString(),
         weight_kg: payload.weight_kg ?? null,
         bp_sys: payload.bp_sys ?? null,
         bp_dia: payload.bp_dia ?? null,

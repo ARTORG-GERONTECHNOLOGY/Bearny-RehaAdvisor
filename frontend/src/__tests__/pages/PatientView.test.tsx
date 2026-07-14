@@ -397,13 +397,17 @@ describe('PatientView', () => {
     );
 
     const weightProps = (manualWeightSheetMock as jest.Mock).mock.calls[0][0];
-    await weightProps.onSubmit(72.5);
-    expect(vitalsStore.submit).toHaveBeenCalledWith('p1', { weight_kg: 72.5 });
+    await weightProps.onSubmit(72.5, '2026-03-01');
+    expect(vitalsStore.submit).toHaveBeenCalledWith('p1', { weight_kg: 72.5 }, '2026-03-01');
     expect(fitbitStore.fetchSummary).toHaveBeenCalledWith('p1', 7);
 
     const bpProps = (manualBloodPressureSheetMock as jest.Mock).mock.calls[0][0];
-    await bpProps.onSubmit(125, 84);
-    expect(vitalsStore.submit).toHaveBeenCalledWith('p1', { bp_sys: 125, bp_dia: 84 });
+    await bpProps.onSubmit(125, 84, '2026-03-01');
+    expect(vitalsStore.submit).toHaveBeenCalledWith(
+      'p1',
+      { bp_sys: 125, bp_dia: 84 },
+      '2026-03-01'
+    );
     expect(fitbitStore.fetchSummary).toHaveBeenCalledWith('p1', 7);
   });
 
