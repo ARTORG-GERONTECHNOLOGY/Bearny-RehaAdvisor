@@ -514,6 +514,118 @@ def test_modify_intervention_from_date_schedule_success(mongo_mock):
     assert resp.json().get("updatedCount", 0) >= 1
 
 
+def test_modify_intervention_from_date_expired_plan_still_generates_dates(mongo_mock):
+    """
+    Bug #439: when plan.endDate is in the past, _generate_dates_from returns []
+    because cursor > hard_stop, causing all future sessions to vanish ("deleted").
+    After the fix, modify_intervention_from_date extends plan_end to 1 year from
+    now when it has already passed, so new dates are always generated.
+    """
+    therapist_user = User(
+        username="th_exp",
+        email="th_exp@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    therapist = Therapist(userId=therapist_user, clinics=["Inselspital"]).save()
+    patient_user = User(
+        username="p_exp",
+        email="p_exp@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    patient = Patient(userId=patient_user, patient_code="PAT_EXP", therapist=therapist).save()
+    intervention = Intervention(
+        external_id="exp_test_001",
+        language="en",
+        title="Expired plan test",
+        description="",
+        content_type="Video",
+    ).save()
+    assignment = InterventionAssignment(
+        interventionId=intervention,
+        frequency="Daily",
+        dates=[datetime.now() - timedelta(days=i) for i in range(3)],
+    )
+    # Plan ended yesterday — the critical condition for this bug
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=10),
+        endDate=datetime.now() - timedelta(days=1),
+        status="active",
+        interventions=[assignment],
+    ).save()
+
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+    resp = client.post(
+        MODIFY_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "effectiveFrom": tomorrow,
+                "schedule": {
+                    "unit": "day",
+                    "interval": 1,
+                    "startDate": tomorrow,
+                    "startTime": "08:00",
+                    "end": {"type": "count", "count": 5},
+                },
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json().get("success") is True
+    # Must have generated new sessions (not zero/deleted)
+    assert (
+        resp.json().get("updatedCount", 0) >= 5
+    ), "Expired plan caused 0 new sessions — Bug #439 plan_end guard not applied"
+
+
+def test_modify_intervention_end_date_includes_same_day_session(mongo_mock):
+    """
+    Bug #439: the user picks end date = today; the frontend sends midnight UTC
+    which the backend converts to local midnight. Sessions scheduled at 08:00
+    on that day were excluded (08:00 > 00:00 hard_stop). After the fix,
+    hard_stop is extended to 23:59:59 so same-day sessions are included.
+    """
+    patient, _, intervention, _ = setup_patient_with_plan()
+    today = datetime.now().strftime("%Y-%m-%d")
+    resp = client.post(
+        MODIFY_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "effectiveFrom": today,
+                "schedule": {
+                    "unit": "day",
+                    "interval": 1,
+                    "startDate": today + "T08:00:00Z",
+                    "startTime": "08:00",
+                    "end": {
+                        "type": "date",
+                        # Send midnight UTC of today, as the frontend does
+                        "date": datetime.now().strftime("%Y-%m-%dT00:00:00Z"),
+                        "count": None,
+                    },
+                },
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json().get("success") is True
+    # The session at 08:00 today must be included — updatedCount >= 1
+    assert (
+        resp.json().get("updatedCount", 0) >= 1
+    ), "Session on end date was excluded — end-of-day boundary fix not applied"
+
+
 @patch("core.views.patient_views._as_aware_utc", side_effect=Exception("boom"))
 def test_modify_intervention_from_date_internal_date_conversion_error(_, mongo_mock):
     patient, _, intervention, _ = setup_patient_with_plan()
