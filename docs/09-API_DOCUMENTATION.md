@@ -1878,7 +1878,8 @@ All endpoints in this section require a valid JWT `Authorization: Bearer <token>
 **Visibility rules:**
 - Public templates (`is_public: true`) are visible to all therapists.
 - Private templates are visible only to their creator.
-- Only the creator may modify or delete a template.
+- Any therapist who can *see* a template may edit its name/description and add/remove its intervention items (issue #360).
+- Only the creator or an Admin may change `is_public` or delete a template.
 - Any therapist who can *see* a template may copy it (copy is always private).
 
 **`_all` sentinel:** When no diagnosis is specified for an intervention assignment, it is stored under the internal key `_all`, meaning it applies to any patient regardless of diagnosis.
@@ -1996,7 +1997,7 @@ Delete a template. Owner only.
 
 #### `PATCH /api/templates/<id>/`
 
-Update template metadata. Owner only. All fields are optional.
+Update template metadata. Any therapist who can view the template may update `name`, `description`, `specialization`, and `diagnosis`. Changing `is_public` requires owner or Admin.
 
 **Request body:**
 
@@ -2004,13 +2005,13 @@ Update template metadata. Owner only. All fields are optional.
 |---|---|---|
 | `name` | string | Max 200 chars, cannot be blank |
 | `description` | string | |
-| `is_public` | boolean | |
+| `is_public` | boolean | Silently ignored for non-owners |
 | `specialization` | string | |
 | `diagnosis` | string | |
 
 **Response 200:** `{ "template": { ...full template } }`
 
-**Errors:** 400 blank/overlong name · 401 unauthenticated · 403 not owner · 404 not found
+**Errors:** 400 blank/overlong name · 401 unauthenticated · 404 not found (private + non-owner)
 
 ---
 
@@ -2033,7 +2034,7 @@ Duplicate a visible template. The copy is private and owned by the requesting th
 
 #### `POST /api/templates/<id>/interventions/`
 
-Add (or replace) an intervention+schedule entry in the template. Only the template owner may call this.
+Add (or replace) an intervention+schedule entry in the template. Any therapist who can view the template may call this (public → all; private → owner/admin only).
 
 When `diagnosis` is omitted or empty, the entry is stored under the `_all` sentinel key and will apply to any patient regardless of diagnosis.
 
@@ -2052,7 +2053,7 @@ When `diagnosis` is omitted or empty, the entry is stored under the `_all` senti
 
 **Response 200:** `{ "template": { ...full template } }`
 
-**Errors:** 400 missing interventionId/end_day/invalid unit · 401 unauthenticated · 403 not owner · 404 template/intervention not found · 405 wrong method
+**Errors:** 400 missing interventionId/end_day/invalid unit · 401 unauthenticated · 404 template/intervention not found (private template + non-owner returns 404) · 405 wrong method
 
 ---
 
@@ -2068,7 +2069,7 @@ Remove an intervention entry from the template.
 
 **Response 200:** `{ "template": { ...updated template } }`
 
-**Errors:** 400 invalid id · 401 unauthenticated · 403 not owner · 404 intervention not in template · 405 wrong method
+**Errors:** 400 invalid id · 401 unauthenticated · 404 intervention not in template or private template + non-owner · 405 wrong method
 
 ---
 
@@ -2109,7 +2110,7 @@ If no `RehabilitationPlan` exists for a patient, one is created automatically.
 
 When `diagnosis` mode finds no matching patients, the response is still 200 with `applied: 0` and a `message` field explaining there were no matches.
 
-**`created_by` field:** The `created_by` value in all template responses is the **User** ObjectId (what `authStore.id` holds from the JWT claim), not the Therapist document ObjectId. Frontend ownership checks should compare `template.created_by === authStore.id`.
+**`created_by` field:** The `created_by` value in all template responses is the **User** ObjectId (what `authStore.id` holds from the JWT claim), not the Therapist document ObjectId. Frontend ownership checks (for delete/visibility gating) should compare `template.created_by === authStore.id`.
 
 **Errors:** 400 missing patientIds+diagnosis/effectiveFrom/invalid date/both modes given · 401 unauthenticated · 403 therapist not found · 404 template not found or private / patient(s) not found · 405 wrong method
 
