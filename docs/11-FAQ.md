@@ -30,7 +30,8 @@ A: Technically yes, but it's not recommended. Docker ensures consistency and eas
 A:
 ```bash
 make dev_down
-docker volume rm rehaadvisor_mongo_data
+docker volume ls --filter name=mongo_data   # find the exact volume name (prefixed with your project/folder name)
+docker volume rm <project>_mongo_data
 make build_dev
 make dev_up
 ```
@@ -39,7 +40,7 @@ This removes all data, so use carefully!
 ### Q: How do I access MongoDB directly?
 A:
 ```bash
-docker exec -it telerehabapp-db-1 mongosh
+docker exec -it db mongosh
 use rehaadvisor
 db.users.find()  # View users collection
 ```
@@ -82,9 +83,11 @@ docker exec django python manage.py showmigrations
 ### Q: How do I add a new page/route?
 A:
 1. Create component in `src/pages/MyNewPage.tsx`
-2. Add route in `src/routes/Routes.tsx`:
+2. Add a lazy-loaded route in `src/routes/index.tsx` (routes use `lazyWithRetry`, see existing entries):
 ```typescript
-{ path: '/my-new-page', element: <MyNewPage /> }
+const MyNewPage = lazyWithRetry(() => import('@/pages/MyNewPage'));
+// ...
+{ path: 'my-new-page', element: createElement(MyNewPage) }
 ```
 3. Add navigation link in navigation component
 
@@ -101,13 +104,13 @@ export const MyComponent = observer(() => {
 Remember to use `observer` HOC to make component reactive.
 
 ### Q: How do I make API calls?
-A:
+A: Use the shared Axios instance — it sends the httpOnly auth cookie automatically and handles 401 → token-refresh → retry for you:
 ```typescript
-import { api } from '../api/axios';
+import apiClient from '@/api/client';
 
 async function fetchData() {
   try {
-    const response = await api.get('/endpoint/');
+    const response = await apiClient.get('endpoint/');
     return response.data;
   } catch (error) {
     console.error('Error:', error);
@@ -116,13 +119,14 @@ async function fetchData() {
 ```
 
 ### Q: How do I add authentication to a component?
-A:
+A: There's no client-readable token to check — auth is a cookie, so gate on `authStore.isAuthenticated`:
 ```typescript
-import { authStore } from '../stores/authStore';
+import authStore from '@/stores/authStore';
+import { Navigate } from 'react-router-dom';
 
 export const ProtectedComponent = () => {
-  if (!authStore.token) {
-    return <Redirect to="/login" />;
+  if (!authStore.isAuthenticated) {
+    return <Navigate to="/login" />;
   }
   return <YourComponent />;
 };
@@ -153,6 +157,9 @@ npm test  # Run all tests
 npm test -- MyComponent.test.tsx  # Run specific test
 npm test -- --coverage  # Generate coverage report
 ```
+
+### Q: How do I handle patients without a Fitbit?
+A: `Patient.wearable_device` is `"fitbit" | "omron" | "none"`. UI that shows Fitbit-specific controls (connect button, wear-time badge) should check this field and fall back to a neutral badge (or hide the control entirely) for `"omron"`/`"none"`. See `components/TherapistPatientPage/PatientInfoWearablesSyncResult.tsx` for the existing pattern.
 
 ## Backend Development
 

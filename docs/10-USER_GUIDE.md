@@ -18,7 +18,7 @@ RehaAdvisor is a comprehensive web application designed to assist therapists, re
    - Click "Login" button
 
 3. **Understand Your Role**:
-   - **Therapist**: Manage patients, create sessions, track progress
+   - **Therapist**: Manage patients, assign interventions, track progress
    - **Researcher**: View aggregated data, generate reports
    - **Administrator**: Manage users, system settings, access logs
 
@@ -28,9 +28,9 @@ RehaAdvisor is a comprehensive web application designed to assist therapists, re
 
 The dashboard provides a quick overview of your activity:
 
-- **Quick Stats**: Number of active patients, scheduled sessions, pending tasks
-- **Recent Activity**: Latest sessions, patient updates, feedback
-- **Calendar**: View your scheduled sessions and appointments
+- **Quick Stats**: Number of active patients, upcoming intervention occurrences, pending tasks
+- **Recent Activity**: Latest completed interventions, patient updates, feedback
+- **Calendar**: View patients' intervention schedules
 - **Tasks**: Upcoming tasks and reminders
 
 ### Patient Management
@@ -89,61 +89,25 @@ The WearBadge on the therapist patient list and the Fitbit connect card on the p
 3. Modify relevant fields
 4. Click **Save Changes**
 
-#### Assigning Therapy
+### Rehabilitation Plan & Interventions
 
-1. Open patient profile
-2. Click **+ Assign Therapy**
-3. Select therapy program from available options
-4. Set start date and goals
-5. Click **Assign**
+Therapists build a patient's **Rehabilitation Plan** by assigning **Interventions** — individual exercises or activities — on a calendar. Patients mark each one as done from their own app.
 
-### Session Management
+#### Assigning an Intervention
 
-#### Scheduling a Session
+1. Open the patient's detail page and go to the **Rehabilitation Plan** tab
+2. Click **Add Intervention** and choose one from the intervention library
+3. Set the repeat rule: interval (day/week/month), which days, and a start/end date — or leave it open-ended
+4. To assign several interventions at once, apply a **Named Template** instead (a reusable, shareable bundle of interventions with their own schedule — see the therapist's Interventions page, Templates tab)
+5. Save — the intervention now appears on the patient's Rehabilitation Plan calendar
 
-1. Navigate to **Sessions** or open a patient profile
-2. Click **+ Schedule Session**
-3. Fill in session details:
-   - Date and time (required)
-   - Duration (default: 60 minutes)
-   - Session type (assessment, treatment, follow-up)
-   - Notes (optional)
-4. Click **Schedule Session**
+#### Rescheduling
 
-#### Starting a Session
+On the plan's calendar view, therapists can **drag and drop** a scheduled intervention occurrence to a different day to reschedule it.
 
-1. Open a scheduled session
-2. Review patient information
-3. Click **Start Session**
-4. The session timer will start
+#### Recording Completion & Feedback
 
-#### Recording Session Data
-
-During or after a session:
-
-1. **Add Exercises**:
-   - Click **+ Add Exercise**
-   - Select exercise from library
-   - Record repetitions and sets
-   - Add performance notes
-
-2. **Record Measurements**:
-   - Pain level (1-10 scale)
-   - Range of motion (degrees)
-   - Strength score (1-10 scale)
-   - Other relevant measurements
-
-3. **Add Notes**:
-   - Patient observations
-   - Progress comments
-   - Instructions for next session
-
-#### Completing a Session
-
-1. Review all recorded data
-2. Add completion notes
-3. Click **Complete Session**
-4. System generates progress update
+Patients mark an intervention as done themselves (**Mark as done**) from their own app; therapists don't log this on their behalf. Each completed intervention can carry patient feedback, which therapists review from the patient's Outcomes tab. Therapists can also view per-intervention stats (completion rate over time) from the plan view.
 
 ### Progress Tracking
 
@@ -161,12 +125,9 @@ During or after a session:
    - Patient or therapy type
    - Specific metrics
 
-#### Generating Reports
+#### Exporting Health Data
 
-1. Click **Generate Report**
-2. Select report parameters
-3. Choose format (PDF, CSV, Excel)
-4. Click **Generate**
+From the patient's Health tab, click **Export**, pick a date range and which metrics/questionnaires to include, then export as **CSV** or **PDF**.
 
 ### Feedback and Communication
 
@@ -242,60 +203,39 @@ During or after a session:
 
 ## Common Tasks
 
-### Task: Add a New Patient and Schedule First Session
+### Task: Add a New Patient and Assign Their First Intervention
 
 **Time Required**: 5-10 minutes
 
 **Steps**:
 
-1. Click **Patients** → **+ New Patient**
-2. Enter patient information:
-   - Name: John Doe
-   - Email: john.doe@example.com
-   - Date of Birth: 1985-05-15
-   - Phone: +1234567890
+1. Click **Patients** → **+ New Patient** (manual entry) or import via REDCap, depending on the deployment's `APP_MODE`
+2. Enter patient information: name, diagnosis, wearable device (Fitbit / Omron / none), etc.
 3. Click **Create Patient**
-4. System shows patient created successfully
-5. Click **+ Assign Therapy**
-6. Select therapy program
-7. Click **Assign**
-8. Click **+ Schedule Session**
-9. Enter session details:
-   - Date/Time: Tomorrow at 2:00 PM
-   - Duration: 60 minutes
-   - Type: Initial assessment
-10. Click **Schedule Session**
-11. Session appears on calendar
+4. Open the new patient's detail page → **Rehabilitation Plan** tab
+5. Click **Add Intervention**, pick one from the library (or apply a Named Template for a whole bundle at once)
+6. Set the repeat rule (interval, days, start/end date)
+7. Save — the intervention now appears on the patient's plan calendar
 
-### Task: Complete a Therapy Session
+### Task: Review Completed Interventions
 
-**Time Required**: 60 minutes (session) + 5 minutes (documentation)
+**Time Required**: 5-10 minutes
 
 **Steps**:
 
-1. Navigate to scheduled session
-2. Click **Start Session**
-3. Perform therapy exercises with patient
-4. Record performance:
-   - Add exercises completed
-   - Record measurements
-   - Add notes on patient progress
-5. Click **Complete Session**
-6. Review summary
-7. Click **Confirm**
+1. Open the patient's detail page → **Outcomes** tab
+2. Review which assigned interventions the patient has marked as done, along with any feedback they left
+3. Use the plan view's per-intervention stats to see completion rate over time
 
-### Task: Generate Progress Report
+### Task: Export Health Data
 
-**Time Required**: 5 minutes
+**Time Required**: 2 minutes
 
 **Steps**:
 
-1. Click **Reports**
-2. Select **Patient Progress Report**
-3. Choose patient and date range
-4. Click **Generate**
-5. Review report
-6. Click **Download as PDF** or **Export as CSV**
+1. Open the patient's **Health** tab
+2. Click **Export**, choose a date range and which metrics/questionnaires to include
+3. Click **Export CSV** or **Export PDF**
 
 ## Tips and Tricks
 
@@ -369,22 +309,21 @@ Support team will respond within 24 hours.
 ### Patient Data Management
 
 - **Regular Updates**: Keep patient information current
-- **Accurate Records**: Ensure all session notes are detailed and accurate
+- **Accurate Records**: Review patient feedback and completion history regularly
 - **Privacy**: Never share patient information externally
 - **Backup**: Data is automatically backed up
 
-### Session Planning
+### Rehabilitation Plan Design
 
-- **Schedule Ahead**: Plan sessions 1-2 weeks in advance
-- **Consistent Timing**: Try to maintain regular session schedules
-- **Preparation**: Review patient history before sessions
-- **Follow-ups**: Schedule follow-up sessions after initial assessments
+- **Plan Ahead**: Set up recurring intervention schedules rather than assigning one occurrence at a time
+- **Consistent Timing**: Use repeat rules (interval/days) to keep a predictable routine
+- **Preparation**: Review patient diagnosis/history before assigning interventions
+- **Named Templates**: Reuse a shared template for common diagnosis-based plans instead of rebuilding one from scratch each time
 
 ### Data Quality
 
 - **Complete Information**: Always fill in required fields
-- **Measurements**: Record measurements at consistent times
-- **Notes**: Provide detailed session notes for continuity of care
+- **Consistency**: Encourage patients to mark interventions as done promptly so completion history stays accurate
 - **Progress Tracking**: Regularly review patient progress
 
 ## Troubleshooting
@@ -405,22 +344,21 @@ Support team will respond within 24 hours.
 - Patient record was archived
 - **Solution**: Contact administrator to verify permissions
 
-### Sessions are not appearing on my calendar
+### Scheduled interventions are not appearing on the plan calendar
 
 **Possible reasons**:
 - Browser cache not updated
 - Timezone settings incorrect
-- Sessions are in past (not displayed by default)
+- Occurrences are in the past (not displayed by default)
 - **Solution**: 
   - Clear browser cache (Ctrl+Shift+Delete)
   - Check timezone settings
-  - Use date filters to view past sessions
+  - Use date filters to view past occurrences
 
-### I can't download reports
+### I can't export health data
 
 **Possible reasons**:
 - Browser blocking downloads
-- PDF plugin missing
 - Insufficient permissions
 - **Solution**:
   - Check browser download settings
@@ -429,11 +367,8 @@ Support team will respond within 24 hours.
 
 ## FAQ
 
-**Q: How often should I record session data?**
-A: Record data during or immediately after each session for accuracy.
-
-**Q: Can I modify past session notes?**
-A: Yes, you can edit session notes for up to 30 days after the session.
+**Q: Can I edit an intervention after assigning it?**
+A: Yes — open it from the Rehabilitation Plan tab to change its repeat rule, or drag it on the calendar to reschedule an occurrence.
 
 **Q: How is patient data protected?**
 A: Data is encrypted in transit and at rest. Access is controlled by role-based permissions.
