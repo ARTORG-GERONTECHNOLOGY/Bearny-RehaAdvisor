@@ -223,6 +223,35 @@ class PatientInterventionsStore {
 
     return { completed: false, dateKey };
   }
+
+  async rescheduleOccurrence(
+    patientId: string,
+    rec: PatientRec,
+    oldDatetime: string,
+    newDatetime: Date
+  ) {
+    const { data } = await apiClient.post('interventions/reschedule-date/', {
+      patientId,
+      interventionId: rec.intervention_id,
+      oldDatetime,
+      newDatetime: newDatetime.toISOString(),
+    });
+
+    const newIso = String(data?.newDatetime || newDatetime.toISOString());
+
+    runInAction(() => {
+      this.items = this.items.map((r) =>
+        r.intervention_id === rec.intervention_id
+          ? {
+              ...r,
+              dates: asArray<string>(r.dates).map((d) => (d === oldDatetime ? newIso : d)),
+            }
+          : r
+      );
+    });
+
+    return newIso;
+  }
 }
 
 export const patientInterventionsStore = new PatientInterventionsStore();

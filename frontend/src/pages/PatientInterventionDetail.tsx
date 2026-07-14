@@ -31,7 +31,9 @@ import ReaderIcon from '@/assets/icons/interventions/website.svg?react';
 import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
 import EducationIcon from '@/assets/icons/interventions/education.svg?react';
 import OpenExternalIcon from '@/assets/icons/open-external-fill.svg?react';
+import CalendarIcon from '@/assets/icons/calendar-outline.svg?react';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
+import RescheduleInterventionSheet from '@/components/PatientPage/RescheduleInterventionSheet';
 import Card from '@/components/Card';
 
 type InterventionMedia = {
@@ -375,18 +377,29 @@ const PatientInterventionDetail: React.FC = observer(() => {
     );
   }, [interventionId, patientInterventionsLibraryStore.visibleItemsForPatient]);
 
-  const targetDate = useMemo(() => {
+  // targetDate is midnight-only; targetOccurrenceIso is the matching raw entry
+  // from selectedRec.dates, carrying the real time and needed as-is for oldDatetime.
+  const { targetDate, targetOccurrenceIso } = useMemo(() => {
+    const none = { targetDate: null as Date | null, targetOccurrenceIso: null as string | null };
+
     const dateParam = searchParams.get('date');
-    if (!dateParam || !selectedRec?.dates?.length) return null;
+    if (!dateParam || !selectedRec?.dates?.length) return none;
 
     const parsed = new Date(`${dateParam}T00:00:00`);
-    if (Number.isNaN(parsed.getTime())) return null;
+    if (Number.isNaN(parsed.getTime())) return none;
 
     const dateKey = format(parsed, 'yyyy-MM-dd');
-    const isAssignedDate = selectedRec.dates.some((d) => asStr(d).startsWith(dateKey));
+    const matchedIso = selectedRec.dates.find((d) => format(new Date(d), 'yyyy-MM-dd') === dateKey);
 
-    return isAssignedDate ? parsed : null;
+    return matchedIso ? { targetDate: parsed, targetOccurrenceIso: matchedIso } : none;
   }, [searchParams, selectedRec]);
+
+  const targetOccurrenceDate = useMemo(
+    () => (targetOccurrenceIso ? new Date(targetOccurrenceIso) : null),
+    [targetOccurrenceIso]
+  );
+
+  const [showRescheduleSheet, setShowRescheduleSheet] = useState(false);
 
   const completed =
     selectedRec && targetDate
@@ -437,6 +450,24 @@ const PatientInterventionDetail: React.FC = observer(() => {
     } finally {
       setBusyKey(null);
     }
+  };
+
+  const handleRescheduleSubmit = async (newDate: Date) => {
+    if (!patientId || !selectedRec || !targetOccurrenceIso) return;
+
+    const newIso = await patientInterventionsStore.rescheduleOccurrence(
+      patientId,
+      selectedRec,
+      targetOccurrenceIso,
+      newDate
+    );
+
+    navigate(
+      `/patient-intervention/${interventionId}?date=${format(new Date(newIso), 'yyyy-MM-dd')}`,
+      {
+        replace: true,
+      }
+    );
   };
 
   // Safe questions array for feedback questionnaire
@@ -620,22 +651,35 @@ const PatientInterventionDetail: React.FC = observer(() => {
           </Button>
 
           {targetDate && (
-            <Button
-              disabled={isBusy}
-              aria-pressed={completed}
-              onClick={handleToggleCompleted}
-              variant={completed ? 'default' : 'secondary'}
-              className={!completed && 'bg-white text-zinc-400'}
-            >
-              {(() => {
-                const isBehaviorChange =
-                  effectiveItem?.intervention?.aim?.toLowerCase() === 'behavior change';
-                if (isBusy) return <Skeleton className="w-20 h-6 rounded-full" />;
-                if (completed) return isBehaviorChange ? t('Viewed') : t('Done');
-                return isBehaviorChange ? t('Mark as viewed') : t('Mark as done');
-              })()}
-              {completed ? <CircleCheckFillIcon /> : <CircleHalfCheckIcon />}
-            </Button>
+            <div className="flex flex-wrap gap-2 justify-end">
+              {!completed && (
+                <Button
+                  variant="secondary"
+                  className="bg-white text-zinc-400"
+                  onClick={() => setShowRescheduleSheet(true)}
+                >
+                  {t('Reschedule')}
+                  <CalendarIcon />
+                </Button>
+              )}
+
+              <Button
+                disabled={isBusy}
+                aria-pressed={completed}
+                onClick={handleToggleCompleted}
+                variant={completed ? 'default' : 'secondary'}
+                className={!completed && 'bg-white text-zinc-400'}
+              >
+                {(() => {
+                  const isBehaviorChange =
+                    effectiveItem?.intervention?.aim?.toLowerCase() === 'behavior change';
+                  if (isBusy) return <Skeleton className="w-20 h-6 rounded-full" />;
+                  if (completed) return isBehaviorChange ? t('Viewed') : t('Done');
+                  return isBehaviorChange ? t('Mark as viewed') : t('Mark as done');
+                })()}
+                {completed ? <CircleCheckFillIcon /> : <CircleHalfCheckIcon />}
+              </Button>
+            </div>
           )}
         </div>
 
@@ -777,6 +821,14 @@ const PatientInterventionDetail: React.FC = observer(() => {
           onClose={() => patientQuestionnairesStore.closeFeedback()}
         />
       )}
+
+      <RescheduleInterventionSheet
+        open={showRescheduleSheet}
+        currentDate={targetOccurrenceDate}
+        titleLabel={titleRaw}
+        onClose={() => setShowRescheduleSheet(false)}
+        onSubmit={handleRescheduleSubmit}
+      />
     </Layout>
   );
 });

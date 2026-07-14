@@ -1109,7 +1109,7 @@ def get_patient_plan(request, patient_id):
             dates_iso = []
             for d in getattr(assignment, "dates", None) or []:
                 try:
-                    dates_iso.append(d.isoformat())
+                    dates_iso.append(_as_aware_utc(d).isoformat())
                 except Exception:
                     dates_iso.append(str(d))
 
@@ -2652,7 +2652,8 @@ def reschedule_intervention_date(request):
         )
 
     # ----------------------
-    # Authorization (match get_patient_plan_for_therapist)
+    # Authorization (match get_patient_plan_for_therapist, plus the
+    # patient themselves rescheduling their own sessions)
     # ----------------------
     from django.conf import settings as _dj_settings
 
@@ -2663,7 +2664,12 @@ def reschedule_intervention_date(request):
         except Exception:
             _is_admin = False
 
-        if not _is_admin:
+        try:
+            _is_owner = str(patient.userId.id) == str(request.user.id)
+        except Exception:
+            _is_owner = False
+
+        if not _is_admin and not _is_owner:
             _caller_therapist = get_therapist_for_user(request.user)
             _patient_clinic = getattr(patient, "clinic", None)
             if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
@@ -2792,13 +2798,21 @@ def reschedule_intervention_date(request):
 
     # ----------------------
     # Collision check (exclude the slot being moved)
+    #
+    # Compared by calendar day, not exact instant: the patient/therapist UI
+    # groups and displays occurrences per day, so two occurrences of the same
+    # intervention landing on the same day would silently collapse into a
+    # single visible card even though the plan holds two dates.
     # ----------------------
-    collides = any(abs((d - new_dt_utc).total_seconds()) < 1 for i, d in enumerate(existing_utc) if i != match_idx)
+    new_day = _as_aware_local(new_dt_utc).date()
+    collides = any(
+        _as_aware_local(d).date() == new_day for i, d in enumerate(existing_utc) if i != match_idx
+    )
     if collides:
         return JsonResponse(
             {
                 "success": False,
-                "message": "A session already exists at that time.",
+                "message": "A session already exists on that day.",
                 "field_errors": {},
                 "non_field_errors": [],
             },
