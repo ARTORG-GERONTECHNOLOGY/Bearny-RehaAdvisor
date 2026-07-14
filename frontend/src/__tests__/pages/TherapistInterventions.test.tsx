@@ -726,7 +726,7 @@ describe('TherapistInterventions — Templates tab', () => {
     });
   });
 
-  it('does not show Edit for a template I do not own', async () => {
+  it('does not show Delete for a template I do not own', async () => {
     mockApiGet([makeDoc({ id: 'tpl-2', name: 'Theirs', created_by: 'other-therapist' })]);
     await goToTemplatesTab();
     // The option text is "Theirs — Me" (name + creator suffix in one element).
@@ -735,7 +735,9 @@ describe('TherapistInterventions — Templates tab', () => {
       target: { value: 'tpl-2' },
     });
     await waitFor(() => expect(screen.getByTitle('Copy template')).toBeInTheDocument());
-    expect(screen.queryByTitle('Edit name / description')).not.toBeInTheDocument();
+    // Edit remains available for non-owners (e.g. to fork name/description),
+    // but the destructive Delete action stays owner/admin-only.
+    expect(screen.getByTitle('Edit name / description')).toBeInTheDocument();
     expect(screen.queryByTitle('Delete template')).not.toBeInTheDocument();
   });
 

@@ -196,8 +196,8 @@ describe('WearBadge', () => {
       />
     );
     expect(screen.getByText(/^yesterday$/i)).toBeInTheDocument();
-  }):
-  
+  });
+
   it('shows "Omron" neutral badge for a patient with wearable_device=omron', () => {
     renderWithI18n(<WearBadge patient={makePatient({ wearable_device: 'omron' })} />);
     expect(screen.getByText('Omron')).toBeInTheDocument();
