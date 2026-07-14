@@ -49,7 +49,11 @@ Input validation (400 / 404)
   * Applying with an invalid date string → 400.
 
 Authorisation
-  * Non-owner cannot DELETE, PATCH, or POST-to-interventions → 403.
+  * Non-owner cannot DELETE a template → 403.
+  * Non-owner cannot change is_public on a template (field is silently ignored).
+  * Non-owner CAN PATCH name/description of a public template → 200.
+  * Non-owner CAN add/remove interventions from a public template → 200/204.
+  * Non-owner cannot modify a private template → 404.
   * Unauthenticated (no therapist profile resolving) → 403.
 
 HTTP method enforcement (405)
@@ -597,18 +601,49 @@ def test_patch_template_is_public(mongo_mock):
     assert resp.json()["template"]["is_public"] is True
 
 
-def test_patch_template_non_owner_forbidden(mongo_mock):
+def test_patch_template_non_owner_can_edit_name(mongo_mock):
     """
-    PATCH by a non-owner returns 403, document is unchanged.
+    PATCH of name/description by a non-owner of a PUBLIC template succeeds (200).
+    Any authorised therapist can modify a patient's assigned template (issue #360).
     """
     _, owner = _make_therapist("owner")
     _, other = _make_therapist("other")
-    tmpl = _make_template(owner, name="Immutable", is_public=True)
+    tmpl = _make_template(owner, name="Original", is_public=True)
+
+    resp = _patch_json(f"/api/templates/{tmpl.id}/", {"name": "Updated"}, other)
+
+    assert resp.status_code == 200
+    assert InterventionTemplate.objects(pk=tmpl.id).first().name == "Updated"
+
+
+def test_patch_template_non_owner_cannot_change_visibility(mongo_mock):
+    """
+    PATCH with is_public by a non-owner is silently ignored — the field stays
+    unchanged.  The creator retains exclusive control over visibility.
+    """
+    _, owner = _make_therapist("owner")
+    _, other = _make_therapist("other")
+    tmpl = _make_template(owner, name="MyTemplate", is_public=True)
+
+    resp = _patch_json(f"/api/templates/{tmpl.id}/", {"name": "Same", "is_public": False}, other)
+
+    assert resp.status_code == 200
+    # is_public must not have been flipped
+    assert InterventionTemplate.objects(pk=tmpl.id).first().is_public is True
+
+
+def test_patch_private_template_non_owner_returns_404(mongo_mock):
+    """
+    PATCH of a PRIVATE template by a non-owner returns 404 (hidden from view).
+    """
+    _, owner = _make_therapist("owner")
+    _, other = _make_therapist("other")
+    tmpl = _make_template(owner, name="Secret", is_public=False)
 
     resp = _patch_json(f"/api/templates/{tmpl.id}/", {"name": "Hacked"}, other)
 
-    assert resp.status_code == 403
-    assert InterventionTemplate.objects(pk=tmpl.id).first().name == "Immutable"
+    assert resp.status_code == 404
+    assert InterventionTemplate.objects(pk=tmpl.id).first().name == "Secret"
 
 
 def test_patch_template_blank_name(mongo_mock):
@@ -842,10 +877,9 @@ def test_assign_intervention_not_found(mongo_mock):
     assert resp.status_code == 404
 
 
-def test_assign_intervention_non_owner_forbidden(mongo_mock):
+def test_assign_intervention_non_owner_public_template_allowed(mongo_mock):
     """
-    Only the template creator can add interventions — a different therapist
-    gets 403 even on a public template.
+    Any therapist can add interventions to a PUBLIC template (issue #360).
     """
     _, owner = _make_therapist("owner")
     _, other = _make_therapist("other")
@@ -858,7 +892,25 @@ def test_assign_intervention_non_owner_forbidden(mongo_mock):
         other,
     )
 
-    assert resp.status_code == 403
+    assert resp.status_code == 200
+
+
+def test_assign_intervention_non_owner_private_template_hidden(mongo_mock):
+    """
+    A non-owner cannot add interventions to a PRIVATE template — gets 404.
+    """
+    _, owner = _make_therapist("owner")
+    _, other = _make_therapist("other")
+    tmpl = _make_template(owner, is_public=False)
+    intervention = _make_intervention()
+
+    resp = _post_json(
+        ASSIGN_URL.format(id=tmpl.id),
+        {"interventionId": str(intervention.id), "end_day": 10},
+        other,
+    )
+
+    assert resp.status_code == 404
 
 
 def test_assign_intervention_template_not_found(mongo_mock):
@@ -1067,9 +1119,9 @@ def test_remove_intervention_not_in_template(mongo_mock):
     assert resp.status_code == 404
 
 
-def test_remove_intervention_non_owner_forbidden(mongo_mock):
+def test_remove_intervention_non_owner_public_template_allowed(mongo_mock):
     """
-    DELETE by a non-owner returns 403.
+    Any therapist can remove interventions from a PUBLIC template (issue #360).
     """
     _, owner = _make_therapist("owner")
     _, other = _make_therapist("other")
@@ -1078,7 +1130,21 @@ def test_remove_intervention_non_owner_forbidden(mongo_mock):
 
     resp = _delete(REMOVE_URL.format(tmpl_id=tmpl.id, int_id=int_id), other)
 
-    assert resp.status_code == 403
+    assert resp.status_code == 200
+
+
+def test_remove_intervention_non_owner_private_template_hidden(mongo_mock):
+    """
+    A non-owner cannot remove interventions from a PRIVATE template — gets 404.
+    """
+    _, owner = _make_therapist("owner")
+    _, other = _make_therapist("other")
+    tmpl = _make_template(owner, is_public=False, with_intervention=True)
+    int_id = str(tmpl.recommendations[0].recommendation.id)
+
+    resp = _delete(REMOVE_URL.format(tmpl_id=tmpl.id, int_id=int_id), other)
+
+    assert resp.status_code == 404
 
 
 def test_remove_intervention_post_not_allowed(mongo_mock):

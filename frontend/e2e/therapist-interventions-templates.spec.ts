@@ -134,7 +134,43 @@ test.describe('Therapist Interventions — Templates tab', () => {
 
     await expect(page.getByRole('button', { name: /apply/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /copy/i })).toBeVisible();
+    // Edit button visible for own templates (issue #360: any visible-template therapist can edit)
+    await expect(page.getByTitle(/edit name/i)).toBeVisible();
+    // Delete button visible for own templates (creator-only — non-owners won't see it)
     await expect(page.getByRole('button', { name: /delete/i })).toBeVisible();
+  });
+
+  // ---- Edit template (issue #360) -----------------------------------------
+
+  test('Edit button opens edit-meta modal for own template', async ({ page }) => {
+    skipUnlessSeeded(test);
+    await openTemplatesTab(page);
+
+    const selector = page.getByRole('combobox').first();
+    const options = await selector.locator('option').all();
+
+    let namedOptionValue: string | undefined;
+    for (const opt of options) {
+      const val = await opt.getAttribute('value');
+      if (val && val !== '' && val !== 'implicit') {
+        namedOptionValue = val;
+        break;
+      }
+    }
+    test.skip(!namedOptionValue, 'No named templates found in seeded DB — skipping');
+
+    await selector.selectOption(namedOptionValue as string);
+
+    // Edit button should always be visible (fix for issue #360)
+    const editBtn = page.getByTitle(/edit name/i);
+    await expect(editBtn).toBeVisible();
+    await editBtn.click();
+
+    const modal = page.locator('.modal.show');
+    await expect(modal).toBeVisible();
+    await expect(modal.getByRole('heading', { name: /edit template/i })).toBeVisible();
+    // Public checkbox visible for own templates
+    await expect(modal.getByRole('checkbox', { name: /public/i })).toBeVisible();
   });
 
   // ---- Apply template modal -----------------------------------------------
