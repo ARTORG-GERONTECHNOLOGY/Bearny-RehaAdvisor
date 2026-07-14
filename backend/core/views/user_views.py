@@ -601,20 +601,47 @@ def user_profile_view(request, user_id):
     # ================================ DELETE ====================================
     if request.method == "DELETE":
         try:
-            # If the user is a therapist, make their private templates public so
-            # they remain accessible.  creator_name is already stored on each
-            # template, so traceability is preserved.
+            # If the user is a therapist, transfer their templates to the
+            # requester (if the requester is also a therapist) so the templates
+            # remain editable.  If the requester has no therapist profile, make
+            # the templates public so they at least stay visible.
+            # creator_name is already stored on each template, so the original
+            # author is still traceable after transfer.
             try:
                 therapist_profile = Therapist.objects.get(userId=user)
-                private_templates = InterventionTemplate.objects(created_by=therapist_profile, is_public=False)
-                count = private_templates.count()
-                if count:
-                    private_templates.update(set__is_public=True)
-                    logger.info(
-                        "Soft-deleted therapist %s: made %d private template(s) public",
-                        user_id,
-                        count,
-                    )
+                all_templates = InterventionTemplate.objects(created_by=therapist_profile)
+
+                # Determine who to transfer ownership to
+                new_owner = None
+                try:
+                    requester_user = _get_viewer_user(request)
+                    if requester_user and requester_user.id != user.id:
+                        new_owner = Therapist.objects.get(userId=requester_user)
+                except Exception:
+                    pass
+
+                if new_owner is not None:
+                    count = all_templates.count()
+                    if count:
+                        all_templates.update(set__created_by=new_owner)
+                        logger.info(
+                            "Soft-deleted therapist %s: transferred %d template(s) to %s",
+                            user_id,
+                            count,
+                            new_owner.id,
+                        )
+                else:
+                    # Requester has no therapist profile (e.g. admin-only account) —
+                    # make private templates public so they stay accessible.
+                    private_templates = all_templates.filter(is_public=False)
+                    count = private_templates.count()
+                    if count:
+                        private_templates.update(set__is_public=True)
+                        logger.info(
+                            "Soft-deleted therapist %s: made %d private template(s) public",
+                            user_id,
+                            count,
+                        )
             except Therapist.DoesNotExist:
                 pass  # patient account — no templates to handle
 

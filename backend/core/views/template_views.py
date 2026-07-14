@@ -253,12 +253,14 @@ def template_list_create(request):
 def template_detail(request, template_id):
     """
     GET    /api/templates/<id>/   — retrieve full template (detail view)
-    DELETE /api/templates/<id>/   — delete (owner only)
-    PATCH  /api/templates/<id>/   — update metadata (owner only)
+    DELETE /api/templates/<id>/   — delete (owner or admin)
+    PATCH  /api/templates/<id>/   — update metadata (owner or admin)
     """
     therapist = _get_therapist(request)
     if therapist is None:
         return JsonResponse({"error": "Therapist profile not found."}, status=403)
+
+    is_admin = getattr(request.user, "role", None) == "Admin"
 
     if not ObjectId.is_valid(template_id):
         return JsonResponse({"error": "Invalid template id."}, status=400)
@@ -270,11 +272,14 @@ def template_detail(request, template_id):
 
     # Visibility / ownership — guard against a broken created_by reference
     # (happens when the creator account was hard-deleted outside the application).
+    # Admins can always see and modify any template.
     try:
         is_owner = str(tmpl.created_by.id) == str(therapist.id)
     except Exception:
         is_owner = False
-    if not tmpl.is_public and not is_owner:
+    can_modify = is_owner or is_admin
+
+    if not tmpl.is_public and not can_modify:
         return JsonResponse({"error": "Not found."}, status=404)
 
     # ── GET ────────────────────────────────────────────────────────────────
@@ -283,14 +288,14 @@ def template_detail(request, template_id):
 
     # ── DELETE ─────────────────────────────────────────────────────────────
     if request.method == "DELETE":
-        if not is_owner:
+        if not can_modify:
             return JsonResponse({"error": "Only the creator can delete this template."}, status=403)
         tmpl.delete()
         return JsonResponse({"success": True})
 
     # ── PATCH ──────────────────────────────────────────────────────────────
     if request.method == "PATCH":
-        if not is_owner:
+        if not can_modify:
             return JsonResponse({"error": "Only the creator can edit this template."}, status=403)
 
         try:
