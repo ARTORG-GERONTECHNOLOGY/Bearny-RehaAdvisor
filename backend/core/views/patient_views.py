@@ -2973,8 +2973,6 @@ def get_patient_plan_for_therapist(request, patient_id):
                 _all_variant_ids = _group["all_ids"]
             logs = PatientInterventionLogs.objects(userId=patient, interventionId__in=_all_variant_ids)
 
-            completed_dates = {log.date.date() for log in logs if "completed" in (log.status or [])}
-
             intervention_dates = []
             completed_count = 0
             current_total_count = 0
@@ -2982,8 +2980,8 @@ def get_patient_plan_for_therapist(request, patient_id):
             rating_count = 0
 
             for date in all_dates:
-                log = next((l for l in logs if l.date.date() == date.date()), None)
                 date_local = timezone.localtime(_as_aware_utc(date)).date()
+                log = next((l for l in logs if l.date.date() == date_local), None)
 
                 if log and "completed" in (log.status or []):
                     status = "completed"
