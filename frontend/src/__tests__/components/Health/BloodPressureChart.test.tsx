@@ -4,14 +4,25 @@ import { render, screen } from '@testing-library/react';
 // D3 is ESM-only — mock before any import that pulls in utils/healthCharts.
 jest.mock('d3', () => ({ timeParse: () => (s: string) => new Date(s) }));
 
+const mockArea = jest.fn(() => null);
+const mockYAxis = jest.fn(() => null);
+
 jest.mock('recharts', () => ({
-  Area: () => null,
+  Area: (props: any) => {
+    mockArea(props);
+    return null;
+  },
   AreaChart: ({ children }: { children: React.ReactNode }) => <svg>{children}</svg>,
   CartesianGrid: () => null,
   ReferenceLine: () => null,
   XAxis: () => null,
-  YAxis: () => null,
+  YAxis: (props: any) => {
+    mockYAxis(props);
+    return null;
+  },
 }));
+
+const mockChartTooltip = jest.fn(() => null);
 
 jest.mock('@/components/ui/chart', () => {
   const ChartContainer = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(
@@ -20,7 +31,10 @@ jest.mock('@/components/ui/chart', () => {
   ChartContainer.displayName = 'ChartContainer';
   return {
     ChartContainer,
-    ChartTooltip: () => null,
+    ChartTooltip: (props: any) => {
+      mockChartTooltip(props);
+      return null;
+    },
     ChartTooltipContent: () => null,
   };
 });
@@ -32,6 +46,7 @@ import BloodPressureChart, {
   filterBloodPressureInRange,
 } from '@/components/Health/charts/BloodPressureChart';
 import type { FitbitEntry } from '@/types/health';
+import { colors } from '@/lib/colors';
 
 const makeEntry = (date: string, sys: number | null, dia: number | null): FitbitEntry => ({
   date,
@@ -82,6 +97,118 @@ describe('BloodPressureChart', () => {
       <BloodPressureChart data={data} sysGreenMax={129} diaGreenMax={84} />
     );
     expect(container.querySelector('svg')).toBeInTheDocument();
+  });
+
+  describe('dot rendering', () => {
+    const renderChart = (props: Partial<React.ComponentProps<typeof BloodPressureChart>> = {}) => {
+      mockArea.mockClear();
+      const data = [makeEntry('2026-01-01', 120, 80)];
+      render(<BloodPressureChart data={data} {...props} />);
+      return mockArea.mock.calls[0][0];
+    };
+
+    it('draws an empty marker when the row has no range (missing sys or dia)', () => {
+      const { dot } = renderChart();
+      const el = dot({
+        cx: 1,
+        cy: 2,
+        index: 0,
+        payload: { date: 'x', sys: null, dia: null, range: null },
+      });
+      expect(el.type).toBe('g');
+    });
+
+    it('draws an empty marker when cx/cy are not yet measured', () => {
+      const { dot } = renderChart();
+      const el = dot({
+        cx: undefined,
+        cy: undefined,
+        index: 0,
+        payload: { date: 'x', sys: 120, dia: 80, range: [80, 120] },
+      });
+      expect(el.type).toBe('g');
+    });
+
+    it('colors the dot green when both readings are within the green threshold', () => {
+      const { dot } = renderChart({ sysGreenMax: 130, diaGreenMax: 85 });
+      const el = dot({
+        cx: 1,
+        cy: 2,
+        index: 0,
+        payload: { date: 'x', sys: 120, dia: 80, range: [80, 120] },
+      });
+      expect(el.type).toBe('circle');
+      expect(el.props.fill).toBe(colors.brand);
+    });
+
+    it('colors the dot yellow/red based on the worse of sys/dia tiers, with a plain default when no thresholds are set', () => {
+      const { dot } = renderChart({
+        sysGreenMax: 120,
+        sysYellowMax: 140,
+        diaGreenMax: 80,
+        diaYellowMax: 90,
+      });
+      const yellowEl = dot({
+        cx: 1,
+        cy: 2,
+        index: 0,
+        payload: { date: 'x', sys: 130, dia: 80, range: [80, 130] },
+      });
+      expect(yellowEl.props.fill).toBe(colors.yellow);
+
+      const redEl = dot({
+        cx: 1,
+        cy: 2,
+        index: 0,
+        payload: { date: 'x', sys: 200, dia: 80, range: [80, 200] },
+      });
+      expect(redEl.props.fill).toBe(colors.pink);
+
+      const { dot: dotNoThresholds } = renderChart();
+      const defaultEl = dotNoThresholds({
+        cx: 1,
+        cy: 2,
+        index: 0,
+        payload: { date: 'x', sys: 120, dia: 80, range: [80, 120] },
+      });
+      expect(defaultEl.props.fill).toBe(colors.brand);
+    });
+  });
+
+  it('computes the Y-axis max from data and threshold values, falling back to 0 when thresholds are unset', () => {
+    mockYAxis.mockClear();
+    const data = [makeEntry('2026-01-01', 120, 80)];
+    render(<BloodPressureChart data={data} />);
+    const { domain } = mockYAxis.mock.calls[0][0];
+    expect(domain[0]).toBe(0);
+    expect(domain[1](100)).toBe(105);
+
+    mockYAxis.mockClear();
+    render(
+      <BloodPressureChart
+        data={data}
+        sysGreenMax={130}
+        diaGreenMax={90}
+        sysYellowMax={140}
+        diaYellowMax={95}
+      />
+    );
+    const { domain: domainWithThresholds } = mockYAxis.mock.calls[0][0];
+    expect(domainWithThresholds[1](10)).toBe(145);
+  });
+
+  it('renders the tooltip content with the systolic and diastolic readings for the hovered day', () => {
+    mockChartTooltip.mockClear();
+    const data = [makeEntry('2026-01-01', 120, 80)];
+    render(<BloodPressureChart data={data} />);
+
+    const { content } = mockChartTooltip.mock.calls[0][0];
+    const formatted = content.props.formatter(undefined, undefined, {
+      payload: { sys: 120, dia: 80 },
+    });
+    render(formatted);
+    expect(screen.getByText('120')).toBeInTheDocument();
+    expect(screen.getByText('80')).toBeInTheDocument();
   });
 });
 

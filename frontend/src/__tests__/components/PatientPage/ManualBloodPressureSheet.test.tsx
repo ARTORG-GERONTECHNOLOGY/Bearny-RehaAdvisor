@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ManualBloodPressureSheet from '@/components/PatientPage/ManualBloodPressureSheet';
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
@@ -82,5 +82,42 @@ describe('ManualBloodPressureSheet', () => {
 
     expect(await screen.findByText('failedSave')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not submit when the diastolic field is invalid', async () => {
+    render(<ManualBloodPressureSheet {...baseProps} />);
+    fireEvent.change(screen.getByPlaceholderText('120'), { target: { value: '123' } });
+    fireEvent.change(screen.getByPlaceholderText('80'), { target: { value: 'abc' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(baseProps.onSubmit).not.toHaveBeenCalled();
+    });
+  });
+
+  it('calls onClose when the sheet is dismissed via the close button', () => {
+    render(<ManualBloodPressureSheet {...baseProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('resets the input and error state once the sheet is closed and reopened', async () => {
+    const onSubmit = jest.fn().mockRejectedValue(new Error('failedSave'));
+    const { rerender } = render(<ManualBloodPressureSheet {...baseProps} onSubmit={onSubmit} />);
+
+    fireEvent.change(screen.getByPlaceholderText('120'), { target: { value: '126' } });
+    fireEvent.change(screen.getByPlaceholderText('80'), { target: { value: '84' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('failedSave')).toBeInTheDocument();
+
+    await act(async () => {
+      rerender(<ManualBloodPressureSheet {...baseProps} onSubmit={onSubmit} open={false} />);
+    });
+    await act(async () => {
+      rerender(<ManualBloodPressureSheet {...baseProps} onSubmit={onSubmit} open={true} />);
+    });
+
+    expect(screen.queryByText('failedSave')).not.toBeInTheDocument();
   });
 });

@@ -622,4 +622,81 @@ describe('FormRegister — UX behaviour', () => {
     // should be back on step 1 — email input label visible
     expect(screen.getByText(/\[t\]Email/i)).toBeInTheDocument();
   });
+
+  it('toggles password field visibility independently for password and repeatPassword', () => {
+    renderOpen();
+
+    const toggles = screen.getAllByLabelText(/\[t\]Toggle password visibility/i);
+    expect(toggles).toHaveLength(2);
+
+    const passwordInput = screen.getByLabelText(/\[t\]Password/i, {
+      selector: 'input[id="password"]',
+    });
+    expect(passwordInput).toHaveAttribute('type', 'password');
+
+    fireEvent.click(toggles[0]);
+    expect(passwordInput).toHaveAttribute('type', 'text');
+
+    const repeatInput = screen.getByLabelText(/\[t\]Repeat/i);
+    expect(repeatInput).toHaveAttribute('type', 'password');
+    fireEvent.click(toggles[1]);
+    expect(repeatInput).toHaveAttribute('type', 'text');
+
+    // Toggling the first field again does not affect the second.
+    fireEvent.click(toggles[0]);
+    expect(passwordInput).toHaveAttribute('type', 'password');
+    expect(repeatInput).toHaveAttribute('type', 'text');
+  });
+
+  it('closes immediately (no confirm) and resets the form after a successful registration', async () => {
+    apiPost.mockResolvedValueOnce({ status: 201, data: {} });
+    const confirmSpy = jest.spyOn(window, 'confirm');
+    const { handleRegShow } = renderOpen();
+
+    fillStep1AndAdvance();
+    await submitOnStep2();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          '[t]You have been registered. Account info will be emailed after approval.'
+        )
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(handleRegShow).toHaveBeenCalled();
+
+    confirmSpy.mockRestore();
+  });
+
+  it('prompts to confirm closing while a submission is in flight, and stops loading on cancel', async () => {
+    let resolvePost: (v: unknown) => void = () => {};
+    apiPost.mockReturnValueOnce(
+      new Promise((res) => {
+        resolvePost = res;
+      })
+    );
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+    renderOpen();
+
+    fillStep1AndAdvance();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '[t]ClinicA' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: '[t]ClinicA' }));
+
+    const form = document.querySelector('form');
+    fireEvent.submit(form!);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(confirmSpy).toHaveBeenCalledWith('[t]A request is in progress. Do you want to close?');
+    expect(screen.getByTestId('modal')).toBeInTheDocument();
+
+    confirmSpy.mockRestore();
+    resolvePost({ status: 201, data: {} });
+    await waitFor(() => {}); // let the pending promise settle before the test ends
+  });
 });

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '../../../../i18n';
 import {
@@ -48,6 +48,23 @@ describe('LoginBadge', () => {
   it('shows a days-ago label for older logins', () => {
     renderWithI18n(<LoginBadge patient={makePatient({ last_online: isoDaysAgo(5) })} />);
     expect(screen.getByText('5d ago')).toBeInTheDocument();
+  });
+
+  it('shows the tooltip on hover/focus and hides it again on mouse-out/blur', () => {
+    renderWithI18n(<LoginBadge patient={makePatient({ last_online: isoDaysAgo(5) })} />);
+    const badge = screen.getByText('5d ago');
+
+    fireEvent.mouseOver(badge);
+    expect(screen.getByText(/Last login/)).toBeInTheDocument();
+
+    fireEvent.mouseOut(badge);
+    expect(screen.queryByText(/Last login/)).not.toBeInTheDocument();
+
+    fireEvent.focus(badge);
+    expect(screen.getByText(/Last login/)).toBeInTheDocument();
+
+    fireEvent.blur(badge);
+    expect(screen.queryByText(/Last login/)).not.toBeInTheDocument();
   });
 });
 
@@ -99,6 +116,22 @@ describe('FeedbackBadge', () => {
       />
     );
     expect(screen.getByText('7 neg.')).toBeInTheDocument();
+  });
+
+  it('shows a days-ago label for a "warn" level with too few low ratings to lead', () => {
+    renderWithI18n(
+      <FeedbackBadge
+        patient={makePatient({
+          intervention_feedback: {
+            answered_days_total: 5,
+            last_answered_at: isoDaysAgo(20),
+            days_since_last: 20,
+            low_ratings_14d: 1,
+          },
+        })}
+      />
+    );
+    expect(screen.getByText('20d ago')).toBeInTheDocument();
   });
 });
 
@@ -152,6 +185,17 @@ describe('WearBadge', () => {
       />
     );
     expect(screen.getByText(/^today$/i)).toBeInTheDocument();
+  });
+
+  it('shows "yesterday" for a healthy wear pattern worn 1 day ago', () => {
+    renderWithI18n(
+      <WearBadge
+        patient={makePatient({
+          biomarker: { wear_time_days_since: 1, wear_time_avg_min: 750 },
+        })}
+      />
+    );
+    expect(screen.getByText(/^yesterday$/i)).toBeInTheDocument();
   });
 
   it('shows "Omron" neutral badge for a patient with wearable_device=omron', () => {

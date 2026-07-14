@@ -136,3 +136,85 @@ describe('HealthMetricsCards – card headers', () => {
     expect(container.querySelectorAll('.rounded-xl.border.border-accent')).toHaveLength(12);
   });
 });
+
+describe('HealthMetricsCards – formatted values when averages are present', () => {
+  beforeEach(() => {
+    jest
+      .requireMock('@/components/Health/charts/AdherenceLine')
+      .averageAdherencePct.mockReturnValue(82.4);
+    jest
+      .requireMock('@/components/Health/charts/WearTimeChart')
+      .averageWearTime.mockReturnValue(620.3);
+    jest
+      .requireMock('@/components/Health/charts/RestingHRChart')
+      .averageRestingHR.mockReturnValue(61.7);
+    jest
+      .requireMock('@/components/Health/charts/BloodPressureChart')
+      .averageBloodPressure.mockReturnValue({ sys: 121.2, dia: 79.6 });
+    jest
+      .requireMock('@/components/Health/charts/HRZonesStacked')
+      .averageActiveHRZoneMinutes.mockReturnValue(45.5);
+    jest.requireMock('@/components/Health/charts/StepsChart').averageSteps.mockReturnValue(8234);
+    jest
+      .requireMock('@/components/Health/charts/ActiveMinutesChart')
+      .averageActiveMinutes.mockReturnValue(38.2);
+    jest.requireMock('@/components/Health/charts/WeightChart').averageWeight.mockReturnValue(72.34);
+    jest
+      .requireMock('@/components/Health/charts/ExerciseSessionsChart')
+      .averageExerciseMinutes.mockReturnValue(52.8);
+    jest
+      .requireMock('@/components/Health/charts/SleepChart')
+      .averageSleepMinutes.mockReturnValue(430);
+    jest
+      .requireMock('@/components/Health/charts/BreathingChart')
+      .averageBreathingRate.mockReturnValue(15.3);
+  });
+
+  afterEach(() => {
+    jest
+      .requireMock('@/components/Health/charts/AdherenceLine')
+      .averageAdherencePct.mockReturnValue(null);
+    jest
+      .requireMock('@/components/Health/charts/WearTimeChart')
+      .averageWearTime.mockReturnValue(null);
+    jest
+      .requireMock('@/components/Health/charts/RestingHRChart')
+      .averageRestingHR.mockReturnValue(null);
+    jest
+      .requireMock('@/components/Health/charts/BloodPressureChart')
+      .averageBloodPressure.mockReturnValue({ sys: null, dia: null });
+    jest
+      .requireMock('@/components/Health/charts/HRZonesStacked')
+      .averageActiveHRZoneMinutes.mockReturnValue(null);
+    jest.requireMock('@/components/Health/charts/StepsChart').averageSteps.mockReturnValue(null);
+    jest
+      .requireMock('@/components/Health/charts/ActiveMinutesChart')
+      .averageActiveMinutes.mockReturnValue(null);
+    jest.requireMock('@/components/Health/charts/WeightChart').averageWeight.mockReturnValue(null);
+    jest
+      .requireMock('@/components/Health/charts/ExerciseSessionsChart')
+      .averageExerciseMinutes.mockReturnValue(null);
+    jest
+      .requireMock('@/components/Health/charts/SleepChart')
+      .averageSleepMinutes.mockReturnValue(null);
+    jest
+      .requireMock('@/components/Health/charts/BreathingChart')
+      .averageBreathingRate.mockReturnValue(null);
+  });
+
+  it('formats every metric value instead of showing the "--" placeholder', () => {
+    render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
+
+    expect(screen.getByText('82%')).toBeInTheDocument();
+    expect(screen.getByText('620 min')).toBeInTheDocument();
+    expect(screen.getByText('62 bpm')).toBeInTheDocument();
+    expect(screen.getByText('121/80 mmHg')).toBeInTheDocument();
+    expect(screen.getByText('46 min')).toBeInTheDocument();
+    expect(screen.getByText('8,234')).toBeInTheDocument();
+    expect(screen.getByText('38 min')).toBeInTheDocument();
+    expect(screen.getByText('72.3 weightunit')).toBeInTheDocument();
+    expect(screen.getByText('53 min')).toBeInTheDocument();
+    expect(screen.getByText('430m')).toBeInTheDocument();
+    expect(screen.getByText('15.3 / min')).toBeInTheDocument();
+  });
+});

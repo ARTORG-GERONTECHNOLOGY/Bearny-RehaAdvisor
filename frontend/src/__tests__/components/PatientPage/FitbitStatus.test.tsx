@@ -54,6 +54,14 @@ describe('FitbitStatus', () => {
     });
   });
 
+  it('does not fetch the connection status when there is no patient id at all', async () => {
+    mockAuthId = '';
+    render(<FitbitConnectButton />);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mockFetchStatus).not.toHaveBeenCalled();
+  });
+
   it('renders nothing when connection state is unknown', () => {
     mockConnected = null;
     const { container } = render(<FitbitConnectButton />);

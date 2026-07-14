@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TemplateAssignModal from '@/components/TherapistInterventionPage/TemplateAssignModal';
 import apiClient from '@/api/client';
@@ -185,6 +185,179 @@ describe('TemplateAssignModal', () => {
       await waitFor(() => {
         expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
       });
+    });
+
+    it('shows humanized field errors and toggles show/hide details', async () => {
+      (apiClient.post as jest.Mock).mockRejectedValueOnce({
+        response: {
+          data: {
+            field_errors: { 'interventions[0].interval': ['Must be positive'] },
+          },
+        },
+      });
+
+      render(<TemplateAssignModal {...defaultProps} templateId="tpl-1" />);
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      await screen.findByRole('button', { name: /Hide details/i });
+      const alert = document.querySelector('.alert-danger') as HTMLElement;
+      expect(within(alert).getByText(/Must be positive/i)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /Hide details/i }));
+      expect(within(alert).queryByText(/interventions\[0\]\.interval/i)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /Show details/i }));
+      expect(within(alert).getByText(/Must be positive/i)).toBeInTheDocument();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Success flow
+  // ------------------------------------------------------------------
+  describe('success flow', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('shows the success banner and auto-closes after a delay', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({ status: 201, data: {} });
+
+      render(<TemplateAssignModal {...defaultProps} templateId="tpl-1" />);
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      await waitFor(() =>
+        expect(screen.getByText('Intervention successfully added')).toBeInTheDocument()
+      );
+
+      jest.advanceTimersByTime(1500);
+      expect(defaultProps.onHide).toHaveBeenCalled();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Modify mode
+  // ------------------------------------------------------------------
+  describe('modify mode', () => {
+    it('shows the modify title and a pre-checked "keep previous" checkbox', () => {
+      render(<TemplateAssignModal {...defaultProps} mode="modify" defaultDiagnosis="Stroke" />);
+      expect(screen.getByText(/Modify template \(from day S\)/i)).toBeInTheDocument();
+      expect(document.querySelector('input[type="checkbox"]')).toBeChecked();
+    });
+
+    it('unchecking "keep previous" is reflected in the save payload', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({ status: 200, data: {} });
+
+      render(<TemplateAssignModal {...defaultProps} mode="modify" defaultDiagnosis="Stroke" />);
+      fireEvent.click(document.querySelector('input[type="checkbox"]')!);
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      await waitFor(() => {
+        const payload = (apiClient.post as jest.Mock).mock.calls[0][1];
+        expect(payload.interventions[0].keep_previous).toBe(false);
+      });
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Auto-apply scope
+  // ------------------------------------------------------------------
+  describe('auto-apply scope', () => {
+    it('shows a start-date field only when scope is "all_past_and_future"', () => {
+      render(<TemplateAssignModal {...defaultProps} defaultDiagnosis="Stroke" />);
+      expect(screen.queryByText(/Start assigning from date/i)).not.toBeInTheDocument();
+
+      const scopeSelects = screen.getAllByRole('combobox');
+      const scopeSelect = scopeSelects[scopeSelects.length - 1];
+      fireEvent.change(scopeSelect, { target: { value: 'all_past_and_future' } });
+
+      expect(screen.getByText(/Start assigning from date/i)).toBeInTheDocument();
+    });
+
+    it('sends auto_apply_starting_from only for all_past_and_future scope', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({ status: 200, data: {} });
+
+      render(
+        <TemplateAssignModal {...defaultProps} templateId="tpl-1" defaultDiagnosis="Stroke" />
+      );
+      const scopeSelects = screen.getAllByRole('combobox');
+      fireEvent.change(scopeSelects[scopeSelects.length - 1], {
+        target: { value: 'all_past_and_future' },
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      await waitFor(() => {
+        const payload = (apiClient.post as jest.Mock).mock.calls[0][1];
+        expect(payload.auto_apply_scope).toBe('all_past_and_future');
+        expect(payload.auto_apply_starting_from).toBeTruthy();
+      });
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Start/end/interval fields and occurrence count
+  // ------------------------------------------------------------------
+  describe('schedule fields', () => {
+    it('shows an invalid-range message and updates the occurrence count as fields change', () => {
+      render(<TemplateAssignModal {...defaultProps} />);
+      const numberInputs = document.querySelectorAll('input[type="number"]');
+      const [startInput, lastInput] = Array.from(numberInputs) as HTMLInputElement[];
+
+      fireEvent.change(startInput, { target: { value: '5' } });
+      fireEvent.change(lastInput, { target: { value: '1' } });
+      expect(screen.getByText(/Invalid range/i)).toBeInTheDocument();
+
+      fireEvent.change(lastInput, { target: { value: '9' } });
+      expect(screen.queryByText(/Invalid range/i)).not.toBeInTheDocument();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Close behaviour
+  // ------------------------------------------------------------------
+  describe('close behaviour', () => {
+    it('confirms before closing when there are unsaved changes', () => {
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+      render(<TemplateAssignModal {...defaultProps} />);
+
+      fireEvent.change(getDiagnosisSelect(), { target: { value: 'Stroke' } });
+      fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
+
+      expect(confirmSpy).toHaveBeenCalled();
+      expect(defaultProps.onHide).not.toHaveBeenCalled();
+
+      confirmSpy.mockRestore();
+    });
+
+    it('closes on Escape when there are no unsaved changes', () => {
+      // autoApplyScope defaults to 'off' only when templateId is set — otherwise
+      // it defaults to 'future', which the component always counts as "changed".
+      render(<TemplateAssignModal {...defaultProps} templateId="tpl-1" />);
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(defaultProps.onHide).toHaveBeenCalled();
+    });
+
+    it('does not close while a save is in progress', async () => {
+      let resolvePost: (v: unknown) => void = () => {};
+      (apiClient.post as jest.Mock).mockReturnValueOnce(
+        new Promise((res) => {
+          resolvePost = res;
+        })
+      );
+
+      render(<TemplateAssignModal {...defaultProps} templateId="tpl-1" />);
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
+      expect(defaultProps.onHide).not.toHaveBeenCalled();
+
+      resolvePost({ status: 200, data: {} });
+      await waitFor(() =>
+        expect(screen.getByText('Intervention successfully added')).toBeInTheDocument()
+      );
     });
   });
 });

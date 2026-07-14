@@ -2,9 +2,10 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 
 jest.mock('recharts', () => ({
-  Bar: () => null,
+  Bar: ({ children }: { children?: React.ReactNode }) => <g>{children}</g>,
   BarChart: ({ children }: { children: React.ReactNode }) => <svg>{children}</svg>,
-  LabelList: () => null,
+  LabelList: ({ content }: { content?: (props: any) => React.ReactNode }) =>
+    content ? <>{content({ x: 10, y: 20, height: 30, value: 42 })}</> : null,
   XAxis: () => null,
   YAxis: () => null,
 }));
@@ -63,5 +64,20 @@ describe('RecommendationsCard', () => {
   it('renders 100% correctly', () => {
     render(<RecommendationsCard {...baseProps} recommendationsPct={100} />);
     expect(screen.getByText('100%')).toBeInTheDocument();
+  });
+
+  it('renders bar labels with the value text when there are completed items', () => {
+    render(
+      <RecommendationsCard {...baseProps} adherenceTotals={{ completed: 3, uncompleted: 1 }} />
+    );
+    // Two <LabelList> render, one per <Bar> (completed and uncompleted)
+    expect(screen.getAllByText('42')).toHaveLength(2);
+  });
+
+  it('omits bar labels when there are zero completed items', () => {
+    render(
+      <RecommendationsCard {...baseProps} adherenceTotals={{ completed: 0, uncompleted: 0 }} />
+    );
+    expect(screen.queryByText('42')).not.toBeInTheDocument();
   });
 });

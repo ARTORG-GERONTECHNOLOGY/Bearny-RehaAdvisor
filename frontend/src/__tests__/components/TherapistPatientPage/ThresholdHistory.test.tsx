@@ -95,6 +95,77 @@ describe('ThresholdHistory', () => {
     expect(screen.getByTestId('threshold-history-values')).toHaveTextContent('—');
   });
 
+  it('formats all threshold fields when present', () => {
+    const history: ThresholdHistoryItem[] = [
+      {
+        effective_from: '2026-01-15T10:00:00.000Z',
+        changed_by: 'Dr. Smith',
+        reason: 'Full update',
+        thresholds: {
+          active_minutes_green: 30,
+          active_minutes_yellow: 20,
+          sleep_green_min: 420,
+          sleep_yellow_min: 360,
+          bp_sys_green_max: 129,
+          bp_sys_yellow_max: 139,
+          bp_dia_green_max: 84,
+          bp_dia_yellow_max: 89,
+        },
+      },
+    ];
+
+    render(<ThresholdHistory history={history} />);
+    fireEvent.click(screen.getAllByRole('button')[0]);
+
+    const values = screen.getByTestId('threshold-history-values');
+    expect(values).toHaveTextContent('30/20');
+    expect(values).toHaveTextContent('420/360');
+    expect(values).toHaveTextContent('≤129/≤139');
+    expect(values).toHaveTextContent('≤84/≤89');
+  });
+
+  it('falls back to "?" for a missing paired yellow value', () => {
+    const history: ThresholdHistoryItem[] = [
+      {
+        effective_from: '2026-01-15T10:00:00.000Z',
+        changed_by: 'Dr. Smith',
+        reason: 'Partial',
+        thresholds: { active_minutes_green: 30 },
+      },
+    ];
+
+    render(<ThresholdHistory history={history} />);
+    fireEvent.click(screen.getAllByRole('button')[0]);
+
+    expect(screen.getByTestId('threshold-history-values')).toHaveTextContent('30/?');
+  });
+
+  it('opens the sheet via keyboard (Enter and Space)', () => {
+    render(<ThresholdHistory history={makeHistory()} />);
+    const row = screen.getAllByRole('button')[0];
+
+    fireEvent.keyDown(row, { key: 'Enter' });
+    expect(screen.getByText('Previous values')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('close-sheet'));
+    fireEvent.keyDown(row, { key: ' ' });
+    expect(screen.getByText('Previous values')).toBeInTheDocument();
+  });
+
+  it('ignores unrelated key presses on a row', () => {
+    render(<ThresholdHistory history={makeHistory()} />);
+    fireEvent.keyDown(screen.getAllByRole('button')[0], { key: 'Tab' });
+    expect(screen.queryByText('Previous values')).not.toBeInTheDocument();
+  });
+
+  it('shows an em dash for an entry with no effective_from date', () => {
+    const history: ThresholdHistoryItem[] = [
+      { effective_from: null, changed_by: 'Dr. Smith', reason: 'x', thresholds: {} },
+    ];
+    render(<ThresholdHistory history={history} />);
+    expect(screen.getAllByRole('button')[0]).toHaveTextContent('—');
+  });
+
   it('closes the sheet', () => {
     render(<ThresholdHistory history={makeHistory()} />);
 

@@ -636,7 +636,7 @@ const TherapistRecomendations: React.FC = observer(() => {
         metaChanges.push(t('Description changed'));
       setSessionDiffs((prev) => ({
         ...prev,
-        [id]: { date: tmpl.updatedAt, metaChanges, added: [], removed: [] },
+        [id]: { date: tmpl.updatedAt, metaChanges, added: [], removed: [], modified: [] },
       }));
     }
 
