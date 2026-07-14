@@ -39,8 +39,35 @@ describe('ManualBloodPressureSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
-      expect(baseProps.onSubmit).toHaveBeenCalledWith(123, 81);
+      expect(baseProps.onSubmit).toHaveBeenCalledWith(
+        123,
+        81,
+        expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
+      );
       expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('renders a date picker defaulting to today and capped at today', () => {
+    render(<ManualBloodPressureSheet {...baseProps} />);
+    const dateInput = screen.getByLabelText('Date') as HTMLInputElement;
+    const today = new Date().toISOString().slice(0, 10);
+    expect(dateInput).toBeInTheDocument();
+    expect(dateInput.value).toBe(today);
+    expect(dateInput.max).toBe(today);
+  });
+
+  it('sends the selected past date to onSubmit', async () => {
+    render(<ManualBloodPressureSheet {...baseProps} />);
+
+    const dateInput = screen.getByLabelText('Date');
+    fireEvent.change(dateInput, { target: { value: '2026-01-15' } });
+    fireEvent.change(screen.getByPlaceholderText('120'), { target: { value: '130' } });
+    fireEvent.change(screen.getByPlaceholderText('80'), { target: { value: '85' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(baseProps.onSubmit).toHaveBeenCalledWith(130, 85, '2026-01-15');
     });
   });
 
