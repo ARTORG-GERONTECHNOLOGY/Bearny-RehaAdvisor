@@ -606,9 +606,7 @@ def user_profile_view(request, user_id):
             # template, so traceability is preserved.
             try:
                 therapist_profile = Therapist.objects.get(userId=user)
-                private_templates = InterventionTemplate.objects(
-                    created_by=therapist_profile, is_public=False
-                )
+                private_templates = InterventionTemplate.objects(created_by=therapist_profile, is_public=False)
                 count = private_templates.count()
                 if count:
                     private_templates.update(set__is_public=True)
