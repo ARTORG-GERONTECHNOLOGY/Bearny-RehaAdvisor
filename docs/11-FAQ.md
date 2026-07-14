@@ -30,8 +30,8 @@ A: Technically yes, but it's not recommended. Docker ensures consistency and eas
 A:
 ```bash
 make dev_down
-docker volume ls --filter name=mongo_data   # find the exact volume name (prefixed with your project/folder name)
-docker volume rm <project>_mongo_data
+rm -rf ./mongo_data   # MongoDB data is bind-mounted here (see db service in docker-compose.dev.yml)
+mkdir -p ./mongo_data
 make build_dev
 make dev_up
 ```
@@ -87,7 +87,7 @@ A:
 ```typescript
 const MyNewPage = lazyWithRetry(() => import('@/pages/MyNewPage'));
 // ...
-{ path: 'my-new-page', element: createElement(MyNewPage) }
+{ path: 'my-new-page', element: withSuspense(createElement(RootLayout, null, createElement(MyNewPage))) }
 ```
 3. Add navigation link in navigation component
 

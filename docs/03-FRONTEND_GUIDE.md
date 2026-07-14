@@ -112,7 +112,7 @@ MobX uses **observables** and **actions** for reactive state management:
 
 ### Creating a Store
 
-Stores are MobX singletons that call `makeAutoObservable(this)` in their constructor:
+Stores are MobX singletons that call `makeAutoObservable(this)` in their constructor. Many stores also pass `{ autoBind: true }` so their methods can be passed around as callbacks (e.g. as an `onClick` handler) without losing their `this` binding:
 
 ```typescript
 // stores/exampleStore.ts
@@ -125,7 +125,7 @@ class ExampleStore {
   loading = false;
 
   constructor() {
-    makeAutoObservable(this);
+    makeAutoObservable(this, {}, { autoBind: true });
   }
 
   increment() {
