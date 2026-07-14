@@ -37,6 +37,7 @@ interface ActivitySectionProps {
   sleepMinutes?: number | null;
   sleepMinutesGoal?: number | null;
   onOpenManualStepsEntry: () => void;
+  wearableDevice?: 'fitbit' | 'omron' | 'none';
 }
 
 const ActivitySection: React.FC<ActivitySectionProps> = ({
@@ -51,6 +52,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
   sleepMinutes,
   sleepMinutesGoal,
   onOpenManualStepsEntry,
+  wearableDevice = 'fitbit',
 }) => {
   const { t } = useTranslation();
 
@@ -203,7 +205,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
           </div>
         )}
 
-        {!connected && (
+        {!connected && wearableDevice === 'fitbit' && (
           <div className="p-4 rounded-3xl bg-zinc-100 flex gap-1 justify-between items-center">
             <div className="flex flex-col">
               <div className="font-bold text-lg text-zinc-800">{t('Fitbit')}</div>

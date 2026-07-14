@@ -21,7 +21,7 @@ from mongoengine import (
     StringField,
 )
 
-from utils.config import config
+from utils.config import WEARABLE_DEVICE_CHOICES, config
 
 all_diagnoses = [
     diagnosis for category in config["patientInfo"]["function"].values() for diagnosis in category["diagnosis"]
@@ -437,14 +437,21 @@ class InterventionTemplate(Document):
                 private templates are visible only to their creator.
     Copy:       any therapist can copy a template they can see — the copy
                 becomes their own private template.
+
+    Traceability: ``creator_name`` is a denormalized snapshot of the creator's
+    display name captured at creation time.  It is never overwritten, so it
+    survives account deletion and gives an audit trail even when ``created_by``
+    can no longer be dereferenced.
     """
 
-    meta = {"collection": "InterventionTemplates"}
+    meta = {"collection": "InterventionTemplates", "strict": False}
 
     name = StringField(max_length=200, required=True)
     description = StringField(default="")
     is_public = BooleanField(default=False)
     created_by = ReferenceField("Therapist", required=True)
+    # Denormalized snapshot — set once at creation, never updated.
+    creator_name = StringField(max_length=200, default="")
 
     # Optional metadata used for filtering / search
     specialization = StringField(max_length=200, required=False, null=True, default=None)
@@ -596,6 +603,17 @@ class Patient(Document):
     duration = IntField(required=False, null=True)
     care_giver = StringField(max_length=80, required=False, default="")
     initial_questionnaire_enabled = BooleanField(default=False)
+
+    # Wearable device type — controls whether Fitbit UI is shown.
+    # "fitbit" (default): Fitbit connect button shown, wear-time badge active.
+    # "omron": Fitbit UI hidden; therapist badge shows neutral "Omron" label.
+    # "none": no wearable; Fitbit UI hidden; badge shows "No device".
+    wearable_device = StringField(
+        max_length=20,
+        choices=WEARABLE_DEVICE_CHOICES,
+        default=WEARABLE_DEVICE_CHOICES[0],
+        required=False,
+    )
 
     reha_end_date = DateTimeField(required=False, null=True)  # actual end of the rehabilitation programme
     study_end_date = DateTimeField(required=False, null=True)  # end of the study / after-rehab monitoring plan

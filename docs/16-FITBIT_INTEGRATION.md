@@ -499,14 +499,58 @@ MongoDB is schema-less, so no migration is needed — new fields are `None` in e
 
 ---
 
+## Wearable Device Type (issue #427)
+
+Not all patients use a Fitbit. The `wearable_device` field on the `Patient` model records which wearable the patient has. This controls both the therapist-facing badge and the patient-facing connect card.
+
+### Values
+
+| Value | Meaning |
+|---|---|
+| `"fitbit"` | Patient uses a Fitbit (default for all existing patients) |
+| `"omron"` | Patient uses an Omron device; steps entered manually |
+| `"none"` | No wearable configured |
+
+### Effect on the UI
+
+| Location | Fitbit | Omron | None |
+|---|---|---|---|
+| Patient page — Fitbit connect card | Shown when not connected | Hidden | Hidden |
+| Therapist list — `WearBadge` | Wear time / Disconnected | Grey "Omron" chip | Grey "No device" chip |
+
+### Where to set it
+
+**On registration** — the `PatientForm` in `backend/config.json` includes a `wearableDevice` dropdown (after `careGiver`). The form sends `wearableDevice` in the POST body; the backend maps it to `wearable_device` on the `Patient` document.
+
+**After registration** — a therapist opens the patient's profile card → Edit → "Wearable Device" dropdown → Save. The PUT body includes `wearable_device`; the profile view validates against the allowed enum before persisting.
+
+### Configuration
+
+The device options are defined in two places:
+
+1. **`backend/config.json`** — `PatientForm[0].fields` → `wearableDevice` entry with `"options": ["fitbit", "omron", "none"]`. Adding or removing values here changes the registration form dropdown.
+2. **Backend validation** — `user_views.py` checks `raw["wearable_device"] in ("fitbit", "omron", "none")` before persisting. Any value not in this tuple is silently ignored. Update both the config and this tuple when adding a new device type.
+
+### Tests
+
+`backend/tests/test_wearable_device.py` covers the full surface:
+- `fitbit/status` includes `wearable_device` in the response
+- Profile GET/PUT reads and writes the field correctly
+- Invalid PUT values are silently ignored (no 500)
+- Therapist patient list includes `wearable_device` per patient
+- Registration with `wearableDevice` persists the value
+
+---
+
 ## Related Files
 
 | File | Purpose |
 |---|---|
 | [core/views/fitbit_sync.py](../backend/core/views/fitbit_sync.py) | `fetch_fitbit_today_for_user`, `fetch_fitbit_date_range_for_user`, token refresh, cooldown guard |
-| [core/views/fitbit_view.py](../backend/core/views/fitbit_view.py) | All Fitbit REST endpoints |
+| [core/views/fitbit_view.py](../backend/core/views/fitbit_view.py) | All Fitbit REST endpoints (including `wearable_device` in status response) |
 | [core/management/commands/fetch_fitbit_data.py](../backend/core/management/commands/fetch_fitbit_data.py) | 30-day bulk backfill command |
 | [core/tasks.py](../backend/core/tasks.py) | Celery tasks wrapping the above |
-| [core/models.py](../backend/core/models.py) | `FitbitUserToken`, `FitbitData`, embedded documents |
+| [core/models.py](../backend/core/models.py) | `FitbitUserToken`, `FitbitData`, embedded documents; `Patient.wearable_device` field |
 | [tests/fitbit_sync/test_fitbit_sync.py](../backend/tests/fitbit_sync/test_fitbit_sync.py) | Unit tests for sync service and cooldown |
+| [tests/test_wearable_device.py](../backend/tests/test_wearable_device.py) | Integration tests for wearable device feature |
 | [tests/fitbit_views/test_fitbit_views.py](../backend/tests/fitbit_views/test_fitbit_views.py) | Integration tests for all Fitbit endpoints |
