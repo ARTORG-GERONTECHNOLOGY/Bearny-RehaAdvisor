@@ -599,8 +599,8 @@ const TherapistRecomendations: React.FC = observer(() => {
   const handleConfirmEditMeta = async () => {
     if (!activeTemplateId) return;
     const isOwnerOrAdmin =
-      templateStore.templates.find((x) => x.id === activeTemplateId)?.created_by ===
-        authStore.id || authStore.userType === 'Admin';
+      templateStore.templates.find((x) => x.id === activeTemplateId)?.created_by === authStore.id ||
+      authStore.userType === 'Admin';
     try {
       setEditMetaSubmitting(true);
       const patch: Parameters<typeof templateStore.updateTemplate>[1] = {
