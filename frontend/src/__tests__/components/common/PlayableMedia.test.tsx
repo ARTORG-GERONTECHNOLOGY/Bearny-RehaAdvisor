@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PlayableMedia, Media } from '@/components/common/PlayableMedia';
 
@@ -9,14 +9,17 @@ jest.mock(
   'react-player',
   () =>
     function ReactPlayer(props: any) {
-      return <div data-testid="video-player" data-url={props.url} />;
+      // A real <video> tag (not a <div>) so fireEvent.error can genuinely exercise
+      // onError — React only wires up capture-phase 'error' listening for media-like
+      // elements, not arbitrary divs.
+      return <video data-testid="video-player" data-url={props.url} onError={props.onError} />;
     }
 );
 jest.mock(
   'react-audio-player',
   () =>
     function ReactAudioPlayer(props: any) {
-      return <div data-testid="audio-player" data-src={props.src} />;
+      return <audio data-testid="audio-player" data-src={props.src} onError={props.onError} />;
     }
 );
 
@@ -232,6 +235,72 @@ describe('PlayableMedia', () => {
       });
       expect(document.querySelector('video')).not.toBeInTheDocument();
       expect(screen.queryByTestId('audio-player')).not.toBeInTheDocument();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // error-recovery transitions between playback modes
+  // ------------------------------------------------------------------
+  describe('error recovery falls through reactplayer -> native -> link', () => {
+    it('falls back to reactplayer when the ReactPlayer itself reports an error', async () => {
+      const m = baseMedia({ url: 'https://example.com/x', file_url: '' });
+      render(<PlayableMedia m={m} label="Video" />);
+
+      const player = await screen.findByTestId('video-player');
+      fireEvent.error(player);
+
+      // native mode's `u` (file_url/file_path/url) resolves to the same plain url,
+      // which is not a direct audio/video file extension, so it falls to the link view.
+      await waitFor(() => {
+        expect(screen.queryByTestId('video-player')).not.toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /Open link/i })).toBeInTheDocument();
+      });
+    });
+
+    it('falls back to the link view when the native <video> element reports an error', async () => {
+      render(
+        <PlayableMedia
+          m={baseMedia({
+            kind: 'file',
+            media_type: 'video',
+            url: '',
+            file_url: 'https://cdn.example.com/clip.mp4',
+          })}
+          label="Video"
+        />
+      );
+
+      await waitFor(() => {
+        expect(document.querySelector('video')).toBeTruthy();
+      });
+      fireEvent.error(document.querySelector('video')!);
+
+      await waitFor(() => {
+        expect(document.querySelector('video')).not.toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /Open link/i })).toBeInTheDocument();
+      });
+    });
+
+    it('falls back to the link view when the native audio player reports an error', async () => {
+      render(
+        <PlayableMedia
+          m={baseMedia({
+            kind: 'file',
+            media_type: 'audio',
+            url: '',
+            file_url: 'https://cdn.example.com/clip.mp3',
+          })}
+          label="Audio"
+        />
+      );
+
+      const audio = await screen.findByTestId('audio-player');
+      fireEvent.error(audio);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('audio-player')).not.toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /Open link/i })).toBeInTheDocument();
+      });
     });
   });
 

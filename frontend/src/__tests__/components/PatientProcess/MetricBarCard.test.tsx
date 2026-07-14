@@ -1,13 +1,18 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 
+const mockXAxis = jest.fn(() => null);
+
 jest.mock('recharts', () => ({
   Bar: () => null,
   BarChart: ({ children }: { children: React.ReactNode }) => <svg>{children}</svg>,
   CartesianGrid: () => null,
   Cell: () => null,
   ReferenceLine: () => null,
-  XAxis: () => null,
+  XAxis: (props: any) => {
+    mockXAxis(props);
+    return null;
+  },
   YAxis: () => null,
 }));
 
@@ -96,5 +101,12 @@ describe('MetricBarCard', () => {
   it('renders without threshold (threshold null)', () => {
     render(<MetricBarCard {...baseProps} threshold={null} />);
     expect(screen.getByText('Steps')).toBeInTheDocument();
+  });
+
+  it('formats the x-axis tick by stripping the day portion of the date', () => {
+    mockXAxis.mockClear();
+    render(<MetricBarCard {...baseProps} />);
+    const { tickFormatter } = mockXAxis.mock.calls[0][0];
+    expect(tickFormatter('01.05.2026')).toBe('05.2026');
   });
 });

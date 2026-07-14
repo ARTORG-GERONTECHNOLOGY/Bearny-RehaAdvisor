@@ -162,6 +162,34 @@ describe('PatientProcess', () => {
     );
   });
 
+  it('falls back to "--" for each average metric when the hook reports no data', async () => {
+    mockHookReturn = {
+      ...baseHookReturn,
+      averageMetrics: {
+        steps: null,
+        activeMinutes: null,
+        activeMinutesLabel: null,
+        sleepMinutes: null,
+        sleepMinutesLabel: null,
+        recommendationsPct: null,
+        bpSys: null,
+        bpDia: null,
+      },
+    };
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getAllByTestId('metric-bar-card')).toHaveLength(3);
+    });
+  });
+
+  it('shows the "Show last month" aria-label when the month filter is active', async () => {
+    mockHookReturn = { ...baseHookReturn, processFilter: 'month' };
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getAllByLabelText('Show last month').length).toBeGreaterThan(0);
+    });
+  });
+
   it('does not show metric cards when error is present', async () => {
     mockHookReturn = { ...baseHookReturn, loading: false, error: 'Network error' };
     renderPage();

@@ -81,6 +81,69 @@ describe('rehabTableStore.mergePlanWithCatalog — _id-based merge', () => {
     expect(item.preview_img).toBe('img.png');
     expect(item.content_type).toBe('Video');
   });
+
+  it('falls back to the catalog value for every enriched field when the plan omits it', () => {
+    const store = makeStore();
+
+    const plan = { interventions: [{ _id: 'id-abc', dates: [] }] };
+    const catalog = [
+      {
+        _id: 'id-abc',
+        title: 'Catalog title',
+        description: 'Catalog description',
+        media_url: 'catalog-media-url',
+        media_file: 'catalog-media-file',
+        link: 'catalog-link',
+        tags: ['tag-a'],
+        benefitFor: ['benefit-a'],
+        content_type: 'Video',
+        preview_img: 'catalog-img.png',
+      },
+    ];
+
+    const result = callMerge(store, plan, catalog);
+    const item = result.interventions[0] as any;
+
+    expect(item.title).toBe('Catalog title');
+    expect(item.description).toBe('Catalog description');
+    expect(item.media_url).toBe('catalog-media-url');
+    expect(item.media_file).toBe('catalog-media-file');
+    expect(item.link).toBe('catalog-link');
+    expect(item.tags).toEqual(['tag-a']);
+    expect(item.benefitFor).toEqual(['benefit-a']);
+    expect(item.content_type).toBe('Video');
+    expect(item.preview_img).toBe('catalog-img.png');
+  });
+
+  it('falls back to media_file for media_url when the catalog has no media_url', () => {
+    const store = makeStore();
+
+    const plan = { interventions: [{ _id: 'id-abc', dates: [] }] };
+    const catalog = [{ _id: 'id-abc', media_file: 'only-media-file' }];
+
+    const result = callMerge(store, plan, catalog);
+    const item = result.interventions[0] as any;
+
+    expect(item.media_url).toBe('only-media-file');
+  });
+
+  it('defaults every enriched field to an empty value when neither plan nor catalog has it', () => {
+    const store = makeStore();
+
+    const plan = { interventions: [{ _id: 'missing-everywhere', dates: [] }] };
+    const result = callMerge(store, plan, []);
+    const item = result.interventions[0] as any;
+
+    expect(item.title).toBe('');
+    expect(item.description).toBe('');
+    expect(item.media_url).toBe('');
+    expect(item.media_file).toBe('');
+    expect(item.link).toBe('');
+    expect(item.tags).toEqual([]);
+    expect(item.benefitFor).toEqual([]);
+    expect(item.content_type).toBe('');
+    expect(item.preview_img).toBe('');
+  });
 });
 
 describe('rehabTableStore.mergePlanWithCatalog — external_id fallback (regression #347)', () => {
@@ -307,6 +370,16 @@ describe('extractApiError', () => {
     expect(msg).toContain('Validation failed');
     expect(msg).toContain('Overlaps with existing session');
     expect(msg).toContain('date: is required');
+  });
+
+  it('stringifies a numeric or boolean message field', () => {
+    expect(extractApiError({ response: { data: { message: 503 } } }, 'fallback')).toBe('503');
+    expect(extractApiError({ response: { data: { message: true } } }, 'fallback')).toBe('true');
+  });
+
+  it('accepts a field_errors value that is a plain string rather than an array', () => {
+    const err = { response: { data: { field_errors: { date: 'is required' } } } };
+    expect(extractApiError(err, 'fallback')).toBe('date: is required');
   });
 
   it('falls back to error/detail/details fields when there is no message', () => {

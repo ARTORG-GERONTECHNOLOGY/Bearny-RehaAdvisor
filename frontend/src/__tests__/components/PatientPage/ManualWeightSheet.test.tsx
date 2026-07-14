@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ManualWeightSheet from '@/components/PatientPage/ManualWeightSheet';
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
@@ -49,5 +49,30 @@ describe('ManualWeightSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByText('failedSave')).toBeInTheDocument();
+  });
+
+  it('calls onClose when the sheet is dismissed via the close button', () => {
+    render(<ManualWeightSheet {...baseProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('resets the input and error state once the sheet is closed and reopened', async () => {
+    const onSubmit = jest.fn().mockRejectedValue(new Error('failedSave'));
+    const { rerender } = render(<ManualWeightSheet {...baseProps} onSubmit={onSubmit} />);
+
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '68.5' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('failedSave')).toBeInTheDocument();
+
+    await act(async () => {
+      rerender(<ManualWeightSheet {...baseProps} onSubmit={onSubmit} open={false} />);
+    });
+    await act(async () => {
+      rerender(<ManualWeightSheet {...baseProps} onSubmit={onSubmit} open={true} />);
+    });
+
+    expect(screen.queryByText('failedSave')).not.toBeInTheDocument();
   });
 });

@@ -188,6 +188,45 @@ describe('FormRegisterPatient Component', () => {
         expect(screen.queryByText(/realistic birth date/i)).not.toBeInTheDocument();
       });
     });
+
+    it('clears the error when the birth date is emptied', async () => {
+      renderComponent();
+      await goToStep1();
+      const birthDate = screen.getByLabelText(/^Birth Date/i);
+      fireEvent.change(birthDate, { target: { value: '1850-01-01' } });
+      fireEvent.blur(birthDate);
+      await screen.findByText(/realistic birth date/i);
+
+      fireEvent.change(birthDate, { target: { value: '' } });
+      fireEvent.blur(birthDate);
+      await waitFor(() => {
+        expect(screen.queryByText(/realistic birth date/i)).not.toBeInTheDocument();
+      });
+    });
+
+    it('flags a future birth date on Next (validateStep), not just on blur', async () => {
+      renderComponent();
+      await goToStep1();
+      const birthDate = screen.getByLabelText(/^Birth Date/i);
+      const future = new Date();
+      future.setFullYear(future.getFullYear() + 1);
+      fireEvent.change(birthDate, { target: { value: future.toISOString().slice(0, 10) } });
+
+      fireEvent.click(screen.getByText('Next'));
+      expect(await screen.findByText(/cannot be in the future/i)).toBeInTheDocument();
+      expect(screen.queryByTestId('select-function')).not.toBeInTheDocument();
+    });
+
+    it('flags an unrealistic birth date on Next (validateStep), not just on blur', async () => {
+      renderComponent();
+      await goToStep1();
+      const birthDate = screen.getByLabelText(/^Birth Date/i);
+      fireEvent.change(birthDate, { target: { value: '1850-01-01' } });
+
+      fireEvent.click(screen.getByText('Next'));
+      expect(await screen.findByText(/realistic birth date/i)).toBeInTheDocument();
+      expect(screen.queryByTestId('select-function')).not.toBeInTheDocument();
+    });
   });
 
   describe('Clinic/Project dynamic dropdowns', () => {
@@ -295,6 +334,67 @@ describe('FormRegisterPatient Component', () => {
       expect(
         await screen.findByText(/Rehabilitation end date must be before the study end date/i)
       ).toBeInTheDocument();
+    });
+
+    it('clears the rehabilitation end date error when the field is emptied', async () => {
+      renderComponent();
+      await goToStep2();
+
+      const rehaInput = screen.getByLabelText(/^Rehabilitation End Date/i);
+      fireEvent.change(rehaInput, { target: { value: '2026-06-15' } });
+      fireEvent.blur(rehaInput);
+      const studyInput = screen.getByLabelText(/Study \/ After-Rehab/i);
+      fireEvent.change(studyInput, { target: { value: '2026-06-01' } });
+      fireEvent.blur(studyInput);
+      await screen.findByText(/Must be on or after the rehabilitation end date/i);
+
+      fireEvent.change(studyInput, { target: { value: '' } });
+      fireEvent.blur(studyInput);
+      await waitFor(() => {
+        expect(
+          screen.queryByText(/Must be on or after the rehabilitation end date/i)
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    it('clears the rehabilitation-end-date error when that field itself is emptied', async () => {
+      renderComponent();
+      await goToStep2();
+
+      const studyInput = screen.getByLabelText(/Study \/ After-Rehab/i);
+      fireEvent.change(studyInput, { target: { value: '2026-06-01' } });
+      fireEvent.blur(studyInput);
+      const rehaInput = screen.getByLabelText(/^Rehabilitation End Date/i);
+      fireEvent.change(rehaInput, { target: { value: '2026-06-15' } });
+      fireEvent.blur(rehaInput);
+      await screen.findByText(/Rehabilitation end date must be before the study end date/i);
+
+      fireEvent.change(rehaInput, { target: { value: '' } });
+      fireEvent.blur(rehaInput);
+      await waitFor(() => {
+        expect(
+          screen.queryByText(/Rehabilitation end date must be before the study end date/i)
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    it('flags the reha/study date conflict on Submit (validateStep), not just on blur', async () => {
+      renderComponent();
+      await goToStep2();
+
+      const studyInput = screen.getByLabelText(/Study \/ After-Rehab/i);
+      fireEvent.change(studyInput, { target: { value: '2026-06-01' } });
+      const rehaInput = screen.getByLabelText(/^Rehabilitation End Date/i);
+      fireEvent.change(rehaInput, { target: { value: '2026-06-15' } });
+
+      fireEvent.click(screen.getByText('Submit'));
+      expect(
+        await screen.findByText(/Rehabilitation end date must be before the study end date/i)
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Must be on or after the rehabilitation end date/i)
+      ).toBeInTheDocument();
+      expect(apiClient.post).not.toHaveBeenCalled();
     });
   });
 

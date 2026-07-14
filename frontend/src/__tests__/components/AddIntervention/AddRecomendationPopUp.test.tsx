@@ -48,9 +48,12 @@ jest.mock('@/config/config.json', () => ({
 // Render StandardModal body (and footer, e.g. the Close button) inline to expose form fields
 jest.mock('@/components/common/StandardModal', () => ({
   __esModule: true,
-  default: ({ children, footer, show }: any) =>
+  default: ({ children, footer, show, onHide }: any) =>
     show ? (
       <div>
+        <button aria-label="trigger-onhide" onClick={onHide}>
+          trigger-onhide
+        </button>
         {children}
         {footer}
       </div>
@@ -87,6 +90,10 @@ jest.mock('react-select', () => ({
               </button>
             );
           })}
+          {/* Mirrors react-select's real "clear all" behavior, which calls onChange(null) */}
+          <button type="button" aria-label="clear-multi" onClick={() => onChange(null)}>
+            clear
+          </button>
         </div>
       );
     }
@@ -326,6 +333,20 @@ describe('AddRecomendationPopUp', () => {
       expect(screen.getByText('URL must start with http:// or https://')).toBeInTheDocument();
     });
 
+    it('rejects a media URL that cannot be parsed as a URL at all', async () => {
+      renderPopup();
+      fireEvent.click(screen.getByRole('button', { name: /Add media/i }));
+      fireEvent.change(screen.getByPlaceholderText('https://...'), {
+        target: { value: 'not a url at all' },
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+      });
+
+      expect(screen.getByText('URL must start with http:// or https://')).toBeInTheDocument();
+    });
+
     it('requires a file when the media kind is "Upload file"', async () => {
       renderPopup();
       fireEvent.click(screen.getByRole('button', { name: /Add media/i }));
@@ -351,6 +372,38 @@ describe('AddRecomendationPopUp', () => {
       });
 
       expect(screen.getByText('Please select a patient')).toBeInTheDocument();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Field-level error clearing
+  // ------------------------------------------------------------------
+  describe('field-level error clearing', () => {
+    it('clears the title error as soon as the user edits the title field', async () => {
+      renderPopup();
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+      });
+      expect(screen.getByText('Title is required')).toBeInTheDocument();
+
+      fireEvent.change(document.getElementById('title')!, { target: { value: 'A title' } });
+
+      expect(screen.queryByText('Title is required')).not.toBeInTheDocument();
+    });
+
+    it('clears a media row error when a sibling field on that row is edited', async () => {
+      renderPopup();
+      fireEvent.click(screen.getByRole('button', { name: /Add media/i }));
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+      });
+      expect(screen.getByText('URL is required')).toBeInTheDocument();
+
+      const providerInput = screen.getByPlaceholderText('spotify / youtube / etc.');
+      fireEvent.change(providerInput, { target: { value: 'spotify' } });
+
+      expect(screen.queryByText('URL is required')).not.toBeInTheDocument();
     });
   });
 
@@ -406,6 +459,44 @@ describe('AddRecomendationPopUp', () => {
       });
 
       expect(screen.getByText('File is too large (max 1GB).')).toBeInTheDocument();
+    });
+
+    it('accepts a media file under the 1GB limit without an error', () => {
+      renderPopup();
+      fireEvent.click(screen.getByRole('button', { name: /Add media/i }));
+      const kindSelects = screen.getAllByRole('combobox');
+      const kindSelect = kindSelects.find((el) =>
+        within(el).queryByRole('option', { name: 'Upload file' })
+      )!;
+      fireEvent.change(kindSelect, { target: { value: 'file' } });
+
+      const smallFile = new File(['x'], 'clip.mp4', { type: 'video/mp4' });
+      Object.defineProperty(smallFile, 'size', { value: 1024 });
+
+      fireEvent.change(document.querySelector('input[type="file"]')!, {
+        target: { files: [smallFile] },
+      });
+
+      expect(screen.queryByText('File is too large (max 1GB).')).not.toBeInTheDocument();
+    });
+
+    it('updates the media type and title fields on a media row', () => {
+      renderPopup();
+      fireEvent.click(screen.getByRole('button', { name: /Add media/i }));
+
+      const mediaTypeSelects = screen.getAllByRole('combobox');
+      const mediaTypeSelect = mediaTypeSelects.find((el) =>
+        within(el).queryByRole('option', { name: 'Audio' })
+      )!;
+      fireEvent.change(mediaTypeSelect, { target: { value: 'audio' } });
+      expect((mediaTypeSelect as HTMLSelectElement).value).toBe('audio');
+
+      const titleLabel = screen.getByText('Title (optional)');
+      const mediaTitleInput = titleLabel.parentElement!.querySelector(
+        'input[type="text"]'
+      ) as HTMLInputElement;
+      fireEvent.change(mediaTitleInput, { target: { value: 'My clip' } });
+      expect(mediaTitleInput.value).toBe('My clip');
     });
 
     it('supports multiple media rows independently', () => {
@@ -478,6 +569,20 @@ describe('AddRecomendationPopUp', () => {
       fireEvent.click(checkbox);
       expect(screen.queryByLabelText(/Assign to Patient/i)).not.toBeInTheDocument();
     });
+
+    it('shows a missing-therapist-id error and skips the fetch when authStore has no id', async () => {
+      const authStore = (jest.requireMock('@/stores/authStore') as any).default;
+      const originalId = authStore.id;
+      authStore.id = '';
+
+      renderPopup();
+      fireEvent.click(screen.getByLabelText(/Make this a private intervention/i));
+
+      expect(await screen.findByText('Missing therapist id.')).toBeInTheDocument();
+      expect(mockApiClient.get).not.toHaveBeenCalled();
+
+      authStore.id = originalId;
+    });
   });
 
   // ------------------------------------------------------------------
@@ -505,6 +610,45 @@ describe('AddRecomendationPopUp', () => {
       const diagnosisSelect = screen.getByTestId('select-primaryDiagnosis');
       fireEvent.click(within(diagnosisSelect).getByText('Stroke'));
       expect(within(diagnosisSelect).getByText('Stroke')).toHaveAttribute('data-selected', 'true');
+    });
+
+    it('toggles a value in the Input from field', () => {
+      renderPopup();
+      const multiSelects = screen.getAllByTestId('select-multi');
+      const inputFrom = multiSelects[0];
+      fireEvent.click(within(inputFrom).getByText('Patient'));
+      expect(within(inputFrom).getByText('Patient')).toHaveAttribute('data-selected', 'true');
+    });
+
+    it('toggles a value in the Topics field', () => {
+      renderPopup();
+      const multiSelects = screen.getAllByTestId('select-multi');
+      const topics = multiSelects[2];
+      fireEvent.click(within(topics).getByText('Disease'));
+      expect(within(topics).getByText('Disease')).toHaveAttribute('data-selected', 'true');
+    });
+
+    it('toggles a value in the Where field', () => {
+      renderPopup();
+      const multiSelects = screen.getAllByTestId('select-multi');
+      const where = multiSelects[3];
+      fireEvent.click(within(where).getByText('Home'));
+      expect(within(where).getByText('Home')).toHaveAttribute('data-selected', 'true');
+    });
+
+    it('toggles a value in the Setting field', () => {
+      renderPopup();
+      const multiSelects = screen.getAllByTestId('select-multi');
+      const setting = multiSelects[4];
+      fireEvent.click(within(setting).getByText('Individual'));
+      expect(within(setting).getByText('Individual')).toHaveAttribute('data-selected', 'true');
+    });
+
+    it('selects an original language from the dropdown', () => {
+      renderPopup();
+      const select = document.getElementById('originalLanguage') as HTMLSelectElement;
+      fireEvent.change(select, { target: { value: 'de' } });
+      expect(select.value).toBe('de');
     });
   });
 
@@ -555,6 +699,33 @@ describe('AddRecomendationPopUp', () => {
 
       expect(onSuccess).toHaveBeenCalled();
       expect(await screen.findByText('Intervention successfully added')).toBeInTheDocument();
+    });
+
+    it('appends the media file to the payload for a file-kind media row', async () => {
+      (mockApiClient.post as jest.Mock).mockResolvedValueOnce({ status: 201, data: {} });
+      renderPopup();
+      fillRequiredFields();
+
+      fireEvent.click(screen.getByRole('button', { name: /Add media/i }));
+      const kindSelects = screen.getAllByRole('combobox');
+      const kindSelect = kindSelects.find((el) =>
+        within(el).queryByRole('option', { name: 'Upload file' })
+      )!;
+      fireEvent.change(kindSelect, { target: { value: 'file' } });
+
+      const file = new File(['x'], 'clip.mp4', { type: 'video/mp4' });
+      Object.defineProperty(file, 'size', { value: 1024 });
+      fireEvent.change(document.querySelector('input[type="file"]')!, {
+        target: { files: [file] },
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+      });
+
+      await waitFor(() => expect(mockApiClient.post).toHaveBeenCalled());
+      const formData: FormData = (mockApiClient.post as jest.Mock).mock.calls[0][1];
+      expect(formData.get('media_file_0')).toBeInstanceOf(File);
     });
 
     it('includes the patientId in the payload when private', async () => {
@@ -619,6 +790,27 @@ describe('AddRecomendationPopUp', () => {
       expect(screen.getByRole('button', { name: /Show details/i })).toBeInTheDocument();
     });
 
+    it('clears a backend field error for a multi-select taxonomy field once it is edited', async () => {
+      (mockApiClient.post as jest.Mock).mockResolvedValueOnce({
+        status: 400,
+        data: { field_errors: { aims: ['Pick at least one aim'] } },
+      });
+
+      renderPopup();
+      fillRequiredFields();
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+      });
+
+      expect(await screen.findByText(/Pick at least one aim/)).toBeInTheDocument();
+
+      const multiSelects = screen.getAllByTestId('select-multi');
+      const aims = multiSelects[1];
+      fireEvent.click(within(aims).getByText('Education'));
+
+      expect(screen.queryByText(/Pick at least one aim/)).not.toBeInTheDocument();
+    });
+
     it('shows non_field_errors as the banner message', async () => {
       (mockApiClient.post as jest.Mock).mockResolvedValueOnce({
         status: 400,
@@ -634,6 +826,21 @@ describe('AddRecomendationPopUp', () => {
       expect(
         await screen.findByText('Duplicate external_id for this language.')
       ).toBeInTheDocument();
+    });
+
+    it('extracts the message from a genuine axios error response', async () => {
+      (mockApiClient.post as jest.Mock).mockRejectedValueOnce({
+        isAxiosError: true,
+        response: { data: { message: 'Server exploded' } },
+      });
+
+      renderPopup();
+      fillRequiredFields();
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+      });
+
+      expect(await screen.findByText('Server exploded')).toBeInTheDocument();
     });
 
     it('shows a generic error message when the request throws a non-axios error', async () => {
@@ -663,6 +870,80 @@ describe('AddRecomendationPopUp', () => {
       fireEvent.click(screen.getByRole('button', { name: /^Close$/i }));
 
       expect(handleClose).toHaveBeenCalled();
+    });
+
+    it('does not close while a submission is in flight', async () => {
+      let resolvePost: (v: unknown) => void = () => {};
+      (mockApiClient.post as jest.Mock).mockReturnValueOnce(
+        new Promise((res) => {
+          resolvePost = res;
+        })
+      );
+      const handleClose = jest.fn();
+      render(<AddRecomendationPopUp show handleClose={handleClose} onSuccess={jest.fn()} />);
+
+      fireEvent.change(document.getElementById('title')!, { target: { value: 'X' } });
+      fireEvent.change(document.getElementById('description')!, { target: { value: 'Y' } });
+      fireEvent.change(document.getElementById('duration')!, { target: { value: '10' } });
+      fireEvent.change(document.getElementById('contentType')!, { target: { value: 'video' } });
+
+      fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+      fireEvent.click(screen.getByRole('button', { name: 'trigger-onhide' }));
+      expect(handleClose).not.toHaveBeenCalled();
+
+      resolvePost({ status: 201, data: {} });
+      await waitFor(() => expect(mockApiClient.post).toHaveBeenCalled());
+    });
+
+    it('does not call authStore.checkAuthentication when the modal is not shown', () => {
+      const authStore = (jest.requireMock('@/stores/authStore') as any).default;
+      (authStore.checkAuthentication as jest.Mock).mockClear();
+
+      render(<AddRecomendationPopUp show={false} handleClose={jest.fn()} onSuccess={jest.fn()} />);
+
+      expect(authStore.checkAuthentication).not.toHaveBeenCalled();
+    });
+
+    it('resets the form when the modal is closed and reopened', () => {
+      const { rerender } = render(
+        <AddRecomendationPopUp show handleClose={jest.fn()} onSuccess={jest.fn()} />
+      );
+      fireEvent.change(document.getElementById('title')!, { target: { value: 'Draft' } });
+
+      rerender(
+        <AddRecomendationPopUp show={false} handleClose={jest.fn()} onSuccess={jest.fn()} />
+      );
+      rerender(<AddRecomendationPopUp show handleClose={jest.fn()} onSuccess={jest.fn()} />);
+
+      expect((document.getElementById('title') as HTMLInputElement).value).toBe('');
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Miscellaneous fallback branches
+  // ------------------------------------------------------------------
+  describe('fallback branches', () => {
+    it('treats a malformed (non-array) patients response as an empty list', async () => {
+      (mockApiClient.get as jest.Mock).mockResolvedValueOnce({ data: null });
+
+      renderPopup();
+      fireEvent.click(screen.getByLabelText(/Make this a private intervention/i));
+
+      await waitFor(() => expect(mockApiClient.get).toHaveBeenCalled());
+      expect(screen.queryByRole('option', { name: 'PAT-1' })).not.toBeInTheDocument();
+    });
+
+    it('clears a multi-select taxonomy field entirely when cleared', () => {
+      renderPopup();
+      const multiSelects = screen.getAllByTestId('select-multi');
+      const aims = multiSelects[1];
+
+      fireEvent.click(within(aims).getByText('Education'));
+      expect(within(aims).getByText('Education')).toHaveAttribute('data-selected', 'true');
+
+      fireEvent.click(within(aims).getByLabelText('clear-multi'));
+      expect(within(aims).getByText('Education')).toHaveAttribute('data-selected', 'false');
     });
   });
 });

@@ -146,6 +146,38 @@ describe('LibraryFiltersCard', () => {
       expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ tagFilter: ['picked'] }));
     });
 
+    it('clears languageFilter, aimsFilter, and tagFilter back to [] when their selection is cleared', () => {
+      renderCard();
+      fireEvent.click(within(screen.getByTestId('language-select')).getByText('clear'));
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ languageFilter: [] }));
+
+      fireEvent.click(within(screen.getByTestId('aims-select')).getByText('clear'));
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ aimsFilter: [] }));
+
+      fireEvent.click(within(screen.getByTestId('tag-select')).getByText('clear'));
+      expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ tagFilter: [] }));
+    });
+
+    it('renders without crashing when filter array fields are undefined', () => {
+      const sparseFilters = {
+        searchTerm: '',
+        diagnosisFilter: undefined,
+        languageFilter: undefined,
+        contentTypeFilter: '',
+        aimsFilter: undefined,
+        tagFilter: undefined,
+      } as unknown as LibraryFiltersState;
+
+      render(
+        <LibraryFiltersCard t={t} filters={sparseFilters} onChange={onChange} onReset={onReset} />
+      );
+
+      expect(screen.getByTestId('diagnosis-select')).toBeInTheDocument();
+      expect(screen.getByTestId('language-select')).toBeInTheDocument();
+      expect(screen.getByTestId('aims-select')).toBeInTheDocument();
+      expect(screen.getByTestId('tag-select')).toBeInTheDocument();
+    });
+
     it('calls onReset when Reset filters is clicked', () => {
       renderCard();
       fireEvent.click(screen.getByRole('button', { name: /Reset filters/i }));

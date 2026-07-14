@@ -1,10 +1,16 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom';
 import Navigation from '@/components/Navigation';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
+
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => {
+  const actual = jest.requireActual('react-router-dom');
+  return { ...actual, useNavigate: () => mockNavigate };
+});
 
 // Inline mock – no external variable so hoisting is safe.
 jest.mock('@/stores/authStore', () => ({
@@ -35,6 +41,7 @@ beforeEach(() => {
   mockAuthStore.isAuthenticated = true;
   mockAuthStore.userType = 'Patient';
   mockAuthStore.logout.mockResolvedValue(undefined);
+  mockNavigate.mockClear();
 });
 
 // ── navLinks by user type ────────────────────────────────────────────────────
@@ -195,5 +202,27 @@ describe('Navigation - desktop avatar button', () => {
     renderNav('/patient');
     const btn = screen.getByTestId('avatar-button');
     expect(btn.className).not.toMatch(/(^|\s)text-brand(\s|$)/);
+  });
+});
+
+// ── Navigation clicks ─────────────────────────────────────────────────────────
+
+describe('Navigation - clicking links navigates', () => {
+  it('navigates when a mobile/desktop nav item is clicked', () => {
+    renderNav('/patient');
+    fireEvent.click(screen.getAllByText('Week Plan')[0].closest('button')!);
+    expect(mockNavigate).toHaveBeenCalledWith('/patient-plan');
+  });
+
+  it('navigates to / when the desktop Home button is clicked', () => {
+    const { container } = renderNav('/patient');
+    fireEvent.click(container.querySelector('[aria-label="Home"]')!);
+    expect(mockNavigate).toHaveBeenCalledWith('/');
+  });
+
+  it('navigates to the profile path when the desktop avatar button is clicked', () => {
+    renderNav('/patient');
+    fireEvent.click(screen.getByTestId('avatar-button'));
+    expect(mockNavigate).toHaveBeenCalledWith('/patient-profile');
   });
 });

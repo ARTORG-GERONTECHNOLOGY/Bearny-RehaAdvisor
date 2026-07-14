@@ -334,6 +334,65 @@ describe('PatientPopupStore', () => {
       expect(store.error).toBe('down');
       expect(store.loading).toBe(false);
     });
+
+    it('leaves all REDCap identifiers null for a fully empty profile response', async () => {
+      (mockApiClient.get as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/users/patient-1/profile') return Promise.resolve({ data: {} });
+        if (url === '/redcap/patient/') return Promise.resolve({ data: { matches: [] } });
+        if (url === '/patients/patient-1/thresholds/') return Promise.resolve({ data: {} });
+        return Promise.resolve({ data: {} });
+      });
+
+      await store.fetchPatientData(t);
+
+      expect(store.redcapProject).toBeNull();
+      expect(store.redcapIdentifier).toBeNull();
+      expect(store.redcapRecordId).toBeNull();
+      expect(store.redcapPatId).toBeNull();
+      expect(store.redcapDag).toBeNull();
+    });
+
+    it('derives REDCap identifiers from the camelCase field variants', async () => {
+      (mockApiClient.get as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/users/patient-1/profile') {
+          return Promise.resolve({
+            data: {
+              redcapProject: 'P2',
+              redcapIdentifier: 'ID2',
+              redcapRecordId: 'R2',
+              redcapPatId: 'PID2',
+              redcapDag: 'DAG2',
+            },
+          });
+        }
+        if (url === '/redcap/patient/') return Promise.resolve({ data: { matches: [] } });
+        if (url === '/patients/patient-1/thresholds/') return Promise.resolve({ data: {} });
+        return Promise.resolve({ data: {} });
+      });
+
+      await store.fetchPatientData(t);
+
+      expect(store.redcapProject).toBe('P2');
+      expect(store.redcapIdentifier).toBe('ID2');
+      expect(store.redcapRecordId).toBe('R2');
+      expect(store.redcapPatId).toBe('PID2');
+      expect(store.redcapDag).toBe('DAG2');
+    });
+
+    it('falls back to the camelCase patientCode when patient_code is absent', async () => {
+      (mockApiClient.get as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/users/patient-1/profile') {
+          return Promise.resolve({ data: { patientCode: 'PC-CAMEL' } });
+        }
+        if (url === '/redcap/patient/') return Promise.resolve({ data: { matches: [] } });
+        if (url === '/patients/patient-1/thresholds/') return Promise.resolve({ data: {} });
+        return Promise.resolve({ data: {} });
+      });
+
+      await store.fetchPatientData(t);
+
+      expect(store.redcapIdentifier).toBe('PC-CAMEL');
+    });
   });
 
   describe('fetchRedcapIfPossible', () => {
@@ -383,6 +442,37 @@ describe('PatientPopupStore', () => {
       (mockApiClient.get as jest.Mock).mockRejectedValueOnce(new Error('boom'));
       await store.fetchRedcapIfPossible(t);
       expect(store.redcapError).toBe('boom');
+    });
+
+    it('keeps the previously known record/pat ids when a match has no rows', async () => {
+      store.redcapIdentifier = 'PC-1';
+      store.redcapRecordId = 'OLD-R';
+      store.redcapPatId = 'OLD-P';
+      store.redcapProject = 'OLD-PROJECT';
+      (mockApiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { matches: [{ project: null, rows: [] }] },
+      });
+
+      await store.fetchRedcapIfPossible(t);
+
+      expect(store.redcapRows).toEqual([]);
+      expect(store.redcapFlat).toEqual({});
+      expect(store.redcapRecordId).toBe('OLD-R');
+      expect(store.redcapPatId).toBe('OLD-P');
+      expect(store.redcapProject).toBe('OLD-PROJECT');
+    });
+
+    it('sends the project filter param when a redcapProject is already known', async () => {
+      store.redcapIdentifier = 'PC-1';
+      store.redcapProject = 'P9';
+      (mockApiClient.get as jest.Mock).mockResolvedValueOnce({ data: { matches: [] } });
+
+      await store.fetchRedcapIfPossible(t);
+
+      expect(mockApiClient.get).toHaveBeenCalledWith(
+        '/redcap/patient/',
+        expect.objectContaining({ params: expect.objectContaining({ project: 'P9' }) })
+      );
     });
   });
 

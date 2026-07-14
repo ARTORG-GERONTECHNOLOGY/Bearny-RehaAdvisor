@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import PatientView from '@/pages/Patient';
 import '@testing-library/jest-dom';
 
@@ -154,8 +154,13 @@ jest.mock('@/components/PatientPage/PatientQuestionaire', () => {
 });
 
 jest.mock('@/components/common/ErrorAlert', () => {
-  function MockErrorAlert({ message }: { message: string }) {
-    return <div role="alert">{message}</div>;
+  function MockErrorAlert({ message, onClose }: { message: string; onClose: () => void }) {
+    return (
+      <div role="alert">
+        {message}
+        <button onClick={onClose}>close-alert</button>
+      </div>
+    );
   }
   return MockErrorAlert;
 });
@@ -193,6 +198,8 @@ const getManualWeightSheetMock = () =>
 const getManualBloodPressureSheetMock = () =>
   jest.requireMock('@/components/PatientPage/ManualBloodPressureSheet');
 const getFeedbackPopupMock = () => jest.requireMock('@/components/PatientPage/FeedbackPopup');
+const getPatientQuestionaireMock = () =>
+  jest.requireMock('@/components/PatientPage/PatientQuestionaire');
 
 describe('PatientView', () => {
   beforeEach(() => {
@@ -450,5 +457,205 @@ describe('PatientView', () => {
     render(<PatientView />);
 
     expect(await screen.findByTestId('initial-questionnaire')).toBeInTheDocument();
+  });
+
+  it('shows fitbit error alert when fitbit_status=misconfigured', async () => {
+    const routerMocks = getRouterMocks();
+    (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
+      new URLSearchParams('fitbit_status=misconfigured'),
+    ]);
+
+    render(<PatientView />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Fitbit is not configured on this server. Please contact support.'
+    );
+  });
+
+  it.each([
+    ['redirect_uri_mismatch', 'Fitbit redirect URI mismatch — please contact support.'],
+    ['invalid_client', 'Fitbit client credentials are invalid — please contact support.'],
+    ['access_denied', 'Fitbit authorization was denied.'],
+    ['some_other_code', 'Fitbit authorization failed: some_other_code.'],
+  ])(
+    'shows the matching fitbit auth_error message for fitbit_error=%s',
+    async (fitbitError, expectedMessage) => {
+      const routerMocks = getRouterMocks();
+      (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
+        new URLSearchParams(`fitbit_status=auth_error&fitbit_error=${fitbitError}`),
+      ]);
+
+      render(<PatientView />);
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(expectedMessage);
+    }
+  );
+
+  it('dismisses the fitbit error alert via onClose', async () => {
+    const routerMocks = getRouterMocks();
+    (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
+      new URLSearchParams('fitbit_status=error'),
+    ]);
+
+    render(<PatientView />);
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('close-alert'));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+  });
+
+  it('closes the manual steps sheet via onClose and surfaces a translated error when submit fails', async () => {
+    const fitbitStore = getFitbitStore();
+    const manualStepsSheetMock = getManualStepsSheetMock();
+    fitbitStore.submitManualSteps.mockRejectedValueOnce(new Error('network down'));
+
+    render(<PatientView />);
+
+    await waitFor(() => {
+      expect(manualStepsSheetMock).toHaveBeenCalled();
+    });
+
+    const stepsProps = (manualStepsSheetMock as jest.Mock).mock.calls[0][0];
+    await expect(stepsProps.onSubmit(100)).rejects.toThrow(
+      'Failed to save steps. Please try again.'
+    );
+
+    await act(async () => {
+      stepsProps.onClose();
+    });
+    await waitFor(() => {
+      const latestProps = (manualStepsSheetMock as jest.Mock).mock.calls.at(-1)[0];
+      expect(latestProps.open).toBe(false);
+    });
+  });
+
+  it('closes the manual weight sheet via onClose and throws when the store reports an error', async () => {
+    const vitalsStore = getVitalsStore();
+    const manualWeightSheetMock = getManualWeightSheetMock();
+    vitalsStore.error = 'boom';
+
+    render(<PatientView />);
+
+    await waitFor(() => {
+      expect(manualWeightSheetMock).toHaveBeenCalled();
+    });
+
+    const weightProps = (manualWeightSheetMock as jest.Mock).mock.calls[0][0];
+    await expect(weightProps.onSubmit(80)).rejects.toThrow('failedSave');
+
+    await act(async () => {
+      weightProps.onClose();
+    });
+    await waitFor(() => {
+      const latestProps = (manualWeightSheetMock as jest.Mock).mock.calls.at(-1)[0];
+      expect(latestProps.open).toBe(false);
+    });
+  });
+
+  it('closes the manual blood pressure sheet via onClose and throws when the store reports an error', async () => {
+    const vitalsStore = getVitalsStore();
+    const manualBloodPressureSheetMock = getManualBloodPressureSheetMock();
+    vitalsStore.error = 'boom';
+
+    render(<PatientView />);
+
+    await waitFor(() => {
+      expect(manualBloodPressureSheetMock).toHaveBeenCalled();
+    });
+
+    const bpProps = (manualBloodPressureSheetMock as jest.Mock).mock.calls[0][0];
+    await expect(bpProps.onSubmit(130, 85)).rejects.toThrow('failedSave');
+
+    await act(async () => {
+      bpProps.onClose();
+    });
+    await waitFor(() => {
+      const latestProps = (manualBloodPressureSheetMock as jest.Mock).mock.calls.at(-1)[0];
+      expect(latestProps.open).toBe(false);
+    });
+  });
+
+  it('closes the feedback and health popups via their onClose callbacks', async () => {
+    const questionnairesStore = getQuestionnairesStore();
+    const feedbackPopupMock = getFeedbackPopupMock();
+
+    questionnairesStore.showFeedbackPopup = true;
+    questionnairesStore.showHealthPopup = true;
+
+    render(<PatientView />);
+
+    await waitFor(() => {
+      expect(feedbackPopupMock).toHaveBeenCalled();
+    });
+
+    const calls = (feedbackPopupMock as jest.Mock).mock.calls;
+    const healthProps = calls.find((c) => 'description' in c[0])?.[0];
+    const interventionProps = calls.find((c) => !('description' in c[0]))?.[0];
+
+    interventionProps.onClose();
+    expect(questionnairesStore.closeFeedback).toHaveBeenCalled();
+
+    healthProps.onClose();
+    expect(questionnairesStore.closeHealth).toHaveBeenCalled();
+  });
+
+  it('opens the manual steps, weight and blood pressure sheets from their trigger callbacks', async () => {
+    const activitySectionMock = getActivitySectionMock();
+    const healthCheckInSectionMock = getHealthCheckInSectionMock();
+    const manualStepsSheetMock = getManualStepsSheetMock();
+    const manualWeightSheetMock = getManualWeightSheetMock();
+    const manualBloodPressureSheetMock = getManualBloodPressureSheetMock();
+
+    render(<PatientView />);
+
+    await waitFor(() => {
+      expect(activitySectionMock).toHaveBeenCalled();
+      expect(healthCheckInSectionMock).toHaveBeenCalled();
+    });
+
+    const activityProps = (activitySectionMock as jest.Mock).mock.calls[0][0];
+    await act(async () => {
+      activityProps.onOpenManualStepsEntry();
+    });
+    await waitFor(() => {
+      const latest = (manualStepsSheetMock as jest.Mock).mock.calls.at(-1)[0];
+      expect(latest.open).toBe(true);
+    });
+
+    const healthProps = (healthCheckInSectionMock as jest.Mock).mock.calls[0][0];
+    await act(async () => {
+      healthProps.onOpenWeightEntry();
+    });
+    await waitFor(() => {
+      const latest = (manualWeightSheetMock as jest.Mock).mock.calls.at(-1)[0];
+      expect(latest.open).toBe(true);
+    });
+
+    await act(async () => {
+      healthProps.onOpenBloodPressureEntry();
+    });
+    await waitFor(() => {
+      const latest = (manualBloodPressureSheetMock as jest.Mock).mock.calls.at(-1)[0];
+      expect(latest.open).toBe(true);
+    });
+  });
+
+  it('closes the initial questionnaire popup via handleClose', async () => {
+    const questionnairesStore = getQuestionnairesStore();
+    const patientQuestionaireMock = getPatientQuestionaireMock();
+    questionnairesStore.showInitialPopup = true;
+
+    render(<PatientView />);
+
+    await waitFor(() => {
+      expect(patientQuestionaireMock).toHaveBeenCalled();
+    });
+
+    const props = (patientQuestionaireMock as jest.Mock).mock.calls[0][0];
+    props.handleClose();
+    expect(questionnairesStore.closeInitial).toHaveBeenCalled();
   });
 });

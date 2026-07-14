@@ -40,4 +40,33 @@ describe('patientUiStore', () => {
     expect(patientUiStore.selectedDate).toEqual(now);
     jest.useRealTimers();
   });
+
+  it('accepts a non-Date value and coerces it to a Date', () => {
+    patientUiStore.setSelectedDate('2026-04-10T00:00:00.000Z' as unknown as Date);
+    expect(patientUiStore.selectedDate).toEqual(new Date('2026-04-10T00:00:00.000Z'));
+  });
+
+  it('silently ignores a localStorage write failure when persisting the selected date', () => {
+    const spy = jest.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+      throw new Error('quota exceeded');
+    });
+
+    expect(() =>
+      patientUiStore.setSelectedDate(new Date('2026-06-01T00:00:00.000Z'))
+    ).not.toThrow();
+    expect(patientUiStore.selectedDate).toEqual(new Date('2026-06-01T00:00:00.000Z'));
+
+    spy.mockRestore();
+  });
+
+  it('silently ignores a localStorage write failure when persisting the view mode', () => {
+    const spy = jest.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+      throw new Error('quota exceeded');
+    });
+
+    expect(() => patientUiStore.setViewMode('week')).not.toThrow();
+    expect(patientUiStore.viewMode).toBe('week');
+
+    spy.mockRestore();
+  });
 });

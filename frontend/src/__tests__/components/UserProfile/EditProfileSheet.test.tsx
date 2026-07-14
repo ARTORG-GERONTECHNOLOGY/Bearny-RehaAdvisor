@@ -46,20 +46,25 @@ jest.mock('@/stores/userProfileStore', () => ({
 jest.mock('react-select', () => ({
   __esModule: true,
   default: ({ options, onChange, placeholder, isDisabled }: any) => (
-    <select
-      disabled={isDisabled}
-      aria-label={placeholder || 'select'}
-      onChange={(e) => {
-        const opt = options.find((o: any) => o.value === e.target.value);
-        if (opt) onChange([opt]);
-      }}
-    >
-      {options?.map((o: any) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <div>
+      <select
+        disabled={isDisabled}
+        aria-label={placeholder || 'select'}
+        onChange={(e) => {
+          const opt = options.find((o: any) => o.value === e.target.value);
+          if (opt) onChange([opt]);
+        }}
+      >
+        {options?.map((o: any) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <button aria-label={`clear-${placeholder || 'select'}`} onClick={() => onChange(null)}>
+        clear
+      </button>
+    </div>
   ),
 }));
 
@@ -326,6 +331,66 @@ describe('EditTherapistInfo', () => {
         expect.objectContaining({ clinics: ['Berner Reha Centrum'] })
       );
     });
+  });
+
+  it('does not fetch the pending-request status when the sheet is not shown', () => {
+    renderWithRouter(<EditUserInfo show={false} userData={baseUser} onCancel={jest.fn()} />);
+    expect(apiClient.get).not.toHaveBeenCalled();
+  });
+
+  it('clears requested projects when the projects multi-select is cleared', async () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
+    await waitFor(() =>
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /clear-Choose/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        'therapist/access-change-request/',
+        expect.objectContaining({ projects: [] })
+      );
+    });
+  });
+
+  it('closes the access-change sheet on Escape when not submitting', async () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
+    await waitFor(() =>
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument()
+    );
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Request clinic / project change')).not.toBeInTheDocument();
+    });
+  });
+
+  it('does not close the access-change sheet on Escape while a request is submitting', async () => {
+    let resolvePost: (v: unknown) => void = () => {};
+    (apiClient.post as jest.Mock).mockReturnValueOnce(
+      new Promise((res) => {
+        resolvePost = res;
+      })
+    );
+
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
+    await waitFor(() =>
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(screen.getByText('Request clinic / project change')).toBeInTheDocument();
+
+    resolvePost({ data: { ok: true } });
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalled());
   });
 
   it('cancels the access-change sheet without submitting', async () => {

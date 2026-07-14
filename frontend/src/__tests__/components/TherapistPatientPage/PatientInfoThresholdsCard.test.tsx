@@ -73,6 +73,24 @@ describe('PatientInfoThresholdsCard', () => {
     expect(screen.getByText('Reason (optional)')).toBeInTheDocument();
   });
 
+  it('writes changes to the effective-from and reason fields while editing', () => {
+    const store = makeStore();
+    store.thresholds = sampleThresholds;
+    store.isEditing = true;
+
+    render(<PatientInfoThresholdsCard store={store} />);
+
+    const effectiveFromInput = screen.getByLabelText(
+      'Effective from (optional)'
+    ) as HTMLInputElement;
+    fireEvent.change(effectiveFromInput, { target: { value: '2026-02-01T09:00' } });
+    expect(store.thresholdEffectiveFromLocal).toBe('2026-02-01T09:00');
+
+    const reasonInput = screen.getByLabelText('Reason (optional)') as HTMLInputElement;
+    fireEvent.change(reasonInput, { target: { value: 'Improved fitness' } });
+    expect(store.thresholdReason).toBe('Improved fitness');
+  });
+
   it('renders the threshold history', () => {
     const store = makeStore();
     store.thresholds = sampleThresholds;

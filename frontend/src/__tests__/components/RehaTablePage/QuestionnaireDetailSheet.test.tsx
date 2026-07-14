@@ -106,4 +106,71 @@ describe('QuestionnaireDetailSheet', () => {
     render(<QuestionnaireDetailSheet {...baseProps} open={true} title="Q" sheetQuestions={[]} />);
     expect(screen.getByText('No questions found')).toBeInTheDocument();
   });
+
+  it('calls onClose when the sheet is dismissed', () => {
+    const onClose = jest.fn();
+    render(<QuestionnaireDetailSheet {...baseProps} open={true} title="Q" onClose={onClose} />);
+    fireEvent.click(screen.getByText('Close'));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('renders without a description when none is provided', () => {
+    render(<QuestionnaireDetailSheet {...baseProps} open={true} title="Q" />);
+    expect(screen.queryByText('A profile questionnaire')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the question key, default answer type, and an em dash when translations/comment/answers are missing', () => {
+    const day = '2026-02-01';
+    render(
+      <QuestionnaireDetailSheet
+        {...baseProps}
+        open={true}
+        title="Q"
+        answeredDays={[day]}
+        answeredByDay={{
+          [day]: [{ questionKey: 'bare_key', answers: [] }],
+        }}
+      />
+    );
+    expect(screen.getByText('bare_key')).toBeInTheDocument();
+    expect(screen.getByText(/Type: text/)).toBeInTheDocument();
+    expect(screen.getByText(/Answers: —/)).toBeInTheDocument();
+  });
+
+  it('picks the first available translation when no English translation exists', () => {
+    const day = '2026-02-01';
+    render(
+      <QuestionnaireDetailSheet
+        {...baseProps}
+        open={true}
+        title="Q"
+        answeredDays={[day]}
+        answeredByDay={{
+          [day]: [
+            {
+              questionKey: 'q_de',
+              questionTranslations: [{ language: 'de', text: 'Wie geht es dir?' }],
+              answers: [{ key: '1', translations: [{ language: 'de', text: 'Gut' }] }],
+            },
+          ],
+        }}
+      />
+    );
+    expect(screen.getByText('Wie geht es dir?')).toBeInTheDocument();
+    expect(screen.getByText(/Gut/)).toBeInTheDocument();
+  });
+
+  it('falls back to the question key and default answer type when a sheet question has no translations/answerType, and hides the answers line without options', () => {
+    render(
+      <QuestionnaireDetailSheet
+        {...baseProps}
+        open={true}
+        title="Q"
+        sheetQuestions={[{ questionKey: 'raw_key', answerType: '' } as any]}
+      />
+    );
+    expect(screen.getByText(/raw_key/)).toBeInTheDocument();
+    expect(screen.getByText(/Type: text/)).toBeInTheDocument();
+    expect(screen.queryByText(/Answers:/)).not.toBeInTheDocument();
+  });
 });

@@ -28,9 +28,18 @@ jest.mock('../../config/config.json', () => ({
   },
 }));
 
-jest.mock('@/components/AddPatient/AddPatientPopUp', () => () => <div>Add Patient Popup</div>);
-jest.mock('@/components/TherapistPatientPage/ImportFromRedcapModal', () => () => (
-  <div>Import Modal</div>
+jest.mock('@/components/AddPatient/AddPatientPopUp', () => (props: any) => (
+  <div>
+    Add Patient Popup
+    <button onClick={props.handleClose}>close-add-patient</button>
+  </div>
+));
+jest.mock('@/components/TherapistPatientPage/ImportFromRedcapModal', () => (props: any) => (
+  <div>
+    Import Modal
+    <button onClick={props.onRefresh}>refresh-redcap</button>
+    <button onClick={() => props.onImportOne({ key: 'c1' })}>import-one-redcap</button>
+  </div>
 ));
 
 // Mock translation function — use jest.fn() so individual tests can override it
@@ -782,6 +791,13 @@ describe('Column sorting', () => {
   const getBodyRowNames = () =>
     screen.getAllByRole('cell', { name: /One|Two/ }).map((c) => c.textContent);
 
+  test('sorts by the ampel composite score when sortBy is "ampel"', async () => {
+    mockStore.sortBy = 'ampel';
+    renderSortable();
+    await screen.findByText('Alpha One');
+    expect(screen.getByText('Beta Two')).toBeInTheDocument();
+  });
+
   test('clicking the Login header sorts by days since last login (asc = most stale first)', async () => {
     renderSortable();
     await screen.findByText('Alpha One');
@@ -825,6 +841,44 @@ describe('Column sorting', () => {
     renderSortable();
     fireEvent.click(screen.getByText('Wear'));
     await waitFor(() => expect(mockStore.setSortBy).toHaveBeenCalledWith('wear'));
+  });
+});
+
+describe('Sparse patient records (missing optional fields)', () => {
+  test('renders an active patient missing _id, first_name, age and diagnosis without crashing', async () => {
+    mockStore.patients = [
+      {
+        created_at: '2026-01-01T00:00:00',
+        sex: 'Male',
+        name: 'Solo',
+        duration: 10,
+      },
+    ] as any;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Solo')).toBeInTheDocument();
+  });
+
+  test('renders a completed patient missing _id, first_name, age and diagnosis without crashing', async () => {
+    mockStore.patients = [
+      {
+        created_at: '2026-01-01T00:00:00',
+        sex: 'Male',
+        name: 'Solo',
+        duration: 10,
+        rehab_status: 'completed',
+      },
+    ] as any;
+    mockStore.showCompleted = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Solo')).toBeInTheDocument();
   });
 });
 
@@ -994,6 +1048,43 @@ describe('Header action buttons', () => {
     );
     expect(screen.getByText('Import Modal')).toBeInTheDocument();
   });
+
+  test('refetches patients after closing the Add Patient popup', async () => {
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText('close-add-patient'));
+
+    expect(mockStore.closeAddPatient).toHaveBeenCalled();
+    await waitFor(() => expect(mockStore.fetchPatients).toHaveBeenCalled());
+  });
+
+  test('refreshes REDCap candidates via the Import Modal onRefresh callback', () => {
+    appModeStore.showRedcapImport = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText('refresh-redcap'));
+    expect(mockStore.fetchRedcapCandidates).toHaveBeenCalled();
+  });
+
+  test('imports one REDCap candidate via the Import Modal onImportOne callback', () => {
+    appModeStore.showRedcapImport = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText('import-one-redcap'));
+    expect(mockStore.importOneFromRedcap).toHaveBeenCalledWith({ key: 'c1' }, expect.any(Function));
+  });
 });
 
 describe('Completed patients section', () => {
@@ -1047,6 +1138,47 @@ describe('Completed patients section', () => {
     const row = (await screen.findByText('Done Patient')).closest('[role="link"]')!;
     fireEvent.click(row);
     expect(mockNavigate).toHaveBeenCalledWith('/therapist-patient-detail/completed-1');
+  });
+
+  test('pressing Enter on a completed row navigates to their detail page', async () => {
+    mockStore.patients = [completedPatient] as any;
+    mockStore.showCompleted = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    const row = (await screen.findByText('Done Patient')).closest('[role="link"]')!;
+    fireEvent.keyDown(row, { key: 'Enter' });
+    expect(mockNavigate).toHaveBeenCalledWith('/therapist-patient-detail/completed-1');
+  });
+
+  test('ignores unrelated keys on a completed row', async () => {
+    mockStore.patients = [completedPatient] as any;
+    mockStore.showCompleted = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    const row = (await screen.findByText('Done Patient')).closest('[role="link"]')!;
+    fireEvent.keyDown(row, { key: 'Tab' });
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  test('renders a completed patient whose diagnosis is a plain string, not an array', async () => {
+    mockStore.patients = [{ ...completedPatient, diagnosis: 'Non-array Diagnosis' }] as any;
+    mockStore.showCompleted = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Done Patient')).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Non-array Diagnosis' })).toBeInTheDocument();
   });
 });
 

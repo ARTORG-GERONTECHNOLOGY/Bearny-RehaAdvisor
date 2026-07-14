@@ -110,6 +110,28 @@ describe('translateText', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
+  it('returns immediately for empty text without calling fetch', async () => {
+    const result = await translateText('');
+
+    expect(result).toEqual({ translatedText: '', detectedSourceLanguage: 'unknown' });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('evicts the oldest cache entry once the cache exceeds 2000 entries', async () => {
+    mockFetch.mockResolvedValue(makeJsonResponse([{ language: 'en' }]));
+
+    for (let i = 0; i < 2001; i++) {
+      await translateText(`Cache filler sentence ${i}`);
+    }
+
+    mockFetch.mockClear();
+    mockFetch.mockResolvedValueOnce(makeJsonResponse([{ language: 'en' }]));
+
+    // The very first entry should have been evicted, forcing a re-fetch.
+    await translateText('Cache filler sentence 0');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
   it('caps concurrent in-flight requests at 4, queueing the rest', async () => {
     const resolvers: Array<(value: unknown) => void> = [];
     mockFetch.mockImplementation(

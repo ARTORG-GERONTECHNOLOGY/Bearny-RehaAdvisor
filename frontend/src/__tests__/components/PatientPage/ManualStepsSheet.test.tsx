@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ManualStepsSheet from '@/components/PatientPage/ManualStepsSheet';
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
@@ -53,5 +53,30 @@ describe('ManualStepsSheet', () => {
 
     expect(await screen.findByText('stepsSaveFailed')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('calls onClose when the sheet is dismissed via the close button', () => {
+    render(<ManualStepsSheet {...baseProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('resets the input and error state once the sheet is closed and reopened', async () => {
+    const onSubmit = jest.fn().mockRejectedValue(new Error('stepsSaveFailed'));
+    const { rerender } = render(<ManualStepsSheet {...baseProps} onSubmit={onSubmit} />);
+
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '1234' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('stepsSaveFailed')).toBeInTheDocument();
+
+    await act(async () => {
+      rerender(<ManualStepsSheet {...baseProps} onSubmit={onSubmit} open={false} />);
+    });
+    await act(async () => {
+      rerender(<ManualStepsSheet {...baseProps} onSubmit={onSubmit} open={true} />);
+    });
+
+    expect(screen.queryByText('stepsSaveFailed')).not.toBeInTheDocument();
   });
 });

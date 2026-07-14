@@ -40,4 +40,36 @@ describe('InterventionFormFileInputs', () => {
 
     expect(onFileChangeMock).toHaveBeenCalledWith(null);
   });
+
+  it('rejects a file larger than 1GB, clears the input, and shows a size error', () => {
+    const onFileChangeMock = jest.fn();
+    renderComponent({ show: true, onFileChange: onFileChangeMock });
+
+    const fileInput = screen.getByLabelText('UploadMediaFile') as HTMLInputElement;
+    const bigFile = new File(['x'], 'big.mp4', { type: 'video/mp4' });
+    Object.defineProperty(bigFile, 'size', { value: 1024 * 1024 * 1024 + 1 });
+
+    fireEvent.change(fileInput, { target: { files: [bigFile] } });
+
+    expect(onFileChangeMock).toHaveBeenCalledWith(null);
+    expect(fileInput.value).toBe('');
+    expect(screen.getByText('File is too large (max 1GB).')).toBeInTheDocument();
+  });
+
+  it('clears a previous size error once a valid file is selected', () => {
+    const onFileChangeMock = jest.fn();
+    renderComponent({ show: true, onFileChange: onFileChangeMock });
+
+    const fileInput = screen.getByLabelText('UploadMediaFile') as HTMLInputElement;
+    const bigFile = new File(['x'], 'big.mp4', { type: 'video/mp4' });
+    Object.defineProperty(bigFile, 'size', { value: 1024 * 1024 * 1024 + 1 });
+    fireEvent.change(fileInput, { target: { files: [bigFile] } });
+    expect(screen.getByText('File is too large (max 1GB).')).toBeInTheDocument();
+
+    const smallFile = new File(['x'], 'small.mp4', { type: 'video/mp4' });
+    fireEvent.change(fileInput, { target: { files: [smallFile] } });
+
+    expect(screen.queryByText('File is too large (max 1GB).')).not.toBeInTheDocument();
+    expect(onFileChangeMock).toHaveBeenLastCalledWith(smallFile);
+  });
 });

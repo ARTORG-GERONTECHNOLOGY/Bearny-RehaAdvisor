@@ -104,4 +104,58 @@ describe('ActivitySection', () => {
     expect(screen.getByText('7h 10min')).toBeInTheDocument();
     expect(screen.getByTestId('goal-reference-line')).toBeInTheDocument();
   });
+
+  it('shows the checkmark icon when disconnected with a nonzero manual step count', () => {
+    const { container } = render(
+      <ActivitySection {...baseProps} connected={false} stepsToday={500} />
+    );
+    expect(container.querySelector('.text-ok')).toBeInTheDocument();
+  });
+
+  it('does not open the manual steps entry when the steps card is clicked while connected', () => {
+    const onOpenManualStepsEntry = jest.fn();
+    render(
+      <ActivitySection
+        {...baseProps}
+        connected={true}
+        onOpenManualStepsEntry={onOpenManualStepsEntry}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Steps').closest('div')!.parentElement!.parentElement!);
+    expect(onOpenManualStepsEntry).not.toHaveBeenCalled();
+  });
+
+  it('falls back to "--" for steps/goal/minutes when values are missing, and shows the AZM breakdown', () => {
+    render(
+      <ActivitySection
+        {...baseProps}
+        connected={true}
+        stepsToday={null}
+        stepsGoal={null}
+        activeMinutes={null}
+        activeMinutesGoal={null}
+        activeZoneMinutes={{ fat_burn: 10, cardio: 5, peak: 2 }}
+      />
+    );
+
+    expect(screen.getAllByText('--').length).toBeGreaterThan(0);
+    expect(screen.getByText(/fatBurnZone: 10/)).toBeInTheDocument();
+    expect(screen.getByText(/cardioZone: 5/)).toBeInTheDocument();
+    expect(screen.getByText(/peakZone: 2/)).toBeInTheDocument();
+  });
+
+  it('does not show the AZM breakdown when fat_burn/cardio/peak are all null', () => {
+    render(
+      <ActivitySection
+        {...baseProps}
+        connected={true}
+        activeZoneMinutes={{ fat_burn: null, cardio: null, peak: null, total: 0 }}
+      />
+    );
+
+    expect(screen.queryByText(/fatBurnZone/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/cardioZone/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/peakZone/)).not.toBeInTheDocument();
+  });
 });

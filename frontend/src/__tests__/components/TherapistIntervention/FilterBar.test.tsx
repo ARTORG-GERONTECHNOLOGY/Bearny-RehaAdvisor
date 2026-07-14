@@ -20,10 +20,13 @@ const triggerResize = (width: number) => {
 };
 
 // 🛠 Mock react-select
+const mockReactSelect = jest.fn();
+
 jest.mock(
   'react-select',
   () =>
     function ReactSelect(props: any) {
+      mockReactSelect({ styles: props.styles });
       const testId = props.placeholder?.includes('Tags')
         ? 'tag-select'
         : props.placeholder?.includes('Diagnosis')
@@ -72,6 +75,17 @@ describe('FilterBar component', () => {
         t={mockT}
       />
     );
+
+  test('builds react-select style overrides for the container, control, value container and menu portal', () => {
+    mockReactSelect.mockClear();
+    renderComponent();
+
+    const { styles } = mockReactSelect.mock.calls[0][0];
+    expect(styles.container({ width: 0 }).width).toBe('100%');
+    expect(styles.control({ minHeight: 0 }).minHeight).toBe(38);
+    expect(styles.valueContainer({ minWidth: 100 }).minWidth).toBe(0);
+    expect(styles.menuPortal({}).zIndex).toBe(9999);
+  });
 
   test('renders all filter inputs', () => {
     renderComponent();
@@ -134,6 +148,66 @@ describe('FilterBar component', () => {
     );
 
     expect(screen.getAllByTestId('other-select').length).toBeGreaterThan(0);
+  });
+
+  test('treats a resize entry with no contentRect as width 0, which is narrow', () => {
+    renderComponent();
+    act(() => {
+      roCallback?.([{}]);
+    });
+    expect(screen.getByRole('button', { name: /Filters/i })).toBeInTheDocument();
+  });
+
+  test('falls back to an empty array when diagnosisFilter is undefined', () => {
+    render(
+      <FilterBar
+        searchTerm=""
+        setSearchTerm={mockSetSearchTerm}
+        diagnosisFilter={undefined as any}
+        setDiagnosisFilter={mockSetDiagnosisFilter}
+        contentTypeFilter=""
+        setContentTypeFilter={mockSetContentTypeFilter}
+        tagFilter={[]}
+        setTagFilter={mockSetTagFilter}
+        t={mockT}
+      />
+    );
+    expect(screen.getByTestId('diagnosis-select')).toBeInTheDocument();
+  });
+
+  test('falls back to an empty array when languageFilter is undefined but setLanguageFilter is provided', () => {
+    render(
+      <FilterBar
+        searchTerm=""
+        setSearchTerm={mockSetSearchTerm}
+        diagnosisFilter={[]}
+        setDiagnosisFilter={mockSetDiagnosisFilter}
+        setLanguageFilter={jest.fn()}
+        contentTypeFilter=""
+        setContentTypeFilter={mockSetContentTypeFilter}
+        tagFilter={[]}
+        setTagFilter={mockSetTagFilter}
+        t={mockT}
+      />
+    );
+    expect(screen.getAllByTestId('other-select').length).toBeGreaterThan(0);
+  });
+
+  test('falls back to an empty array when tagFilter is undefined', () => {
+    render(
+      <FilterBar
+        searchTerm=""
+        setSearchTerm={mockSetSearchTerm}
+        diagnosisFilter={[]}
+        setDiagnosisFilter={mockSetDiagnosisFilter}
+        contentTypeFilter=""
+        setContentTypeFilter={mockSetContentTypeFilter}
+        tagFilter={undefined as any}
+        setTagFilter={mockSetTagFilter}
+        t={mockT}
+      />
+    );
+    expect(screen.getByTestId('tag-select')).toBeInTheDocument();
   });
 
   test('calls setLanguageFilter when a language is selected', () => {
@@ -290,6 +364,38 @@ describe('FilterBar component', () => {
       const resetButtons = screen.getAllByRole('button', { name: 'Reset filters' });
       fireEvent.click(resetButtons[resetButtons.length - 1]);
       expect(onReset).toHaveBeenCalled();
+    });
+
+    it('closes the dropdown via Escape (react-bootstrap onToggle)', () => {
+      renderComponent();
+      triggerResize(400);
+
+      const toggle = screen.getByRole('button', { name: /Filters/i });
+      fireEvent.click(toggle);
+
+      fireEvent.keyDown(document.activeElement || document.body, {
+        key: 'Escape',
+        code: 'Escape',
+        keyCode: 27,
+        which: 27,
+      });
+
+      expect(screen.getByRole('button', { name: /Filters/i })).toBeInTheDocument();
+    });
+
+    it('stops click propagation when clicking directly on the dropdown menu', () => {
+      const { container } = renderComponent();
+      triggerResize(400);
+
+      const toggle = screen.getByRole('button', { name: /Filters/i });
+      fireEvent.click(toggle);
+
+      const menu = container.querySelector('.filterbar-menu');
+      expect(menu).toBeInTheDocument();
+      fireEvent.click(menu!);
+
+      // Still open — the click did not bubble up and close the dropdown.
+      expect(screen.getByRole('button', { name: /Filters/i })).toBeInTheDocument();
     });
 
     it('switches back to the wide layout on a subsequent wide resize', () => {

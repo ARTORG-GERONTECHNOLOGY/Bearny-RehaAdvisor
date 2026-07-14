@@ -9,7 +9,11 @@ jest.mock('d3', () => ({
 }));
 jest.mock('jspdf', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('file-saver', () => ({ saveAs: jest.fn() }));
-jest.mock('@/utils/healthCharts', () => ({ isInRange: jest.fn(), svgToImageDataUrl: jest.fn() }));
+jest.mock('@/utils/healthCharts', () => ({
+  isInRange: jest.fn(),
+  svgToImageDataUrl: jest.fn(),
+  formatDateEU: (d: Date) => d.toISOString().slice(0, 10),
+}));
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
@@ -23,9 +27,14 @@ jest.mock('@/components/Health/HealthMetricsCards', () => () => (
   <div data-testid="metrics-cards" />
 ));
 jest.mock('@/components/Health/HealthViewControls', () => (props: any) => (
-  <button data-testid="health-controls" onClick={props.onExportClick}>
-    open-export
-  </button>
+  <div>
+    <button data-testid="health-controls" onClick={props.onExportClick}>
+      open-export
+    </button>
+    <span data-testid="range-label">
+      {props.formatRangeLabel(new Date('2026-01-01'), new Date('2026-01-31'))}
+    </span>
+  </div>
 ));
 jest.mock(
   '@/components/Health/ExportModal',
@@ -42,6 +51,7 @@ jest.mock(
         >
           export-pdf
         </button>
+        <button onClick={props.onClose}>close-export-modal</button>
       </div>
     ) : null
 );
@@ -167,6 +177,20 @@ describe('HealthPageContent', () => {
 
     await waitFor(() => expect(buildHealthPdf).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByTestId('export-modal')).not.toBeInTheDocument());
+  });
+
+  it('formats the date range label passed down to HealthViewControls', () => {
+    render(<HealthPageContent patientId="patient-abc" />);
+    expect(screen.getByTestId('range-label').textContent).toMatch(/—/);
+  });
+
+  it('closes the export modal via its own onClose callback', () => {
+    render(<HealthPageContent patientId="patient-abc" />);
+    fireEvent.click(screen.getByTestId('health-controls'));
+    expect(screen.getByTestId('export-modal')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('close-export-modal'));
+    expect(screen.queryByTestId('export-modal')).not.toBeInTheDocument();
   });
 
   it('uses patientId from prop, not localStorage', async () => {

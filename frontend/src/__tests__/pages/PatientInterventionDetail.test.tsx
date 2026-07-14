@@ -670,6 +670,173 @@ describe('PatientInterventionDetail', () => {
     expect(screen.getAllByTestId('playable-media')).toHaveLength(1);
   });
 
+  it('guesses media type/provider from a SoundCloud legacy link', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: {
+          _id: 'int-1',
+          aim: 'Education',
+          link: 'https://soundcloud.com/artist/track',
+          media: [],
+        },
+      }),
+    ];
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    expect(screen.getByTestId('playable-media')).toHaveTextContent(':audio');
+  });
+
+  it('guesses media type/provider from a Vimeo legacy link', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: {
+          _id: 'int-1',
+          aim: 'Education',
+          link: 'https://vimeo.com/12345',
+          media: [],
+        },
+      }),
+    ];
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    expect(screen.getByTestId('playable-media')).toHaveTextContent(':video');
+  });
+
+  it('guesses audio/video media types from a legacy link file extension', async () => {
+    const cases: [string, string][] = [
+      ['https://cdn.example.com/track.mp3', 'audio'],
+      ['https://cdn.example.com/clip.mp4', 'video'],
+    ];
+
+    for (const [link, expectedType] of cases) {
+      (patientInterventionsStore as any).items = [
+        buildRec({
+          intervention: { _id: 'int-1', aim: 'Education', link, media: [] },
+        }),
+      ];
+      const { unmount } = render(<PatientInterventionDetail />);
+      await screen.findByText('Morning Stretch');
+      expect(screen.getByTestId('playable-media')).toHaveTextContent(`:${expectedType}`);
+      unmount();
+    }
+  });
+
+  it('guesses pdf/image media types from a legacy link file extension', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: {
+          _id: 'int-1',
+          aim: 'Education',
+          link: 'https://cdn.example.com/doc.pdf',
+          media: [],
+        },
+      }),
+    ];
+    const { unmount } = render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    expect(screen.getByText('PDF')).toBeInTheDocument();
+    unmount();
+
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: {
+          _id: 'int-1',
+          aim: 'Education',
+          link: 'https://cdn.example.com/pic.png',
+          media: [],
+        },
+      }),
+    ];
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    expect(screen.getByText('Image')).toBeInTheDocument();
+  });
+
+  it('treats an http(s) legacy media_file as an external media item', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: {
+          _id: 'int-1',
+          aim: 'Education',
+          media_file: 'https://cdn.example.com/recording.mp3',
+          media: [],
+        },
+      }),
+    ];
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    expect(screen.getByTestId('playable-media')).toHaveTextContent(':audio');
+  });
+
+  it('guesses a video file-kind media type from a legacy media_file path extension', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: {
+          _id: 'int-1',
+          aim: 'Education',
+          media_file: 'uploads/clip.mp4',
+          media: [],
+        },
+      }),
+    ];
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    expect(screen.getByText('Video')).toBeInTheDocument();
+  });
+
+  it('shows an "App" media badge for a single app-type media item', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: {
+          _id: 'int-1',
+          aim: 'Education',
+          media: [{ kind: 'external', media_type: 'app', url: 'https://example.com/app' }],
+        },
+      }),
+    ];
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    expect(screen.getByText('App')).toBeInTheDocument();
+  });
+
+  it('resolves the embed_url for a Spotify streaming media item', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: {
+          _id: 'int-1',
+          aim: 'Education',
+          media: [
+            {
+              kind: 'external',
+              media_type: 'streaming',
+              provider: 'spotify',
+              url: 'https://open.spotify.com/track/abc',
+              embed_url: 'https://open.spotify.com/embed/track/abc',
+            },
+          ],
+        },
+      }),
+    ];
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    expect(screen.getByTestId('playable-media')).toHaveTextContent(':streaming');
+  });
+
+  it('normalizes a single (non-array) media object into a one-item media list', async () => {
+    (patientInterventionsStore as any).items = [
+      buildRec({
+        intervention: {
+          _id: 'int-1',
+          aim: 'Education',
+          media: { kind: 'external', media_type: 'video', url: 'https://example.com/v.mp4' },
+        },
+      }),
+    ];
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    expect(screen.getAllByTestId('playable-media')).toHaveLength(1);
+  });
+
   it('treats a non-URL legacy media_file as a file-kind media item', async () => {
     (patientInterventionsStore as any).items = [
       buildRec({

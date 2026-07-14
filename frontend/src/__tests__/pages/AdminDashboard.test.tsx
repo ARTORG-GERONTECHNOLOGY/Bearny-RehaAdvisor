@@ -80,7 +80,7 @@ jest.mock('@/stores/authStore', () => ({
   },
 }));
 
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import AdminDashboard from '@/pages/AdminDashboard';
 import '@testing-library/jest-dom';
@@ -88,8 +88,13 @@ import '@testing-library/jest-dom';
 jest.mock(
   '@/components/common/ErrorAlert',
   () =>
-    function ErrorAlert() {
-      return <div>Mock ErrorAlert</div>;
+    function ErrorAlert(props: any) {
+      return (
+        <div>
+          {props.message}
+          <button onClick={props.onClose}>dismiss-store-error</button>
+        </div>
+      );
     }
 );
 jest.mock('@/components/common/ConfirmModal', () => ({
@@ -264,6 +269,51 @@ describe('AdminDashboard', () => {
     expect(mockAdminStore.declineEntry).toHaveBeenCalledWith('1');
   });
 
+  it('confirms the decline via the confirm modal button', async () => {
+    mockAdminStore.declineEntry = jest.fn().mockResolvedValue(undefined);
+    mockAdminStore.pendingEntries = [
+      { id: '1', name: 'Test User', email: 'test@example.com', type: 'Therapist' },
+    ];
+
+    render(
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText('Test User')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Decline'));
+
+    await waitFor(() => expect(mockStoreInstance?.showDeclineConfirm).toBe(true));
+    mockStoreInstance.declineConfirmed = jest.fn(async () => {
+      const adminStore = jest.requireMock('@/stores/adminStore').default;
+      await adminStore.declineEntry(mockStoreInstance.declineEntryId);
+    });
+
+    const modal = await screen.findByTestId('confirm-modal');
+    fireEvent.click(within(modal).getByRole('button', { name: 'Decline' }));
+
+    await waitFor(() => expect(mockStoreInstance.declineConfirmed).toHaveBeenCalled());
+  });
+
+  it('dismisses the top-level store error banner', async () => {
+    render(
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(mockStoreInstance).toBeTruthy());
+
+    act(() => {
+      mockStoreInstance.error = 'Store failed';
+    });
+    fireEvent.click(screen.getByText('Interventions'));
+
+    expect(await screen.findByText('Store failed')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'dismiss-store-error' }));
+    expect(mockStoreInstance.setError).toHaveBeenCalledWith(null);
+  });
+
   // ── access change requests tab ────────────────────────────────────────────
 
   it('fetches access change requests on mount', async () => {
@@ -365,6 +415,72 @@ describe('AdminDashboard', () => {
         action: 'approve',
       });
     });
+  });
+
+  it('shows and dismisses an error when fetching access change requests fails', async () => {
+    (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+      if (url === '/admin/access-change-requests/') return Promise.reject(new Error('load down'));
+      return Promise.resolve({ data: {} });
+    });
+
+    render(
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText('Access change requests'));
+    expect(await screen.findByText('load down')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close alert' }));
+    expect(screen.queryByText('load down')).not.toBeInTheDocument();
+  });
+
+  it('shows an error when approving a change request fails', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: { requests: [sampleChangeRequest] },
+    });
+    (apiClient.put as jest.Mock).mockRejectedValue(new Error('approve down'));
+
+    render(
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText('Access change requests')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Access change requests'));
+    await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('Approve'));
+    expect(await screen.findByText('approve down')).toBeInTheDocument();
+  });
+
+  it('shows an error when rejecting a change request fails', async () => {
+    (apiClient.get as jest.Mock).mockResolvedValue({
+      data: { requests: [sampleChangeRequest] },
+    });
+    (apiClient.put as jest.Mock).mockRejectedValue(new Error('reject down'));
+
+    render(
+      <MemoryRouter>
+        <AdminDashboard />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText('Access change requests'));
+    await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('Decline'));
+    const noteInput = await screen.findByPlaceholderText(
+      'Explain why the request is being declined...'
+    );
+    fireEvent.change(noteInput, { target: { value: 'no' } });
+
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Decline' }));
+
+    expect(await screen.findByText('reject down')).toBeInTheDocument();
   });
 
   it('shows no pending message when change requests list is empty', async () => {
@@ -541,6 +657,49 @@ describe('AdminDashboard', () => {
         expect(apiClient.delete).toHaveBeenCalledWith('/admin/interventions/iv-1/');
       });
     });
+
+    it('shows and dismisses an error when deleting an intervention fails', async () => {
+      mockApiGet({ interventions: [sampleIntervention] });
+      (apiClient.delete as jest.Mock).mockRejectedValue(new Error('cannot delete'));
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Interventions'));
+      await waitFor(() => expect(screen.getByText('Breathing Exercise')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+      const modal = await screen.findByTestId('confirm-modal');
+      fireEvent.click(within(modal).getByRole('button', { name: /^Delete$/ }));
+
+      expect(await screen.findByText('cannot delete')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close alert' }));
+      expect(screen.queryByText('cannot delete')).not.toBeInTheDocument();
+    });
+
+    it('cancels the delete-intervention confirmation without deleting', async () => {
+      mockApiGet({ interventions: [sampleIntervention] });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Interventions'));
+      await waitFor(() => expect(screen.getByText('Breathing Exercise')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+      const modal = await screen.findByTestId('confirm-modal');
+      fireEvent.click(within(modal).getByRole('button', { name: 'Cancel' }));
+
+      await waitFor(() => expect(screen.queryByTestId('confirm-modal')).not.toBeInTheDocument());
+      expect(apiClient.delete).not.toHaveBeenCalled();
+    });
   });
 
   // ── questionnaires tab ────────────────────────────────────────────────────
@@ -644,15 +803,42 @@ describe('AdminDashboard', () => {
       const titleInput = await screen.findByDisplayValue('PHQ-9');
       fireEvent.change(titleInput, { target: { value: 'PHQ-9 Updated' } });
 
+      const descriptionInput = screen.getByDisplayValue('Depression screening');
+      fireEvent.change(descriptionInput, { target: { value: 'Updated description' } });
+
+      const tagsInput = screen.getByDisplayValue('mental-health');
+      fireEvent.change(tagsInput, { target: { value: 'mental-health, phq' } });
+
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
       await waitFor(() => {
         expect(apiClient.put).toHaveBeenCalledWith('/admin/questionnaires/q-1/', {
           title: 'PHQ-9 Updated',
-          description: 'Depression screening',
-          tags: ['mental-health'],
+          description: 'Updated description',
+          tags: ['mental-health', 'phq'],
         });
       });
+    });
+
+    it('cancels editing a questionnaire without saving', async () => {
+      mockApiGet({ questionnaires: [sampleQuestionnaire] });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Questionnaires'));
+      await waitFor(() => expect(screen.getByText('PHQ-9')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+      await screen.findByDisplayValue('PHQ-9');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      await waitFor(() => expect(screen.queryByDisplayValue('PHQ-9')).not.toBeInTheDocument());
+      expect(apiClient.put).not.toHaveBeenCalled();
     });
 
     it('warns about existing plan assignments when deleting a used questionnaire', async () => {
@@ -678,6 +864,106 @@ describe('AdminDashboard', () => {
       await waitFor(() => {
         expect(apiClient.delete).toHaveBeenCalledWith('/admin/questionnaires/q-1/');
       });
+    });
+
+    it('shows an error when fetching questionnaires fails', async () => {
+      (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/admin/questionnaires/') return Promise.reject(new Error('fetch failed'));
+        return Promise.resolve({ data: {} });
+      });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Questionnaires'));
+      expect(await screen.findByText('fetch failed')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close alert' }));
+      expect(screen.queryByText('fetch failed')).not.toBeInTheDocument();
+    });
+
+    it('shows an error when deleting a questionnaire fails', async () => {
+      mockApiGet({ questionnaires: [sampleQuestionnaire] });
+      (apiClient.delete as jest.Mock).mockRejectedValue(new Error('delete failed'));
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Questionnaires'));
+      await waitFor(() => expect(screen.getByText('PHQ-9')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+      const modal = await screen.findByTestId('confirm-modal');
+      fireEvent.click(within(modal).getByRole('button', { name: /^Delete$/ }));
+
+      expect(await screen.findByText('delete failed')).toBeInTheDocument();
+    });
+
+    it('shows an error when saving an edited questionnaire fails', async () => {
+      mockApiGet({ questionnaires: [sampleQuestionnaire] });
+      (apiClient.put as jest.Mock).mockRejectedValue(new Error('save failed'));
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Questionnaires'));
+      await waitFor(() => expect(screen.getByText('PHQ-9')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+      await screen.findByDisplayValue('PHQ-9');
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(await screen.findByText('save failed')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Close alert' }));
+      expect(screen.queryByText('save failed')).not.toBeInTheDocument();
+    });
+
+    it('cancels the delete-questionnaire confirmation without deleting', async () => {
+      mockApiGet({ questionnaires: [sampleQuestionnaire] });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Questionnaires'));
+      await waitFor(() => expect(screen.getByText('PHQ-9')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+      const modal = await screen.findByTestId('confirm-modal');
+      fireEvent.click(within(modal).getByRole('button', { name: 'Cancel' }));
+
+      await waitFor(() => expect(screen.queryByTestId('confirm-modal')).not.toBeInTheDocument());
+      expect(apiClient.delete).not.toHaveBeenCalled();
+    });
+
+    it('closes the edit-questionnaire modal via the header close (X) button', async () => {
+      mockApiGet({ questionnaires: [sampleQuestionnaire] });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Questionnaires'));
+      await waitFor(() => expect(screen.getByText('PHQ-9')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+      const dialog = await screen.findByRole('dialog');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     });
   });
 
@@ -810,6 +1096,50 @@ describe('AdminDashboard', () => {
 
       fireEvent.click(screen.getByRole('button', { name: 'Export all patients (ZIP)' }));
       await waitFor(() => expect(screen.getByText('boom')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close alert' }));
+      expect(screen.queryByText('boom')).not.toBeInTheDocument();
+    });
+
+    it('shows an error when fetching export clinics fails', async () => {
+      (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/admin/export/clinics/') return Promise.reject(new Error('clinics down'));
+        return Promise.resolve({ data: {} });
+      });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Export'));
+      expect(await screen.findByText('clinics down')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close alert' }));
+      expect(screen.queryByText('clinics down')).not.toBeInTheDocument();
+    });
+
+    it('downloads a ZIP export for the selected clinics only', async () => {
+      mockApiGet({ clinics: ['Inselspital', 'Berner Reha Centrum'] });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Export'));
+      await waitFor(() => expect(screen.getByLabelText('Inselspital')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByLabelText('Berner Reha Centrum'));
+      fireEvent.click(screen.getByRole('button', { name: /Export selected clinics/ }));
+
+      await waitFor(() => {
+        expect(apiClient.get).toHaveBeenCalledWith('/admin/export/patients/?clinics=Inselspital', {
+          responseType: 'blob',
+        });
+      });
     });
   });
 
@@ -908,6 +1238,178 @@ describe('AdminDashboard', () => {
       expect(await screen.findByLabelText('COPAIN')).toBeChecked();
       expect(screen.getByLabelText('Inselspital')).toBeChecked();
       expect(screen.queryByLabelText('Berner Reha Centrum')).not.toBeInTheDocument();
+    });
+
+    it('shows an error instead of opening the modal when therapistId is missing from the entry', async () => {
+      mockAdminStore.pendingEntries = [{ ...therapistEntry, therapistId: undefined }];
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => expect(screen.getByText('Test User')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Edit access'));
+
+      // openAccessModal bails out before setting accessModal.open=true, so the
+      // Modal (and its accessError alert) never actually mounts — there's no
+      // therapistId to look up access for in the first place.
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(apiClient.get).not.toHaveBeenCalledWith('/admin/therapist/access/', expect.anything());
+    });
+
+    it('shows and dismisses an error when loading access data fails', async () => {
+      mockAdminStore.pendingEntries = [therapistEntry];
+      (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/admin/therapist/access/') return Promise.reject(new Error('access down'));
+        return Promise.resolve({ data: {} });
+      });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => expect(screen.getByText('Test User')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Edit access'));
+
+      expect(await screen.findByText('access down')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Close alert' }));
+      expect(screen.queryByText('access down')).not.toBeInTheDocument();
+    });
+
+    it('shows and dismisses an error when saving access changes fails', async () => {
+      mockAdminStore.pendingEntries = [therapistEntry];
+      mockAccessGet({
+        clinics: ['Inselspital'],
+        projects: ['COPAIN'],
+        availableClinics: ['Inselspital'],
+        availableProjects: ['COPAIN'],
+        clinicProjects: { Inselspital: ['COPAIN'] },
+      });
+      (apiClient.put as jest.Mock).mockRejectedValue(new Error('save down'));
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => expect(screen.getByText('Test User')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Edit access'));
+      await screen.findByLabelText('COPAIN');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(await screen.findByText('save down')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Close alert' }));
+      expect(screen.queryByText('save down')).not.toBeInTheDocument();
+    });
+
+    it('toggles a clinic checkbox and prunes it when its enabling project is deselected', async () => {
+      mockAdminStore.pendingEntries = [therapistEntry];
+      mockAccessGet({
+        clinics: ['Inselspital'],
+        projects: ['COPAIN'],
+        availableClinics: ['Inselspital', 'Berner Reha Centrum'],
+        availableProjects: ['COPAIN', 'OtherProject'],
+        clinicProjects: {
+          Inselspital: ['COPAIN'],
+          'Berner Reha Centrum': ['OtherProject'],
+        },
+      });
+      (apiClient.put as jest.Mock).mockResolvedValue({ data: {} });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => expect(screen.getByText('Test User')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Edit access'));
+      await screen.findByLabelText('COPAIN');
+      expect(screen.getByLabelText('Inselspital')).toBeChecked();
+      expect(screen.getByLabelText('OtherProject')).not.toBeChecked();
+
+      // Selecting a second project keeps Save enabled once "COPAIN" (the only
+      // project that allows "Inselspital") is deselected below.
+      fireEvent.click(screen.getByLabelText('OtherProject'));
+      fireEvent.click(screen.getByLabelText('COPAIN'));
+
+      // "Inselspital" is no longer an allowed clinic, so it's pruned both from
+      // the rendered list and from the already-selected clinics.
+      await waitFor(() => expect(screen.queryByLabelText('Inselspital')).not.toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+      await waitFor(() => {
+        expect(apiClient.put).toHaveBeenCalledWith('/admin/therapist/access/', {
+          therapistId: 'th-99',
+          clinics: [],
+          projects: ['OtherProject'],
+        });
+      });
+    });
+
+    it('toggles a clinic checkbox directly', async () => {
+      mockAdminStore.pendingEntries = [therapistEntry];
+      mockAccessGet({
+        clinics: ['Inselspital'],
+        projects: ['COPAIN'],
+        availableClinics: ['Inselspital'],
+        availableProjects: ['COPAIN'],
+        clinicProjects: { Inselspital: ['COPAIN'] },
+      });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => expect(screen.getByText('Test User')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Edit access'));
+      await screen.findByLabelText('COPAIN');
+
+      expect(screen.getByLabelText('Inselspital')).toBeChecked();
+      fireEvent.click(screen.getByLabelText('Inselspital'));
+      expect(screen.getByLabelText('Inselspital')).not.toBeChecked();
+
+      fireEvent.click(screen.getByLabelText('Inselspital'));
+      expect(screen.getByLabelText('Inselspital')).toBeChecked();
+    });
+
+    it('dismisses the access-save success alert', async () => {
+      mockAdminStore.pendingEntries = [therapistEntry];
+      mockAccessGet({
+        clinics: ['Inselspital'],
+        projects: ['COPAIN'],
+        availableClinics: ['Inselspital'],
+        availableProjects: ['COPAIN'],
+        clinicProjects: { Inselspital: ['COPAIN'] },
+      });
+      (apiClient.put as jest.Mock).mockResolvedValue({ data: {} });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => expect(screen.getByText('Test User')).toBeInTheDocument());
+      fireEvent.click(screen.getByText('Edit access'));
+      await screen.findByLabelText('COPAIN');
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      const successAlert = await screen.findByText('Saved successfully.');
+      fireEvent.click(
+        within(successAlert.closest('.alert') as HTMLElement).getByRole('button', {
+          name: 'Close alert',
+        })
+      );
+      expect(screen.queryByText('Saved successfully.')).not.toBeInTheDocument();
     });
 
     it('updates the allowed clinics when a project is toggled', async () => {
@@ -1035,6 +1537,30 @@ describe('AdminDashboard', () => {
           note: 'Not enough justification',
         });
       });
+    });
+
+    it('closes the reject modal via the header close (X) button', async () => {
+      (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/admin/access-change-requests/') {
+          return Promise.resolve({ data: { requests: [sampleChangeRequest] } });
+        }
+        return Promise.resolve({ data: {} });
+      });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      fireEvent.click(screen.getByText('Access change requests'));
+      await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByText('Decline'));
+      const dialog = await screen.findByRole('dialog');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     });
 
     it('cancels the rejection without calling the API', async () => {

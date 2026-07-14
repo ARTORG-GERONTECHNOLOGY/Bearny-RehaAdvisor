@@ -268,6 +268,80 @@ describe('QuestionnairesContent', () => {
     });
   });
 
+  test('normalizes a catalog item that has tags, created_by, and questions populated', async () => {
+    (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/questionnaires/health/')) {
+        return Promise.resolve({
+          data: [
+            {
+              _id: 'full-q',
+              key: 'full-q',
+              title: 'Full Survey',
+              description: 'A full survey',
+              tags: ['mood', 'sleep'],
+              question_count: 2,
+              created_by: 'therapist-9',
+              created_by_name: 'Dr. Who',
+              questions: [{ questionKey: 'q1', answerType: 'text' }],
+            },
+          ],
+        });
+      }
+      if (url.includes('/questionnaires/patient/')) {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(<QuestionnairesContent patientId="P01" />);
+    expect(await screen.findByText('Full Survey')).toBeInTheDocument();
+  });
+
+  test('normalizes a non-array health/patient response into an empty list without crashing', async () => {
+    (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/questionnaires/health/')) {
+        return Promise.resolve({ data: null });
+      }
+      if (url.includes('/questionnaires/patient/')) {
+        return Promise.resolve({ data: null });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(<QuestionnairesContent patientId="P01" />);
+    expect(await screen.findByText('Available questionnaires')).toBeInTheDocument();
+    expect(screen.queryByText('Profile (16)')).not.toBeInTheDocument();
+  });
+
+  test('opens the modify-assignment modal with default schedule values when the assigned entry has no schedule', async () => {
+    (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/questionnaires/health/')) {
+        return Promise.resolve({ data: healthPayload });
+      }
+      if (url.includes('/questionnaires/patient/')) {
+        return Promise.resolve({ data: [{ _id: '16_profile', title: 'Profile (16)' }] });
+      }
+      return Promise.resolve({ data: {} });
+    });
+
+    render(<QuestionnairesContent patientId="P01" />);
+    await screen.findAllByText('Profile (16)');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit questionnaire' }));
+
+    expect(await screen.findByTestId('schedule-modal')).toBeInTheDocument();
+    const defaults = JSON.parse(screen.getByTestId('schedule-defaults').textContent!);
+    expect(defaults).toEqual(
+      expect.objectContaining({
+        interval: 1,
+        unit: 'month',
+        selectedDays: [],
+        startTime: '08:00',
+        end: { type: 'never' },
+      })
+    );
+  });
+
   test('closes the builder modal via onHide', async () => {
     render(<QuestionnairesContent patientId="P01" />);
     await screen.findAllByText('Profile (16)');

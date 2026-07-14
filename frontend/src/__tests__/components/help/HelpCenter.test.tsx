@@ -193,6 +193,20 @@ describe('HelpCenter', () => {
       expect(await screen.findByText(/Help — Patient • Exercises • Info/)).toBeInTheDocument();
     });
 
+    it('falls back to the Loading state when switching to a group with no allowed items', async () => {
+      (authStore as any).userType = 'Therapist';
+      const noTherapistItems = {
+        ...manifest,
+        keys: manifest.keys.filter((k) => !k.includes('.therapist.')),
+      };
+      mockFetchOk(noTherapistItems);
+      render(<HelpCenter open={true} onClose={jest.fn()} />);
+      await screen.findByText(/Help —/);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Therapist' }));
+      await waitFor(() => expect(screen.getByText('Loading...')).toBeInTheDocument());
+    });
+
     it('honors defaultKey when it is allowed and present', async () => {
       mockFetchOk();
       render(

@@ -1088,5 +1088,68 @@ describe('TherapistInterventions — Templates tab', () => {
 
       localStorage.removeItem('templateSeenMap');
     });
+
+    it('shows a "modified" schedule diff (start/end day, frequency, and days) for a rescheduled intervention', async () => {
+      const oldSnapshot = {
+        'tpl-3': {
+          updatedAt: '2025-12-01T00:00:00Z',
+          name: 'Shared',
+          description: '',
+          intervention_count: 1,
+          interventions: [
+            {
+              id: 'same-int',
+              title: 'Stretching',
+              diagnosis: 'heart failure',
+              start_day: 1,
+              end_day: 5,
+              unit: 'day',
+              interval: 1,
+              selectedDays: [],
+            },
+          ],
+        },
+      };
+      localStorage.setItem('templateSeenMap', JSON.stringify(oldSnapshot));
+
+      const planItem = {
+        intervention: { _id: 'same-int', title: 'Stretching' },
+        diagnosis: 'heart failure',
+        schedule: { start_day: 2, end_day: 8, interval: 3, unit: 'week', selectedDays: ['Tue'] },
+        occurrences: [{ day: 2 }],
+      };
+      mockApiGet(
+        [
+          makeDoc({
+            id: 'tpl-3',
+            name: 'Shared',
+            created_by: 'other-therapist',
+            updatedAt: '2026-01-15T00:00:00Z',
+          }),
+        ],
+        [planItem]
+      );
+
+      await goToTemplatesTab();
+      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
+        target: { value: 'tpl-3' },
+      });
+
+      await waitFor(() => {
+        expect(apiClient.get).toHaveBeenCalledWith(
+          expect.stringContaining('templates/tpl-3/calendar/')
+        );
+      });
+
+      const updatedButton = await screen.findByRole('button', { name: /Updated:/i });
+      fireEvent.click(updatedButton);
+
+      expect(await screen.findByText(/start day 1 → 2/)).toBeInTheDocument();
+      expect(screen.getByText(/end day 5 → 8/)).toBeInTheDocument();
+      expect(screen.getByText(/frequency: 1 day → 3 week/)).toBeInTheDocument();
+      expect(screen.getByText(/days: — → Tue/)).toBeInTheDocument();
+
+      localStorage.removeItem('templateSeenMap');
+    });
   });
 });
