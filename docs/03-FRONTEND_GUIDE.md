@@ -10,79 +10,56 @@ The RehaAdvisor frontend is a modern React application built with Vite, providin
 frontend/
 ├── src/
 │   ├── api/                    # API communication layer
-│   │   ├── axios.ts           # Axios instance configuration
-│   │   └── endpoints.ts        # API endpoint definitions
+│   │   ├── client.js          # Axios instance — httpOnly-cookie auth, refresh-lock, CSRF
+│   │   ├── auth.js
+│   │   └── users.js
 │   │
-│   ├── assets/                # Static assets
-│   │   ├── lang/              # i18n language files (de.json, etc.)
-│   │   ├── images/
-│   │   └── styles/
+│   ├── assets/
+│   │   ├── lang/               # i18n language files (en.json, de.json, fr.json, ...)
+│   │   ├── icf/, icons/, flags/, styles/
 │   │
-│   ├── components/            # Reusable UI components
-│   │   ├── Button/
-│   │   ├── Form/
-│   │   ├── Header/
-│   │   ├── Sidebar/
-│   │   └── ...
+│   ├── components/              # Reusable UI + feature components, e.g.:
+│   │   ├── ui/                 # Design-system primitives
+│   │   ├── common/, forms/, skeletons/, help/
+│   │   ├── AddPatient/, AddIntervention/
+│   │   ├── TherapistPatientPage/   # Patient detail page (Outcomes/Plan/
+│   │   │                           # Questionnaires/Information tabs)
+│   │   ├── TherapistInterventionPage/  # Interventions + Named Templates tab
+│   │   ├── Health/              # Health page (metrics cards, view controls,
+│   │   │                        # questionnaire results table, export modal)
+│   │   ├── RehaTablePage/       # Shared table (patients list, rehab plan grid)
+│   │   ├── icf/                 # ICF assessment flow (device capture, assistance, intro/end)
+│   │   ├── PatientLibrary/, PatientPage/, PatientProcess/, HomePage/, UserProfile/
+│   │   └── Layout.tsx, Navigation.tsx, PwaInstallSheet.tsx, ...
 │   │
-│   ├── pages/                 # Page-level components (routed views)
-│   │   ├── Dashboard/
-│   │   ├── Profile/
-│   │   ├── Settings/
-│   │   └── ...
+│   ├── pages/                   # Page-level components (routed views), flat — no subfolders:
+│   │   ├── Home.tsx, Therapist.tsx, TherapistPatientDetail.tsx, TherapistInterventions.tsx
+│   │   ├── Patient.tsx, PatientProcess.tsx, PatientProfile.tsx, PatientPlan.tsx
+│   │   ├── PatientInterventionsLibrary.tsx, PatientInterventionDetail.tsx
+│   │   ├── AdminDashboard.tsx, UserProfile.tsx, Help.tsx
+│   │   ├── eva.tsx, eva2.tsx, HealthSliderDownloadsPage.tsx
+│   │   └── ErrorPage.tsx, FitbitErrorPage.tsx, UnauthorizedAccess.tsx, ...
 │   │
-│   ├── stores/                # MobX state management
-│   │   ├── authStore.ts       # Authentication state
-│   │   ├── userStore.ts       # User data state
-│   │   ├── appStore.ts        # Global app state
-│   │   └── ...
+│   ├── stores/                  # MobX state (singleton instances, makeAutoObservable)
+│   │   ├── authStore.ts        # httpOnly-cookie session state, 2FA, inactivity timeout
+│   │   ├── templateStore.ts, rehabTableStore.ts, ...
 │   │
-│   ├── hooks/                 # Custom React hooks
-│   │   ├── useAuth.ts
-│   │   ├── useFetch.ts
-│   │   └── ...
+│   ├── hooks/                   # Custom React hooks
+│   ├── routes/
+│   │   └── index.tsx           # createBrowserRouter tree, lazy-loaded routes w/ retry-on-stale-chunk
 │   │
-│   ├── routes/                # Route configuration
-│   │   └── Routes.tsx
+│   ├── types/, utils/, services/, config/, lib/, test-utils/
+│   ├── __mocks__/               # Jest manual mocks (e.g. api/client)
+│   ├── __tests__/               # Jest unit tests, mirrors src/ layout
 │   │
-│   ├── types/                 # TypeScript type definitions
-│   │   ├── api.ts
-│   │   ├── models.ts
-│   │   └── ...
-│   │
-│   ├── utils/                 # Utility functions
-│   │   ├── validators.ts
-│   │   ├── formatters.ts
-│   │   └── ...
-│   │
-│   ├── __tests__/             # Unit tests
-│   │   ├── components/
-│   │   ├── stores/
-│   │   └── ...
-│   │
-│   ├── main.tsx               # Application entry point
-│   ├── RootLayout.tsx         # Root layout component
-│   └── vite-env.d.ts          # Vite environment types
+│   ├── main.tsx, RootLayout.tsx, LogoutListener.tsx, vite-env.d.ts
 │
-├── public/                    # Static files (copied as-is)
-│   ├── icons/                 # PWA icons (various sizes)
-│   ├── screenshots/           # PWA screenshots for app stores
-│   └── ...
-│
-├── dist/                      # Build output (generated)
-│   ├── sw.js                  # Service worker (auto-generated)
-│   ├── manifest.webmanifest   # PWA manifest (auto-generated)
-│   └── ...
-│
-├── index.html                 # HTML entry point
-├── vite.config.js             # Vite configuration (includes PWA)
-├── tsconfig.json              # TypeScript configuration
-├── jest.config.ts             # Jest test configuration
-├── jest.setup.ts              # Jest setup file
-├── package.json               # Dependencies and scripts
-├── babel.config.js            # Babel configuration
-├── i18n.js                    # Internationalization setup
-└── .env.example               # Environment variables template
+├── e2e/                          # Playwright E2E specs (*.spec.ts)
+├── public/                       # Static files incl. PWA icons/screenshots, sw.js source
+├── dist/                         # Build output (generated) — sw.js, manifest.webmanifest
+├── index.html, vite.config.js, tsconfig.json
+├── jest.config.ts, babel.config.js, i18n.js
+├── package.json
 ```
 
 ## Development Setup
@@ -106,11 +83,14 @@ npm run build
 # Preview production build locally
 npm run preview
 
-# Run tests
+# Run unit tests (Jest)
 npm test
 
-# Run tests with coverage
-npm test -- --coverage
+# Run unit tests with coverage
+npm run test:coverage
+
+# Run E2E tests (Playwright)
+npm run test:e2e
 
 # Lint code
 npm run lint
@@ -132,31 +112,24 @@ MobX uses **observables** and **actions** for reactive state management:
 
 ### Creating a Store
 
+Stores are MobX singletons that call `makeAutoObservable(this)` in their constructor. Many stores also pass `{ autoBind: true }` so their methods can be passed around as callbacks (e.g. as an `onClick` handler) without losing their `this` binding:
+
 ```typescript
 // stores/exampleStore.ts
-import { makeObservable, observable, action, computed } from 'mobx';
+import { makeAutoObservable, runInAction } from 'mobx';
+import apiClient from '@/api/client';
 
 class ExampleStore {
   count = 0;
   items: string[] = [];
+  loading = false;
 
   constructor() {
-    makeObservable(this, {
-      count: observable,
-      items: observable,
-      increment: action,
-      decrement: action,
-      addItem: action,
-      itemCount: computed,
-    });
+    makeAutoObservable(this, {}, { autoBind: true });
   }
 
   increment() {
     this.count++;
-  }
-
-  decrement() {
-    this.count--;
   }
 
   addItem(item: string) {
@@ -166,10 +139,26 @@ class ExampleStore {
   get itemCount() {
     return this.items.length;
   }
+
+  async fetchItems() {
+    this.loading = true;
+    try {
+      const { data } = await apiClient.get('items/');
+      runInAction(() => {
+        this.items = data.items;
+      });
+    } finally {
+      runInAction(() => {
+        this.loading = false;
+      });
+    }
+  }
 }
 
 export const exampleStore = new ExampleStore();
 ```
+
+Async actions follow the pattern above: mutate observables inside `runInAction` after an `await`, since MobX only auto-wraps the synchronous portion of an action.
 
 ### Using Stores in Components
 
@@ -192,158 +181,123 @@ export const ExampleComponent = observer(() => {
 
 ### AuthStore Pattern
 
+Auth tokens are delivered as **httpOnly cookies**, so `authStore` never holds a raw token value. It's a `makeAutoObservable` singleton (`src/stores/authStore.ts`) that tracks `isAuthenticated`, `id`, `userType`, profile fields, and 2FA/session-timeout state, restoring session state on init via `checkAuthentication()`:
+
 ```typescript
-// stores/authStore.ts
-import { makeObservable, observable, action } from 'mobx';
-import { api } from '../api/axios';
+// src/stores/authStore.ts (abbreviated to the real shape)
+import { makeAutoObservable, runInAction } from 'mobx';
+import apiClient from '@/api/client';
+
+export type UserRole = 'Admin' | 'Therapist' | 'Researcher' | 'Patient';
 
 class AuthStore {
-  token: string | null = null;
-  user: User | null = null;
-  isLoading = false;
-  error: string | null = null;
+  isAuthenticated = false;
+  userType: UserRole | '' = '';
+  id = '';
+  loginErrorMessage = '';
+  partialLogin = false; // true mid-2FA, before the second factor is verified
+  sessionTimeout = 15 * 60 * 1000; // 15 minutes of inactivity → auto-logout
 
   constructor() {
-    makeObservable(this, {
-      token: observable,
-      user: observable,
-      isLoading: observable,
-      error: observable,
-      login: action,
-      logout: action,
-      setToken: action,
-    });
+    makeAutoObservable(this, { _refreshPromise: false } as any);
+    this.checkAuthentication(); // restores state from cookie-backed session, not localStorage
 
-    // Load token from localStorage on init
-    const savedToken = localStorage.getItem('authToken');
-    if (savedToken) {
-      this.token = savedToken;
-      api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
-    }
+    // Cross-tab logout sync: another tab clearing 'id' from localStorage mirrors here
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'id' && !e.newValue) this.reset();
+    });
   }
 
   async login(email: string, password: string) {
-    this.isLoading = true;
     try {
-      const response = await api.post('/token/', { email, password });
-      this.setToken(response.data.access);
-      this.user = response.data.user;
+      const { data } = await apiClient.post('auth/login/', { email, password });
+      // Server sets the access/refresh tokens as httpOnly cookies on the response —
+      // the client never sees or stores the token itself.
+      runInAction(() => {
+        this.isAuthenticated = !data.requires_2fa;
+        this.partialLogin = !!data.requires_2fa;
+        this.id = data.id;
+      });
     } catch (error) {
-      this.error = 'Login failed';
-    } finally {
-      this.isLoading = false;
+      runInAction(() => {
+        this.loginErrorMessage = 'Login failed';
+      });
     }
   }
 
-  setToken(token: string) {
-    this.token = token;
-    localStorage.setItem('authToken', token);
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  }
-
-  logout() {
-    this.token = null;
-    this.user = null;
-    localStorage.removeItem('authToken');
-    delete api.defaults.headers.common['Authorization'];
+  reset() {
+    this.isAuthenticated = false;
+    this.id = '';
   }
 }
 
-export const authStore = new AuthStore();
+export default new AuthStore();
 ```
 
 ## API Communication
 
-### Axios Configuration
+### Axios Client
 
-```typescript
-// api/axios.ts
+```javascript
+// src/api/client.js — the real, single Axios instance used app-wide
 import axios from 'axios';
 
-const BASE_URL = process.env.VITE_API_URL || 'http://localhost:8001';
+axios.defaults.xsrfCookieName = 'csrftoken';
+axios.defaults.xsrfHeaderName = 'X-CSRFToken';
 
-export const api = axios.create({
-  baseURL: `${BASE_URL}/api`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+  withCredentials: true, // sends the httpOnly auth cookies automatically on every request
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor for auth token
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Response interceptor for error handling
-api.interceptors.response.use(
+// On 401, transparently refresh via the httpOnly refresh-token cookie (no body needed)
+// and retry the original request. A refresh-lock queues concurrent 401s so only one
+// refresh call runs at a time — ROTATE_REFRESH_TOKENS on the backend blacklists the old
+// refresh token, so two simultaneous refreshes would otherwise race and log the user out.
+apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized - redirect to login
-      window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      await axios.post(`${import.meta.env.VITE_API_URL}/auth/token/refresh/`, {}, { withCredentials: true });
+      return apiClient(originalRequest);
     }
     return Promise.reject(error);
   }
 );
+
+export default apiClient;
 ```
 
-### API Endpoints
-
-```typescript
-// api/endpoints.ts
-export const ENDPOINTS = {
-  AUTH: {
-    LOGIN: '/token/',
-    REFRESH: '/token/refresh/',
-    LOGOUT: '/logout/',
-  },
-  USERS: {
-    LIST: '/users/',
-    DETAIL: (id: string) => `/users/${id}/`,
-    CREATE: '/users/',
-    UPDATE: (id: string) => `/users/${id}/`,
-    DELETE: (id: string) => `/users/${id}/`,
-  },
-  // Add more endpoints
-};
-```
+There is no `api/endpoints.ts` constants file — call sites use inline path strings (e.g. `apiClient.get('patients/')`, `apiClient.get(\`templates/${id}/calendar/\`)`), grouped instead by feature-specific API modules (`src/api/auth.js`, `src/api/users.js`) or directly inside stores/components.
 
 ### Using API in Components
 
 ```typescript
-// Example: Fetch data in component
+// Example: fetch data in a component
 import { useEffect, useState } from 'react';
-import { api } from '../api/axios';
+import apiClient from '@/api/client';
 
-export const UserList = () => {
-  const [users, setUsers] = useState([]);
+export const PatientList = () => {
+  const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await api.get('/users/');
-        setUsers(response.data);
-      } catch (error) {
-        console.error('Failed to fetch users:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUsers();
+    apiClient
+      .get('patients/')
+      .then(({ data }) => setPatients(data.patients))
+      .catch((error) => console.error('Failed to fetch patients:', error))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <div>Loading...</div>;
 
   return (
     <ul>
-      {users.map((user) => (
-        <li key={user.id}>{user.name}</li>
+      {patients.map((patient) => (
+        <li key={patient.id}>{patient.name}</li>
       ))}
     </ul>
   );
@@ -624,12 +578,13 @@ describe('Button Component', () => {
 
 ## Environment Variables
 
-Create a `.env` file in the frontend directory:
+There's no `.env` file inside `frontend/` — these are set in the repo-root `.env.dev`/`.env.prod`, loaded into the `react` container via `env_file:` in `docker-compose.dev.yml` (see [07-ENVIRONMENT_CONFIG.md](./07-ENVIRONMENT_CONFIG.md)). Variables actually read in the frontend source:
 
 ```
 VITE_API_URL=http://localhost:8001
-VITE_APP_NAME=RehaAdvisor
-VITE_DEBUG=true
+VITE_FITBIT_CLIENT_ID=...
+VITE_FITBIT_REDIRECT_URI=...
+VITE_SENTRY_DSN=...
 ```
 
 Access them in code:

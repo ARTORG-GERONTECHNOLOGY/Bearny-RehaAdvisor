@@ -95,15 +95,7 @@ cd RehaAdvisor
 
 ### Step 4: Review Environment Variables
 
-Check `docker-compose.dev.yml` for environment variables. Create `.env` files if needed:
-
-```bash
-# Backend environment (if required)
-echo "DEBUG=True" > backend/.env
-
-# Frontend environment (if required)
-echo "VITE_API_URL=http://localhost:8001" > frontend/.env
-```
+The backend, celery, and celery-beat services all load `./.env.dev` (see `env_file:` in `docker-compose.dev.yml`). Create it at the repo root before starting the stack. At minimum for local dev you'll need Django settings plus, if you want to exercise wearable/study features, Fitbit OAuth credentials and REDCap API tokens — see [Environment Configuration](./07-ENVIRONMENT_CONFIG.md) for the full variable list (including `FITBIT_CLIENT_ID`/`FITBIT_CLIENT_SECRET`, `REDCAP_API_URL`/`REDCAP_TOKEN_*`, and `APP_MODE`, which gates whether manual patient creation or REDCap-only import is available).
 
 ### Step 5: Build and Start
 
@@ -151,7 +143,7 @@ docker compose -f docker-compose.dev.yml logs db
 - **Database Name**: rehaadvisor
 
 ### NGINX Reverse Proxy
-- **Port**: 80 (proxies to backend and frontend)
+- Ports 80/443 are commented out by default in `docker-compose.dev.yml` (they're owned by a shared gateway when multi-stack routing is active). For a standalone dev setup without the gateway, uncomment the `"80:80"` / `"443:443"` port mappings on the `nginx-dev` service.
 
 ## Common Development Tasks
 
@@ -171,16 +163,16 @@ docker compose -f docker-compose.dev.yml logs -f db
 
 ```bash
 # Access Django shell
-docker exec -it telerehabapp-django-1 python manage.py shell
+docker exec -it django python manage.py shell
 
 # Run Django migrations
-docker exec -it telerehabapp-django-1 python manage.py migrate
+docker exec -it django python manage.py migrate
 
 # Access frontend container
-docker exec -it telerehabapp-react-1 sh
+docker exec -it react sh
 
 # Access MongoDB
-docker exec -it telerehabapp-db-1 mongosh
+docker exec -it db mongosh
 ```
 
 ### Run Tests
