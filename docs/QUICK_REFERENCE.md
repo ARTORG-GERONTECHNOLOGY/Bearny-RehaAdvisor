@@ -128,7 +128,7 @@ cd backend && pytest        # Backend
 docker exec -it <container> sh
 
 # Access MongoDB
-docker exec -it telerehabapp-db-1 mongosh
+docker exec -it db mongosh
 ```
 
 ### Production

@@ -18,3 +18,4 @@ backups/
 .codex
 .claude
 export_audit.csv
+.vscode/*

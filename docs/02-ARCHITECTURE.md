@@ -32,13 +32,13 @@ RehaAdvisor is built using a modern microservices-based architecture with clear 
 **Location**: `/frontend`
 
 **Technologies**:
-- **Framework**: React 18+
+- **Framework**: React 19
 - **Build Tool**: Vite (fast development and production builds)
 - **Language**: TypeScript
 - **State Management**: MobX (stores in `/frontend/src/stores`)
 - **HTTP Client**: Axios (for API communication)
 - **Internationalization**: i18next
-- **Testing**: Jest
+- **Testing**: Jest (unit/component) + Playwright (E2E, `frontend/e2e/`)
 - **Styling**: CSS (configurable)
 
 **Key Directories**:

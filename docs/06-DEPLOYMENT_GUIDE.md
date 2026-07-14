@@ -179,13 +179,13 @@ docker compose logs -f
 
 ```bash
 # Run migrations
-docker exec telerehabapp-django-1 python manage.py migrate
+docker exec django python manage.py migrate
 
 # Create superuser
-docker exec -it telerehabapp-django-1 python manage.py createsuperuser
+docker exec -it django python manage.py createsuperuser
 
 # Collect static files
-docker exec telerehabapp-django-1 python manage.py collectstatic --noinput
+docker exec django python manage.py collectstatic --noinput
 
 # Test health endpoints
 curl https://yourdomain.com/api/health/
