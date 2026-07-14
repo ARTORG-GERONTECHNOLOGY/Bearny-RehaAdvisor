@@ -396,7 +396,11 @@ describe('PatientView', () => {
 
     const bpProps = (manualBloodPressureSheetMock as jest.Mock).mock.calls[0][0];
     await bpProps.onSubmit(125, 84, '2026-03-01');
-    expect(vitalsStore.submit).toHaveBeenCalledWith('p1', { bp_sys: 125, bp_dia: 84 }, '2026-03-01');
+    expect(vitalsStore.submit).toHaveBeenCalledWith(
+      'p1',
+      { bp_sys: 125, bp_dia: 84 },
+      '2026-03-01'
+    );
     expect(fitbitStore.fetchSummary).toHaveBeenCalledWith('p1', 7);
   });
 
