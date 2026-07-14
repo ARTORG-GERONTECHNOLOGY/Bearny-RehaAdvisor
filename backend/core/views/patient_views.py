@@ -2802,7 +2802,11 @@ def reschedule_intervention_date(request):
     # Compared by calendar day, not exact instant: the patient/therapist UI
     # groups and displays occurrences per day, so two occurrences of the same
     # intervention landing on the same day would silently collapse into a
-    # single visible card even though the plan holds two dates.
+    # single visible card even though the plan holds two dates. This also
+    # applies to completed occurrences: PatientInterventionLogs records
+    # completion per calendar day (not per exact occurrence), so allowing a
+    # second same-day occurrence would make the therapist view misattribute
+    # the existing completed log to the new, unstarted occurrence.
     # ----------------------
     new_day = _as_aware_local(new_dt_utc).date()
     collides = any(_as_aware_local(d).date() == new_day for i, d in enumerate(existing_utc) if i != match_idx)
