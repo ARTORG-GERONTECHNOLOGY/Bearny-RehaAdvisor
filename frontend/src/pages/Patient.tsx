@@ -183,8 +183,8 @@ const PatientView: React.FC = observer(() => {
         open={showManualWeightEntry}
         dateLabel={selectedDateLongLabel}
         onClose={() => setShowManualWeightEntry(false)}
-        onSubmit={async (weightKg) => {
-          await patientVitalsStore.submit(patientId, { weight_kg: weightKg });
+        onSubmit={async (weightKg, date) => {
+          await patientVitalsStore.submit(patientId, { weight_kg: weightKg }, date);
           if (patientVitalsStore.error) {
             throw new Error(t('failedSave'));
           }
@@ -196,11 +196,8 @@ const PatientView: React.FC = observer(() => {
         open={showManualBloodPressureEntry}
         dateLabel={selectedDateLongLabel}
         onClose={() => setShowManualBloodPressureEntry(false)}
-        onSubmit={async (bpSys, bpDia) => {
-          await patientVitalsStore.submit(patientId, {
-            bp_sys: bpSys,
-            bp_dia: bpDia,
-          });
+        onSubmit={async (bpSys, bpDia, date) => {
+          await patientVitalsStore.submit(patientId, { bp_sys: bpSys, bp_dia: bpDia }, date);
           if (patientVitalsStore.error) {
             throw new Error(t('failedSave'));
           }
