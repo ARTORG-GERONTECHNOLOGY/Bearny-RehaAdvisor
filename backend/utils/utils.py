@@ -267,9 +267,14 @@ def generate_repeat_dates(patient_end_date, repeat_data):
     end_date_limit = None
     if end_date_raw:
         try:
-            end_date_limit = datetime.fromisoformat(end_date_raw.replace("Z", "+00:00"))
+            if isinstance(end_date_raw, datetime):
+                end_date_limit = end_date_raw
+            else:
+                end_date_limit = datetime.fromisoformat(str(end_date_raw).replace("Z", "+00:00"))
             if is_naive(end_date_limit):
                 end_date_limit = make_aware(end_date_limit)
+            # Extend to end of day so sessions scheduled on the end date are included
+            end_date_limit = end_date_limit.replace(hour=23, minute=59, second=59, microsecond=999999)
         except Exception:
             logger.warning("Failed to parse end_date")
 

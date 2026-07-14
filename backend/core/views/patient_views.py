@@ -2247,7 +2247,10 @@ def _generate_dates_from(
 
     hard_stop = plan_end
     if (end_cfg.get("type") == "date") and end_cfg.get("date"):
-        hard_stop = min(hard_stop, _parse_iso(str(end_cfg["date"])))
+        end_dt = _parse_iso(str(end_cfg["date"]))
+        # Extend to end of day so sessions on the chosen end date are included
+        end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+        hard_stop = min(hard_stop, end_dt)
 
     out = []
 
@@ -2522,6 +2525,9 @@ def modify_intervention_from_date(request):
     try:
         plan_end = plan.endDate or (timezone.now() + datetime.timedelta(days=365))
         plan_end_local = _as_aware_local(plan_end)
+        # If the plan's end date has passed, allow rescheduling up to 1 year from now
+        if plan_end_local < _as_aware_local(timezone.now()):
+            plan_end_local = _as_aware_local(timezone.now() + datetime.timedelta(days=365))
 
         new_local = _generate_dates_from(schedule, eff_dt_local, plan_end_local)
         new_utc = [dt.astimezone(datetime.timezone.utc) for dt in new_local]

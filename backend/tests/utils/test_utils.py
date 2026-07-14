@@ -306,3 +306,62 @@ def test_generate_repeat_dates_invalid_end_date_logs_warning(caplog):
         dates = generate_repeat_dates(patient_end_date, repeat_data)
     assert len(dates) == 2  # fallback: no end_date_limit applied
     assert "Failed to parse end_date" in caplog.text
+
+
+def test_generate_repeat_dates_end_date_as_datetime_object():
+    """
+    Bug #439: patient_views.py passes end_date through to_dt() which returns a
+    datetime object. generate_repeat_dates must accept a datetime object (not
+    only a string) and stop generation at that date instead of falling back to
+    patient_end_date (which can be weeks later).
+    """
+    from django.utils.timezone import make_aware
+
+    patient_end_date = make_aware(datetime.now() + timedelta(days=60))
+    end_date_dt = make_aware(datetime.now() + timedelta(days=5))
+
+    repeat_data = {
+        "interval": 1,
+        "unit": "day",
+        "start_date": datetime.now(),
+        "end_date": end_date_dt,  # datetime object, not string
+        "end_type": "date",
+    }
+    dates = generate_repeat_dates(patient_end_date, repeat_data)
+
+    # Should stop at ~5 days, not reach 60 days
+    assert len(dates) > 0
+    assert len(dates) <= 7, (
+        f"Expected ≤7 dates (5 days + EOD buffer), got {len(dates)} — "
+        "end_date as datetime was ignored, falling back to patient_end_date"
+    )
+
+
+def test_generate_repeat_dates_sessions_on_end_date_included():
+    """
+    Bug #439: the end_date from the frontend is midnight UTC of the chosen day,
+    which becomes midnight local time on the backend. Sessions scheduled later
+    that day (e.g. 08:00) would be excluded. After the fix, hard_stop is
+    extended to 23:59:59 so same-day sessions are included.
+    """
+    from django.utils.timezone import make_aware
+
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    # end_date = midnight of today; session time = 08:00 today
+    end_date_dt = make_aware(today)
+    session_start = make_aware(today.replace(hour=8, minute=0))
+    patient_end_date = make_aware(today + timedelta(days=30))
+
+    repeat_data = {
+        "interval": 1,
+        "unit": "day",
+        "start_date": session_start,
+        "end_date": end_date_dt,
+        "end_type": "date",
+    }
+    dates = generate_repeat_dates(patient_end_date, repeat_data)
+
+    # The session at 08:00 on the end date should be included
+    assert any(
+        d.date() == today.date() for d in dates
+    ), "Session on end date day was excluded — end-of-day boundary not applied"
