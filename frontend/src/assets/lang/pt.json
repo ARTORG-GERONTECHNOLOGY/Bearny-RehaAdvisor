@@ -3,6 +3,7 @@
   "Filter by Disease": "Filtrar por Doença",
   "failedCheck": "Falha ao verificar os dados vitais de hoje.",
   "failedSave": "Falha ao guardar os dados vitais de hoje. Por favor tente novamente.",
+  "failedReschedule": "Falha ao reagendar. Por favor tente novamente.",
   "successSave": "Os dados vitais de hoje foram guardados com sucesso.",
   "title": "Dados vitais de hoje",
   "subtitle": "Por favor introduza o seu peso e pressão arterial para hoje",

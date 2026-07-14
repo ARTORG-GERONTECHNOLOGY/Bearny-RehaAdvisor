@@ -3,6 +3,7 @@
   "Filter by Disease": "Filter by Disease",
   "failedCheck": "Failed to check today’s vitals.",
   "failedSave": "Failed to save today’s vitals. Please try again.",
+  "failedReschedule": "Failed to reschedule. Please try again.",
   "successSave": "Today’s vitals were saved successfully.",
   "title": "Today’s vitals",
   "subtitle": "Please enter your weight and blood pressure for today",

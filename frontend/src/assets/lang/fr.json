@@ -3,6 +3,7 @@
   "Filter by Disease": "Filtrer par maladie",
   "failedCheck": "Impossible de vérifier les constantes d’aujourd’hui.",
   "failedSave": "Échec de l’enregistrement des constantes d’aujourd’hui. Veuillez réessayer.",
+  "failedReschedule": "Échec de la reprogrammation. Veuillez réessayer.",
   "successSave": "Les constantes d’aujourd’hui ont été enregistrées avec succès.",
   "title": "Constantes du jour",
   "subtitle": "Veuillez saisir votre poids et votre tension artérielle pour aujourd’hui",
