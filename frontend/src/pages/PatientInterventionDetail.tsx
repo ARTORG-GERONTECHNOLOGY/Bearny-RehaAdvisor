@@ -642,7 +642,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
   return (
     <Layout>
       <div ref={tooltipContainerRef} className="flex flex-col gap-2">
-        <div className="flex justify-between align-items-center">
+        <div className="flex justify-between align-items-end">
           <Button size="icon" variant="secondary" onClick={() => navigate(-1)} className="bg-white">
             <ArrowLeftIcon />
             <span className="sr-only">{t('Back')}</span>
