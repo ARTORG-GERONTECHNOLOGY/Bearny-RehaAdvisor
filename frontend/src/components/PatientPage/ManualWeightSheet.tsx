@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { format } from 'date-fns';
 import { Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ interface ManualWeightSheetProps {
   open: boolean;
   dateLabel: string;
   onClose: () => void;
-  onSubmit: (weightKg: number) => Promise<void>;
+  onSubmit: (weightKg: number, date: string) => Promise<void>;
 }
 
 const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
@@ -27,12 +28,15 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
   onSubmit,
 }) => {
   const { t } = useTranslation();
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const [entryDate, setEntryDate] = useState(today);
   const [weightInput, setWeightInput] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) {
+      setEntryDate(format(new Date(), 'yyyy-MM-dd'));
       setWeightInput('');
       setError('');
       setIsSubmitting(false);
@@ -46,7 +50,7 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
     setError('');
     setIsSubmitting(true);
     try {
-      await onSubmit(Number(weightInput));
+      await onSubmit(Number(weightInput), entryDate);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('failedSave'));
@@ -64,6 +68,19 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
         </SheetHeader>
 
         <div className="flex-1 flex flex-col gap-4 items-center justify-center">
+          <Field className="w-fit gap-1">
+            <FieldLabel htmlFor="weight-entry-date" className="font-medium text-lg text-zinc-600">
+              {t('Date')}
+            </FieldLabel>
+            <Input
+              id="weight-entry-date"
+              type="date"
+              max={today}
+              value={entryDate}
+              onChange={(e) => setEntryDate(e.target.value)}
+              className="h-14 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium text-xl shadow-none"
+            />
+          </Field>
           <Field className="w-fit flex flex-row items-center gap-3">
             <Input
               id="weight"

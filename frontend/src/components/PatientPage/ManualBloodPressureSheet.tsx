@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { format } from 'date-fns';
 import { Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ interface ManualBloodPressureSheetProps {
   open: boolean;
   dateLabel: string;
   onClose: () => void;
-  onSubmit: (bpSys: number, bpDia: number) => Promise<void>;
+  onSubmit: (bpSys: number, bpDia: number, date: string) => Promise<void>;
 }
 
 const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
@@ -27,6 +28,8 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
   onSubmit,
 }) => {
   const { t } = useTranslation();
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const [entryDate, setEntryDate] = useState(today);
   const [bpSysInput, setBpSysInput] = useState('');
   const [bpDiaInput, setBpDiaInput] = useState('');
   const [error, setError] = useState('');
@@ -34,6 +37,7 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
 
   useEffect(() => {
     if (!open) {
+      setEntryDate(format(new Date(), 'yyyy-MM-dd'));
       setBpSysInput('');
       setBpDiaInput('');
       setError('');
@@ -49,7 +53,7 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
     setError('');
     setIsSubmitting(true);
     try {
-      await onSubmit(Number(bpSysInput), Number(bpDiaInput));
+      await onSubmit(Number(bpSysInput), Number(bpDiaInput), entryDate);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('failedSave'));
@@ -68,6 +72,19 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
 
         <div className="flex-1 flex flex-col items-center justify-center">
           <div className="flex flex-col gap-4">
+            <Field className="w-fit gap-1">
+              <FieldLabel htmlFor="bp-entry-date" className="font-medium text-lg text-zinc-600">
+                {t('Date')}
+              </FieldLabel>
+              <Input
+                id="bp-entry-date"
+                type="date"
+                max={today}
+                value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)}
+                className="h-14 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium text-xl shadow-none"
+              />
+            </Field>
             <Field className="w-fit gap-1">
               <FieldLabel htmlFor="systolic" className="font-medium text-lg text-zinc-600">
                 {t('Systolic (mmHg)')}
