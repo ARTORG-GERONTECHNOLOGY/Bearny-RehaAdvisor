@@ -598,13 +598,17 @@ const TherapistRecomendations: React.FC = observer(() => {
 
   const handleConfirmEditMeta = async () => {
     if (!activeTemplateId) return;
+    const isOwnerOrAdmin =
+      templateStore.templates.find((x) => x.id === activeTemplateId)?.created_by ===
+        authStore.id || authStore.userType === 'Admin';
     try {
       setEditMetaSubmitting(true);
-      await templateStore.updateTemplate(activeTemplateId, {
+      const patch: Parameters<typeof templateStore.updateTemplate>[1] = {
         name: editMetaName.trim(),
         description: editMetaDesc.trim(),
-        is_public: editMetaPublic,
-      });
+      };
+      if (isOwnerOrAdmin) patch.is_public = editMetaPublic;
+      await templateStore.updateTemplate(activeTemplateId, patch);
       setShowEditMetaModal(false);
     } catch {
       // error surfaced via templateStore.error
@@ -877,16 +881,13 @@ const TherapistRecomendations: React.FC = observer(() => {
                         <FaUpload className="me-1" />
                         {t('Apply')}
                       </Button>
-                      {templateStore.templates.find((x) => x.id === activeTemplateId)
-                        ?.created_by === authStore.id && (
-                        <Button
-                          variant="outline-secondary"
-                          onClick={handleOpenEditMeta}
-                          title={t('Edit name / description')}
-                        >
-                          <FaEdit />
-                        </Button>
-                      )}
+                      <Button
+                        variant="outline-secondary"
+                        onClick={handleOpenEditMeta}
+                        title={t('Edit name / description')}
+                      >
+                        <FaEdit />
+                      </Button>
                       <Button
                         variant="outline-secondary"
                         onClick={handleCopyActiveTemplate}
@@ -894,8 +895,9 @@ const TherapistRecomendations: React.FC = observer(() => {
                       >
                         <FaCopy />
                       </Button>
-                      {templateStore.templates.find((x) => x.id === activeTemplateId)
-                        ?.created_by === authStore.id && (
+                      {(templateStore.templates.find((x) => x.id === activeTemplateId)
+                        ?.created_by === authStore.id ||
+                        authStore.userType === 'Admin') && (
                         <Button
                           variant="outline-danger"
                           onClick={handleDeleteActiveTemplate}
@@ -1268,13 +1270,17 @@ const TherapistRecomendations: React.FC = observer(() => {
               onChange={(e) => setEditMetaDesc(e.target.value)}
             />
           </Form.Group>
-          <Form.Check
-            type="checkbox"
-            id="edit-meta-public"
-            label={t('Public (visible to all therapists)')}
-            checked={editMetaPublic}
-            onChange={(e) => setEditMetaPublic(e.target.checked)}
-          />
+          {(templateStore.templates.find((x) => x.id === activeTemplateId)?.created_by ===
+            authStore.id ||
+            authStore.userType === 'Admin') && (
+            <Form.Check
+              type="checkbox"
+              id="edit-meta-public"
+              label={t('Public (visible to all therapists)')}
+              checked={editMetaPublic}
+              onChange={(e) => setEditMetaPublic(e.target.checked)}
+            />
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button
