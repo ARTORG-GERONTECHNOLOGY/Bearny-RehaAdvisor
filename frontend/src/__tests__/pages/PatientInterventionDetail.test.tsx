@@ -19,6 +19,9 @@ jest.mock('react-router-dom', () => {
 });
 
 jest.mock('react-bootstrap', () => ({
+  Alert: function Alert({ children }: any) {
+    return <div role="alert">{children}</div>;
+  },
   OverlayTrigger: function OverlayTrigger({ children }: any) {
     return <>{children}</>;
   },
@@ -124,6 +127,7 @@ jest.mock('@/stores/patientInterventionsStore', () => ({
     fetchPlan: jest.fn(async () => {}),
     isCompletedOn: jest.fn(() => false),
     toggleCompleted: jest.fn(async () => ({ completed: false, dateKey: '2026-03-16' })),
+    rescheduleOccurrence: jest.fn(async () => '2026-03-20T00:00:00+00:00'),
   },
 }));
 
@@ -942,5 +946,84 @@ describe('PatientInterventionDetail', () => {
 
     fireEvent.keyDown(mediaBadge, { key: 'Enter' });
     expect(scrollSpy).toHaveBeenCalledTimes(2);
+  });
+
+  // --- Reschedule button + sheet (issue #426) ---
+
+  describe('reschedule', () => {
+    it('shows the Reschedule button when the occurrence is not completed', async () => {
+      render(<PatientInterventionDetail />);
+      await screen.findByText('Morning Stretch');
+
+      expect(screen.getByRole('button', { name: 'Reschedule' })).toBeInTheDocument();
+    });
+
+    it('hides the Reschedule button once the occurrence is completed', async () => {
+      (patientInterventionsStore as any).isCompletedOn.mockReturnValue(true);
+
+      render(<PatientInterventionDetail />);
+      await screen.findByText('Morning Stretch');
+
+      expect(screen.queryByRole('button', { name: 'Reschedule' })).not.toBeInTheDocument();
+    });
+
+    it('does not show the Reschedule button when the URL date does not match an assigned date', async () => {
+      mockSearchParams = new URLSearchParams('date=2026-04-01');
+
+      render(<PatientInterventionDetail />);
+      await screen.findByText('Morning Stretch');
+
+      expect(screen.queryByRole('button', { name: 'Reschedule' })).not.toBeInTheDocument();
+    });
+
+    it('opens the reschedule sheet with a date picker when clicked', async () => {
+      render(<PatientInterventionDetail />);
+
+      const rescheduleButton = await screen.findByRole('button', { name: 'Reschedule' });
+      fireEvent.click(rescheduleButton);
+
+      expect(screen.getByLabelText('Date')).toBeInTheDocument();
+    });
+
+    it('submits a new date, calls rescheduleOccurrence with the original occurrence, and navigates to the updated date', async () => {
+      render(<PatientInterventionDetail />);
+
+      const rescheduleButton = await screen.findByRole('button', { name: 'Reschedule' });
+      fireEvent.click(rescheduleButton);
+
+      fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-03-20' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => {
+        expect((patientInterventionsStore as any).rescheduleOccurrence).toHaveBeenCalledWith(
+          'patient-1',
+          expect.objectContaining({ intervention_id: 'int-1' }),
+          '2026-03-16',
+          expect.any(Date)
+        );
+      });
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith('/patient-intervention/int-1?date=2026-03-20', {
+          replace: true,
+        });
+      });
+    });
+
+    it('does not navigate when rescheduling fails', async () => {
+      (patientInterventionsStore as any).rescheduleOccurrence.mockRejectedValueOnce(
+        new Error('A session already exists on that day.')
+      );
+
+      render(<PatientInterventionDetail />);
+      const rescheduleButton = await screen.findByRole('button', { name: 'Reschedule' });
+      fireEvent.click(rescheduleButton);
+
+      fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-03-20' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(await screen.findByText('A session already exists on that day.')).toBeInTheDocument();
+      expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('2026-03-20'));
+    });
   });
 });
