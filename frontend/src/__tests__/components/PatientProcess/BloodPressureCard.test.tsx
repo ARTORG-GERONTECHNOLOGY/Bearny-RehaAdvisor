@@ -3,11 +3,24 @@ import { render, screen } from '@testing-library/react';
 
 jest.mock('recharts', () => ({
   CartesianGrid: () => null,
-  Dot: () => null,
-  Line: () => null,
+  Dot: (props: any) => <g data-testid="dot" data-fill={props.fill} />,
+  // Exercise the `dot` render-prop so its source lines count toward coverage.
+  Line: (props: any) => {
+    if (typeof props.dot !== 'function') return null;
+    const rendered = props.dot({
+      key: 'k1',
+      cx: 10,
+      cy: 20,
+      payload: { colors: { bpSys: '#111111', bpDia: '#222222' } },
+    });
+    return <g data-testid={`line-${props.dataKey}`}>{rendered}</g>;
+  },
   LineChart: ({ children }: { children: React.ReactNode }) => <svg>{children}</svg>,
-  ReferenceLine: () => null,
-  XAxis: () => null,
+  ReferenceLine: (props: any) => <g data-testid="reference-line" data-y={props.y} />,
+  // Exercise the tickFormatter so its source line counts toward coverage.
+  XAxis: (props: any) => (
+    <g data-testid="xaxis" data-formatted={props.tickFormatter?.('01.05.2026')} />
+  ),
   YAxis: () => null,
 }));
 
@@ -113,5 +126,39 @@ describe('BloodPressureCard', () => {
     const valueDiv = container.querySelector('[class*="text-\\[28px\\]"]');
     const text = valueDiv?.textContent?.replace(/\s+/g, '');
     expect(text).toBe('--/--mmHg');
+  });
+
+  it('formats the x-axis tick by stripping the day portion of the date', () => {
+    const { container } = render(<BloodPressureCard {...baseProps} />);
+    expect(container.querySelector('[data-testid="xaxis"]')).toHaveAttribute(
+      'data-formatted',
+      '05.2026'
+    );
+  });
+
+  it('renders both threshold reference lines when both thresholds are set', () => {
+    const { container } = render(<BloodPressureCard {...baseProps} />);
+    const lines = container.querySelectorAll('[data-testid="reference-line"]');
+    expect(Array.from(lines).map((l) => l.getAttribute('data-y'))).toEqual(['130', '85']);
+  });
+
+  it('omits the systolic reference line when bpSysThreshold is null', () => {
+    const { container } = render(<BloodPressureCard {...baseProps} bpSysThreshold={null} />);
+    const lines = container.querySelectorAll('[data-testid="reference-line"]');
+    expect(Array.from(lines).map((l) => l.getAttribute('data-y'))).toEqual(['85']);
+  });
+
+  it('omits the diastolic reference line when bpDiaThreshold is null', () => {
+    const { container } = render(<BloodPressureCard {...baseProps} bpDiaThreshold={null} />);
+    const lines = container.querySelectorAll('[data-testid="reference-line"]');
+    expect(Array.from(lines).map((l) => l.getAttribute('data-y'))).toEqual(['130']);
+  });
+
+  it('renders per-point dots colored from the datum for both the systolic and diastolic lines', () => {
+    const { container } = render(<BloodPressureCard {...baseProps} />);
+    const sysDot = container.querySelector('[data-testid="line-bpSys"] [data-testid="dot"]');
+    const diaDot = container.querySelector('[data-testid="line-bpDia"] [data-testid="dot"]');
+    expect(sysDot).toHaveAttribute('data-fill', '#111111');
+    expect(diaDot).toHaveAttribute('data-fill', '#222222');
   });
 });

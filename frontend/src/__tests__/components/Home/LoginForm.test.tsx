@@ -43,7 +43,13 @@ jest.mock('@/components/ui/sheet', () => {
   const React = jest.requireActual('react');
   return {
     __esModule: true,
-    Sheet: ({ open, children }: any) => (open ? <div data-testid="sheet">{children}</div> : null),
+    Sheet: ({ open, onOpenChange, children }: any) =>
+      open ? (
+        <div data-testid="sheet">
+          <button onClick={() => onOpenChange(false)}>dismiss-sheet</button>
+          {children}
+        </div>
+      ) : null,
     SheetContent: ({ children }: any) => <div>{children}</div>,
     SheetHeader: ({ children }: any) => <div>{children}</div>,
     SheetTitle: ({ children }: any) => <h5>{children}</h5>,
@@ -553,6 +559,74 @@ describe('LoginForm', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent('Verification failed. Please try again.');
+    });
+  });
+
+  it('researcher login success navigates to /researcher', async () => {
+    authStore.loginWithHttp.mockImplementation(async () => {
+      authStore.userType = 'Researcher';
+      authStore.loginErrorMessage = '';
+    });
+
+    openModal();
+
+    fireEvent.change(screen.getByLabelText('email'), { target: { value: 'r@x.com' } });
+    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/researcher');
+    });
+  });
+
+  it('navigates to /forgottenpwd when the forgot-password link is clicked', () => {
+    openModal();
+    fireEvent.click(screen.getByText('Need help recovering your account?'));
+    expect(mockNavigate).toHaveBeenCalledWith('/forgottenpwd');
+  });
+
+  it('closes and resets the form when the sheet is dismissed', async () => {
+    authStore.loginWithHttp.mockImplementation(async () => {
+      authStore.loginErrorMessage = 'Invalid credentials';
+    });
+
+    const { handleClose } = openModal();
+    fireEvent.change(screen.getByLabelText('email'), { target: { value: 'bad@x.com' } });
+    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'wrong' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('dismiss-sheet'));
+
+    expect(handleClose).toHaveBeenCalled();
+    expect(authStore.reset).toHaveBeenCalled();
+  });
+
+  it('2FA shows a fallback error when the verify-code response is missing tokens', async () => {
+    authStore.loginWithHttp.mockImplementation(async () => {
+      authStore.userType = 'Therapist';
+      authStore.loginErrorMessage = '';
+      authStore.id = 'ther1';
+    });
+
+    apiPost
+      .mockResolvedValueOnce({ status: 200, data: {} }) // send-verification-code
+      .mockResolvedValueOnce({ status: 200, data: {} }); // verify-code, no tokens
+
+    openModal();
+    fireEvent.change(screen.getByLabelText('email'), { target: { value: 't@x.com' } });
+    fireEvent.change(screen.getByLabelText('password'), { target: { value: 'pw' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+
+    await waitFor(() => expect(screen.getByLabelText('verificationCode')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('verificationCode'), { target: { value: '000000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'SubmitCode' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Verification failed. Please try again.');
+      expect(authStore.complete2FA).not.toHaveBeenCalled();
     });
   });
 

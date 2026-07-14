@@ -75,4 +75,19 @@ describe('Footer component', () => {
 
     expect(screen.getByTestId('pwa-install-sheet')).toHaveAttribute('data-open', 'true');
   });
+
+  it('changes the language when a dropdown item is clicked', () => {
+    const { useTranslation } = jest.requireMock('react-i18next');
+    const { i18n } = useTranslation();
+
+    const { container } = render(
+      <MemoryRouter>
+        <Footer />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(container.querySelector('.dropdown-toggle')!);
+    fireEvent.click(screen.getByText('FR').closest('a')!);
+    expect(i18n.changeLanguage).toHaveBeenCalledWith('fr');
+  });
 });

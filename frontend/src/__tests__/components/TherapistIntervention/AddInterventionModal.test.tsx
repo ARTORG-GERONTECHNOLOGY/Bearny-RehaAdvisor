@@ -354,6 +354,79 @@ describe('AddInterventionModal', () => {
     consoleErrorSpy.mockRestore();
   });
 
+  describe('close behavior', () => {
+    it('closes immediately when no filters are set (not dirty)', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { recommendations: [] } });
+      const onHide = jest.fn();
+      renderComponent({ ...defaultProps, onHide });
+      await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole('button', { name: /close/i }));
+      expect(onHide).toHaveBeenCalled();
+    });
+
+    it('confirms before closing when a filter is set, and respects Cancel', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { recommendations: mockRecommendations },
+      });
+      const onHide = jest.fn();
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+      renderComponent({ ...defaultProps, onHide });
+      await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+
+      fireEvent.change(screen.getByLabelText('Filter by Content Type'), {
+        target: { value: 'Video' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /close/i }));
+
+      expect(confirmSpy).toHaveBeenCalled();
+      expect(onHide).not.toHaveBeenCalled();
+
+      confirmSpy.mockRestore();
+    });
+
+    it('closes and resets filters when the close confirm is accepted', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { recommendations: mockRecommendations },
+      });
+      const onHide = jest.fn();
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+      renderComponent({ ...defaultProps, onHide });
+      await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+
+      fireEvent.change(screen.getByLabelText('Filter by Content Type'), {
+        target: { value: 'Video' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /close/i }));
+
+      expect(onHide).toHaveBeenCalled();
+      confirmSpy.mockRestore();
+    });
+
+    it('resets filters and shows the loading spinner again after the modal closes externally', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValue({
+        data: { recommendations: mockRecommendations },
+      });
+      const { rerender } = renderComponent({ ...defaultProps, show: true });
+      await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+
+      rerender(<AddInterventionModal {...defaultProps} show={false} />);
+      rerender(<AddInterventionModal {...defaultProps} show={true} />);
+
+      expect(screen.getByRole('status')).toBeInTheDocument();
+    });
+
+    it('closes via the Escape key using the same confirm logic', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { recommendations: [] } });
+      const onHide = jest.fn();
+      renderComponent({ ...defaultProps, onHide });
+      await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(onHide).toHaveBeenCalled();
+    });
+  });
+
   const t = (key: string) => key; // Simple mock for t()
 
   describe('getBadgeVariantFromUrl', () => {

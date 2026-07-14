@@ -4,6 +4,8 @@ import { render, screen } from '@testing-library/react';
 // D3 is ESM-only — mock before any import that pulls in utils/healthCharts.
 jest.mock('d3', () => ({ timeParse: () => (s: string) => new Date(s) }));
 
+const mockYAxis = jest.fn();
+
 jest.mock('recharts', () => ({
   Bar: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   BarChart: ({ children }: { children: React.ReactNode }) => <svg>{children}</svg>,
@@ -11,7 +13,10 @@ jest.mock('recharts', () => ({
   Cell: () => null,
   ReferenceLine: () => null,
   XAxis: () => null,
-  YAxis: () => null,
+  YAxis: (props: any) => {
+    mockYAxis(props);
+    return null;
+  },
 }));
 
 jest.mock('@/components/ui/chart', () => {
@@ -81,6 +86,22 @@ describe('ActiveMinutesChart', () => {
     const data = [makeEntry('2026-01-01', 40)];
     render(<ActiveMinutesChart ref={ref} data={data} />);
     expect(ref.current).toBeInstanceOf(HTMLDivElement);
+  });
+
+  it('scales the y-axis domain against the goal when a goal is set', () => {
+    mockYAxis.mockClear();
+    const data = [makeEntry('2026-01-01', 10)];
+    render(<ActiveMinutesChart data={data} goal={30} />);
+    const { domain } = mockYAxis.mock.calls[0][0];
+    expect(domain[1](10)).toBeCloseTo(33);
+  });
+
+  it('scales the y-axis domain against the data max when no goal is set', () => {
+    mockYAxis.mockClear();
+    const data = [makeEntry('2026-01-01', 50)];
+    render(<ActiveMinutesChart data={data} />);
+    const { domain } = mockYAxis.mock.calls[0][0];
+    expect(domain[1](50)).toBeCloseTo(55);
   });
 });
 

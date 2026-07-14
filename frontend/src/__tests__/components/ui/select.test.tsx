@@ -5,6 +5,9 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
+  SelectGroup,
+  SelectLabel,
+  SelectSeparator,
 } from '@/components/ui/select';
 
 describe('Select', () => {
@@ -31,5 +34,26 @@ describe('Select', () => {
       </Select>
     );
     expect(screen.getByRole('combobox')).toHaveClass('my-trigger');
+  });
+
+  it('renders a SelectLabel and SelectSeparator inside an open select', () => {
+    render(
+      <Select open>
+        <SelectTrigger>
+          <SelectValue placeholder="Pick one" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectLabel>Group A</SelectLabel>
+            <SelectItem value="a">Option A</SelectItem>
+          </SelectGroup>
+          <SelectSeparator data-testid="select-separator" />
+          <SelectItem value="b">Option B</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+
+    expect(screen.getByText('Group A')).toBeInTheDocument();
+    expect(screen.getByTestId('select-separator')).toBeInTheDocument();
   });
 });

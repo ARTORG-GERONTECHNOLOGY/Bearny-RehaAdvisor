@@ -8,6 +8,8 @@ jest.mock('d3', () => ({ timeParse: () => (s: string) => new Date(s) }));
 // recharts' internal layout doesn't run in jsdom — stub Bar/BarChart while
 // still letting a click on a bar reach the component's onClick handler with
 // the chart's first data row (good enough to exercise the sheet-open flow).
+const mockYAxis = jest.fn(() => null);
+
 jest.mock('recharts', () => {
   const ReactActual = jest.requireActual('react');
   const Ctx = ReactActual.createContext([]);
@@ -24,15 +26,23 @@ jest.mock('recharts', () => {
       const row = data?.[0];
       return ReactActual.createElement(
         'button',
-        { 'data-testid': `bar-${dataKey}`, onClick: () => onClick?.({ date: row?.date }) },
+        {
+          'data-testid': `bar-${dataKey}`,
+          onClick: () => onClick?.({ payload: { date: row?.date } }),
+        },
         dataKey
       );
     },
     CartesianGrid: () => null,
     XAxis: () => null,
-    YAxis: () => null,
+    YAxis: (props: any) => {
+      mockYAxis(props);
+      return null;
+    },
   };
 });
+
+const mockChartTooltip = jest.fn(() => null);
 
 jest.mock('@/components/ui/chart', () => {
   const ChartContainer = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(
@@ -41,7 +51,10 @@ jest.mock('@/components/ui/chart', () => {
   ChartContainer.displayName = 'ChartContainer';
   return {
     ChartContainer,
-    ChartTooltip: () => null,
+    ChartTooltip: (props: any) => {
+      mockChartTooltip(props);
+      return null;
+    },
     ChartTooltipContent: () => null,
   };
 });
@@ -164,6 +177,74 @@ describe('ExerciseSessionsChart', () => {
     expect(within(sheet).getByText('Run')).toBeInTheDocument();
   });
 
+  it('computes the Y-axis max with a 10% headroom multiplier', () => {
+    mockYAxis.mockClear();
+    const data = [makeEntry('2026-01-05', [{ name: 'Run', duration: 30 * 60000 }])];
+    render(
+      <ExerciseSessionsChart
+        data={data}
+        start={new Date('2026-01-05')}
+        end={new Date('2026-01-05')}
+      />
+    );
+    const { domain } = mockYAxis.mock.calls[0][0];
+    expect(domain[0]).toBe(0);
+    expect(domain[1](100)).toBeCloseTo(110);
+  });
+
+  it('renders the session tooltip with name and duration, skipping zero-value entries', () => {
+    mockChartTooltip.mockClear();
+    const data = [
+      makeEntry('2026-01-05', [
+        { name: 'Run', duration: 30 * 60000 },
+        { name: 'Yoga', duration: 20 * 60000 },
+      ]),
+    ];
+    render(
+      <ExerciseSessionsChart
+        data={data}
+        start={new Date('2026-01-05')}
+        end={new Date('2026-01-05')}
+      />
+    );
+
+    const { content } = mockChartTooltip.mock.calls[0][0];
+
+    // Inactive / empty payload -> tooltip renders nothing.
+    const { container: inactive } = render(
+      React.cloneElement(content, { active: false, label: '2026-01-05', payload: [] })
+    );
+    expect(inactive).toBeEmptyDOMElement();
+
+    const { container: emptyPayload } = render(
+      React.cloneElement(content, { active: true, label: '2026-01-05', payload: [] })
+    );
+    expect(emptyPayload).toBeEmptyDOMElement();
+
+    const { container: allZero } = render(
+      React.cloneElement(content, {
+        active: true,
+        label: '2026-01-05',
+        payload: [{ dataKey: 's0', value: 0, payload: { s0Name: 'Run' } }],
+      })
+    );
+    expect(allZero).toBeEmptyDOMElement();
+
+    render(
+      React.cloneElement(content, {
+        active: true,
+        label: '2026-01-05',
+        payload: [
+          { dataKey: 's0', value: 30, payload: { s0Name: 'Run' } },
+          { dataKey: 's1', value: 20, payload: { s1Name: 'Yoga' } },
+        ],
+      })
+    );
+    expect(screen.getByText('2026-01-05')).toBeInTheDocument();
+    expect(screen.getByText('Run')).toBeInTheDocument();
+    expect(screen.getByText('Yoga')).toBeInTheDocument();
+  });
+
   it('closes the detail sheet when dismissed', () => {
     const data = [makeEntry('2026-01-05', [{ name: 'Run', duration: 30 * 60000 }])];
     render(
@@ -222,6 +303,18 @@ describe('filterExerciseInRange', () => {
     ];
     const rows = filterExerciseInRange(data, new Date('2026-01-01'), new Date('2026-01-01'));
     expect(rows[0].sessions).toEqual([{ name: 'Bike', duration: 30 }]);
+  });
+
+  it('treats an entry with no exercise field as having no sessions', () => {
+    const data = [{ date: '2026-01-01' } as FitbitEntry];
+    const rows = filterExerciseInRange(data, new Date('2026-01-01'), new Date('2026-01-01'));
+    expect(rows).toEqual([{ date: '2026-01-01', total: 0, sessions: [] }]);
+  });
+
+  it('falls back to an empty name for a session with no name', () => {
+    const data = [makeEntry('2026-01-01', [{ name: '', duration: 30 * 60000 }])];
+    const rows = filterExerciseInRange(data, new Date('2026-01-01'), new Date('2026-01-01'));
+    expect(rows[0].sessions).toEqual([{ name: '', duration: 30 }]);
   });
 
   it('excludes entries outside the start/end range', () => {

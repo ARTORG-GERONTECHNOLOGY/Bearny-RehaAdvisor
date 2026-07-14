@@ -4,6 +4,8 @@ import { render, screen } from '@testing-library/react';
 // D3 is ESM-only — mock before any import that pulls in utils/healthCharts.
 jest.mock('d3', () => ({ timeParse: () => (s: string) => new Date(s) }));
 
+const mockYAxis = jest.fn();
+
 jest.mock('recharts', () => ({
   Bar: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   BarChart: ({ children }: { children: React.ReactNode }) => <svg>{children}</svg>,
@@ -11,8 +13,13 @@ jest.mock('recharts', () => ({
   Cell: () => null,
   ReferenceLine: () => null,
   XAxis: () => null,
-  YAxis: () => null,
+  YAxis: (props: any) => {
+    mockYAxis(props);
+    return null;
+  },
 }));
+
+const mockChartTooltip = jest.fn();
 
 jest.mock('@/components/ui/chart', () => {
   const ChartContainer = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(
@@ -21,7 +28,10 @@ jest.mock('@/components/ui/chart', () => {
   ChartContainer.displayName = 'ChartContainer';
   return {
     ChartContainer,
-    ChartTooltip: () => null,
+    ChartTooltip: (props: any) => {
+      mockChartTooltip(props);
+      return null;
+    },
     ChartTooltipContent: () => null,
   };
 });
@@ -90,6 +100,52 @@ describe('SleepChart', () => {
     render(<SleepChart ref={ref} data={data} />);
     expect(ref.current).toBeInstanceOf(HTMLDivElement);
   });
+
+  it('scales the y-axis domain against the goal', () => {
+    mockYAxis.mockClear();
+    const data = [makeEntry('2026-01-01', 420)];
+    render(<SleepChart data={data} goal={480} />);
+    const { domain } = mockYAxis.mock.calls[0][0];
+    expect(domain[1](420)).toBeCloseTo(528);
+  });
+
+  it('builds a tooltip formatter that shows the sleep window when present', () => {
+    mockChartTooltip.mockClear();
+    const data = [
+      makeEntry('2026-01-01', 420, {
+        sleepStart: '2026-01-01T22:00:00.000',
+        sleepEnd: '2026-01-02T06:00:00.000',
+      }),
+    ];
+    render(<SleepChart data={data} />);
+
+    const tooltipContent = mockChartTooltip.mock.calls[0][0].content;
+    const formatter = tooltipContent.props.formatter;
+    const row = filterSleepInRange(data, new Date('2026-01-01'), new Date('2026-01-01'))[0];
+
+    const { getByText } = render(
+      formatter(420, 'minutesAsleep', { payload: row }) as React.ReactElement
+    );
+    expect(getByText('7h 0m')).toBeInTheDocument();
+    expect(getByText('22:00–06:00')).toBeInTheDocument();
+  });
+
+  it('shows "--" in the tooltip when minutesAsleep is null and omits the window when absent', () => {
+    mockChartTooltip.mockClear();
+    const data = [makeEntry('2026-01-01', 420)];
+    render(<SleepChart data={data} />);
+
+    const tooltipContent = mockChartTooltip.mock.calls[0][0].content;
+    const formatter = tooltipContent.props.formatter;
+
+    const { getByText, queryByText } = render(
+      formatter(null, 'minutesAsleep', {
+        payload: { date: '2026-01-01', minutesAsleep: null, sleepStart: null, sleepEnd: null },
+      }) as React.ReactElement
+    );
+    expect(getByText('--')).toBeInTheDocument();
+    expect(queryByText('Sleep window')).not.toBeInTheDocument();
+  });
 });
 
 describe('filterSleepInRange', () => {
@@ -123,6 +179,14 @@ describe('filterSleepInRange', () => {
     const rows = filterSleepInRange(data, new Date('2026-01-01'), new Date('2026-01-01'));
     expect(rows).toEqual([
       { date: '2026-01-01', minutesAsleep: 450, sleepStart: null, sleepEnd: null },
+    ]);
+  });
+
+  it('returns null when sleep exists but neither minutes_asleep nor sleep_duration is set', () => {
+    const data: FitbitEntry[] = [{ date: '2026-01-01', sleep: {} }];
+    const rows = filterSleepInRange(data, new Date('2026-01-01'), new Date('2026-01-01'));
+    expect(rows).toEqual([
+      { date: '2026-01-01', minutesAsleep: null, sleepStart: null, sleepEnd: null },
     ]);
   });
 

@@ -262,6 +262,142 @@ describe('ApplyTemplateModal', () => {
   });
 
   // ------------------------------------------------------------------
+  // Patient search and select-all
+  // ------------------------------------------------------------------
+  describe('patient search and select all', () => {
+    const PATIENT_B = {
+      _id: 'p-002',
+      patient_code: 'PT002',
+      first_name: 'Bob',
+      name: 'Jones',
+      diagnosis: ['COPD'],
+    };
+
+    it('filters the patient list by search text', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [PATIENT_A, PATIENT_B] });
+      render(<ApplyTemplateModal {...defaultProps} />);
+      await waitFor(() => screen.getByText(/Alice.*Smith/i));
+
+      fireEvent.change(screen.getByPlaceholderText('Search'), { target: { value: 'bob' } });
+
+      expect(screen.getByText(/Bob.*Jones/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Alice.*Smith/i)).not.toBeInTheDocument();
+    });
+
+    it('selects and deselects all filtered patients via the Select All row', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [PATIENT_A, PATIENT_B] });
+      render(<ApplyTemplateModal {...defaultProps} />);
+      await waitFor(() => screen.getByText(/Alice.*Smith/i));
+
+      fireEvent.click(screen.getByText('Select All'));
+      expect(screen.getByText(/2 selected/i)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Select All'));
+      expect(screen.queryByText(/selected/i)).not.toBeInTheDocument();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Field-level values
+  // ------------------------------------------------------------------
+  describe('effectiveFrom / overwrite / forceVideo / notes fields', () => {
+    it('updates effectiveFrom, overwrite, forceVideo and notes and sends them on submit', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [PATIENT_A] });
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: { applied: 1, sessions_created: 1 },
+      });
+
+      render(<ApplyTemplateModal {...defaultProps} templateId="tpl-1" />);
+      await waitFor(() => screen.getByText(/Alice.*Smith/i));
+      fireEvent.click(screen.getByText(/Alice.*Smith/i).closest('div')!);
+
+      fireEvent.change(document.querySelector('input[type="date"]')!, {
+        target: { value: '2026-01-01' },
+      });
+      fireEvent.click(screen.getByLabelText('Overwrite future sessions'));
+      fireEvent.click(screen.getByLabelText('Ask video feedback for all'));
+      fireEvent.change(document.querySelector('textarea')!, {
+        target: { value: 'Please review' },
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      });
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalledWith(
+          'templates/tpl-1/apply/',
+          expect.objectContaining({
+            effectiveFrom: '2026-01-01',
+            overwrite: true,
+            require_video_feedback: true,
+            notes: 'Please review',
+          })
+        );
+      });
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Partial success and field error details
+  // ------------------------------------------------------------------
+  describe('partial success and field-error details', () => {
+    it('shows a warning and keeps the modal open when there are partial errors', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [PATIENT_A] });
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: {
+          applied: 1,
+          sessions_created: 1,
+          partial_errors: [{ patient: 'PT002', reason: 'No active plan' }],
+          warning: 'Some patients were skipped.',
+        },
+      });
+
+      render(<ApplyTemplateModal {...defaultProps} templateId="tpl-1" />);
+      await waitFor(() => screen.getByText(/Alice.*Smith/i));
+      fireEvent.click(screen.getByText(/Alice.*Smith/i).closest('div')!);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      });
+
+      // non_field_errors takes precedence over `message` in applyErrors()
+      expect(await screen.findByText(/PT002: No active plan/i)).toBeInTheDocument();
+      expect(defaultProps.onApplied).toHaveBeenCalled();
+      // Modal stays open on partial success — onHide should not be called.
+      expect(defaultProps.onHide).not.toHaveBeenCalled();
+    });
+
+    it('shows humanized field errors and toggles show/hide details', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [PATIENT_A] });
+      (apiClient.post as jest.Mock).mockRejectedValueOnce({
+        response: {
+          data: {
+            field_errors: { patientIds: ['Required'], effectiveFrom: ['Must be in the future'] },
+          },
+        },
+      });
+
+      render(<ApplyTemplateModal {...defaultProps} templateId="tpl-1" />);
+      await waitFor(() => screen.getByText(/Alice.*Smith/i));
+      fireEvent.click(screen.getByText(/Alice.*Smith/i).closest('div')!);
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /^Apply$/i }));
+      });
+
+      expect(await screen.findByText(/Patients:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Effective from:/i)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /Hide details/i }));
+      expect(screen.queryByText(/Patients:/i)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /Show details/i }));
+      expect(screen.getByText(/Patients:/i)).toBeInTheDocument();
+    });
+  });
+
+  // ------------------------------------------------------------------
   // Close behaviour
   // ------------------------------------------------------------------
   describe('close behaviour', () => {
@@ -269,6 +405,33 @@ describe('ApplyTemplateModal', () => {
       render(<ApplyTemplateModal {...defaultProps} />);
       fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
       expect(defaultProps.onHide).toHaveBeenCalled();
+    });
+
+    it('confirms before closing when there are unsaved changes, and respects Cancel', () => {
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+      render(<ApplyTemplateModal {...defaultProps} />);
+
+      const select = switchToDiagnosisMode();
+      fireEvent.change(select, { target: { value: 'Stroke' } });
+
+      fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+      expect(confirmSpy).toHaveBeenCalled();
+      expect(defaultProps.onHide).not.toHaveBeenCalled();
+
+      confirmSpy.mockRestore();
+    });
+
+    it('closes on Escape when confirmed', () => {
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+      render(<ApplyTemplateModal {...defaultProps} />);
+
+      const select = switchToDiagnosisMode();
+      fireEvent.change(select, { target: { value: 'Stroke' } });
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(defaultProps.onHide).toHaveBeenCalled();
+
+      confirmSpy.mockRestore();
     });
   });
 });

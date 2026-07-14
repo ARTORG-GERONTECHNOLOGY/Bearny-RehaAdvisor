@@ -46,20 +46,25 @@ jest.mock('@/stores/userProfileStore', () => ({
 jest.mock('react-select', () => ({
   __esModule: true,
   default: ({ options, onChange, placeholder, isDisabled }: any) => (
-    <select
-      disabled={isDisabled}
-      aria-label={placeholder || 'select'}
-      onChange={(e) => {
-        const opt = options.find((o: any) => o.value === e.target.value);
-        if (opt) onChange([opt]);
-      }}
-    >
-      {options?.map((o: any) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
+    <div>
+      <select
+        disabled={isDisabled}
+        aria-label={placeholder || 'select'}
+        onChange={(e) => {
+          const opt = options.find((o: any) => o.value === e.target.value);
+          if (opt) onChange([opt]);
+        }}
+      >
+        {options?.map((o: any) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <button aria-label={`clear-${placeholder || 'select'}`} onClick={() => onChange(null)}>
+        clear
+      </button>
+    </div>
   ),
 }));
 
@@ -273,5 +278,132 @@ describe('EditTherapistInfo', () => {
         expect.not.objectContaining({ specialisation: expect.anything() })
       );
     });
+  });
+
+  it('shows an error banner when updateProfile rejects', async () => {
+    mockStore.updateProfile = jest.fn().mockRejectedValue({
+      response: { data: { error: 'Update rejected' } },
+    });
+    setup();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Update rejected');
+    });
+  });
+
+  it('closes via handleOpenChange when not saving', () => {
+    const onCancel = jest.fn();
+    setup(baseUser, onCancel);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('does not close via Escape while saving', () => {
+    mockStore.saving = true;
+    const onCancel = jest.fn();
+    setup(baseUser, onCancel);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('prunes previously selected projects when the request clinics no longer include them', async () => {
+    setup({ ...baseUser, clinics: ['Inselspital', 'Berner Reha Centrum'], projects: ['COPAIN'] });
+    fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
+    await waitFor(() =>
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument()
+    );
+
+    // req-clinics select shows options ['Inselspital', 'Berner Reha Centrum']; picking
+    // a clinic re-derives the allowed project set via the mocked react-select onChange.
+    const clinicsSelect = screen.getByRole('combobox', { name: 'select' });
+    fireEvent.change(clinicsSelect, { target: { value: 'Berner Reha Centrum' } });
+
+    // Submitting should now reflect the updated (pruned) clinics selection.
+    fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        'therapist/access-change-request/',
+        expect.objectContaining({ clinics: ['Berner Reha Centrum'] })
+      );
+    });
+  });
+
+  it('does not fetch the pending-request status when the sheet is not shown', () => {
+    renderWithRouter(<EditUserInfo show={false} userData={baseUser} onCancel={jest.fn()} />);
+    expect(apiClient.get).not.toHaveBeenCalled();
+  });
+
+  it('clears requested projects when the projects multi-select is cleared', async () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
+    await waitFor(() =>
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /clear-Choose/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
+
+    await waitFor(() => {
+      expect(apiClient.post).toHaveBeenCalledWith(
+        'therapist/access-change-request/',
+        expect.objectContaining({ projects: [] })
+      );
+    });
+  });
+
+  it('closes the access-change sheet on Escape when not submitting', async () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
+    await waitFor(() =>
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument()
+    );
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Request clinic / project change')).not.toBeInTheDocument();
+    });
+  });
+
+  it('does not close the access-change sheet on Escape while a request is submitting', async () => {
+    let resolvePost: (v: unknown) => void = () => {};
+    (apiClient.post as jest.Mock).mockReturnValueOnce(
+      new Promise((res) => {
+        resolvePost = res;
+      })
+    );
+
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
+    await waitFor(() =>
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Submit request' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(screen.getByText('Request clinic / project change')).toBeInTheDocument();
+
+    resolvePost({ data: { ok: true } });
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalled());
+  });
+
+  it('cancels the access-change sheet without submitting', async () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Request access change' }));
+    await waitFor(() =>
+      expect(screen.getByText('Request clinic / project change')).toBeInTheDocument()
+    );
+
+    const cancelButtons = screen.getAllByRole('button', { name: 'Cancel' });
+    fireEvent.click(cancelButtons[cancelButtons.length - 1]);
+
+    expect(screen.queryByText('Request clinic / project change')).not.toBeInTheDocument();
+    expect(apiClient.post).not.toHaveBeenCalled();
   });
 });

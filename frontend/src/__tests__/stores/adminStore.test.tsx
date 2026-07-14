@@ -47,4 +47,34 @@ describe('adminStore', () => {
 
     adminStore.fetchPendingEntries = original;
   });
+
+  it('sets an error message when fetching pending entries fails', async () => {
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('down'));
+
+    await adminStore.fetchPendingEntries();
+
+    expect(adminStore.error).toBe('Failed to fetch pending entries. Please try again later.');
+    errSpy.mockRestore();
+  });
+
+  it('sets an error message when accepting an entry fails', async () => {
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    (apiClient.post as jest.Mock).mockRejectedValueOnce(new Error('down'));
+
+    await adminStore.acceptEntry('1');
+
+    expect(adminStore.error).toBe('Failed to accept entry. Please try again later.');
+    errSpy.mockRestore();
+  });
+
+  it('sets an error message when declining an entry fails', async () => {
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    (apiClient.post as jest.Mock).mockRejectedValueOnce(new Error('down'));
+
+    await adminStore.declineEntry('2');
+
+    expect(adminStore.error).toBe('Failed to decline entry. Please try again later.');
+    errSpy.mockRestore();
+  });
 });

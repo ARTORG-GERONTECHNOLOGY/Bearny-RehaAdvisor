@@ -130,4 +130,21 @@ describe('usePatientInterventions', () => {
     expect(result.current.patientData).toBeNull();
     expect(result.current.interventions).toEqual([]);
   });
+
+  it('fetchPlan is a no-op when called via refetch() with no patientId', async () => {
+    const { result } = renderHook(() => usePatientInterventions(null));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    (apiClient.get as jest.Mock).mockClear();
+    act(() => {
+      result.current.refetch();
+    });
+
+    // fetchInterventions always runs (no patientId guard), but fetchPlan's own
+    // internal `if (!patientId) return;` guard must prevent the plan request.
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith('interventions/all/');
+    });
+    expect(apiClient.get).not.toHaveBeenCalledWith(expect.stringContaining('rehabilitation-plan'));
+  });
 });

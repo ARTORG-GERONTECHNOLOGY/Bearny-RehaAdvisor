@@ -1,14 +1,16 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import PatientInfoContent from '@/components/TherapistPatientPage/PatientInfoContent';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '../../../../i18n';
 import apiClient from '@/api/client';
+import { appModeStore } from '@/stores/appModeStore';
 import '@testing-library/jest-dom';
 
 jest.mock('@/api/client', () => ({
   get: jest.fn(),
   put: jest.fn(),
+  post: jest.fn(),
   delete: jest.fn(),
 }));
 
@@ -254,5 +256,70 @@ describe('PatientInfoContent', () => {
     fireEvent.click(cancelButton);
 
     await waitFor(() => expect(screen.queryByText(/Confirm Deletion/i)).not.toBeInTheDocument());
+  });
+
+  it('shows the top-level error alert when loading patient data fails, and dismisses it', async () => {
+    (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/profile')) return Promise.reject(new Error('boom'));
+      if (url.includes('/thresholds')) return Promise.resolve({ data: {} });
+      return Promise.resolve({ data: {} });
+    });
+
+    renderComponent();
+
+    const alert = await screen.findByRole('alert');
+    fireEvent.click(within(alert).getByRole('button'));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows the REDCap tab and syncs/dismisses its error alerts when the app mode allows REDCap', async () => {
+    appModeStore.mode = 'dev';
+    appModeStore.redcapVisible = true;
+
+    (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/profile')) {
+        return Promise.resolve({
+          data: {
+            ...mockPatientData,
+            redcap_project: 'proj-1',
+            redcap_identifier: 'PID-1',
+          },
+        });
+      }
+      if (url.includes('/thresholds')) return Promise.resolve({ data: {} });
+      if (url.includes('/redcap/patient/')) return Promise.reject(new Error('redcap down'));
+      return Promise.resolve({ data: {} });
+    });
+    (apiClient.post as jest.Mock).mockRejectedValue(new Error('sync down'));
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('proj-1').length).toBeGreaterThan(0);
+    });
+    expect(screen.getAllByText('PID-1').length).toBeGreaterThan(0);
+
+    const redcapAlert = await screen.findByText('redcap down');
+    fireEvent.click(within(redcapAlert.closest('[role="alert"]')!).getByRole('button'));
+    await waitFor(() => {
+      expect(screen.queryByText('redcap down')).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Refresh REDCap'));
+    await screen.findByText('redcap down');
+
+    fireEvent.click(screen.getByText('Sync Wearables'));
+    const syncAlert = await screen.findByText('sync down');
+    fireEvent.click(within(syncAlert.closest('[role="alert"]')!).getByRole('button'));
+    await waitFor(() => {
+      expect(screen.queryByText('sync down')).not.toBeInTheDocument();
+    });
+
+    act(() => {
+      appModeStore.mode = 'normal';
+    });
   });
 });

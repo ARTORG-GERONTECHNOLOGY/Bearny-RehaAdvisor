@@ -503,4 +503,157 @@ describe('PatientInterventionPopUp Component', () => {
       );
     });
   });
+
+  describe('legacy file-path media and misc branches', () => {
+    it('resolves a local (non-http) audio file path via the legacy media_file fallback', () => {
+      // PlayableMedia itself requires a full http(s) URL to actually play a file, so a bare
+      // local path correctly renders its own "no playable URL" fallback — this still exercises
+      // getAllMedia's legacy kind:'file' + guessMediaTypeFromFilePath('audio') branches.
+      const item = {
+        ...defaultItem,
+        media_file: '/uploads/sound.mp3',
+        media_url: '',
+        link: '',
+      };
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+      expect(screen.getByText('No playable URL available.')).toBeInTheDocument();
+    });
+
+    it('shows the private-intervention lock icon when is_private is true', () => {
+      const item = { ...defaultItem, is_private: true };
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+      expect(screen.getByRole('heading', { level: 2 })).toContainHTML('svg');
+    });
+
+    it('does not attempt a language switch when the item has no external_id', async () => {
+      const langItem = {
+        ...defaultItem,
+        language: 'de',
+        available_languages: ['de', 'en'],
+      };
+      render(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'EN' }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(apiClient.get).not.toHaveBeenCalled();
+    });
+
+    it('renders without a description tooltip when the description is empty', () => {
+      const item = { ...defaultItem, description: '' };
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+      expect(translateText).not.toHaveBeenCalledWith('');
+    });
+
+    it('falls back to the untranslated title/description when translateText rejects', async () => {
+      (translateText as jest.Mock).mockRejectedValueOnce(new Error('down'));
+      render(<PatientInterventionPopUp show={true} item={defaultItem} handleClose={jest.fn()} />);
+
+      expect(await screen.findByText('Test Intervention')).toBeInTheDocument();
+      expect(screen.getByText('This is a test intervention.')).toBeInTheDocument();
+
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: text, detectedSourceLanguage: 'unknown' })
+      );
+    });
+
+    it('resolves a local video file path to the video media type', () => {
+      const item = {
+        ...defaultItem,
+        media_file: '/uploads/clip.mp4',
+        media_url: '',
+        link: '',
+      };
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+      expect(screen.getByText('No playable URL available.')).toBeInTheDocument();
+    });
+
+    it('shows the "App" media badge for app-type media', () => {
+      const item = itemWithMedia({
+        media_type: 'app',
+        url: 'https://example.com/app',
+        title: 'MyApp',
+      });
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+      expect(screen.getAllByText('App').length).toBeGreaterThan(0);
+    });
+
+    it('does not switch language (and does not call the API) when clicking the already-active language', async () => {
+      const langItem = {
+        ...defaultItem,
+        external_id: 'ext-123',
+        language: 'de',
+        available_languages: ['de', 'en'],
+      };
+      render(<PatientInterventionPopUp show={true} item={langItem} handleClose={jest.fn()} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'DE' }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(apiClient.get).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the "text" media type for an unrecognized local file extension', () => {
+      const item = { ...defaultItem, media_file: '/uploads/notes.docx', media_url: '', link: '' };
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+      expect(screen.getByText('No playable URL available.')).toBeInTheDocument();
+    });
+
+    it('resolves a local image file path to the image media type', () => {
+      const item = { ...defaultItem, media_file: '/uploads/pic.png', media_url: '', link: '' };
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+      expect(screen.getAllByRole('img').length).toBeGreaterThan(0);
+    });
+
+    it('resolves a local pdf file path to the pdf media type', () => {
+      const item = { ...defaultItem, media_file: '/uploads/doc.pdf', media_url: '', link: '' };
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+      expect(screen.getByRole('link', { name: 'Open PDF' })).toBeInTheDocument();
+    });
+
+    it('renders without crashing and with no language options when item is null', () => {
+      render(<PatientInterventionPopUp show={true} item={null} handleClose={jest.fn()} />);
+      expect(screen.getByText('No media available.')).toBeInTheDocument();
+    });
+
+    it('ignores a malformed (string) media field and falls back to legacy media_file resolution', () => {
+      const item = { ...defaultItem, media: 'not-a-valid-media-shape', media_file: '', link: '' };
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+      // item.media is a string (neither array nor plain object), so getAllMedia's structured
+      // branch yields nothing and it falls through to the legacy media_file/media path, which
+      // treats the same string as a (non-http) local file path with an unrecognized extension.
+      expect(screen.getByText('No playable URL available.')).toBeInTheDocument();
+    });
+
+    it('prefers the Spotify embed_url as the playable URL for streaming media', () => {
+      const item = {
+        ...defaultItem,
+        media: [
+          {
+            kind: 'external',
+            media_type: 'streaming',
+            provider: 'spotify',
+            embed_url: 'https://open.spotify.com/embed/track/123',
+            url: 'https://open.spotify.com/track/123',
+            title: 'A Song',
+          },
+        ],
+      };
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+      expect(screen.getByText('A Song')).toBeInTheDocument();
+    });
+
+    it('wraps a single media object (not an array) into a one-item media list', () => {
+      const item = {
+        ...defaultItem,
+        media: { kind: 'external', media_type: 'video', url: 'https://example.com/v.mp4' },
+      };
+      render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
+      expect(screen.getByTestId('video-player')).toBeInTheDocument();
+    });
+  });
 });

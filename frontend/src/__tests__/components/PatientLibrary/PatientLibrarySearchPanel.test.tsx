@@ -64,4 +64,22 @@ describe('PatientLibrarySearchPanel', () => {
     fireEvent.click(closeButtons[0]);
     expect(baseProps.onCloseSearch).toHaveBeenCalledTimes(1);
   });
+
+  it('shows an empty state when there are no search results', () => {
+    render(<PatientLibrarySearchPanel {...baseProps} isSearchOpen searchResults={[]} />);
+    expect(screen.getByText('No entries found.')).toBeInTheDocument();
+  });
+
+  it('falls back to "-" for a missing content_type and a non-numeric duration', () => {
+    render(
+      <PatientLibrarySearchPanel
+        {...baseProps}
+        isSearchOpen
+        searchResults={[{ id: 'x', title: 'No Meta' }]}
+      />
+    );
+    const title = screen.getByText('No Meta');
+    const resultButton = title.closest('button') as HTMLButtonElement;
+    expect(resultButton.textContent).toContain('-');
+  });
 });

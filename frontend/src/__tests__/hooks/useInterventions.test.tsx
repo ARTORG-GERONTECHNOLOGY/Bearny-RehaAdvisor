@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
@@ -31,6 +31,7 @@ jest.mock('@/stores/authStore', () => ({
 }));
 
 import { useInterventions } from '@/hooks/useInterventions';
+import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 
 const DATE = new Date('2026-03-16T00:00:00');
 
@@ -142,5 +143,170 @@ describe('useInterventions — external_id deduplication', () => {
     // int-2 (incomplete) should come before int-1 (completed)
     expect(sorted[0].intervention_id).toBe('int-2');
     expect(sorted[1].intervention_id).toBe('int-1');
+  });
+
+  it('treats a record with no dates array as never assigned to any date', () => {
+    mockStore.items = [
+      {
+        intervention_id: 'int-1',
+        intervention_title: 'No Dates',
+        description: '',
+        intervention: {},
+      },
+    ];
+
+    const { result } = renderHook(() => useInterventions(DATE));
+    expect(result.current.interventions).toHaveLength(0);
+  });
+
+  it('sorts alphabetically by title within the same completion state, preferring translated_title', () => {
+    mockStore.items = [
+      {
+        ...makeRec({ intervention_id: 'int-1', intervention_title: 'Zebra' }),
+        translated_title: '',
+      },
+      {
+        ...makeRec({ intervention_id: 'int-2', intervention_title: 'Zzz' }),
+        translated_title: 'Apple',
+      },
+    ];
+
+    const { result } = renderHook(() => useInterventions(DATE));
+    const sorted = result.current.sortedInterventions;
+    // int-2's translated_title "Apple" sorts before int-1's title "Zebra".
+    expect(sorted[0].intervention_id).toBe('int-2');
+    expect(sorted[1].intervention_id).toBe('int-1');
+  });
+});
+
+describe('useInterventions — toggleCompleted / isBusy / feedback', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.clear();
+    localStorage.setItem('id', 'patient-1');
+    mockStore.isCompletedOn.mockReturnValue(false);
+    mockStore.items = [];
+  });
+
+  it('is not busy for a record before any toggle has started', () => {
+    const { result } = renderHook(() => useInterventions(DATE));
+    const rec = makeRec({ intervention_id: 'int-1' });
+    expect(result.current.isBusy(rec, DATE)).toBe(false);
+  });
+
+  it('does nothing when there is no stored patient id', async () => {
+    localStorage.clear();
+    const mockAuthStore = jest.requireMock('@/stores/authStore').default;
+    mockAuthStore.id = '';
+    const { result } = renderHook(() => useInterventions(DATE));
+    const rec = makeRec({ intervention_id: 'int-1' });
+
+    await act(async () => {
+      await result.current.toggleCompleted(rec, DATE);
+    });
+
+    expect(mockStore.toggleCompleted).not.toHaveBeenCalled();
+    mockAuthStore.id = 'patient-1';
+  });
+
+  it('ignores a second toggle call for the same record/date while already busy', async () => {
+    let resolveToggle: (v: unknown) => void = () => {};
+    mockStore.toggleCompleted.mockReturnValueOnce(
+      new Promise((res) => {
+        resolveToggle = res;
+      })
+    );
+    const { result } = renderHook(() => useInterventions(DATE));
+    const rec = makeRec({ intervention_id: 'int-1' });
+
+    let firstCall: Promise<void>;
+    act(() => {
+      firstCall = result.current.toggleCompleted(rec, DATE);
+    });
+
+    await waitFor(() => expect(result.current.isBusy(rec, DATE)).toBe(true));
+
+    await act(async () => {
+      await result.current.toggleCompleted(rec, DATE);
+    });
+    expect(mockStore.toggleCompleted).toHaveBeenCalledTimes(1);
+
+    resolveToggle({ completed: false, dateKey: '2026-03-16' });
+    await act(async () => {
+      await firstCall;
+    });
+  });
+
+  it('opens feedback when toggling to completed', async () => {
+    mockStore.toggleCompleted.mockResolvedValueOnce({
+      completed: true,
+      dateKey: '2026-03-16',
+    });
+    const { result } = renderHook(() => useInterventions(DATE));
+    const rec = makeRec({ intervention_id: 'int-1' });
+
+    await act(async () => {
+      await result.current.toggleCompleted(rec, DATE);
+    });
+
+    await waitFor(() =>
+      expect(patientQuestionnairesStore.openInterventionFeedback).toHaveBeenCalledWith(
+        'patient-1',
+        'int-1',
+        '2026-03-16',
+        'en'
+      )
+    );
+    expect(result.current.isBusy(rec, DATE)).toBe(false);
+  });
+
+  it('does not open feedback when toggling to incomplete', async () => {
+    mockStore.toggleCompleted.mockResolvedValueOnce({
+      completed: false,
+      dateKey: '2026-03-16',
+    });
+    const { result } = renderHook(() => useInterventions(DATE));
+    const rec = makeRec({ intervention_id: 'int-1' });
+
+    await act(async () => {
+      await result.current.toggleCompleted(rec, DATE);
+    });
+
+    expect(patientQuestionnairesStore.openInterventionFeedback).not.toHaveBeenCalled();
+  });
+
+  it('clears the busy flag and logs when toggleCompleted rejects', async () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockStore.toggleCompleted.mockRejectedValueOnce(new Error('network down'));
+    const { result } = renderHook(() => useInterventions(DATE));
+    const rec = makeRec({ intervention_id: 'int-1' });
+
+    await act(async () => {
+      await result.current.toggleCompleted(rec, DATE);
+    });
+
+    expect(result.current.isBusy(rec, DATE)).toBe(false);
+    expect(consoleSpy).toHaveBeenCalledWith('Toggle completed failed:', expect.any(Error));
+    consoleSpy.mockRestore();
+  });
+
+  it('closes the feedback popup when opening feedback fails', async () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    (patientQuestionnairesStore.openInterventionFeedback as jest.Mock).mockRejectedValueOnce(
+      new Error('feedback down')
+    );
+    mockStore.toggleCompleted.mockResolvedValueOnce({
+      completed: true,
+      dateKey: '2026-03-16',
+    });
+    const { result } = renderHook(() => useInterventions(DATE));
+    const rec = makeRec({ intervention_id: 'int-1' });
+
+    await act(async () => {
+      await result.current.toggleCompleted(rec, DATE);
+    });
+
+    await waitFor(() => expect(patientQuestionnairesStore.closeFeedback).toHaveBeenCalled());
+    consoleSpy.mockRestore();
   });
 });

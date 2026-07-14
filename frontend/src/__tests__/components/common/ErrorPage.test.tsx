@@ -1,4 +1,4 @@
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import ErrorPage from '@/pages/ErrorPage';
 
@@ -23,12 +23,19 @@ jest.mock('@/components/Card', () => ({
   default: ({ children }: { children: ReactNode }) => <div data-testid="card">{children}</div>,
 }));
 
+jest.mock('@/stores/authStore', () => ({
+  __esModule: true,
+  default: { email: 'user@example.com', firstName: 'Jane' },
+}));
+
 const mockCaptureException = jest.fn().mockReturnValue('test-event-id');
 const mockGetFeedback = jest.fn().mockReturnValue(null);
+const mockSetUser = jest.fn();
 
 jest.mock('@sentry/react', () => ({
   captureException: (...args: unknown[]) => mockCaptureException(...args),
   getFeedback: () => mockGetFeedback(),
+  setUser: (...args: unknown[]) => mockSetUser(...args),
 }));
 
 describe('ErrorPage', () => {
@@ -103,5 +110,56 @@ describe('ErrorPage', () => {
     });
 
     expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  describe('Report Bug button', () => {
+    it('is not rendered when Sentry feedback is unavailable', () => {
+      render(<ErrorPage />);
+      expect(screen.queryByText('Report Bug')).not.toBeInTheDocument();
+    });
+
+    it('opens the Sentry feedback form when clicked, creating and caching the form once', async () => {
+      const appendToDom = jest.fn();
+      const open = jest.fn();
+      const createForm = jest
+        .fn()
+        .mockResolvedValue({ appendToDom, open, removeFromDom: jest.fn() });
+      mockGetFeedback.mockReturnValue({ createForm });
+
+      render(<ErrorPage />);
+      const button = screen.getByText('Report Bug');
+
+      await act(async () => {
+        fireEvent.click(button);
+      });
+      await act(async () => {
+        fireEvent.click(button);
+      });
+
+      expect(createForm).toHaveBeenCalledTimes(1);
+      expect(appendToDom).toHaveBeenCalledTimes(2);
+      expect(open).toHaveBeenCalledTimes(2);
+      expect(mockSetUser).toHaveBeenCalledWith({
+        email: 'user@example.com',
+        username: 'Jane',
+      });
+    });
+
+    it('tags the feedback form with the captured event id', async () => {
+      const createForm = jest
+        .fn()
+        .mockResolvedValue({ appendToDom: jest.fn(), open: jest.fn(), removeFromDom: jest.fn() });
+      mockGetFeedback.mockReturnValue({ createForm });
+      mockUseRouteError.mockReturnValue(new Error('boom'));
+      mockCaptureException.mockReturnValue('evt-123');
+
+      render(<ErrorPage />);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('Report Bug'));
+      });
+
+      expect(createForm).toHaveBeenCalledWith({ tags: { error_event_id: 'evt-123' } });
+    });
   });
 });

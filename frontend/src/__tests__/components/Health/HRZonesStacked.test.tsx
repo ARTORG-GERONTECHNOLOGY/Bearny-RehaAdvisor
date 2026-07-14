@@ -4,13 +4,20 @@ import { render, screen } from '@testing-library/react';
 // D3 is ESM-only — mock before any import that pulls in utils/healthCharts.
 jest.mock('d3', () => ({ timeParse: () => (s: string) => new Date(s) }));
 
+const mockYAxis = jest.fn();
+
 jest.mock('recharts', () => ({
   Bar: () => null,
   BarChart: ({ children }: { children: React.ReactNode }) => <svg>{children}</svg>,
   CartesianGrid: () => null,
   XAxis: () => null,
-  YAxis: () => null,
+  YAxis: (props: any) => {
+    mockYAxis(props);
+    return null;
+  },
 }));
+
+const mockChartTooltip = jest.fn();
 
 jest.mock('@/components/ui/chart', () => {
   const ChartContainer = React.forwardRef<HTMLDivElement, { children: React.ReactNode }>(
@@ -19,7 +26,10 @@ jest.mock('@/components/ui/chart', () => {
   ChartContainer.displayName = 'ChartContainer';
   return {
     ChartContainer,
-    ChartTooltip: () => null,
+    ChartTooltip: (props: any) => {
+      mockChartTooltip(props);
+      return null;
+    },
     ChartTooltipContent: () => null,
   };
 });
@@ -85,6 +95,67 @@ describe('HRZonesStacked', () => {
     const data = [makeEntry('2026-01-01', [{ name: 'Fat Burn', minutes: 30 }])];
     render(<HRZonesStacked ref={ref} data={data} />);
     expect(ref.current).toBeInstanceOf(HTMLDivElement);
+  });
+
+  it('shows the no-active-zone-minutes state when only Out of Range has minutes', () => {
+    const data = [makeEntry('2026-01-01', [{ name: 'Out of Range', minutes: 200 }])];
+    render(
+      <HRZonesStacked data={data} start={new Date('2026-01-01')} end={new Date('2026-01-01')} />
+    );
+    expect(screen.getByText('No time in active heart rate zones')).toBeInTheDocument();
+  });
+
+  it('scales the y-axis domain max by 1.1x', () => {
+    mockYAxis.mockClear();
+    const data = [makeEntry('2026-01-01', [{ name: 'Fat Burn', minutes: 30 }])];
+    render(<HRZonesStacked data={data} />);
+    const { domain } = mockYAxis.mock.calls[0][0];
+    expect(domain[0]).toBe(0);
+    expect(domain[1](100)).toBeCloseTo(110);
+  });
+
+  it('builds the tooltip formatter that renders the bpm-range label and formatted duration', () => {
+    mockChartTooltip.mockClear();
+    const data = [
+      makeEntry('2026-01-01', [
+        { name: 'Fat Burn', minutes: 90, min: 100, max: 120 },
+        { name: 'Cardio', minutes: 0 },
+      ]),
+    ];
+    render(<HRZonesStacked data={data} />);
+
+    const tooltipContent = mockChartTooltip.mock.calls[0][0].content;
+    const formatter = tooltipContent.props.formatter;
+
+    const { getByText } = render(
+      formatter(90, 'fatBurn', { color: '#22c55e' }) as React.ReactElement
+    );
+    expect(getByText(/100–120 bpm/)).toBeInTheDocument();
+    expect(getByText('1h 30m')).toBeInTheDocument();
+  });
+
+  it('formats a zero-minute tooltip value as "0m"', () => {
+    mockChartTooltip.mockClear();
+    const data = [makeEntry('2026-01-01', [{ name: 'Fat Burn', minutes: 30 }])];
+    render(<HRZonesStacked data={data} />);
+
+    const tooltipContent = mockChartTooltip.mock.calls[0][0].content;
+    const formatter = tooltipContent.props.formatter;
+
+    const { getByText } = render(formatter(0, 'cardio', { color: '#000' }) as React.ReactElement);
+    expect(getByText('0m')).toBeInTheDocument();
+  });
+
+  it('formats a negative tooltip value as "0m"', () => {
+    mockChartTooltip.mockClear();
+    const data = [makeEntry('2026-01-01', [{ name: 'Fat Burn', minutes: 30 }])];
+    render(<HRZonesStacked data={data} />);
+
+    const tooltipContent = mockChartTooltip.mock.calls[0][0].content;
+    const formatter = tooltipContent.props.formatter;
+
+    const { getByText } = render(formatter(-5, 'cardio', { color: '#000' }) as React.ReactElement);
+    expect(getByText('0m')).toBeInTheDocument();
   });
 });
 
