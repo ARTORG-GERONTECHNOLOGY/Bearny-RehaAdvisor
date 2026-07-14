@@ -89,11 +89,13 @@ def _serialize_template(tmpl: InterventionTemplate, detail: bool = False) -> dic
     ``detail=False`` — summary (list view): no recommendations payload.
     ``detail=True``  — full object including recommendations.
     """
-    created_by_name = ""
+    # Prefer the live reference; fall back to the denormalized snapshot so the
+    # name survives account deletion.
+    created_by_name = tmpl.creator_name or ""
     try:
         creator = tmpl.created_by
         if creator is not None:
-            created_by_name = f"{creator.first_name or ''} {creator.name or ''}".strip()
+            created_by_name = f"{creator.first_name or ''} {creator.name or ''}".strip() or created_by_name
     except Exception:
         logger.warning("Could not resolve created_by for template %s", tmpl.id)
 
@@ -236,6 +238,7 @@ def template_list_create(request):
             description=description,
             is_public=is_public,
             created_by=therapist,
+            creator_name=f"{therapist.first_name or ''} {therapist.name or ''}".strip(),
             specialization=specialization,
             diagnosis=diagnosis,
         )
@@ -265,8 +268,12 @@ def template_detail(request, template_id):
     except InterventionTemplate.DoesNotExist:
         return JsonResponse({"error": "Template not found."}, status=404)
 
-    # Visibility check
-    is_owner = str(tmpl.created_by.id) == str(therapist.id)
+    # Visibility / ownership — guard against a broken created_by reference
+    # (happens when the creator account was hard-deleted outside the application).
+    try:
+        is_owner = str(tmpl.created_by.id) == str(therapist.id)
+    except Exception:
+        is_owner = False
     if not tmpl.is_public and not is_owner:
         return JsonResponse({"error": "Not found."}, status=404)
 
@@ -369,6 +376,7 @@ def copy_template(request, template_id):
         description=new_description,
         is_public=False,
         created_by=therapist,
+        creator_name=f"{therapist.first_name or ''} {therapist.name or ''}".strip(),
         specialization=original.specialization,
         diagnosis=original.diagnosis,
         recommendations=list(original.recommendations),  # shallow copy of embedded list

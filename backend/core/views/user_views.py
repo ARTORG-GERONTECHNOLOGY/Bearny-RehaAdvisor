@@ -80,7 +80,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
-from core.models import Logs, PasswordAttempt, Patient, Therapist, User
+from core.models import InterventionTemplate, Logs, PasswordAttempt, Patient, Therapist, User
 from core.permissions import IsAdmin
 from utils.config import WEARABLE_DEVICE_CHOICES
 from utils.utils import (
@@ -601,6 +601,25 @@ def user_profile_view(request, user_id):
     # ================================ DELETE ====================================
     if request.method == "DELETE":
         try:
+            # If the user is a therapist, make their private templates public so
+            # they remain accessible.  creator_name is already stored on each
+            # template, so traceability is preserved.
+            try:
+                therapist_profile = Therapist.objects.get(userId=user)
+                private_templates = InterventionTemplate.objects(
+                    created_by=therapist_profile, is_public=False
+                )
+                count = private_templates.count()
+                if count:
+                    private_templates.update(set__is_public=True)
+                    logger.info(
+                        "Soft-deleted therapist %s: made %d private template(s) public",
+                        user_id,
+                        count,
+                    )
+            except Therapist.DoesNotExist:
+                pass  # patient account — no templates to handle
+
             user.isActive = False
             user.save()
 
