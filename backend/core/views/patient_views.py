@@ -2805,9 +2805,7 @@ def reschedule_intervention_date(request):
     # single visible card even though the plan holds two dates.
     # ----------------------
     new_day = _as_aware_local(new_dt_utc).date()
-    collides = any(
-        _as_aware_local(d).date() == new_day for i, d in enumerate(existing_utc) if i != match_idx
-    )
+    collides = any(_as_aware_local(d).date() == new_day for i, d in enumerate(existing_utc) if i != match_idx)
     if collides:
         return JsonResponse(
             {

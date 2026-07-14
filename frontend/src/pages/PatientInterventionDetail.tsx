@@ -377,8 +377,6 @@ const PatientInterventionDetail: React.FC = observer(() => {
     );
   }, [interventionId, patientInterventionsLibraryStore.visibleItemsForPatient]);
 
-  // targetDate is midnight-only; targetOccurrenceIso is the matching raw entry
-  // from selectedRec.dates, carrying the real time and needed as-is for oldDatetime.
   const { targetDate, targetOccurrenceIso } = useMemo(() => {
     const none = { targetDate: null as Date | null, targetOccurrenceIso: null as string | null };
 
