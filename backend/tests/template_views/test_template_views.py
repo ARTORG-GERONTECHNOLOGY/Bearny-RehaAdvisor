@@ -387,9 +387,7 @@ def test_list_templates_ignores_unknown_db_fields(mongo_mock):
     resp = _get(LIST_URL, therapist)
     assert resp.status_code == 200, resp.content.decode()
     names = [t["name"] for t in resp.json().get("templates", [])]
-    assert "Legacy Template" in names, (
-        "Template with unknown DB field was excluded — strict=False not set on model"
-    )
+    assert "Legacy Template" in names, "Template with unknown DB field was excluded — strict=False not set on model"
 
 
 # ===========================================================================
