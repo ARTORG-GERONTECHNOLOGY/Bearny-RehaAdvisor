@@ -357,6 +357,41 @@ def test_list_templates_method_not_allowed(mongo_mock):
     assert resp.status_code == 405
 
 
+def test_list_templates_ignores_unknown_db_fields(mongo_mock):
+    """
+    Bug #442: some InterventionTemplate documents in production carry a
+    legacy 'creator_name' field that was removed from the model. Without
+    strict=False on the model, MongoEngine raises FieldDoesNotExist when
+    deserialising those documents, causing the list endpoint to 500 and the
+    frontend to show an empty template selector for all therapists.
+
+    This test inserts a raw document with an unknown extra field directly via
+    PyMongo, bypassing MongoEngine, and asserts that the list endpoint still
+    returns 200 with the template included.
+    """
+    from mongoengine.connection import get_db
+
+    _, therapist = _make_therapist()
+
+    # Insert a template with a legacy field MongoEngine no longer knows about
+    db = get_db()
+    db["InterventionTemplates"].insert_one(
+        {
+            "name": "Legacy Template",
+            "is_public": True,
+            "creator_name": "Old Field That No Longer Exists",  # the offending field
+            "recommendations": [],
+        }
+    )
+
+    resp = _get(LIST_URL, therapist)
+    assert resp.status_code == 200, resp.content.decode()
+    names = [t["name"] for t in resp.json().get("templates", [])]
+    assert "Legacy Template" in names, (
+        "Template with unknown DB field was excluded — strict=False not set on model"
+    )
+
+
 # ===========================================================================
 # template_list_create — POST /api/templates/
 # ===========================================================================

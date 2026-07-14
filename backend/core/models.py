@@ -444,7 +444,7 @@ class InterventionTemplate(Document):
     can no longer be dereferenced.
     """
 
-    meta = {"collection": "InterventionTemplates"}
+    meta = {"collection": "InterventionTemplates", "strict": False}
 
     name = StringField(max_length=200, required=True)
     description = StringField(default="")
