@@ -721,6 +721,79 @@ def test_fixfp6_therapist_cannot_access_other_clinics_patient():
         ), f"Therapist B must not be able to call {view_fn.__name__} on Therapist A's patient"
 
 
+def test_fixfp6_patient_can_reschedule_own_session():
+    """
+    Patients now self-serve rescheduling of their own sessions (feature #426),
+    which reuses the therapist-facing reschedule endpoint. The owning patient
+    must be authorized even though they are not a Therapist/Admin.
+    """
+    from django.conf import settings as _ds
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.patient_views import reschedule_intervention_date
+
+    _, th_a = _make_therapist("th_owner_fp6", ["Inselspital"])
+    patient, intervention, plan = _make_patient_with_plan("owner_fp6", "Inselspital", th_a)
+    old_dt = plan.interventions[0].dates[1]
+
+    payload = {
+        "patientId": str(patient.id),
+        "interventionId": str(intervention.id),
+        "oldDatetime": old_dt.isoformat(),
+        "newDatetime": (old_dt + timedelta(days=10)).isoformat(),
+    }
+
+    factory = APIRequestFactory()
+    request = factory.post(RESCHEDULE_URL, data=json.dumps(payload), content_type="application/json")
+    force_authenticate(
+        request,
+        user=SimpleNamespace(is_authenticated=True, id=str(patient.userId.id), role="Patient"),
+    )
+
+    _ds.TESTING = False
+    try:
+        resp = reschedule_intervention_date(request)
+    finally:
+        _ds.TESTING = True
+
+    assert resp.status_code == 200, "A patient must be able to reschedule their own session"
+
+
+def test_fixfp6_patient_cannot_reschedule_other_patients_session():
+    """A patient must not be able to reschedule a different patient's session."""
+    from django.conf import settings as _ds
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.patient_views import reschedule_intervention_date
+
+    _, th_a = _make_therapist("th_a_fp6b", ["Inselspital"])
+    patient_a, intervention_a, plan_a = _make_patient_with_plan("a_fp6b", "Inselspital", th_a)
+    patient_b, _, _ = _make_patient_with_plan("b_fp6b", "Bern", th_a)
+    old_dt = plan_a.interventions[0].dates[1]
+
+    payload = {
+        "patientId": str(patient_a.id),
+        "interventionId": str(intervention_a.id),
+        "oldDatetime": old_dt.isoformat(),
+        "newDatetime": (old_dt + timedelta(days=5)).isoformat(),
+    }
+
+    factory = APIRequestFactory()
+    request = factory.post(RESCHEDULE_URL, data=json.dumps(payload), content_type="application/json")
+    force_authenticate(
+        request,
+        user=SimpleNamespace(is_authenticated=True, id=str(patient_b.userId.id), role="Patient"),
+    )
+
+    _ds.TESTING = False
+    try:
+        resp = reschedule_intervention_date(request)
+    finally:
+        _ds.TESTING = True
+
+    assert resp.status_code == 403, "Patient B must not be able to reschedule Patient A's session"
+
+
 # ===========================================================================
 # HealthSlider session-zip and delete-session — token required
 # ===========================================================================

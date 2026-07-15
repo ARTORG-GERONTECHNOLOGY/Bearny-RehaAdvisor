@@ -862,6 +862,54 @@ def test_reschedule_intervention_date_collision(mongo_mock):
     assert "already exists" in resp.json().get("message", "")
 
 
+def test_reschedule_intervention_date_local_midnight_not_blocked_by_neighbor_day(mongo_mock):
+    """
+    Regression: the collision check must compare *local* (Europe/Zurich)
+    calendar days, not UTC ones. A session moved to local midnight sits on
+    the UTC-adjacent day, so comparing raw UTC ``.date()`` values falsely
+    collided with a real occurrence on the neighboring local day.
+    """
+    from zoneinfo import ZoneInfo
+
+    patient, _, intervention, plan = setup_patient_with_plan()
+    assignment = plan.interventions[0]
+
+    zurich = ZoneInfo("Europe/Zurich")
+    base_day = (datetime.now(zurich) + timedelta(days=10)).date()
+
+    def local(day, hour):
+        return datetime.combine(day, datetime.min.time(), tzinfo=zurich).replace(hour=hour)
+
+    day_before = local(base_day - timedelta(days=1), 9)
+    day_of_evening = local(base_day, 18)
+    day_after = local(base_day + timedelta(days=1), 9)
+
+    assignment.dates = [
+        day_before.astimezone(py_utc.utc).replace(tzinfo=None),
+        day_of_evening.astimezone(py_utc.utc).replace(tzinfo=None),
+        day_after.astimezone(py_utc.utc).replace(tzinfo=None),
+    ]
+    plan.save()
+
+    old_dt = assignment.dates[1]
+    new_dt_local_midnight = local(base_day, 0)
+
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": _as_utc_iso(old_dt),
+                "newDatetime": new_dt_local_midnight.astimezone(py_utc.utc).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+
 def test_reschedule_intervention_date_past_new_datetime(mongo_mock):
     """``newDatetime`` in the past returns 400 with a descriptive message."""
     patient, _, intervention, plan = setup_patient_with_plan()

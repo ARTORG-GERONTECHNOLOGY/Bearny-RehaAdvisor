@@ -323,4 +323,85 @@ describe('PatientInterventionsStore', () => {
       ]);
     });
   });
+
+  // ------------------------------------------------------------------
+  // rescheduleOccurrence
+  // ------------------------------------------------------------------
+  describe('rescheduleOccurrence', () => {
+    const rec = {
+      intervention_id: 'int-1',
+      dates: ['2026-01-05T18:00:00+00:00', '2026-01-06T18:00:00+00:00'],
+    } as any;
+
+    it('posts the reschedule request with the camelCase payload the backend expects', async () => {
+      store.items = [rec];
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: { newDatetime: '2026-01-10T18:00:00+00:00' },
+      });
+
+      const newDate = new Date('2026-01-10T18:00:00+00:00');
+      await store.rescheduleOccurrence('patient-1', rec, '2026-01-05T18:00:00+00:00', newDate);
+
+      expect(apiClient.post).toHaveBeenCalledWith('interventions/reschedule-date/', {
+        patientId: 'patient-1',
+        interventionId: 'int-1',
+        oldDatetime: '2026-01-05T18:00:00+00:00',
+        newDatetime: newDate.toISOString(),
+      });
+    });
+
+    it('replaces only the rescheduled occurrence with the backend-confirmed datetime', async () => {
+      store.items = [rec];
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: { newDatetime: '2026-01-10T18:00:00+00:00' },
+      });
+
+      await store.rescheduleOccurrence(
+        'patient-1',
+        rec,
+        '2026-01-05T18:00:00+00:00',
+        new Date('2026-01-10T18:00:00+00:00')
+      );
+
+      expect(store.items[0].dates).toEqual([
+        '2026-01-10T18:00:00+00:00',
+        '2026-01-06T18:00:00+00:00',
+      ]);
+    });
+
+    it('falls back to the requested date when the backend response has no newDatetime', async () => {
+      store.items = [rec];
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({ data: {} });
+
+      const newDate = new Date('2026-01-10T18:00:00+00:00');
+      const result = await store.rescheduleOccurrence(
+        'patient-1',
+        rec,
+        '2026-01-05T18:00:00+00:00',
+        newDate
+      );
+
+      expect(result).toBe(newDate.toISOString());
+      expect(store.items[0].dates).toContain(newDate.toISOString());
+    });
+
+    it('only updates the matching record, leaving others untouched', async () => {
+      const other = { intervention_id: 'other', dates: ['2026-01-05T09:00:00+00:00'] } as any;
+      store.items = [rec, other];
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: { newDatetime: '2026-01-10T18:00:00+00:00' },
+      });
+
+      await store.rescheduleOccurrence(
+        'patient-1',
+        rec,
+        '2026-01-05T18:00:00+00:00',
+        new Date('2026-01-10T18:00:00+00:00')
+      );
+
+      expect(store.items.find((r) => r.intervention_id === 'other')!.dates).toEqual([
+        '2026-01-05T09:00:00+00:00',
+      ]);
+    });
+  });
 });
