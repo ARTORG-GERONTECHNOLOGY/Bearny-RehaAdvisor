@@ -6,6 +6,7 @@ let mockIsAuthenticated = true;
 let mockUserType = 'Patient';
 
 const mockNavigate = jest.fn();
+const mockSetSearchParams = jest.fn();
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
@@ -175,7 +176,7 @@ jest.mock('react-router-dom', () => {
   return {
     ...actual,
     useNavigate: jest.fn(),
-    useSearchParams: jest.fn(() => [new URLSearchParams()]),
+    useSearchParams: jest.fn(() => [new URLSearchParams(), jest.fn()]),
   };
 });
 
@@ -207,7 +208,10 @@ describe('PatientView', () => {
 
     const routerMocks = getRouterMocks();
     (routerMocks.useNavigate as jest.Mock).mockReturnValue(mockNavigate);
-    (routerMocks.useSearchParams as jest.Mock).mockReturnValue([new URLSearchParams()]);
+    (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
+      new URLSearchParams(),
+      mockSetSearchParams,
+    ]);
 
     const fitbitStore = getFitbitStore();
     const vitalsStore = getVitalsStore();
@@ -414,6 +418,7 @@ describe('PatientView', () => {
     const routerMocks = getRouterMocks();
     (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
       new URLSearchParams('fitbit_status=error'),
+      mockSetSearchParams,
     ]);
 
     render(<PatientView />);
@@ -468,6 +473,7 @@ describe('PatientView', () => {
     const routerMocks = getRouterMocks();
     (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
       new URLSearchParams('fitbit_status=misconfigured'),
+      mockSetSearchParams,
     ]);
 
     render(<PatientView />);
@@ -488,6 +494,7 @@ describe('PatientView', () => {
       const routerMocks = getRouterMocks();
       (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
         new URLSearchParams(`fitbit_status=auth_error&fitbit_error=${fitbitError}`),
+        mockSetSearchParams,
       ]);
 
       render(<PatientView />);
@@ -500,6 +507,7 @@ describe('PatientView', () => {
     const routerMocks = getRouterMocks();
     (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
       new URLSearchParams('fitbit_status=error'),
+      mockSetSearchParams,
     ]);
 
     render(<PatientView />);
@@ -516,6 +524,7 @@ describe('PatientView', () => {
     const routerMocks = getRouterMocks();
     (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
       new URLSearchParams('fitbit_status=connected'),
+      mockSetSearchParams,
     ]);
 
     render(<PatientView />);
@@ -529,6 +538,7 @@ describe('PatientView', () => {
     const routerMocks = getRouterMocks();
     (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
       new URLSearchParams('fitbit_status=connected'),
+      mockSetSearchParams,
     ]);
 
     render(<PatientView />);

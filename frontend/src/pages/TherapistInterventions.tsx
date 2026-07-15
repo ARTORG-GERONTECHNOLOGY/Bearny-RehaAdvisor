@@ -1,4 +1,4 @@
-// src/pages/TherapistRecomendations.tsx
+// src/pages/TherapistInterventions.tsx
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Form, Button, ButtonGroup, Spinner } from 'react-bootstrap';

@@ -30,7 +30,7 @@ import HomeIllustration from '@/assets/home_illustration.svg?react';
 
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
   const { isAllowed } = useRoleAuthGate('Patient');
 
@@ -123,6 +123,25 @@ const PatientView: React.FC = observer(() => {
     setLoading(false);
   }, [isAllowed, fitbitStatus, fitbitError, t, patientId, i18n.language]);
 
+  const clearFitbitParams = () => {
+    if (!fitbitStatus && !fitbitError) return;
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('fitbit_status');
+    nextParams.delete('fitbit_error');
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const dismissPageSuccess = () => {
+    setPageSuccess('');
+    clearFitbitParams();
+  };
+
+  const dismissPageError = () => {
+    setPageError('');
+    clearFitbitParams();
+  };
+
   if (loading) return null;
 
   return (
@@ -145,8 +164,8 @@ const PatientView: React.FC = observer(() => {
           }
         />
 
-        <StatusBanner type="success" message={pageSuccess} onClose={() => setPageSuccess('')} />
-        <StatusBanner type="danger" message={pageError} onClose={() => setPageError('')} />
+        <StatusBanner type="success" message={pageSuccess} onClose={dismissPageSuccess} />
+        <StatusBanner type="danger" message={pageError} onClose={dismissPageError} />
 
         <ActivitySection
           loading={patientFitbitStore.connected === null || patientFitbitStore.summaryLoading}
