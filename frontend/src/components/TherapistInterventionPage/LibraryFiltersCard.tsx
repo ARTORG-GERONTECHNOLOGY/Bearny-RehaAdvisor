@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { Card, Row, Col, Form, Button } from 'react-bootstrap';
+import { Row, Col, Form, Button } from 'react-bootstrap';
 import Select from 'react-select';
 import { FaUndo } from 'react-icons/fa';
 
 // ✅ NEW taxonomy config
 import interventionsConfig from '../../config/interventions.json';
+import { Card, CardContent } from '@/components/ui/card';
 
 export type LibraryFiltersState = {
   searchTerm: string;
@@ -63,105 +64,101 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
   const aimsOptions = useMemo(() => aims.map((a) => ({ value: a, label: t(a) })), [aims, t]);
 
   return (
-    <Row className="mb-4">
-      <Col xs={12}>
-        <Card className="mb-3">
-          <Card.Body>
-            <Row className="mb-3">
-              <Col>
-                <Form.Group controlId="searchInput">
-                  <Form.Control
-                    type="text"
-                    placeholder={t('Search Interventions')}
-                    value={filters.searchTerm}
-                    onChange={(e) => onChange({ ...filters, searchTerm: e.target.value })}
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
+    <Card>
+      <CardContent className="p-4">
+        <Row className="mb-3">
+          <Col>
+            <Form.Group controlId="searchInput">
+              <Form.Control
+                type="text"
+                placeholder={t('Search Interventions')}
+                value={filters.searchTerm}
+                onChange={(e) => onChange({ ...filters, searchTerm: e.target.value })}
+              />
+            </Form.Group>
+          </Col>
+        </Row>
 
-            <Row className="mb-3 g-3">
-              <Col xs={12} md={4}>
-                <Select
-                  isMulti
-                  options={diagnosisOptions}
-                  value={(filters.diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
-                  onChange={(opts) =>
-                    onChange({ ...filters, diagnosisFilter: (opts || []).map((o: any) => o.value) })
-                  }
-                  placeholder={t('Filter by Primary Diagnosis')}
-                />
-              </Col>
+        <Row className="mb-3 g-3">
+          <Col xs={12} md={4}>
+            <Select
+              isMulti
+              options={diagnosisOptions}
+              value={(filters.diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
+              onChange={(opts) =>
+                onChange({ ...filters, diagnosisFilter: (opts || []).map((o: any) => o.value) })
+              }
+              placeholder={t('Filter by Primary Diagnosis')}
+            />
+          </Col>
 
-              <Col xs={12} md={4}>
-                <Select
-                  isMulti
-                  options={languageOptions}
-                  value={(filters.languageFilter || []).map((l) => ({
-                    value: l,
-                    label: l.toUpperCase(),
-                  }))}
-                  onChange={(opts) =>
-                    onChange({ ...filters, languageFilter: (opts || []).map((o: any) => o.value) })
-                  }
-                  placeholder={t('Filter by Language')}
-                />
-              </Col>
+          <Col xs={12} md={4}>
+            <Select
+              isMulti
+              options={languageOptions}
+              value={(filters.languageFilter || []).map((l) => ({
+                value: l,
+                label: l.toUpperCase(),
+              }))}
+              onChange={(opts) =>
+                onChange({ ...filters, languageFilter: (opts || []).map((o: any) => o.value) })
+              }
+              placeholder={t('Filter by Language')}
+            />
+          </Col>
 
-              <Col xs={12} md={4}>
-                <Form.Select
-                  value={filters.contentTypeFilter}
-                  onChange={(e) => onChange({ ...filters, contentTypeFilter: e.target.value })}
-                >
-                  <option value="">{t('Filter by Content Type')}</option>
-                  {contentTypes.map((type: string) => (
-                    <option key={type} value={type}>
-                      {t(type)}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Col>
-            </Row>
+          <Col xs={12} md={4}>
+            <Form.Select
+              value={filters.contentTypeFilter}
+              onChange={(e) => onChange({ ...filters, contentTypeFilter: e.target.value })}
+            >
+              <option value="">{t('Filter by Content Type')}</option>
+              {contentTypes.map((type: string) => (
+                <option key={type} value={type}>
+                  {t(type)}
+                </option>
+              ))}
+            </Form.Select>
+          </Col>
+        </Row>
 
-            <Row className="mb-3 g-3">
-              {/* ✅ Aims */}
-              <Col xs={12} md={6}>
-                <Select
-                  isMulti
-                  options={aimsOptions}
-                  value={(filters.aimsFilter || []).map((a) => ({ value: a, label: t(a) }))}
-                  onChange={(opts) =>
-                    onChange({ ...filters, aimsFilter: (opts || []).map((o: any) => o.value) })
-                  }
-                  placeholder={t('Filter by Aims')}
-                />
-              </Col>
+        <Row className="mb-3 g-3">
+          {/* ✅ Aims */}
+          <Col xs={12} md={6}>
+            <Select
+              isMulti
+              options={aimsOptions}
+              value={(filters.aimsFilter || []).map((a) => ({ value: a, label: t(a) }))}
+              onChange={(opts) =>
+                onChange({ ...filters, aimsFilter: (opts || []).map((o: any) => o.value) })
+              }
+              placeholder={t('Filter by Aims')}
+            />
+          </Col>
 
-              {/* ✅ Tags (everything except aims) */}
-              <Col xs={12} md={6}>
-                <Select
-                  isMulti
-                  options={tagOptions}
-                  value={(filters.tagFilter || []).map((tag) => ({ value: tag, label: t(tag) }))}
-                  onChange={(opts) =>
-                    onChange({ ...filters, tagFilter: (opts || []).map((o: any) => o.value) })
-                  }
-                  placeholder={t('Filter by Tags')}
-                />
-              </Col>
-            </Row>
+          {/* ✅ Tags (everything except aims) */}
+          <Col xs={12} md={6}>
+            <Select
+              isMulti
+              options={tagOptions}
+              value={(filters.tagFilter || []).map((tag) => ({ value: tag, label: t(tag) }))}
+              onChange={(opts) =>
+                onChange({ ...filters, tagFilter: (opts || []).map((o: any) => o.value) })
+              }
+              placeholder={t('Filter by Tags')}
+            />
+          </Col>
+        </Row>
 
-            <Row>
-              <Col>
-                <Button variant="outline-secondary" size="sm" onClick={onReset}>
-                  <FaUndo className="me-2" /> {t('Reset filters')}
-                </Button>
-              </Col>
-            </Row>
-          </Card.Body>
-        </Card>
-      </Col>
-    </Row>
+        <Row>
+          <Col>
+            <Button variant="outline-secondary" size="sm" onClick={onReset}>
+              <FaUndo className="me-2" /> {t('Reset filters')}
+            </Button>
+          </Col>
+        </Row>
+      </CardContent>
+    </Card>
   );
 };
 
