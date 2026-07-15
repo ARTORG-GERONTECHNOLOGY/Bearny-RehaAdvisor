@@ -274,36 +274,32 @@ def _get_existing_identifiers_for_project(project: str) -> Set[str]:
     """
     Identify patients already imported for a project.
 
-    We compare against stored redcap identifier.
-    If your Patient model doesn't have redcap_* fields yet, we fall back to patient_code.
+    Runs two queries and unions the results so that patients imported before
+    the redcap_project/redcap_identifier fields were introduced (which have
+    those fields empty) are still detected via patient_code.
     """
     existing: Set[str] = set()
 
-    # Preferred: store a project + identifier on Patient (if you have fields)
-    # We'll try to read safely; if fields don't exist, fallback.
+    # Query 1: patients with redcap_project set (modern imports)
     try:
-        # If you have these fields:
-        #   Patient.redcap_project
-        #   Patient.redcap_identifier
         qs = Patient.objects(redcap_project=project).only("redcap_identifier").scalar("redcap_identifier")
-        if qs:
-            for x in qs:
-                s = _norm(x)
-                if s:
-                    existing.add(s)
+        for x in qs:
+            s = _norm(x)
+            if s:
+                existing.add(s)
     except Exception:
         pass
 
-    # Fallback: compare by patient_code scoped to this project
-    if not existing:
-        try:
-            qs2 = Patient.objects(project=project).only("patient_code").scalar("patient_code")
-            for x in qs2:
-                s = _norm(x)
-                if s:
-                    existing.add(s)
-        except Exception:
-            pass
+    # Query 2: always also check patient_code scoped to project (catches older imports
+    # where redcap_project was not yet populated)
+    try:
+        qs2 = Patient.objects(project=project).only("patient_code").scalar("patient_code")
+        for x in qs2:
+            s = _norm(x)
+            if s:
+                existing.add(s)
+    except Exception:
+        pass
 
     return existing
 
@@ -567,12 +563,21 @@ def import_patient_from_redcap(request):
     # Try:
     #  1) treat as record_id export
     #  2) fallback: export minimal and find by pat_id
+    #
+    # REDCap flat exports return one row per instrument/event, so a single
+    # record may produce multiple rows. The informed-consent field (ic) may only
+    # be populated on one of those rows. We therefore:
+    #   a) prefer the first row that carries ic=1 as the representative row,
+    #      falling back to rows[0] if none has consent yet (consent check below
+    #      will then correctly reject the import).
+    #   b) check consent across ALL rows for the record, not just the chosen row.
+    all_fetched: List[Dict[str, Any]] = []
     rc_row = None
     try:
         rows_by_record = redcap_export_minimal(token=token, project=project, record_id=identifier)
         if rows_by_record:
-            # if identifier matches record_id, first row is correct
-            rc_row = rows_by_record[0]
+            all_fetched = rows_by_record
+            rc_row = next((r for r in rows_by_record if _has_informed_consent(r)), rows_by_record[0])
     except RedcapError:
         rc_row = None
 
@@ -581,7 +586,8 @@ def import_patient_from_redcap(request):
         try:
             rows = redcap_export_minimal(token=token, project=project, patient_id=identifier)
             if rows:
-                rc_row = rows[0]
+                all_fetched = rows
+                rc_row = next((r for r in rows if _has_informed_consent(r)), rows[0])
         except RedcapError as e:
             return JsonResponse({"ok": False, "error": str(e), "detail": e.detail}, status=502)
 
@@ -592,7 +598,7 @@ def import_patient_from_redcap(request):
             extra={"project": project, "identifier": identifier},
         )
 
-    if not _has_informed_consent(rc_row):
+    if not any(_has_informed_consent(r) for r in all_fetched):
         return _bad(
             "Forbidden: participant has not provided informed consent (ic must be 1).",
             status=403,
