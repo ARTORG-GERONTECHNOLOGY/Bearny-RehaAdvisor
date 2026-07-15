@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 
-import ErrorAlert from '@/components/common/ErrorAlert';
+import StatusBanner from '@/components/common/StatusBanner';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import ActivitySection from '@/components/PatientPage/ActivitySection';
@@ -38,6 +38,7 @@ const PatientView: React.FC = observer(() => {
 
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
+  const [pageSuccess, setPageSuccess] = useState('');
 
   const fitbitStatus = useMemo(() => searchParams.get('fitbit_status'), [searchParams]);
   const fitbitError = useMemo(() => searchParams.get('fitbit_error'), [searchParams]);
@@ -86,6 +87,8 @@ const PatientView: React.FC = observer(() => {
   useEffect(() => {
     if (!isAllowed) return;
 
+    if (fitbitStatus === 'connected')
+      setPageSuccess(String(t('Your Fitbit account has been successfully connected.')));
     if (fitbitStatus === 'error') setPageError(String(t('Fitbit connection failed.')));
     if (fitbitStatus === 'misconfigured')
       setPageError(String(t('Fitbit is not configured on this server. Please contact support.')));
@@ -134,7 +137,8 @@ const PatientView: React.FC = observer(() => {
           }
         />
 
-        {pageError && <ErrorAlert message={pageError} onClose={() => setPageError('')} />}
+        <StatusBanner type="success" message={pageSuccess} onClose={() => setPageSuccess('')} />
+        <StatusBanner type="danger" message={pageError} onClose={() => setPageError('')} />
 
         <ActivitySection
           loading={patientFitbitStore.connected === null || patientFitbitStore.summaryLoading}

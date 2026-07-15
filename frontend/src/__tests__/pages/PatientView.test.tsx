@@ -153,17 +153,16 @@ jest.mock('@/components/PatientPage/PatientQuestionaire', () => {
   return MockPatientQuestionaire;
 });
 
-jest.mock('@/components/common/ErrorAlert', () => {
-  function MockErrorAlert({ message, onClose }: { message: string; onClose: () => void }) {
-    return (
-      <div role="alert">
+jest.mock('@/components/common/StatusBanner', () => ({
+  __esModule: true,
+  default: ({ type, message, onClose }: { type: string; message: string; onClose: () => void }) =>
+    message ? (
+      <div data-testid={`banner-${type}`}>
         {message}
-        <button onClick={onClose}>close-alert</button>
+        <button onClick={onClose}>{`close-${type}`}</button>
       </div>
-    );
-  }
-  return MockErrorAlert;
-});
+    ) : null,
+}));
 
 jest.mock('@/hooks/useInterventions', () => ({
   useInterventions: jest.fn(() => ({
@@ -419,7 +418,9 @@ describe('PatientView', () => {
 
     render(<PatientView />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Fitbit connection failed.');
+    expect(await screen.findByTestId('banner-danger')).toHaveTextContent(
+      'Fitbit connection failed.'
+    );
   });
 
   it('renders both feedback popups when intervention and health popups are enabled', async () => {
@@ -471,7 +472,7 @@ describe('PatientView', () => {
 
     render(<PatientView />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    expect(await screen.findByTestId('banner-danger')).toHaveTextContent(
       'Fitbit is not configured on this server. Please contact support.'
     );
   });
@@ -491,7 +492,7 @@ describe('PatientView', () => {
 
       render(<PatientView />);
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(expectedMessage);
+      expect(await screen.findByTestId('banner-danger')).toHaveTextContent(expectedMessage);
     }
   );
 
@@ -503,11 +504,40 @@ describe('PatientView', () => {
 
     render(<PatientView />);
 
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('close-alert'));
+    expect(await screen.findByTestId('banner-danger')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('close-danger'));
 
     await waitFor(() => {
-      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('banner-danger')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows fitbit success banner when fitbit_status=connected', async () => {
+    const routerMocks = getRouterMocks();
+    (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
+      new URLSearchParams('fitbit_status=connected'),
+    ]);
+
+    render(<PatientView />);
+
+    expect(await screen.findByTestId('banner-success')).toHaveTextContent(
+      'Your Fitbit account has been successfully connected.'
+    );
+  });
+
+  it('dismisses the fitbit success banner via onClose', async () => {
+    const routerMocks = getRouterMocks();
+    (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
+      new URLSearchParams('fitbit_status=connected'),
+    ]);
+
+    render(<PatientView />);
+
+    expect(await screen.findByTestId('banner-success')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('close-success'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('banner-success')).not.toBeInTheDocument();
     });
   });
 
