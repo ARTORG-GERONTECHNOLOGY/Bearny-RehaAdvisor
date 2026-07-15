@@ -87,11 +87,18 @@ const PatientView: React.FC = observer(() => {
   useEffect(() => {
     if (!isAllowed) return;
 
-    if (fitbitStatus === 'connected')
+    if (fitbitStatus === 'connected') {
+      setPageError('');
       setPageSuccess(String(t('Your Fitbit account has been successfully connected.')));
-    if (fitbitStatus === 'error') setPageError(String(t('Fitbit connection failed.')));
-    if (fitbitStatus === 'misconfigured')
+    }
+    if (fitbitStatus === 'error') {
+      setPageSuccess('');
+      setPageError(String(t('Fitbit connection failed.')));
+    }
+    if (fitbitStatus === 'misconfigured') {
+      setPageSuccess('');
       setPageError(String(t('Fitbit is not configured on this server. Please contact support.')));
+    }
     if (fitbitStatus === 'auth_error') {
       const desc =
         fitbitError === 'redirect_uri_mismatch'
@@ -101,6 +108,7 @@ const PatientView: React.FC = observer(() => {
             : fitbitError === 'access_denied'
               ? t('Fitbit authorization was denied.')
               : t('Fitbit authorization failed: {{error}}.', { error: fitbitError ?? 'unknown' });
+      setPageSuccess('');
       setPageError(String(desc));
     }
 

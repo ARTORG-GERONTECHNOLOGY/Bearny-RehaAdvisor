@@ -90,9 +90,9 @@ describe('NewTemplateSheet', () => {
     expect(props.onSubmit).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the submitting label and disables Create while submitting', () => {
+  it('shows the submitting label and disables both buttons while submitting', () => {
     render(<NewTemplateSheet {...baseProps()} name="My template" submitting />);
-    const button = screen.getByRole('button', { name: 'Creating...' });
-    expect(button).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Creating...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   });
 });

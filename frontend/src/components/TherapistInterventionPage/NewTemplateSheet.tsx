@@ -73,7 +73,12 @@ const NewTemplateSheet: React.FC<NewTemplateSheetProps> = ({
         </FieldGroup>
 
         <SheetFooter className="mt-4">
-          <Button variant="secondary" size="dashboard" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="secondary"
+            size="dashboard"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
             {t('Cancel')}
           </Button>
           <Button size="dashboard" onClick={onSubmit} disabled={!name.trim() || submitting}>

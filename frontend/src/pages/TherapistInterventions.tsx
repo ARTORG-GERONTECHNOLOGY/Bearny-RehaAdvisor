@@ -101,15 +101,18 @@ const TherapistRecomendations: React.FC = observer(() => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const mainTab: MainTab = tabParam === 'templates' ? 'templates' : 'library';
-  const setMainTab = (tab: MainTab) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('tab', tab);
-        return next;
-      },
-      { replace: true }
-    );
+  const setMainTab = useCallback(
+    (tab: MainTab) =>
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', tab);
+          return next;
+        },
+        { replace: true }
+      ),
+    [setSearchParams]
+  );
 
   // ─────────────────────────── auth gate ───────────────────────────
   const { isAllowed } = useRoleAuthGate('Therapist');
