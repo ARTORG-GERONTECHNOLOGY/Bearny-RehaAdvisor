@@ -274,36 +274,32 @@ def _get_existing_identifiers_for_project(project: str) -> Set[str]:
     """
     Identify patients already imported for a project.
 
-    We compare against stored redcap identifier.
-    If your Patient model doesn't have redcap_* fields yet, we fall back to patient_code.
+    Runs two queries and unions the results so that patients imported before
+    the redcap_project/redcap_identifier fields were introduced (which have
+    those fields empty) are still detected via patient_code.
     """
     existing: Set[str] = set()
 
-    # Preferred: store a project + identifier on Patient (if you have fields)
-    # We'll try to read safely; if fields don't exist, fallback.
+    # Query 1: patients with redcap_project set (modern imports)
     try:
-        # If you have these fields:
-        #   Patient.redcap_project
-        #   Patient.redcap_identifier
         qs = Patient.objects(redcap_project=project).only("redcap_identifier").scalar("redcap_identifier")
-        if qs:
-            for x in qs:
-                s = _norm(x)
-                if s:
-                    existing.add(s)
+        for x in qs:
+            s = _norm(x)
+            if s:
+                existing.add(s)
     except Exception:
         pass
 
-    # Fallback: compare by patient_code scoped to this project
-    if not existing:
-        try:
-            qs2 = Patient.objects(project=project).only("patient_code").scalar("patient_code")
-            for x in qs2:
-                s = _norm(x)
-                if s:
-                    existing.add(s)
-        except Exception:
-            pass
+    # Query 2: always also check patient_code scoped to project (catches older imports
+    # where redcap_project was not yet populated)
+    try:
+        qs2 = Patient.objects(project=project).only("patient_code").scalar("patient_code")
+        for x in qs2:
+            s = _norm(x)
+            if s:
+                existing.add(s)
+    except Exception:
+        pass
 
     return existing
 
