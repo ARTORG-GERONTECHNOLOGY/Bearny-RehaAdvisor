@@ -64,7 +64,7 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
   const aimsOptions = useMemo(() => aims.map((a) => ({ value: a, label: t(a) })), [aims, t]);
 
   return (
-    <Card>
+    <Card className="mb-4">
       <CardContent className="p-4">
         <Row className="mb-3">
           <Col>
