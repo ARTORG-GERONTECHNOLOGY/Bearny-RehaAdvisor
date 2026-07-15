@@ -1,5 +1,6 @@
 // src/pages/TherapistRecomendations.tsx
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Form, Button, ButtonGroup, Spinner } from 'react-bootstrap';
 import { FaPlus, FaTrash, FaCopy, FaUpload, FaEdit, FaBell } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
@@ -97,7 +98,18 @@ const TherapistRecomendations: React.FC = observer(() => {
 
   // ─────────────────────────── tabs ───────────────────────────
   type MainTab = 'library' | 'templates';
-  const [mainTab, setMainTab] = useState<MainTab>('library');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const mainTab: MainTab = tabParam === 'templates' ? 'templates' : 'library';
+  const setMainTab = (tab: MainTab) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', tab);
+        return next;
+      },
+      { replace: true }
+    );
 
   // ─────────────────────────── auth gate ───────────────────────────
   const { isAllowed } = useRoleAuthGate('Therapist');
