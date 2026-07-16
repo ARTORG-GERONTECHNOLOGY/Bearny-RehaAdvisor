@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert, Col, Form, Row, Spinner } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 
 import apiClient from '@/api/client';
@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 type BuilderType = 'open-answer' | 'one-choice' | 'multiple-choice';
 
@@ -146,7 +147,11 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
                 {t('Question')} {idx + 1}
               </strong>
               {questions.length > 1 ? (
-                <Button variant="outline-danger" size="sm" onClick={() => removeQuestion(idx)}>
+                <Button
+                  size="dashboard"
+                  className="bg-nok hover:bg-nok/90"
+                  onClick={() => removeQuestion(idx)}
+                >
                   {t('Remove')}
                 </Button>
               ) : null}
@@ -191,15 +196,15 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
           </div>
         ))}
 
-        <Button variant="outline-primary" onClick={addQuestion}>
+        <Button size="dashboard" onClick={addQuestion}>
           {t('Add question')}
         </Button>
 
         <DialogFooter>
-          <Button variant="secondary" onClick={onHide} disabled={submitting}>
+          <Button size="dashboard" variant="secondary" onClick={onHide} disabled={submitting}>
             {t('Cancel')}
           </Button>
-          <Button variant="success" onClick={submit} disabled={!canSubmit || submitting}>
+          <Button size="dashboard" onClick={submit} disabled={!canSubmit || submitting}>
             {submitting ? (
               <>
                 <Spinner animation="border" size="sm" className="me-2" />

@@ -1,6 +1,6 @@
 // components/TherapistInterventionPage/TemplateAssignModal.tsx
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { Button, Form, Row, Col, Alert } from 'react-bootstrap';
+import { Form, Row, Col, Alert } from 'react-bootstrap';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 type Mode = 'create' | 'modify';
 
@@ -278,9 +279,9 @@ const TemplateAssignModal: React.FC<Props> = ({
             <div className="d-flex justify-content-between">
               <span>{error}</span>
               <Button
-                size="sm"
+                size="dashboard"
+                variant="secondary"
                 onClick={() => setShowErrorDetails(!showErrorDetails)}
-                variant="light"
               >
                 {showErrorDetails ? t('Hide details') : t('Show details')}
               </Button>
@@ -458,11 +459,16 @@ const TemplateAssignModal: React.FC<Props> = ({
         </Form>
 
         <DialogFooter>
-          <Button variant="secondary" onClick={confirmClose} disabled={submitting || success}>
+          <Button
+            size="dashboard"
+            variant="secondary"
+            onClick={confirmClose}
+            disabled={submitting || success}
+          >
             {t('Cancel')}
           </Button>
           <Button
-            variant="primary"
+            size="dashboard"
             onClick={handleSave}
             disabled={!canSubmit || submitting || success}
           >
