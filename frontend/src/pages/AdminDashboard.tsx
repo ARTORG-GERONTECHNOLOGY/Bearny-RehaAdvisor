@@ -6,13 +6,9 @@ import { useTranslation } from 'react-i18next';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import ConfirmModal from '@/components/common/ConfirmModal';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import RejectAccessRequestDialog from '@/components/AdminDashboard/RejectAccessRequestDialog';
+import TherapistAccessDialog from '@/components/AdminDashboard/TherapistAccessDialog';
+import EditQuestionnaireDialog from '@/components/AdminDashboard/EditQuestionnaireDialog';
 
 import adminStore from '@/stores/adminStore';
 import authStore from '@/stores/authStore';
@@ -1083,38 +1079,14 @@ const AdminDashboard: React.FC = observer(() => {
       </Tab.Container>
 
       {/* Reject access request modal */}
-      <Dialog
+      <RejectAccessRequestDialog
         open={rejectModal.open}
-        onOpenChange={(open) => !open && setRejectModal({ open: false, requestId: '' })}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('Decline access change request')}</DialogTitle>
-          </DialogHeader>
-          <Form.Group>
-            <Form.Label>{t('Note for therapist (optional)')}</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              value={rejectNote}
-              onChange={(e) => setRejectNote(e.target.value)}
-              placeholder={t('Explain why the request is being declined...')}
-            />
-          </Form.Group>
-          <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setRejectModal({ open: false, requestId: '' })}
-              disabled={rejectSubmitting}
-            >
-              {t('Cancel')}
-            </Button>
-            <Button variant="danger" onClick={submitReject} disabled={rejectSubmitting}>
-              {rejectSubmitting ? t('Declining...') : t('Decline')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        note={rejectNote}
+        submitting={rejectSubmitting}
+        onNoteChange={setRejectNote}
+        onCancel={() => setRejectModal({ open: false, requestId: '' })}
+        onSubmit={submitReject}
+      />
 
       {/* Decline confirm */}
       <ConfirmModal
@@ -1129,124 +1101,23 @@ const AdminDashboard: React.FC = observer(() => {
       />
 
       {/* Access Modal */}
-      <Dialog
+      <TherapistAccessDialog
         open={accessModal.open}
-        onOpenChange={(open) => !open && !accessLoading && closeAccessModal()}
-      >
-        <DialogContent
-          className="max-w-3xl"
-          hideClose={accessLoading}
-          onPointerDownOutside={(e) => accessLoading && e.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle>
-              {t('Therapist access')} — {accessModal.therapistName}
-            </DialogTitle>
-          </DialogHeader>
-
-          {accessSuccess && (
-            <Alert variant="success" dismissible onClose={() => setAccessSuccess(null)}>
-              {accessSuccess}
-            </Alert>
-          )}
-
-          {accessError && (
-            <Alert variant="danger" dismissible onClose={() => setAccessError(null)}>
-              {accessError}
-            </Alert>
-          )}
-
-          {accessLoading ? (
-            <div className="d-flex align-items-center gap-2">
-              <Spinner animation="border" size="sm" />
-              <div>{t('Loading')}...</div>
-            </div>
-          ) : (
-            <>
-              <p className="text-muted mb-2">{t('Projects')}</p>
-              {availableProjects.length === 0 ? (
-                <Alert variant="warning">{t('No projects configured on the server.')}</Alert>
-              ) : (
-                <Form className="mb-3">
-                  <div className="d-flex flex-wrap gap-3">
-                    {availableProjects.map((p) => (
-                      <Form.Check
-                        key={p}
-                        type="checkbox"
-                        id={`proj_${p}`}
-                        label={p}
-                        checked={selectedProjects.includes(p)}
-                        onChange={() => toggleProject(p)}
-                      />
-                    ))}
-                  </div>
-
-                  <div className="mt-2">
-                    <small className="text-muted">
-                      {t('Selected')}: {selectedProjects.length ? selectedProjects.join(', ') : '—'}
-                    </small>
-                  </div>
-                </Form>
-              )}
-
-              <p className="text-muted mb-2">{t('Clinics')}</p>
-              {!selectedProjects.length ? (
-                <Alert variant="info" className="mb-0">
-                  {t('Select a project to see available clinics.')}
-                </Alert>
-              ) : allowedClinicsForSelectedProjects.length === 0 ? (
-                <Alert variant="warning" className="mb-0">
-                  {t('No clinics are configured for the selected project(s).')}
-                </Alert>
-              ) : (
-                <Form>
-                  <div className="d-flex flex-wrap gap-3">
-                    {allowedClinicsForSelectedProjects.map((c) => (
-                      <Form.Check
-                        key={c}
-                        type="checkbox"
-                        id={`clinic_${c}`}
-                        label={c}
-                        checked={selectedClinics.includes(c)}
-                        onChange={() => toggleClinic(c)}
-                      />
-                    ))}
-                  </div>
-                </Form>
-              )}
-
-              {selectedProjects.length > 0 && (
-                <div className="mt-2">
-                  <small className="text-muted">
-                    {t('Clinics are filtered by selected projects.')}
-                  </small>
-                </div>
-              )}
-            </>
-          )}
-
-          <DialogFooter>
-            <Button variant="secondary" onClick={closeAccessModal} disabled={accessLoading}>
-              {t('Close')}
-            </Button>
-            <Button
-              variant="primary"
-              onClick={saveAccess}
-              disabled={accessLoading || selectedProjects.length === 0}
-              title={selectedProjects.length === 0 ? t('Select at least one project') : undefined}
-            >
-              {accessLoading ? (
-                <>
-                  <Spinner animation="border" size="sm" className="me-2" />
-                  {t('Saving')}...
-                </>
-              ) : (
-                t('Save')
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        therapistName={accessModal.therapistName}
+        loading={accessLoading}
+        error={accessError}
+        success={accessSuccess}
+        availableProjects={availableProjects}
+        allowedClinics={allowedClinicsForSelectedProjects}
+        selectedProjects={selectedProjects}
+        selectedClinics={selectedClinics}
+        onToggleProject={toggleProject}
+        onToggleClinic={toggleClinic}
+        onClose={closeAccessModal}
+        onSave={saveAccess}
+        onDismissError={() => setAccessError(null)}
+        onDismissSuccess={() => setAccessSuccess(null)}
+      />
 
       {/* Delete intervention confirm */}
       <ConfirmModal
@@ -1300,78 +1171,22 @@ const AdminDashboard: React.FC = observer(() => {
       />
 
       {/* Edit questionnaire modal */}
-      <Dialog
+      <EditQuestionnaireDialog
         open={qEditModal.open}
-        onOpenChange={(open) =>
-          !open && setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
+        title={qEditModal.title}
+        description={qEditModal.description}
+        tags={qEditModal.tags}
+        error={qEditError}
+        saving={qEditSaving}
+        onTitleChange={(title) => setQEditModal((s) => ({ ...s, title }))}
+        onDescriptionChange={(description) => setQEditModal((s) => ({ ...s, description }))}
+        onTagsChange={(tags) => setQEditModal((s) => ({ ...s, tags }))}
+        onDismissError={() => setQEditError(null)}
+        onCancel={() =>
+          setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
         }
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('Edit questionnaire')}</DialogTitle>
-          </DialogHeader>
-          {qEditError && (
-            <Alert variant="danger" dismissible onClose={() => setQEditError(null)}>
-              {qEditError}
-            </Alert>
-          )}
-          <Alert variant="info" className="py-2 mb-3 small">
-            <strong>{t('What changes here.')}</strong>{' '}
-            {t(
-              'Editing updates title, description and tags only — the underlying questions are not affected. Patients already assigned this questionnaire will continue to see the title and description that was current when they were assigned (their version is preserved). New assignments will use the updated information. Each save increments the version number shown in the table.'
-            )}
-          </Alert>
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>{t('Title')}</Form.Label>
-              <Form.Control
-                type="text"
-                value={qEditModal.title}
-                onChange={(e) => setQEditModal((s) => ({ ...s, title: e.target.value }))}
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>{t('Description')}</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={2}
-                value={qEditModal.description}
-                onChange={(e) => setQEditModal((s) => ({ ...s, description: e.target.value }))}
-              />
-            </Form.Group>
-            <Form.Group>
-              <Form.Label>
-                {t('Tags')} <small className="text-muted">({t('comma-separated')})</small>
-              </Form.Label>
-              <Form.Control
-                type="text"
-                value={qEditModal.tags}
-                onChange={(e) => setQEditModal((s) => ({ ...s, tags: e.target.value }))}
-                placeholder="dynamic, custom, shared"
-              />
-            </Form.Group>
-          </Form>
-
-          <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
-              }
-              disabled={qEditSaving}
-            >
-              {t('Cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              onClick={saveQEdit}
-              disabled={qEditSaving || !qEditModal.title.trim()}
-            >
-              {qEditSaving ? t('Saving...') : t('Save')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onSave={saveQEdit}
+      />
     </Layout>
   );
 });
