@@ -930,6 +930,7 @@ def test_get_fitbit_health_data_includes_wear_time_minutes():
 # DELETE /api/fitbit/disconnect/
 # ---------------------------------------------------------------------------
 
+
 def _disconnect_as(patient_user):
     """Helper: call DELETE /api/fitbit/disconnect/ authenticated as patient_user."""
     from types import SimpleNamespace
@@ -973,13 +974,12 @@ def test_fitbit_disconnect_idempotent_when_no_token():
 
 def test_fitbit_disconnect_requires_authentication():
     """Unauthenticated DELETE must be rejected with 401."""
-    from rest_framework.test import APIClient as DRFClient
-
     # AlwaysAuthenticate is active in test settings, so we patch IsAuthenticated
     # to verify the permission check would fire on a genuinely unauthenticated request.
     from unittest.mock import patch
 
     from rest_framework.permissions import IsAuthenticated
+    from rest_framework.test import APIClient as DRFClient
 
     c = DRFClient()
     with patch.object(IsAuthenticated, "has_permission", return_value=False):

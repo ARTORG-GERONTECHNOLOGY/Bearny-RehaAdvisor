@@ -257,7 +257,11 @@ describe('patientFitbitStore', () => {
     });
 
     it('clears the cached summary after a successful disconnect', async () => {
-      patientFitbitStore.summary = { connected: true, last_sync: null, period: { days: 7, daily: [] } };
+      patientFitbitStore.summary = {
+        connected: true,
+        last_sync: null,
+        period: { days: 7, daily: [] },
+      };
       (apiClient.delete as jest.Mock).mockResolvedValueOnce({});
       await patientFitbitStore.disconnect();
       expect(patientFitbitStore.summary).toBeNull();
