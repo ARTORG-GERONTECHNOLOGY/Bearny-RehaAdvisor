@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Alert } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -9,6 +9,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel, FieldGroup } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Props {
   open: boolean;
@@ -58,36 +61,38 @@ const EditQuestionnaireDialog: React.FC<Props> = ({
             'Editing updates title, description and tags only — the underlying questions are not affected. Patients already assigned this questionnaire will continue to see the title and description that was current when they were assigned (their version is preserved). New assignments will use the updated information. Each save increments the version number shown in the table.'
           )}
         </Alert>
-        <Form>
-          <Form.Group className="mb-3">
-            <Form.Label>{t('Title')}</Form.Label>
-            <Form.Control
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="edit-questionnaire-title">{t('Title')}</FieldLabel>
+            <Input
+              id="edit-questionnaire-title"
               type="text"
               value={title}
               onChange={(e) => onTitleChange(e.target.value)}
             />
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>{t('Description')}</Form.Label>
-            <Form.Control
-              as="textarea"
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="edit-questionnaire-description">{t('Description')}</FieldLabel>
+            <Textarea
+              id="edit-questionnaire-description"
               rows={2}
               value={description}
               onChange={(e) => onDescriptionChange(e.target.value)}
             />
-          </Form.Group>
-          <Form.Group>
-            <Form.Label>
-              {t('Tags')} <small className="text-muted">({t('comma-separated')})</small>
-            </Form.Label>
-            <Form.Control
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="edit-questionnaire-tags">
+              {t('Tags')} ({t('comma-separated')})
+            </FieldLabel>
+            <Input
+              id="edit-questionnaire-tags"
               type="text"
               value={tags}
               onChange={(e) => onTagsChange(e.target.value)}
               placeholder="dynamic, custom, shared"
             />
-          </Form.Group>
-        </Form>
+          </Field>
+        </FieldGroup>
 
         <DialogFooter>
           <Button size="dashboard" variant="secondary" onClick={onCancel} disabled={saving}>

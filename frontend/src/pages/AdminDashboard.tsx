@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Button, Spinner, Form, Badge, Alert } from 'react-bootstrap';
+import { Spinner, Badge, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -29,6 +29,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 type AccessModalState = {
   open: boolean;
@@ -538,7 +542,7 @@ const AdminDashboard: React.FC = observer(() => {
     <Layout>
       <div className="flex flex-wrap justify-between items-center mb-4">
         <PageHeader title={t('Admin Dashboard')} />
-        <Button variant="secondary" onClick={handleLogout}>
+        <Button size="dashboard" variant="secondary" onClick={handleLogout}>
           {t('Logout')}
           <LogoutFill />
         </Button>
@@ -551,15 +555,13 @@ const AdminDashboard: React.FC = observer(() => {
           <TabsTrigger value="pending">
             {t('Pending registrations')}
             {adminStore.pendingEntries.length > 0 && (
-              <Badge bg="danger" className="ms-2">
-                {adminStore.pendingEntries.length}
-              </Badge>
+              <Badge bg="danger">{adminStore.pendingEntries.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="access-requests">
             {t('Access change requests')}
             {changeRequests.length > 0 && (
-              <Badge bg="warning" text="dark" className="ms-2">
+              <Badge bg="warning" text="dark">
                 {changeRequests.length}
               </Badge>
             )}
@@ -620,14 +622,22 @@ const AdminDashboard: React.FC = observer(() => {
                       </TableCell>
                       <TableCell className="d-flex gap-2 flex-wrap">
                         {isTherapist && (
-                          <Button variant="outline-primary" onClick={() => openAccessModal(entry)}>
+                          <Button
+                            size="dashboard"
+                            variant="secondary"
+                            onClick={() => openAccessModal(entry)}
+                          >
                             {t('Edit access')}
                           </Button>
                         )}
-                        <Button variant="success" onClick={() => store.accept(entry.id, t)}>
+                        <Button size="dashboard" onClick={() => store.accept(entry.id, t)}>
                           {t('Accept')}
                         </Button>
-                        <Button variant="danger" onClick={() => store.openDeclineConfirm(entry.id)}>
+                        <Button
+                          size="dashboard"
+                          className="bg-nok hover:bg-nok/90"
+                          onClick={() => store.openDeclineConfirm(entry.id)}
+                        >
                           {t('Decline')}
                         </Button>
                       </TableCell>
@@ -681,10 +691,14 @@ const AdminDashboard: React.FC = observer(() => {
                       <small>{req.createdAt ? formatLocaleDate(req.createdAt) : '—'}</small>
                     </TableCell>
                     <TableCell className="d-flex gap-2 flex-wrap">
-                      <Button variant="success" size="sm" onClick={() => approveRequest(req.id)}>
+                      <Button size="dashboard" onClick={() => approveRequest(req.id)}>
                         {t('Approve')}
                       </Button>
-                      <Button variant="danger" size="sm" onClick={() => openRejectModal(req.id)}>
+                      <Button
+                        size="dashboard"
+                        className="bg-nok hover:bg-nok/90"
+                        onClick={() => openRejectModal(req.id)}
+                      >
                         {t('Decline')}
                       </Button>
                     </TableCell>
@@ -704,15 +718,17 @@ const AdminDashboard: React.FC = observer(() => {
           )}
 
           <div className="d-flex gap-2 mb-3">
-            <Form.Control
+            <Input
               type="search"
               placeholder={t('Search by title or ID…')}
               value={interventionSearch}
               onChange={(e) => setInterventionSearch(e.target.value)}
               style={{ maxWidth: 320 }}
+              className="bg-white"
             />
             <Button
-              variant="outline-secondary"
+              size="dashboard"
+              variant="secondary"
               onClick={fetchInterventions}
               disabled={interventionLoading}
             >
@@ -761,8 +777,8 @@ const AdminDashboard: React.FC = observer(() => {
                     </TableCell>
                     <TableCell>
                       <Button
-                        variant="danger"
-                        size="sm"
+                        size="dashboard"
+                        className="bg-nok hover:bg-nok/90"
                         onClick={() => setDeleteModal({ open: true, id: iv._id, title: iv.title })}
                       >
                         {t('Delete')}
@@ -784,15 +800,17 @@ const AdminDashboard: React.FC = observer(() => {
           )}
 
           <div className="d-flex gap-2 mb-3">
-            <Form.Control
+            <Input
               type="search"
               placeholder={t('Search by title, key or tag…')}
               value={questionnaireSearch}
               onChange={(e) => setQuestionnaireSearch(e.target.value)}
               style={{ maxWidth: 320 }}
+              className="bg-white"
             />
             <Button
-              variant="outline-secondary"
+              size="dashboard"
+              variant="secondary"
               onClick={fetchQuestionnaires}
               disabled={questionnaireLoading}
             >
@@ -872,15 +890,15 @@ const AdminDashboard: React.FC = observer(() => {
                     </TableCell>
                     <TableCell className="d-flex gap-1">
                       <Button
-                        variant="outline-primary"
-                        size="sm"
+                        size="dashboard"
+                        variant="secondary"
                         onClick={() => openQEditModal(qn)}
                       >
                         {t('Edit')}
                       </Button>
                       <Button
-                        variant="danger"
-                        size="sm"
+                        size="dashboard"
+                        className="bg-nok hover:bg-nok/90"
                         onClick={() =>
                           setQDeleteModal({
                             open: true,
@@ -926,18 +944,18 @@ const AdminDashboard: React.FC = observer(() => {
                 <Alert variant="info">{t('No clinics found in the database.')}</Alert>
               ) : (
                 <>
-                  <div className="d-flex gap-2 mb-2">
+                  <div className="flex gap-2 mb-2">
                     <Button
-                      variant="outline-secondary"
-                      size="sm"
+                      size="dashboard"
+                      variant="secondary"
                       onClick={selectAllExportClinics}
                       disabled={selectedExportClinics.length === exportClinics.length}
                     >
                       {t('Select all')}
                     </Button>
                     <Button
-                      variant="outline-secondary"
-                      size="sm"
+                      size="dashboard"
+                      variant="secondary"
                       onClick={deselectAllExportClinics}
                       disabled={selectedExportClinics.length === 0}
                     >
@@ -945,20 +963,23 @@ const AdminDashboard: React.FC = observer(() => {
                     </Button>
                   </div>
 
-                  <Form className="mb-4">
-                    <div className="d-flex flex-wrap gap-3">
-                      {exportClinics.map((clinic) => (
-                        <Form.Check
-                          key={clinic}
-                          type="checkbox"
-                          id={`export_clinic_${clinic}`}
-                          label={clinic}
-                          checked={selectedExportClinics.includes(clinic)}
-                          onChange={() => toggleExportClinic(clinic)}
-                        />
-                      ))}
-                    </div>
-                  </Form>
+                  <div className="mb-4 flex flex-wrap gap-3">
+                    {exportClinics.map((clinic) => {
+                      const id = `export_clinic_${clinic}`;
+                      return (
+                        <div key={clinic} className="flex items-center gap-2">
+                          <Checkbox
+                            id={id}
+                            checked={selectedExportClinics.includes(clinic)}
+                            onCheckedChange={() => toggleExportClinic(clinic)}
+                          />
+                          <Label htmlFor={id} className="cursor-pointer">
+                            {clinic}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </>
               )}
 
@@ -969,12 +990,8 @@ const AdminDashboard: React.FC = observer(() => {
                 )}
               </p>
 
-              <div className="d-flex gap-2 flex-wrap">
-                <Button
-                  variant="primary"
-                  onClick={() => downloadExport('all')}
-                  disabled={exporting}
-                >
+              <div className="flex gap-2 flex-wrap">
+                <Button size="dashboard" onClick={() => downloadExport('all')} disabled={exporting}>
                   {exporting ? (
                     <>
                       <Spinner animation="border" size="sm" className="me-2" />
@@ -985,7 +1002,8 @@ const AdminDashboard: React.FC = observer(() => {
                   )}
                 </Button>
                 <Button
-                  variant="outline-primary"
+                  size="dashboard"
+                  variant="secondary"
                   onClick={() => downloadExport('selected')}
                   disabled={exporting || selectedExportClinics.length === 0}
                   title={

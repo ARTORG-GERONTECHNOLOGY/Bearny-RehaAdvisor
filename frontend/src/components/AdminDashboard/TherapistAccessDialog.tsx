@@ -1,5 +1,5 @@
 import React from 'react';
-import { Spinner, Form, Alert } from 'react-bootstrap';
+import { Spinner, Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -9,6 +9,8 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 interface Props {
   open: boolean;
@@ -83,18 +85,23 @@ const TherapistAccessDialog: React.FC<Props> = ({
             {availableProjects.length === 0 ? (
               <Alert variant="warning">{t('No projects configured on the server.')}</Alert>
             ) : (
-              <Form className="mb-3">
+              <div className="mb-3">
                 <div className="d-flex flex-wrap gap-3">
-                  {availableProjects.map((p) => (
-                    <Form.Check
-                      key={p}
-                      type="checkbox"
-                      id={`proj_${p}`}
-                      label={p}
-                      checked={selectedProjects.includes(p)}
-                      onChange={() => onToggleProject(p)}
-                    />
-                  ))}
+                  {availableProjects.map((p) => {
+                    const id = `proj_${p}`;
+                    return (
+                      <div key={p} className="flex items-center gap-2">
+                        <Checkbox
+                          id={id}
+                          checked={selectedProjects.includes(p)}
+                          onCheckedChange={() => onToggleProject(p)}
+                        />
+                        <Label htmlFor={id} className="cursor-pointer">
+                          {p}
+                        </Label>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="mt-2">
@@ -102,7 +109,7 @@ const TherapistAccessDialog: React.FC<Props> = ({
                     {t('Selected')}: {selectedProjects.length ? selectedProjects.join(', ') : '—'}
                   </small>
                 </div>
-              </Form>
+              </div>
             )}
 
             <p className="text-muted mb-2">{t('Clinics')}</p>
@@ -115,20 +122,23 @@ const TherapistAccessDialog: React.FC<Props> = ({
                 {t('No clinics are configured for the selected project(s).')}
               </Alert>
             ) : (
-              <Form>
-                <div className="d-flex flex-wrap gap-3">
-                  {allowedClinics.map((c) => (
-                    <Form.Check
-                      key={c}
-                      type="checkbox"
-                      id={`clinic_${c}`}
-                      label={c}
-                      checked={selectedClinics.includes(c)}
-                      onChange={() => onToggleClinic(c)}
-                    />
-                  ))}
-                </div>
-              </Form>
+              <div className="d-flex flex-wrap gap-3">
+                {allowedClinics.map((c) => {
+                  const id = `clinic_${c}`;
+                  return (
+                    <div key={c} className="flex items-center gap-2">
+                      <Checkbox
+                        id={id}
+                        checked={selectedClinics.includes(c)}
+                        onCheckedChange={() => onToggleClinic(c)}
+                      />
+                      <Label htmlFor={id} className="cursor-pointer">
+                        {c}
+                      </Label>
+                    </div>
+                  );
+                })}
+              </div>
             )}
 
             {selectedProjects.length > 0 && (
