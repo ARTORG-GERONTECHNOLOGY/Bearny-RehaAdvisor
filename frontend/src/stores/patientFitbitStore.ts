@@ -190,6 +190,15 @@ class PatientFitbitStore {
     await apiClient.post(`/fitbit/manual_steps/${patientId}/`, { date, steps });
     await this.fetchSummary(patientId, 7, true);
   }
+
+  async disconnect() {
+    this.error = '';
+    await apiClient.delete('/fitbit/disconnect/');
+    runInAction(() => {
+      this.connected = false;
+      this.summary = null;
+    });
+  }
 }
 
 export const patientFitbitStore = new PatientFitbitStore();

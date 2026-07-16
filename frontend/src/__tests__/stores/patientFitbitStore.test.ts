@@ -238,4 +238,46 @@ describe('patientFitbitStore', () => {
       await submitPromise;
     });
   });
+
+  // ------------------------------------------------------------------
+  // disconnect
+  // ------------------------------------------------------------------
+  describe('disconnect', () => {
+    it('calls DELETE /fitbit/disconnect/', async () => {
+      (apiClient.delete as jest.Mock).mockResolvedValueOnce({});
+      await patientFitbitStore.disconnect();
+      expect(apiClient.delete).toHaveBeenCalledWith('/fitbit/disconnect/');
+    });
+
+    it('sets connected to false after a successful disconnect', async () => {
+      patientFitbitStore.connected = true;
+      (apiClient.delete as jest.Mock).mockResolvedValueOnce({});
+      await patientFitbitStore.disconnect();
+      expect(patientFitbitStore.connected).toBe(false);
+    });
+
+    it('clears the cached summary after a successful disconnect', async () => {
+      patientFitbitStore.summary = {
+        connected: true,
+        last_sync: null,
+        period: { days: 7, daily: [] },
+      };
+      (apiClient.delete as jest.Mock).mockResolvedValueOnce({});
+      await patientFitbitStore.disconnect();
+      expect(patientFitbitStore.summary).toBeNull();
+    });
+
+    it('clears any existing error before the request', async () => {
+      patientFitbitStore.error = 'stale';
+      (apiClient.delete as jest.Mock).mockResolvedValueOnce({});
+      const p = patientFitbitStore.disconnect();
+      expect(patientFitbitStore.error).toBe('');
+      await p;
+    });
+
+    it('propagates errors so the caller can handle them', async () => {
+      (apiClient.delete as jest.Mock).mockRejectedValueOnce(new Error('network'));
+      await expect(patientFitbitStore.disconnect()).rejects.toThrow('network');
+    });
+  });
 });

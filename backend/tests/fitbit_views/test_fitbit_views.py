@@ -924,3 +924,101 @@ def test_get_fitbit_health_data_includes_wear_time_minutes():
     data = resp.json()["data"]
     assert len(data) >= 1
     assert data[0]["wear_time_minutes"] == 360
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/fitbit/disconnect/
+# ---------------------------------------------------------------------------
+
+
+def _disconnect_as(patient_user):
+    """Helper: call DELETE /api/fitbit/disconnect/ authenticated as patient_user."""
+    from types import SimpleNamespace
+
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.fitbit_view import fitbit_disconnect
+
+    factory = APIRequestFactory()
+    req = factory.delete("/api/fitbit/disconnect/")
+    force_authenticate(req, user=SimpleNamespace(is_authenticated=True, id=str(patient_user.id)))
+    return fitbit_disconnect(req)
+
+
+def test_fitbit_disconnect_deletes_token():
+    """Disconnect endpoint removes the token and returns ok=True."""
+    _, _, patient_user, _ = create_patient_graph()
+    FitbitUserToken(
+        user=patient_user,
+        access_token="a",
+        refresh_token="r",
+        fitbit_user_id="fu",
+    ).save()
+
+    assert FitbitUserToken.objects(user=patient_user).count() == 1
+
+    resp = _disconnect_as(patient_user)
+
+    assert resp.status_code == 200
+    assert json.loads(resp.content)["ok"] is True
+    assert FitbitUserToken.objects(user=patient_user).count() == 0
+
+
+def test_fitbit_disconnect_idempotent_when_no_token():
+    """Disconnect returns ok even when the patient has no token."""
+    _, _, patient_user, _ = create_patient_graph()
+    resp = _disconnect_as(patient_user)
+    assert resp.status_code == 200
+    assert json.loads(resp.content)["ok"] is True
+
+
+def test_fitbit_disconnect_requires_authentication():
+    """Unauthenticated DELETE must be rejected with 401."""
+    # AlwaysAuthenticate is active in test settings, so we patch IsAuthenticated
+    # to verify the permission check would fire on a genuinely unauthenticated request.
+    from unittest.mock import patch
+
+    from rest_framework.permissions import IsAuthenticated
+    from rest_framework.test import APIClient as DRFClient
+
+    c = DRFClient()
+    with patch.object(IsAuthenticated, "has_permission", return_value=False):
+        resp = c.delete("/api/fitbit/disconnect/")
+    assert resp.status_code == 403  # DRF raises 403 when has_permission returns False
+
+
+def test_fitbit_disconnect_only_removes_own_token():
+    """Disconnecting as patient A must not touch patient B's token."""
+    _, _, patient_a, _ = create_patient_graph()
+    _, _, patient_b, _ = create_patient_graph()
+
+    for u in (patient_a, patient_b):
+        FitbitUserToken(
+            user=u,
+            access_token="a",
+            refresh_token="r",
+            fitbit_user_id=f"fu-{u.id}",
+        ).save()
+
+    resp = _disconnect_as(patient_a)
+
+    assert resp.status_code == 200
+    assert FitbitUserToken.objects(user=patient_a).count() == 0
+    assert FitbitUserToken.objects(user=patient_b).count() == 1
+
+
+def test_fitbit_status_false_after_disconnect():
+    """The status endpoint reflects the deletion immediately."""
+    _, _, patient_user, _ = create_patient_graph()
+    FitbitUserToken(
+        user=patient_user,
+        access_token="a",
+        refresh_token="r",
+        fitbit_user_id="fu",
+    ).save()
+
+    _disconnect_as(patient_user)
+
+    resp = client.get(f"/api/fitbit/status/{patient_user.id}/", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    assert resp.json()["connected"] is False

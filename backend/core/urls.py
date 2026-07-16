@@ -228,6 +228,7 @@ urlpatterns = [
         name="post_add_new_patient_group",
     ),
     path("api/fitbit/callback/", fitbit_views.fitbit_callback, name="fitbit_callback"),
+    path("api/fitbit/disconnect/", fitbit_views.fitbit_disconnect, name="fitbit_disconnect"),
     path(
         "api/fitbit/status/<str:patient_id>/",
         fitbit_views.fitbit_status,
