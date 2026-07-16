@@ -90,11 +90,6 @@ jest.mock('@/components/Layout', () => ({
   default: jest.requireActual('@/__mocks__/components/Layout').default,
 }));
 
-jest.mock('@/components/PatientPage/AssistanceSheet', () => ({
-  __esModule: true,
-  default: () => null,
-}));
-
 jest.mock('@/components/PatientPage/FeedbackPopup', () => ({
   __esModule: true,
   default: ({ show, onClose }: any) =>

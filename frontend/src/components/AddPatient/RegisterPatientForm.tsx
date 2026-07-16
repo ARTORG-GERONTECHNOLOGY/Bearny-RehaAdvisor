@@ -1,13 +1,14 @@
 // src/components/HomePage/RegisterPatient.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Form } from 'react-bootstrap';
+import { Form } from 'react-bootstrap';
 import Select from 'react-select';
 import { Link } from 'react-router-dom';
-import apiClient from '../../api/client';
-import config from '../../config/config.json';
+import apiClient from '@/api/client';
+import config from '@/config/config.json';
 import { useTranslation } from 'react-i18next';
 import InfoBubble from '../common/InfoBubble';
 import { isValidEmail, isValidPhone } from '@/utils/validation';
+import { Button } from '@/components/ui/button';
 
 interface FormData {
   [key: string]: string | number | string[] | boolean;
@@ -600,16 +601,16 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
       ) : (
         <div className="d-flex justify-content-between mt-4">
           {step > 0 && (
-            <Button variant="secondary" onClick={prevStep}>
+            <Button type="button" size="dashboard" variant="secondary" onClick={prevStep}>
               {t('Back')}
             </Button>
           )}
           {step < formSteps.length - 1 ? (
-            <Button variant="primary" onClick={nextStep}>
+            <Button type="button" size="dashboard" onClick={nextStep}>
               {t('Next')}
             </Button>
           ) : (
-            <Button type="submit" variant="success">
+            <Button size="dashboard" type="submit">
               {t('Submit')}
             </Button>
           )}

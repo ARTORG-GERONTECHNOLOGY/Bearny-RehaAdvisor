@@ -1,6 +1,6 @@
 // src/components/TherapistInterventionPage/AddInterventionPopUp.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Alert, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import axios from 'axios';
 import Select from 'react-select';
@@ -544,8 +544,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
           <Form onSubmit={handleSubmit} noValidate>
             <fieldset disabled={success || submitting}>
               {/* ---------- core fields ---------- */}
-              <Row className="g-3">
-                <Col md={8}>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div className="md:col-span-8">
                   <Form.Group controlId="title" className="mb-3">
                     <Form.Label className="fw-semibold">{t('InterventionTitle')}</Form.Label>
                     <Form.Control
@@ -557,9 +557,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                     />
                     <Form.Control.Feedback type="invalid">{fe('title')}</Form.Control.Feedback>
                   </Form.Group>
-                </Col>
+                </div>
 
-                <Col md={4}>
+                <div className="md:col-span-4">
                   <Form.Group controlId="language" className="mb-3">
                     <Form.Label className="fw-semibold">{t('Language')}</Form.Label>
                     <Form.Control
@@ -576,11 +576,11 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                     </Form.Control>
                     <Form.Control.Feedback type="invalid">{fe('language')}</Form.Control.Feedback>
                   </Form.Group>
-                </Col>
-              </Row>
+                </div>
+              </div>
 
-              <Row className="g-3">
-                <Col md={6}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
                   <Form.Group controlId="externalId" className="mb-3">
                     <Form.Label className="fw-semibold">{t('External ID (optional)')}</Form.Label>
                     <Form.Control
@@ -594,9 +594,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       web, aud, app
                     </Form.Text>
                   </Form.Group>
-                </Col>
+                </div>
 
-                <Col md={6}>
+                <div>
                   <Form.Group controlId="provider" className="mb-3">
                     <Form.Label className="fw-semibold">{t('Provider (optional)')}</Form.Label>
                     <Form.Control
@@ -606,8 +606,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       placeholder="e.g. compass / spotify / youtube"
                     />
                   </Form.Group>
-                </Col>
-              </Row>
+                </div>
+              </div>
 
               <Form.Group controlId="description" className="mb-3">
                 <Form.Label className="fw-semibold">{t('Description')}</Form.Label>
@@ -621,8 +621,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                 <Form.Control.Feedback type="invalid">{fe('description')}</Form.Control.Feedback>
               </Form.Group>
 
-              <Row className="g-3">
-                <Col md={6}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
                   <Form.Group controlId="duration" className="mb-3">
                     <Form.Label className="fw-semibold">{t('Duration (min)')}</Form.Label>
                     <Form.Control
@@ -633,9 +633,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                     />
                     <Form.Control.Feedback type="invalid">{fe('duration')}</Form.Control.Feedback>
                   </Form.Group>
-                </Col>
+                </div>
 
-                <Col md={6}>
+                <div>
                   <Form.Group className="mb-3" controlId="contentType">
                     <Form.Label className="fw-semibold">{t('Content type')}</Form.Label>
                     <Form.Control
@@ -655,15 +655,15 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       {fe('contentType')}
                     </Form.Control.Feedback>
                   </Form.Group>
-                </Col>
-              </Row>
+                </div>
+              </div>
 
               {/* ---------- taxonomy fields ---------- */}
               <hr className="my-4" />
               <h5 className="mb-3">{t('Taxonomy')}</h5>
 
-              <Row className="g-3">
-                <Col md={6}>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div className="md:col-span-6">
                   <Form.Label className="fw-semibold">{t('Input from')}</Form.Label>
                   <Select
                     isMulti
@@ -674,11 +674,11 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                     )}
                     onChange={(opts) => handleMultiChange('inputFrom', opts as any)}
                   />
-                </Col>
-              </Row>
+                </div>
+              </div>
 
-              <Row className="g-3 mt-1">
-                <Col md={6}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1">
+                <div>
                   <Form.Group controlId="originalLanguage">
                     <Form.Label className="fw-semibold">{t('Original language')}</Form.Label>
                     <Form.Control
@@ -694,9 +694,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       ))}
                     </Form.Control>
                   </Form.Group>
-                </Col>
+                </div>
 
-                <Col md={6}>
+                <div>
                   <Form.Group controlId="primaryDiagnosis">
                     <Form.Label className="fw-semibold">{t('Primary diagnosis')}</Form.Label>
                     <Select
@@ -716,11 +716,11 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       placeholder={t('Select')}
                     />
                   </Form.Group>
-                </Col>
-              </Row>
+                </div>
+              </div>
 
-              <Row className="g-3 mt-1">
-                <Col md={6}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1">
+                <div>
                   <Form.Label className="fw-semibold">{t('Aims')}</Form.Label>
                   <Select
                     isMulti
@@ -729,9 +729,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                     value={aimsOptions.filter((o) => (formData.aims || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('aims', opts as any)}
                   />
-                </Col>
+                </div>
 
-                <Col md={6}>
+                <div>
                   <Form.Label className="fw-semibold">{t('Topics')}</Form.Label>
                   <Select
                     isMulti
@@ -740,11 +740,11 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                     value={topicsOptions.filter((o) => (formData.topics || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('topics', opts as any)}
                   />
-                </Col>
-              </Row>
+                </div>
+              </div>
 
-              <Row className="g-3 mt-1">
-                <Col md={4}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-1">
+                <div>
                   <Form.Group controlId="cognitiveLevel">
                     <Form.Label className="fw-semibold">{t('Cognitive level')}</Form.Label>
                     <Form.Control
@@ -760,9 +760,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       ))}
                     </Form.Control>
                   </Form.Group>
-                </Col>
+                </div>
 
-                <Col md={4}>
+                <div>
                   <Form.Group controlId="physicalLevel">
                     <Form.Label className="fw-semibold">{t('Physical level')}</Form.Label>
                     <Form.Control
@@ -778,9 +778,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       ))}
                     </Form.Control>
                   </Form.Group>
-                </Col>
+                </div>
 
-                <Col md={4}>
+                <div>
                   <Form.Group controlId="durationBucket">
                     <Form.Label className="fw-semibold">{t('Duration bucket')}</Form.Label>
                     <Form.Control
@@ -796,11 +796,11 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       ))}
                     </Form.Control>
                   </Form.Group>
-                </Col>
-              </Row>
+                </div>
+              </div>
 
-              <Row className="g-3 mt-1">
-                <Col md={4}>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mt-1">
+                <div className="md:col-span-4">
                   <Form.Group controlId="sexSpecific">
                     <Form.Label className="fw-semibold">{t('Sex specific')}</Form.Label>
                     <Form.Control as="select" value={formData.sexSpecific} onChange={handleChange}>
@@ -812,11 +812,11 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       ))}
                     </Form.Control>
                   </Form.Group>
-                </Col>
-              </Row>
+                </div>
+              </div>
 
-              <Row className="g-3 mt-1">
-                <Col md={6}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1">
+                <div>
                   <Form.Label className="fw-semibold">{t('Where')}</Form.Label>
                   <Select
                     isMulti
@@ -825,9 +825,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                     value={whereOptions.filter((o) => (formData.where || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('where', opts as any)}
                   />
-                </Col>
+                </div>
 
-                <Col md={6}>
+                <div>
                   <Form.Label className="fw-semibold">{t('Setting')}</Form.Label>
                   <Select
                     isMulti
@@ -836,8 +836,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                     value={settingOptions.filter((o) => (formData.setting || []).includes(o.value))}
                     onChange={(opts) => handleMultiChange('setting', opts as any)}
                   />
-                </Col>
-              </Row>
+                </div>
+              </div>
 
               {/* ---------- media ---------- */}
               <hr className="my-4" />
@@ -876,8 +876,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       </Button>
                     </div>
 
-                    <Row className="g-3 mt-1">
-                      <Col md={4}>
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mt-1">
+                      <div className="md:col-span-4">
                         <Form.Group>
                           <Form.Label className="fw-semibold">{t('Kind')}</Form.Label>
                           <Form.Control
@@ -895,9 +895,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                             ))}
                           </Form.Control>
                         </Form.Group>
-                      </Col>
+                      </div>
 
-                      <Col md={4}>
+                      <div className="md:col-span-4">
                         <Form.Group>
                           <Form.Label className="fw-semibold">{t('Media type')}</Form.Label>
                           <Form.Control
@@ -915,9 +915,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                             ))}
                           </Form.Control>
                         </Form.Group>
-                      </Col>
+                      </div>
 
-                      <Col md={4}>
+                      <div className="md:col-span-4">
                         <Form.Group>
                           <Form.Label className="fw-semibold">
                             {t('Provider (optional)')}
@@ -929,9 +929,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                             placeholder="spotify / youtube / etc."
                           />
                         </Form.Group>
-                      </Col>
+                      </div>
 
-                      <Col md={6}>
+                      <div className="md:col-span-6">
                         <Form.Group>
                           <Form.Label className="fw-semibold">{t('Title (optional)')}</Form.Label>
                           <Form.Control
@@ -940,9 +940,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                             onChange={(e) => updateMediaRow(idx, { title: e.target.value })}
                           />
                         </Form.Group>
-                      </Col>
+                      </div>
 
-                      <Col md={6}>
+                      <div className="md:col-span-6">
                         {m.kind === 'external' ? (
                           <Form.Group>
                             <Form.Label className="fw-semibold">{t('URL')}</Form.Label>
@@ -971,8 +971,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                             )}
                           </Form.Group>
                         )}
-                      </Col>
-                    </Row>
+                      </div>
+                    </div>
                   </div>
                 );
               })}

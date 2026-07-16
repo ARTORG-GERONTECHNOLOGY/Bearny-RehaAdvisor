@@ -1,6 +1,6 @@
 // components/TherapistInterventionPage/TemplateAssignModal.tsx
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { Form, Row, Col, Alert } from 'react-bootstrap';
+import { Form, Alert } from 'react-bootstrap';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
@@ -332,8 +332,8 @@ const TemplateAssignModal: React.FC<Props> = ({
           </Form.Group>
 
           {/* Start / End / Interval */}
-          <Row className="mb-3">
-            <Col md={4}>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
+            <div className="md:col-span-4">
               <Form.Label>{t('Start day (S)')}</Form.Label>
               <Form.Control
                 type="number"
@@ -345,9 +345,9 @@ const TemplateAssignModal: React.FC<Props> = ({
               <Form.Control.Feedback type="invalid">
                 {fieldErrors['interventions[0].start_day']}
               </Form.Control.Feedback>
-            </Col>
+            </div>
 
-            <Col md={4}>
+            <div className="md:col-span-4">
               <Form.Label>{t('Last day (N)')}</Form.Label>
               <Form.Control
                 type="number"
@@ -359,9 +359,9 @@ const TemplateAssignModal: React.FC<Props> = ({
               <Form.Control.Feedback type="invalid">
                 {fieldErrors['interventions[0].end.count']}
               </Form.Control.Feedback>
-            </Col>
+            </div>
 
-            <Col md={4}>
+            <div className="md:col-span-4">
               <Form.Label>{t('Every K days')}</Form.Label>
               <Form.Control
                 type="number"
@@ -373,8 +373,8 @@ const TemplateAssignModal: React.FC<Props> = ({
               <Form.Control.Feedback type="invalid">
                 {fieldErrors['interventions[0].interval']}
               </Form.Control.Feedback>
-            </Col>
-          </Row>
+            </div>
+          </div>
 
           {/* Suggested execution time */}
           <Form.Group className="mb-3">

@@ -1,6 +1,6 @@
 // src/components/TherapistInterventionPage/ApplyTemplateModal.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Form, Row, Col, Alert, Spinner, Badge } from 'react-bootstrap';
+import { Button, Form, Alert, Spinner, Badge } from 'react-bootstrap';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
@@ -394,8 +394,8 @@ const ApplyTemplateModal: React.FC<Props> = ({
             </Form.Group>
           )}
 
-          <Row className="mb-3">
-            <Col md={6}>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
+            <div className="md:col-span-6">
               <Form.Group>
                 <Form.Label>{t('Effective from')}</Form.Label>
                 <Form.Control
@@ -408,8 +408,8 @@ const ApplyTemplateModal: React.FC<Props> = ({
                   {fieldErrors.effectiveFrom}
                 </Form.Control.Feedback>
               </Form.Group>
-            </Col>
-            <Col md={6} className="d-flex align-items-end">
+            </div>
+            <div className="md:col-span-6 flex items-end">
               <Form.Check
                 type="checkbox"
                 id="overwrite"
@@ -417,8 +417,8 @@ const ApplyTemplateModal: React.FC<Props> = ({
                 checked={overwrite}
                 onChange={(e) => setOverwrite(e.currentTarget.checked)}
               />
-            </Col>
-          </Row>
+            </div>
+          </div>
 
           <Form.Group className="mb-3">
             <Form.Check

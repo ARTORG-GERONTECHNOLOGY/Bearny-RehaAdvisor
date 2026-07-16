@@ -1,18 +1,15 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Table, Button, Spinner, Form, Badge, Alert, Nav, Tab } from 'react-bootstrap';
+import { Spinner, Badge, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import ConfirmModal from '@/components/common/ConfirmModal';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import RejectAccessRequestDialog from '@/components/AdminDashboard/RejectAccessRequestDialog';
+import TherapistAccessDialog from '@/components/AdminDashboard/TherapistAccessDialog';
+import EditQuestionnaireDialog from '@/components/AdminDashboard/EditQuestionnaireDialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 import adminStore from '@/stores/adminStore';
 import authStore from '@/stores/authStore';
@@ -24,6 +21,18 @@ import PageHeader from '@/components/PageHeader';
 import LogoutFill from '@/assets/icons/logout-fill.svg?react';
 import { toLocalYMD, formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 type AccessModalState = {
   open: boolean;
@@ -531,859 +540,648 @@ const AdminDashboard: React.FC = observer(() => {
 
   return (
     <Layout>
-      <div className="d-flex flex-column">
-        <main className="container my-5 flex-grow-1">
-          <div className="flex flex-wrap justify-between items-center mb-4">
-            <PageHeader title={t('Admin Dashboard')} />
-            <Button variant="secondary" onClick={handleLogout}>
-              {t('Logout')}
-              <LogoutFill />
+      <div className="flex flex-wrap justify-between items-center mb-4">
+        <PageHeader title={t('Admin Dashboard')} />
+        <Button size="dashboard" variant="secondary" onClick={handleLogout}>
+          {t('Logout')}
+          <LogoutFill />
+        </Button>
+      </div>
+
+      {store.error && <ErrorAlert message={store.error} onClose={() => store.setError(null)} />}
+
+      <Tabs defaultValue="pending">
+        <TabsList className="mb-3">
+          <TabsTrigger value="pending">
+            {t('Pending registrations')}
+            {adminStore.pendingEntries.length > 0 && (
+              <Badge bg="danger">{adminStore.pendingEntries.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="access-requests">
+            {t('Access change requests')}
+            {changeRequests.length > 0 && (
+              <Badge bg="warning" text="dark">
+                {changeRequests.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="interventions">{t('Interventions')}</TabsTrigger>
+          <TabsTrigger value="questionnaires">{t('Questionnaires')}</TabsTrigger>
+          <TabsTrigger value="export">{t('Export')}</TabsTrigger>
+          <TabsTrigger value="analytics" onClick={fetchAnalytics}>
+            {t('Analytics')}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ── Tab 1: pending registrations ── */}
+        <TabsContent value="pending">
+          {store.loading ? (
+            <div className="text-center my-5">
+              <Spinner animation="border" role="status" />
+              <div>{t('Loading')}...</div>
+            </div>
+          ) : adminStore.pendingEntries.length === 0 ? (
+            <p className="text-center text-muted">{t('No pending entries')}</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('Name')}</TableHead>
+                  <TableHead>{t('Email')}</TableHead>
+                  <TableHead>{t('Type')}</TableHead>
+                  <TableHead>{t('Clinics')}</TableHead>
+                  <TableHead>{t('Projects')}</TableHead>
+                  <TableHead>{t('Actions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {adminStore.pendingEntries.map((entry: any) => {
+                  const role = String(entry.role || '').toLowerCase();
+                  const isTherapist = role === 'therapist';
+                  const clinics: string[] = Array.isArray(entry?.clinics) ? entry.clinics : [];
+                  const projects: string[] = Array.isArray(entry?.projects) ? entry.projects : [];
+                  return (
+                    <TableRow key={entry.id}>
+                      <TableCell>{entry.name || '—'}</TableCell>
+                      <TableCell>{entry.email || '—'}</TableCell>
+                      <TableCell>{t(entry.role)}</TableCell>
+                      <TableCell>
+                        {isTherapist ? (
+                          renderBadges(clinics, 'info')
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {isTherapist ? (
+                          renderBadges(projects, 'secondary')
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="d-flex gap-2 flex-wrap">
+                        {isTherapist && (
+                          <Button
+                            size="dashboard"
+                            variant="secondary"
+                            onClick={() => openAccessModal(entry)}
+                          >
+                            {t('Edit access')}
+                          </Button>
+                        )}
+                        <Button size="dashboard" onClick={() => store.accept(entry.id, t)}>
+                          {t('Accept')}
+                        </Button>
+                        <Button
+                          size="dashboard"
+                          className="bg-nok hover:bg-nok/90"
+                          onClick={() => store.openDeclineConfirm(entry.id)}
+                        >
+                          {t('Decline')}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
+
+        {/* ── Tab 2: access change requests ── */}
+        <TabsContent value="access-requests">
+          {changeReqError && (
+            <Alert variant="danger" dismissible onClose={() => setChangeReqError(null)}>
+              {changeReqError}
+            </Alert>
+          )}
+
+          {changeReqLoading ? (
+            <div className="text-center my-5">
+              <Spinner animation="border" role="status" />
+              <div>{t('Loading')}...</div>
+            </div>
+          ) : changeRequests.length === 0 ? (
+            <p className="text-center text-muted">{t('No pending access change requests')}</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('Therapist')}</TableHead>
+                  <TableHead>{t('Email')}</TableHead>
+                  <TableHead>{t('Current clinics')}</TableHead>
+                  <TableHead>{t('Current projects')}</TableHead>
+                  <TableHead>{t('Requested clinics')}</TableHead>
+                  <TableHead>{t('Requested projects')}</TableHead>
+                  <TableHead>{t('Submitted')}</TableHead>
+                  <TableHead style={{ minWidth: 200 }}>{t('Actions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {changeRequests.map((req) => (
+                  <TableRow key={req.id}>
+                    <TableCell>{req.therapistName || '—'}</TableCell>
+                    <TableCell>{req.therapistEmail || '—'}</TableCell>
+                    <TableCell>{renderBadges(req.currentClinics, 'info')}</TableCell>
+                    <TableCell>{renderBadges(req.currentProjects, 'secondary')}</TableCell>
+                    <TableCell>{renderBadges(req.requestedClinics, 'primary')}</TableCell>
+                    <TableCell>{renderBadges(req.requestedProjects, 'dark')}</TableCell>
+                    <TableCell>
+                      <small>{req.createdAt ? formatLocaleDate(req.createdAt) : '—'}</small>
+                    </TableCell>
+                    <TableCell className="d-flex gap-2 flex-wrap">
+                      <Button size="dashboard" onClick={() => approveRequest(req.id)}>
+                        {t('Approve')}
+                      </Button>
+                      <Button
+                        size="dashboard"
+                        className="bg-nok hover:bg-nok/90"
+                        onClick={() => openRejectModal(req.id)}
+                      >
+                        {t('Decline')}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
+
+        {/* ── Tab 3: interventions ── */}
+        <TabsContent value="interventions">
+          {interventionError && (
+            <Alert variant="danger" dismissible onClose={() => setInterventionError(null)}>
+              {interventionError}
+            </Alert>
+          )}
+
+          <div className="d-flex gap-2 mb-3">
+            <Input
+              type="search"
+              placeholder={t('Search by title or ID…')}
+              value={interventionSearch}
+              onChange={(e) => setInterventionSearch(e.target.value)}
+              style={{ maxWidth: 320 }}
+              className="bg-white"
+            />
+            <Button
+              size="dashboard"
+              variant="secondary"
+              onClick={fetchInterventions}
+              disabled={interventionLoading}
+            >
+              {interventionLoading ? <Spinner animation="border" size="sm" /> : t('Refresh')}
             </Button>
           </div>
 
-          {store.error && <ErrorAlert message={store.error} onClose={() => store.setError(null)} />}
-
-          <Tab.Container defaultActiveKey="pending">
-            <Nav variant="tabs" className="mb-3">
-              <Nav.Item>
-                <Nav.Link eventKey="pending">
-                  {t('Pending registrations')}
-                  {adminStore.pendingEntries.length > 0 && (
-                    <Badge bg="danger" className="ms-2">
-                      {adminStore.pendingEntries.length}
-                    </Badge>
-                  )}
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link eventKey="access-requests">
-                  {t('Access change requests')}
-                  {changeRequests.length > 0 && (
-                    <Badge bg="warning" text="dark" className="ms-2">
-                      {changeRequests.length}
-                    </Badge>
-                  )}
-                </Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link eventKey="interventions">{t('Interventions')}</Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link eventKey="questionnaires">{t('Questionnaires')}</Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link eventKey="export">{t('Export')}</Nav.Link>
-              </Nav.Item>
-              <Nav.Item>
-                <Nav.Link eventKey="analytics" onClick={fetchAnalytics}>
-                  {t('Analytics')}
-                </Nav.Link>
-              </Nav.Item>
-            </Nav>
-
-            <Tab.Content>
-              {/* ── Tab 1: pending registrations ── */}
-              <Tab.Pane eventKey="pending">
-                {store.loading ? (
-                  <div className="text-center my-5">
-                    <Spinner animation="border" role="status" />
-                    <div>{t('Loading')}...</div>
-                  </div>
-                ) : adminStore.pendingEntries.length === 0 ? (
-                  <p className="text-center text-muted">{t('No pending entries')}</p>
-                ) : (
-                  <Table striped bordered hover responsive>
-                    <thead>
-                      <tr>
-                        <th>{t('Name')}</th>
-                        <th>{t('Email')}</th>
-                        <th>{t('Type')}</th>
-                        <th style={{ minWidth: 220 }}>{t('Clinics')}</th>
-                        <th style={{ minWidth: 220 }}>{t('Projects')}</th>
-                        <th style={{ minWidth: 260 }}>{t('Actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adminStore.pendingEntries.map((entry: any) => {
-                        const role = String(entry.role || '').toLowerCase();
-                        const isTherapist = role === 'therapist';
-                        const clinics: string[] = Array.isArray(entry?.clinics)
-                          ? entry.clinics
-                          : [];
-                        const projects: string[] = Array.isArray(entry?.projects)
-                          ? entry.projects
-                          : [];
-                        return (
-                          <tr key={entry.id}>
-                            <td>{entry.name || '—'}</td>
-                            <td>{entry.email || '—'}</td>
-                            <td>{t(entry.role)}</td>
-                            <td>
-                              {isTherapist ? (
-                                renderBadges(clinics, 'info')
-                              ) : (
-                                <span className="text-muted">—</span>
-                              )}
-                            </td>
-                            <td>
-                              {isTherapist ? (
-                                renderBadges(projects, 'secondary')
-                              ) : (
-                                <span className="text-muted">—</span>
-                              )}
-                            </td>
-                            <td className="d-flex gap-2 flex-wrap">
-                              {isTherapist && (
-                                <Button
-                                  variant="outline-primary"
-                                  onClick={() => openAccessModal(entry)}
-                                >
-                                  {t('Edit access')}
-                                </Button>
-                              )}
-                              <Button variant="success" onClick={() => store.accept(entry.id, t)}>
-                                {t('Accept')}
-                              </Button>
-                              <Button
-                                variant="danger"
-                                onClick={() => store.openDeclineConfirm(entry.id)}
-                              >
-                                {t('Decline')}
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </Table>
-                )}
-              </Tab.Pane>
-
-              {/* ── Tab 2: access change requests ── */}
-              <Tab.Pane eventKey="access-requests">
-                {changeReqError && (
-                  <Alert variant="danger" dismissible onClose={() => setChangeReqError(null)}>
-                    {changeReqError}
-                  </Alert>
-                )}
-
-                {changeReqLoading ? (
-                  <div className="text-center my-5">
-                    <Spinner animation="border" role="status" />
-                    <div>{t('Loading')}...</div>
-                  </div>
-                ) : changeRequests.length === 0 ? (
-                  <p className="text-center text-muted">{t('No pending access change requests')}</p>
-                ) : (
-                  <Table striped bordered hover responsive>
-                    <thead>
-                      <tr>
-                        <th>{t('Therapist')}</th>
-                        <th>{t('Email')}</th>
-                        <th>{t('Current clinics')}</th>
-                        <th>{t('Current projects')}</th>
-                        <th>{t('Requested clinics')}</th>
-                        <th>{t('Requested projects')}</th>
-                        <th>{t('Submitted')}</th>
-                        <th style={{ minWidth: 200 }}>{t('Actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {changeRequests.map((req) => (
-                        <tr key={req.id}>
-                          <td>{req.therapistName || '—'}</td>
-                          <td>{req.therapistEmail || '—'}</td>
-                          <td>{renderBadges(req.currentClinics, 'info')}</td>
-                          <td>{renderBadges(req.currentProjects, 'secondary')}</td>
-                          <td>{renderBadges(req.requestedClinics, 'primary')}</td>
-                          <td>{renderBadges(req.requestedProjects, 'dark')}</td>
-                          <td>
-                            <small>{req.createdAt ? formatLocaleDate(req.createdAt) : '—'}</small>
-                          </td>
-                          <td className="d-flex gap-2 flex-wrap">
-                            <Button
-                              variant="success"
-                              size="sm"
-                              onClick={() => approveRequest(req.id)}
-                            >
-                              {t('Approve')}
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => openRejectModal(req.id)}
-                            >
-                              {t('Decline')}
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                )}
-              </Tab.Pane>
-
-              {/* ── Tab 3: interventions ── */}
-              <Tab.Pane eventKey="interventions">
-                {interventionError && (
-                  <Alert variant="danger" dismissible onClose={() => setInterventionError(null)}>
-                    {interventionError}
-                  </Alert>
-                )}
-
-                <div className="d-flex gap-2 mb-3">
-                  <Form.Control
-                    type="search"
-                    placeholder={t('Search by title or ID…')}
-                    value={interventionSearch}
-                    onChange={(e) => setInterventionSearch(e.target.value)}
-                    style={{ maxWidth: 320 }}
-                  />
-                  <Button
-                    variant="outline-secondary"
-                    onClick={fetchInterventions}
-                    disabled={interventionLoading}
-                  >
-                    {interventionLoading ? <Spinner animation="border" size="sm" /> : t('Refresh')}
-                  </Button>
-                </div>
-
-                {interventionLoading ? (
-                  <div className="text-center my-5">
-                    <Spinner animation="border" role="status" />
-                    <div>{t('Loading')}...</div>
-                  </div>
-                ) : filteredInterventions.length === 0 ? (
-                  <p className="text-center text-muted">{t('No interventions found')}</p>
-                ) : (
-                  <Table striped bordered hover responsive>
-                    <thead>
-                      <tr>
-                        <th>{t('ID')}</th>
-                        <th>{t('Title')}</th>
-                        <th>{t('Language')}</th>
-                        <th>{t('Type')}</th>
-                        <th>{t('Private')}</th>
-                        <th style={{ minWidth: 100 }}>{t('Actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredInterventions.map((iv) => (
-                        <tr key={iv._id}>
-                          <td>
-                            <code>{iv.external_id}</code>
-                          </td>
-                          <td>{iv.title}</td>
-                          <td>
-                            <Badge bg="secondary">{iv.language}</Badge>
-                          </td>
-                          <td>{iv.content_type}</td>
-                          <td>
-                            {iv.is_private ? (
-                              <Badge bg="warning" text="dark">
-                                {t('Private')}
-                              </Badge>
-                            ) : (
-                              <Badge bg="success">{t('Public')}</Badge>
-                            )}
-                          </td>
-                          <td>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() =>
-                                setDeleteModal({ open: true, id: iv._id, title: iv.title })
-                              }
-                            >
-                              {t('Delete')}
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                )}
-              </Tab.Pane>
-
-              {/* ── Tab 4: questionnaires ── */}
-              <Tab.Pane eventKey="questionnaires">
-                {questionnaireError && (
-                  <Alert variant="danger" dismissible onClose={() => setQuestionnaireError(null)}>
-                    {questionnaireError}
-                  </Alert>
-                )}
-
-                <div className="d-flex gap-2 mb-3">
-                  <Form.Control
-                    type="search"
-                    placeholder={t('Search by title, key or tag…')}
-                    value={questionnaireSearch}
-                    onChange={(e) => setQuestionnaireSearch(e.target.value)}
-                    style={{ maxWidth: 320 }}
-                  />
-                  <Button
-                    variant="outline-secondary"
-                    onClick={fetchQuestionnaires}
-                    disabled={questionnaireLoading}
-                  >
-                    {questionnaireLoading ? <Spinner animation="border" size="sm" /> : t('Refresh')}
-                  </Button>
-                </div>
-
-                {questionnaireLoading ? (
-                  <div className="text-center my-5">
-                    <Spinner animation="border" role="status" />
-                    <div>{t('Loading')}...</div>
-                  </div>
-                ) : filteredQuestionnaires.length === 0 ? (
-                  <p className="text-center text-muted">{t('No questionnaires found')}</p>
-                ) : (
-                  <Table striped bordered hover responsive>
-                    <thead>
-                      <tr>
-                        <th>{t('Key')}</th>
-                        <th>{t('Title')}</th>
-                        <th>{t('Tags')}</th>
-                        <th>{t('Questions')}</th>
-                        <th>{t('Used in plans')}</th>
-                        <th
-                          title={t(
-                            'Increments each time an admin edits title, description or tags'
-                          )}
-                        >
-                          {t('Version')}
-                        </th>
-                        <th>{t('Created by')}</th>
-                        <th style={{ minWidth: 140 }}>{t('Actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredQuestionnaires.map((qn) => (
-                        <tr key={qn._id}>
-                          <td>
-                            <code>{qn.key}</code>
-                          </td>
-                          <td>{qn.title}</td>
-                          <td>
-                            {qn.tags?.length ? (
-                              <div className="d-flex flex-wrap gap-1">
-                                {qn.tags.map((tag) => (
-                                  <Badge key={tag} bg="secondary">
-                                    {tag}
-                                  </Badge>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-muted">—</span>
-                            )}
-                          </td>
-                          <td className="text-center">{qn.question_count}</td>
-                          <td className="text-center">
-                            {qn.usage_count > 0 ? (
-                              <Badge bg="warning" text="dark">
-                                {qn.usage_count}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted">0</span>
-                            )}
-                          </td>
-                          <td
-                            className="text-center"
-                            title={
-                              qn.updatedAt
-                                ? `${t('Last edited')}: ${formatLocaleDateTime(qn.updatedAt)}`
-                                : t('Never edited')
-                            }
-                          >
-                            <Badge bg={qn.version > 1 ? 'info' : 'light'} text="dark">
-                              v{qn.version ?? 1}
-                            </Badge>
-                          </td>
-                          <td>{qn.created_by_name || <span className="text-muted">—</span>}</td>
-                          <td className="d-flex gap-1">
-                            <Button
-                              variant="outline-primary"
-                              size="sm"
-                              onClick={() => openQEditModal(qn)}
-                            >
-                              {t('Edit')}
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() =>
-                                setQDeleteModal({
-                                  open: true,
-                                  id: qn._id,
-                                  title: qn.title,
-                                  usageCount: qn.usage_count,
-                                })
-                              }
-                            >
-                              {t('Delete')}
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                )}
-              </Tab.Pane>
-
-              {/* ── Tab 5: export ── */}
-              <Tab.Pane eventKey="export">
-                {exportClinicsError && (
-                  <Alert variant="danger" dismissible onClose={() => setExportClinicsError(null)}>
-                    {exportClinicsError}
-                  </Alert>
-                )}
-                {exportError && (
-                  <Alert variant="danger" dismissible onClose={() => setExportError(null)}>
-                    {exportError}
-                  </Alert>
-                )}
-
-                {exportClinicsLoading ? (
-                  <div className="text-center my-5">
-                    <Spinner animation="border" role="status" />
-                    <div>{t('Loading')}...</div>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-muted mb-1">
-                      {t('Select clinics to include in the export:')}
-                    </p>
-
-                    {exportClinics.length === 0 ? (
-                      <Alert variant="info">{t('No clinics found in the database.')}</Alert>
-                    ) : (
-                      <>
-                        <div className="d-flex gap-2 mb-2">
-                          <Button
-                            variant="outline-secondary"
-                            size="sm"
-                            onClick={selectAllExportClinics}
-                            disabled={selectedExportClinics.length === exportClinics.length}
-                          >
-                            {t('Select all')}
-                          </Button>
-                          <Button
-                            variant="outline-secondary"
-                            size="sm"
-                            onClick={deselectAllExportClinics}
-                            disabled={selectedExportClinics.length === 0}
-                          >
-                            {t('Deselect all')}
-                          </Button>
-                        </div>
-
-                        <Form className="mb-4">
-                          <div className="d-flex flex-wrap gap-3">
-                            {exportClinics.map((clinic) => (
-                              <Form.Check
-                                key={clinic}
-                                type="checkbox"
-                                id={`export_clinic_${clinic}`}
-                                label={clinic}
-                                checked={selectedExportClinics.includes(clinic)}
-                                onChange={() => toggleExportClinic(clinic)}
-                              />
-                            ))}
-                          </div>
-                        </Form>
-                      </>
-                    )}
-
-                    <p className="text-muted small mb-2">
-                      {t('The export is a ZIP archive containing:')}{' '}
-                      {t(
-                        'patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.'
+          {interventionLoading ? (
+            <div className="text-center my-5">
+              <Spinner animation="border" role="status" />
+              <div>{t('Loading')}...</div>
+            </div>
+          ) : filteredInterventions.length === 0 ? (
+            <p className="text-center text-muted">{t('No interventions found')}</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('ID')}</TableHead>
+                  <TableHead>{t('Title')}</TableHead>
+                  <TableHead>{t('Language')}</TableHead>
+                  <TableHead>{t('Type')}</TableHead>
+                  <TableHead>{t('Private')}</TableHead>
+                  <TableHead style={{ minWidth: 100 }}>{t('Actions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredInterventions.map((iv) => (
+                  <TableRow key={iv._id}>
+                    <TableCell>
+                      <code>{iv.external_id}</code>
+                    </TableCell>
+                    <TableCell>{iv.title}</TableCell>
+                    <TableCell>
+                      <Badge bg="secondary">{iv.language}</Badge>
+                    </TableCell>
+                    <TableCell>{iv.content_type}</TableCell>
+                    <TableCell>
+                      {iv.is_private ? (
+                        <Badge bg="warning" text="dark">
+                          {t('Private')}
+                        </Badge>
+                      ) : (
+                        <Badge bg="success">{t('Public')}</Badge>
                       )}
-                    </p>
-
-                    <div className="d-flex gap-2 flex-wrap">
+                    </TableCell>
+                    <TableCell>
                       <Button
-                        variant="primary"
-                        onClick={() => downloadExport('all')}
-                        disabled={exporting}
+                        size="dashboard"
+                        className="bg-nok hover:bg-nok/90"
+                        onClick={() => setDeleteModal({ open: true, id: iv._id, title: iv.title })}
                       >
-                        {exporting ? (
-                          <>
-                            <Spinner animation="border" size="sm" className="me-2" />
-                            {t('Exporting...')}
-                          </>
-                        ) : (
-                          t('Export all patients (ZIP)')
-                        )}
+                        {t('Delete')}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
+
+        {/* ── Tab 4: questionnaires ── */}
+        <TabsContent value="questionnaires">
+          {questionnaireError && (
+            <Alert variant="danger" dismissible onClose={() => setQuestionnaireError(null)}>
+              {questionnaireError}
+            </Alert>
+          )}
+
+          <div className="d-flex gap-2 mb-3">
+            <Input
+              type="search"
+              placeholder={t('Search by title, key or tag…')}
+              value={questionnaireSearch}
+              onChange={(e) => setQuestionnaireSearch(e.target.value)}
+              style={{ maxWidth: 320 }}
+              className="bg-white"
+            />
+            <Button
+              size="dashboard"
+              variant="secondary"
+              onClick={fetchQuestionnaires}
+              disabled={questionnaireLoading}
+            >
+              {questionnaireLoading ? <Spinner animation="border" size="sm" /> : t('Refresh')}
+            </Button>
+          </div>
+
+          {questionnaireLoading ? (
+            <div className="text-center my-5">
+              <Spinner animation="border" role="status" />
+              <div>{t('Loading')}...</div>
+            </div>
+          ) : filteredQuestionnaires.length === 0 ? (
+            <p className="text-center text-muted">{t('No questionnaires found')}</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('Key')}</TableHead>
+                  <TableHead>{t('Title')}</TableHead>
+                  <TableHead>{t('Tags')}</TableHead>
+                  <TableHead>{t('Questions')}</TableHead>
+                  <TableHead>{t('Used in plans')}</TableHead>
+                  <TableHead
+                    title={t('Increments each time an admin edits title, description or tags')}
+                  >
+                    {t('Version')}
+                  </TableHead>
+                  <TableHead>{t('Created by')}</TableHead>
+                  <TableHead style={{ minWidth: 140 }}>{t('Actions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredQuestionnaires.map((qn) => (
+                  <TableRow key={qn._id}>
+                    <TableCell>
+                      <code>{qn.key}</code>
+                    </TableCell>
+                    <TableCell>{qn.title}</TableCell>
+                    <TableCell>
+                      {qn.tags?.length ? (
+                        <div className="d-flex flex-wrap gap-1">
+                          {qn.tags.map((tag) => (
+                            <Badge key={tag} bg="secondary">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">{qn.question_count}</TableCell>
+                    <TableCell className="text-center">
+                      {qn.usage_count > 0 ? (
+                        <Badge bg="warning" text="dark">
+                          {qn.usage_count}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted">0</span>
+                      )}
+                    </TableCell>
+                    <TableCell
+                      className="text-center"
+                      title={
+                        qn.updatedAt
+                          ? `${t('Last edited')}: ${formatLocaleDateTime(qn.updatedAt)}`
+                          : t('Never edited')
+                      }
+                    >
+                      <Badge bg={qn.version > 1 ? 'info' : 'light'} text="dark">
+                        v{qn.version ?? 1}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {qn.created_by_name || <span className="text-muted">—</span>}
+                    </TableCell>
+                    <TableCell className="d-flex gap-1">
+                      <Button
+                        size="dashboard"
+                        variant="secondary"
+                        onClick={() => openQEditModal(qn)}
+                      >
+                        {t('Edit')}
                       </Button>
                       <Button
-                        variant="outline-primary"
-                        onClick={() => downloadExport('selected')}
-                        disabled={exporting || selectedExportClinics.length === 0}
-                        title={
-                          selectedExportClinics.length === 0
-                            ? t('Select at least one clinic')
-                            : undefined
+                        size="dashboard"
+                        className="bg-nok hover:bg-nok/90"
+                        onClick={() =>
+                          setQDeleteModal({
+                            open: true,
+                            id: qn._id,
+                            title: qn.title,
+                            usageCount: qn.usage_count,
+                          })
                         }
                       >
-                        {t('Export selected clinics')} ({selectedExportClinics.length})
+                        {t('Delete')}
                       </Button>
-                    </div>
-                  </>
-                )}
-              </Tab.Pane>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </TabsContent>
 
-              {/* ── Tab 6: analytics ── */}
-              <Tab.Pane eventKey="analytics">
-                {analyticsLoading ? (
-                  <div className="text-center my-5">
-                    <Spinner animation="border" role="status" />
-                  </div>
-                ) : deviceAnalytics ? (
-                  <div className="my-4">
-                    <h5 className="mb-3">{t('Login device types')}</h5>
-                    <div className="flex flex-wrap gap-4 mb-6">
-                      {['Mobile', 'Desktop', 'Tablet', 'Unknown'].map((device) => {
-                        const count = deviceAnalytics.by_device[device] ?? 0;
-                        if (count === 0) return null;
-                        return (
-                          <div
-                            key={device}
-                            className="rounded-xl border bg-zinc-50 px-8 py-6 text-center min-w-[120px]"
-                          >
-                            <div className="text-3xl font-bold">{count}</div>
-                            <div className="text-sm text-muted-foreground mt-1">{t(device)}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {Object.keys(deviceAnalytics.by_role).length > 0 && (
-                      <>
-                        <h6 className="mb-2">{t('By user role')}</h6>
-                        <Table bordered size="sm" style={{ maxWidth: 480 }}>
-                          <thead>
-                            <tr>
-                              <th>{t('Role')}</th>
-                              <th>Mobile</th>
-                              <th>Desktop</th>
-                              <th>Tablet</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {Object.entries(deviceAnalytics.by_role).map(([role, counts]) => (
-                              <tr key={role}>
-                                <td>{role}</td>
-                                <td>{counts['Mobile'] ?? 0}</td>
-                                <td>{counts['Desktop'] ?? 0}</td>
-                                <td>{counts['Tablet'] ?? 0}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </Table>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <p className="mt-4 text-muted">{t('Click the Analytics tab to load data.')}</p>
-                )}
-              </Tab.Pane>
-            </Tab.Content>
-          </Tab.Container>
-        </main>
+        {/* ── Tab 5: export ── */}
+        <TabsContent value="export">
+          {exportClinicsError && (
+            <Alert variant="danger" dismissible onClose={() => setExportClinicsError(null)}>
+              {exportClinicsError}
+            </Alert>
+          )}
+          {exportError && (
+            <Alert variant="danger" dismissible onClose={() => setExportError(null)}>
+              {exportError}
+            </Alert>
+          )}
 
-        {/* Reject access request modal */}
-        <Dialog
-          open={rejectModal.open}
-          onOpenChange={(open) => !open && setRejectModal({ open: false, requestId: '' })}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('Decline access change request')}</DialogTitle>
-            </DialogHeader>
-            <Form.Group>
-              <Form.Label>{t('Note for therapist (optional)')}</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                value={rejectNote}
-                onChange={(e) => setRejectNote(e.target.value)}
-                placeholder={t('Explain why the request is being declined...')}
-              />
-            </Form.Group>
-            <DialogFooter>
-              <Button
-                variant="secondary"
-                onClick={() => setRejectModal({ open: false, requestId: '' })}
-                disabled={rejectSubmitting}
-              >
-                {t('Cancel')}
-              </Button>
-              <Button variant="danger" onClick={submitReject} disabled={rejectSubmitting}>
-                {rejectSubmitting ? t('Declining...') : t('Decline')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Decline confirm */}
-        <ConfirmModal
-          show={store.showDeclineConfirm}
-          onHide={store.closeDeclineConfirm}
-          title={t('ConfirmDeletion')}
-          body={<p className="mb-0">{t('Are you sure you want to decline this therapist?')}</p>}
-          cancelText={t('Cancel')}
-          confirmText={t('Decline')}
-          confirmVariant="danger"
-          onConfirm={() => store.declineConfirmed(t)}
-        />
-
-        {/* Access Modal */}
-        <Dialog
-          open={accessModal.open}
-          onOpenChange={(open) => !open && !accessLoading && closeAccessModal()}
-        >
-          <DialogContent
-            className="max-w-3xl"
-            hideClose={accessLoading}
-            onPointerDownOutside={(e) => accessLoading && e.preventDefault()}
-          >
-            <DialogHeader>
-              <DialogTitle>
-                {t('Therapist access')} — {accessModal.therapistName}
-              </DialogTitle>
-            </DialogHeader>
-
-            {accessSuccess && (
-              <Alert variant="success" dismissible onClose={() => setAccessSuccess(null)}>
-                {accessSuccess}
-              </Alert>
-            )}
-
-            {accessError && (
-              <Alert variant="danger" dismissible onClose={() => setAccessError(null)}>
-                {accessError}
-              </Alert>
-            )}
-
-            {accessLoading ? (
-              <div className="d-flex align-items-center gap-2">
-                <Spinner animation="border" size="sm" />
-                <div>{t('Loading')}...</div>
-              </div>
-            ) : (
-              <>
-                <p className="text-muted mb-2">{t('Projects')}</p>
-                {availableProjects.length === 0 ? (
-                  <Alert variant="warning">{t('No projects configured on the server.')}</Alert>
-                ) : (
-                  <Form className="mb-3">
-                    <div className="d-flex flex-wrap gap-3">
-                      {availableProjects.map((p) => (
-                        <Form.Check
-                          key={p}
-                          type="checkbox"
-                          id={`proj_${p}`}
-                          label={p}
-                          checked={selectedProjects.includes(p)}
-                          onChange={() => toggleProject(p)}
-                        />
-                      ))}
-                    </div>
-
-                    <div className="mt-2">
-                      <small className="text-muted">
-                        {t('Selected')}:{' '}
-                        {selectedProjects.length ? selectedProjects.join(', ') : '—'}
-                      </small>
-                    </div>
-                  </Form>
-                )}
-
-                <p className="text-muted mb-2">{t('Clinics')}</p>
-                {!selectedProjects.length ? (
-                  <Alert variant="info" className="mb-0">
-                    {t('Select a project to see available clinics.')}
-                  </Alert>
-                ) : allowedClinicsForSelectedProjects.length === 0 ? (
-                  <Alert variant="warning" className="mb-0">
-                    {t('No clinics are configured for the selected project(s).')}
-                  </Alert>
-                ) : (
-                  <Form>
-                    <div className="d-flex flex-wrap gap-3">
-                      {allowedClinicsForSelectedProjects.map((c) => (
-                        <Form.Check
-                          key={c}
-                          type="checkbox"
-                          id={`clinic_${c}`}
-                          label={c}
-                          checked={selectedClinics.includes(c)}
-                          onChange={() => toggleClinic(c)}
-                        />
-                      ))}
-                    </div>
-                  </Form>
-                )}
-
-                {selectedProjects.length > 0 && (
-                  <div className="mt-2">
-                    <small className="text-muted">
-                      {t('Clinics are filtered by selected projects.')}
-                    </small>
-                  </div>
-                )}
-              </>
-            )}
-
-            <DialogFooter>
-              <Button variant="secondary" onClick={closeAccessModal} disabled={accessLoading}>
-                {t('Close')}
-              </Button>
-              <Button
-                variant="primary"
-                onClick={saveAccess}
-                disabled={accessLoading || selectedProjects.length === 0}
-                title={selectedProjects.length === 0 ? t('Select at least one project') : undefined}
-              >
-                {accessLoading ? (
-                  <>
-                    <Spinner animation="border" size="sm" className="me-2" />
-                    {t('Saving')}...
-                  </>
-                ) : (
-                  t('Save')
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Delete intervention confirm */}
-        <ConfirmModal
-          show={deleteModal.open}
-          onHide={() => setDeleteModal({ open: false, id: '', title: '' })}
-          title={t('Delete intervention')}
-          body={
-            <p className="mb-0">
-              {t('Are you sure you want to permanently delete')}{' '}
-              <strong>{deleteModal.title}</strong>?{' '}
-              {t('This will also remove all associated logs and plan assignments.')}
-            </p>
-          }
-          cancelText={t('Cancel')}
-          confirmText={deleteInProgress ? t('Deleting...') : t('Delete')}
-          confirmVariant="danger"
-          onConfirm={confirmDelete}
-        />
-
-        {/* Delete questionnaire confirm */}
-        <ConfirmModal
-          show={qDeleteModal.open}
-          onHide={() => setQDeleteModal({ open: false, id: '', title: '', usageCount: 0 })}
-          title={t('Delete questionnaire')}
-          body={
-            <div>
-              <p className="mb-2">
-                {t('Are you sure you want to permanently delete')}{' '}
-                <strong>{qDeleteModal.title}</strong>?
-              </p>
-              {qDeleteModal.usageCount > 0 && (
-                <Alert variant="warning" className="mb-2 py-2">
-                  {t('This questionnaire is currently assigned to')}{' '}
-                  <strong>{qDeleteModal.usageCount}</strong>{' '}
-                  {t(
-                    "rehabilitation plan(s). Deleting it will remove those assignments — the questionnaire will no longer appear in those patients' future schedules and cannot be assigned to new patients."
-                  )}
-                </Alert>
-              )}
-              <Alert variant="info" className="mb-0 py-2">
-                <strong>{t('Answers are preserved.')}</strong>{' '}
-                {t(
-                  'Any responses already submitted by patients for this questionnaire are not deleted and remain accessible to therapists in patient records.'
-                )}
-              </Alert>
+          {exportClinicsLoading ? (
+            <div className="text-center my-5">
+              <Spinner animation="border" role="status" />
+              <div>{t('Loading')}...</div>
             </div>
-          }
-          cancelText={t('Cancel')}
-          confirmText={qDeleteInProgress ? t('Deleting...') : t('Delete')}
-          confirmVariant="danger"
-          onConfirm={confirmDeleteQuestionnaire}
-        />
+          ) : (
+            <>
+              <p className="text-muted mb-1">{t('Select clinics to include in the export:')}</p>
 
-        {/* Edit questionnaire modal */}
-        <Dialog
-          open={qEditModal.open}
-          onOpenChange={(open) =>
-            !open && setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
-          }
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('Edit questionnaire')}</DialogTitle>
-            </DialogHeader>
-            {qEditError && (
-              <Alert variant="danger" dismissible onClose={() => setQEditError(null)}>
-                {qEditError}
+              {exportClinics.length === 0 ? (
+                <Alert variant="info">{t('No clinics found in the database.')}</Alert>
+              ) : (
+                <>
+                  <div className="flex gap-2 mb-2">
+                    <Button
+                      size="dashboard"
+                      variant="secondary"
+                      onClick={selectAllExportClinics}
+                      disabled={selectedExportClinics.length === exportClinics.length}
+                    >
+                      {t('Select all')}
+                    </Button>
+                    <Button
+                      size="dashboard"
+                      variant="secondary"
+                      onClick={deselectAllExportClinics}
+                      disabled={selectedExportClinics.length === 0}
+                    >
+                      {t('Deselect all')}
+                    </Button>
+                  </div>
+
+                  <div className="mb-4 flex flex-wrap gap-3">
+                    {exportClinics.map((clinic) => {
+                      const id = `export_clinic_${clinic}`;
+                      return (
+                        <div key={clinic} className="flex items-center gap-2">
+                          <Checkbox
+                            id={id}
+                            checked={selectedExportClinics.includes(clinic)}
+                            onCheckedChange={() => toggleExportClinic(clinic)}
+                          />
+                          <Label htmlFor={id} className="cursor-pointer">
+                            {clinic}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              <p className="text-muted small mb-2">
+                {t('The export is a ZIP archive containing:')}{' '}
+                {t(
+                  'patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.'
+                )}
+              </p>
+
+              <div className="flex gap-2 flex-wrap">
+                <Button size="dashboard" onClick={() => downloadExport('all')} disabled={exporting}>
+                  {exporting ? (
+                    <>
+                      <Spinner animation="border" size="sm" className="me-2" />
+                      {t('Exporting...')}
+                    </>
+                  ) : (
+                    t('Export all patients (ZIP)')
+                  )}
+                </Button>
+                <Button
+                  size="dashboard"
+                  variant="secondary"
+                  onClick={() => downloadExport('selected')}
+                  disabled={exporting || selectedExportClinics.length === 0}
+                  title={
+                    selectedExportClinics.length === 0 ? t('Select at least one clinic') : undefined
+                  }
+                >
+                  {t('Export selected clinics')} ({selectedExportClinics.length})
+                </Button>
+              </div>
+            </>
+          )}
+        </TabsContent>
+
+        {/* ── Tab 6: analytics ── */}
+        <TabsContent value="analytics">
+          {analyticsLoading ? (
+            <div className="text-center my-5">
+              <Spinner animation="border" role="status" />
+            </div>
+          ) : deviceAnalytics ? (
+            <div className="my-4">
+              <h5 className="mb-3">{t('Login device types')}</h5>
+              <div className="flex flex-wrap gap-4 mb-6">
+                {['Mobile', 'Desktop', 'Tablet', 'Unknown'].map((device) => {
+                  const count = deviceAnalytics.by_device[device] ?? 0;
+                  if (count === 0) return null;
+                  return (
+                    <div
+                      key={device}
+                      className="rounded-xl border bg-zinc-50 px-8 py-6 text-center min-w-[120px]"
+                    >
+                      <div className="text-3xl font-bold">{count}</div>
+                      <div className="text-sm text-muted-foreground mt-1">{t(device)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              {Object.keys(deviceAnalytics.by_role).length > 0 && (
+                <div className="max-w-[480px]">
+                  <h6 className="mb-2">{t('By user role')}</h6>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('Role')}</TableHead>
+                        <TableHead>Mobile</TableHead>
+                        <TableHead>Desktop</TableHead>
+                        <TableHead>Tablet</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Object.entries(deviceAnalytics.by_role).map(([role, counts]) => (
+                        <TableRow key={role}>
+                          <TableCell>{role}</TableCell>
+                          <TableCell>{counts['Mobile'] ?? 0}</TableCell>
+                          <TableCell>{counts['Desktop'] ?? 0}</TableCell>
+                          <TableCell>{counts['Tablet'] ?? 0}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="mt-4 text-muted">{t('Click the Analytics tab to load data.')}</p>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Reject access request modal */}
+      <RejectAccessRequestDialog
+        open={rejectModal.open}
+        note={rejectNote}
+        submitting={rejectSubmitting}
+        onNoteChange={setRejectNote}
+        onCancel={() => setRejectModal({ open: false, requestId: '' })}
+        onSubmit={submitReject}
+      />
+
+      {/* Decline confirm */}
+      <ConfirmModal
+        show={store.showDeclineConfirm}
+        onHide={store.closeDeclineConfirm}
+        title={t('ConfirmDeletion')}
+        body={<p className="mb-0">{t('Are you sure you want to decline this therapist?')}</p>}
+        cancelText={t('Cancel')}
+        confirmText={t('Decline')}
+        confirmVariant="danger"
+        onConfirm={() => store.declineConfirmed(t)}
+      />
+
+      {/* Access Modal */}
+      <TherapistAccessDialog
+        open={accessModal.open}
+        therapistName={accessModal.therapistName}
+        loading={accessLoading}
+        error={accessError}
+        success={accessSuccess}
+        availableProjects={availableProjects}
+        allowedClinics={allowedClinicsForSelectedProjects}
+        selectedProjects={selectedProjects}
+        selectedClinics={selectedClinics}
+        onToggleProject={toggleProject}
+        onToggleClinic={toggleClinic}
+        onClose={closeAccessModal}
+        onSave={saveAccess}
+        onDismissError={() => setAccessError(null)}
+        onDismissSuccess={() => setAccessSuccess(null)}
+      />
+
+      {/* Delete intervention confirm */}
+      <ConfirmModal
+        show={deleteModal.open}
+        onHide={() => setDeleteModal({ open: false, id: '', title: '' })}
+        title={t('Delete intervention')}
+        body={
+          <p className="mb-0">
+            {t('Are you sure you want to permanently delete')} <strong>{deleteModal.title}</strong>?{' '}
+            {t('This will also remove all associated logs and plan assignments.')}
+          </p>
+        }
+        cancelText={t('Cancel')}
+        confirmText={deleteInProgress ? t('Deleting...') : t('Delete')}
+        confirmVariant="danger"
+        onConfirm={confirmDelete}
+      />
+
+      {/* Delete questionnaire confirm */}
+      <ConfirmModal
+        show={qDeleteModal.open}
+        onHide={() => setQDeleteModal({ open: false, id: '', title: '', usageCount: 0 })}
+        title={t('Delete questionnaire')}
+        body={
+          <div>
+            <p className="mb-2">
+              {t('Are you sure you want to permanently delete')}{' '}
+              <strong>{qDeleteModal.title}</strong>?
+            </p>
+            {qDeleteModal.usageCount > 0 && (
+              <Alert variant="warning" className="mb-2 py-2">
+                {t('This questionnaire is currently assigned to')}{' '}
+                <strong>{qDeleteModal.usageCount}</strong>{' '}
+                {t(
+                  "rehabilitation plan(s). Deleting it will remove those assignments — the questionnaire will no longer appear in those patients' future schedules and cannot be assigned to new patients."
+                )}
               </Alert>
             )}
-            <Alert variant="info" className="py-2 mb-3 small">
-              <strong>{t('What changes here.')}</strong>{' '}
+            <Alert variant="info" className="mb-0 py-2">
+              <strong>{t('Answers are preserved.')}</strong>{' '}
               {t(
-                'Editing updates title, description and tags only — the underlying questions are not affected. Patients already assigned this questionnaire will continue to see the title and description that was current when they were assigned (their version is preserved). New assignments will use the updated information. Each save increments the version number shown in the table.'
+                'Any responses already submitted by patients for this questionnaire are not deleted and remain accessible to therapists in patient records.'
               )}
             </Alert>
-            <Form>
-              <Form.Group className="mb-3">
-                <Form.Label>{t('Title')}</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={qEditModal.title}
-                  onChange={(e) => setQEditModal((s) => ({ ...s, title: e.target.value }))}
-                />
-              </Form.Group>
-              <Form.Group className="mb-3">
-                <Form.Label>{t('Description')}</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={2}
-                  value={qEditModal.description}
-                  onChange={(e) => setQEditModal((s) => ({ ...s, description: e.target.value }))}
-                />
-              </Form.Group>
-              <Form.Group>
-                <Form.Label>
-                  {t('Tags')} <small className="text-muted">({t('comma-separated')})</small>
-                </Form.Label>
-                <Form.Control
-                  type="text"
-                  value={qEditModal.tags}
-                  onChange={(e) => setQEditModal((s) => ({ ...s, tags: e.target.value }))}
-                  placeholder="dynamic, custom, shared"
-                />
-              </Form.Group>
-            </Form>
+          </div>
+        }
+        cancelText={t('Cancel')}
+        confirmText={qDeleteInProgress ? t('Deleting...') : t('Delete')}
+        confirmVariant="danger"
+        onConfirm={confirmDeleteQuestionnaire}
+      />
 
-            <DialogFooter>
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
-                }
-                disabled={qEditSaving}
-              >
-                {t('Cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                onClick={saveQEdit}
-                disabled={qEditSaving || !qEditModal.title.trim()}
-              >
-                {qEditSaving ? t('Saving...') : t('Save')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+      {/* Edit questionnaire modal */}
+      <EditQuestionnaireDialog
+        open={qEditModal.open}
+        title={qEditModal.title}
+        description={qEditModal.description}
+        tags={qEditModal.tags}
+        error={qEditError}
+        saving={qEditSaving}
+        onTitleChange={(title) => setQEditModal((s) => ({ ...s, title }))}
+        onDescriptionChange={(description) => setQEditModal((s) => ({ ...s, description }))}
+        onTagsChange={(tags) => setQEditModal((s) => ({ ...s, tags }))}
+        onDismissError={() => setQEditError(null)}
+        onCancel={() =>
+          setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
+        }
+        onSave={saveQEdit}
+      />
     </Layout>
   );
 });

@@ -1,13 +1,14 @@
 // src/components/TherapistPatientPage/AddPatientPopUp.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Button } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 
-import authStore from '../../stores/authStore';
-import FormRegisterPatient from '../AddPatient/RegisterPatientForm';
+import authStore from '@/stores/authStore';
+import FormRegisterPatient from '@/components/AddPatient/RegisterPatientForm';
 import StandardModal from '../common/StandardModal';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 interface AddPatientPopupProps {
   show: boolean;
@@ -43,7 +44,7 @@ const AddPatientPopup: React.FC<AddPatientPopupProps> = observer(({ show, handle
   const footer = useMemo(
     () => (
       <div className="w-100 d-flex justify-content-end">
-        <Button variant="outline-secondary" onClick={confirmClose}>
+        <Button size="dashboard" variant="secondary" onClick={confirmClose}>
           {t('Close')}
         </Button>
       </div>
@@ -62,13 +63,13 @@ const AddPatientPopup: React.FC<AddPatientPopupProps> = observer(({ show, handle
       footer={footer}
     >
       <Card>
-        <Card.Body>
+        <CardContent className="p-4">
           {authStore.id ? (
             <FormRegisterPatient therapist={authStore.id} />
           ) : (
             <p className="text-muted text-center mb-0">{t('Loading user information...')}</p>
           )}
-        </Card.Body>
+        </CardContent>
       </Card>
     </StandardModal>
   );

@@ -88,9 +88,9 @@ const ExportModal: React.FC<Props> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="row g-3 align-items-end">
-          <div className="col-md-6">
-            <Form.Label className="fw-bold">{t('From')}</Form.Label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+          <div>
+            <Form.Label className="fw-bold mr-2">{t('From')}</Form.Label>
             <DatePicker
               selected={from}
               onChange={(d) => setFrom(d)}
@@ -98,8 +98,8 @@ const ExportModal: React.FC<Props> = ({
               dateFormat="yyyy-MM-dd"
             />
           </div>
-          <div className="col-md-6">
-            <Form.Label className="fw-bold">{t('To')}</Form.Label>
+          <div>
+            <Form.Label className="fw-bold mr-2">{t('To')}</Form.Label>
             <DatePicker
               selected={to}
               onChange={(d) => setTo(d)}

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Row, Col, Form, Button } from 'react-bootstrap';
+import { Form, Button } from 'react-bootstrap';
 import Select from 'react-select';
 import { FaUndo } from 'react-icons/fa';
 
@@ -66,21 +66,19 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
   return (
     <Card className="mb-4">
       <CardContent className="p-4">
-        <Row className="mb-3">
-          <Col>
-            <Form.Group controlId="searchInput">
-              <Form.Control
-                type="text"
-                placeholder={t('Search Interventions')}
-                value={filters.searchTerm}
-                onChange={(e) => onChange({ ...filters, searchTerm: e.target.value })}
-              />
-            </Form.Group>
-          </Col>
-        </Row>
+        <div className="mb-3">
+          <Form.Group controlId="searchInput">
+            <Form.Control
+              type="text"
+              placeholder={t('Search Interventions')}
+              value={filters.searchTerm}
+              onChange={(e) => onChange({ ...filters, searchTerm: e.target.value })}
+            />
+          </Form.Group>
+        </div>
 
-        <Row className="mb-3 g-3">
-          <Col xs={12} md={4}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+          <div>
             <Select
               isMulti
               options={diagnosisOptions}
@@ -90,9 +88,9 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
               }
               placeholder={t('Filter by Primary Diagnosis')}
             />
-          </Col>
+          </div>
 
-          <Col xs={12} md={4}>
+          <div>
             <Select
               isMulti
               options={languageOptions}
@@ -105,9 +103,9 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
               }
               placeholder={t('Filter by Language')}
             />
-          </Col>
+          </div>
 
-          <Col xs={12} md={4}>
+          <div>
             <Form.Select
               value={filters.contentTypeFilter}
               onChange={(e) => onChange({ ...filters, contentTypeFilter: e.target.value })}
@@ -119,12 +117,12 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
                 </option>
               ))}
             </Form.Select>
-          </Col>
-        </Row>
+          </div>
+        </div>
 
-        <Row className="mb-3 g-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
           {/* ✅ Aims */}
-          <Col xs={12} md={6}>
+          <div>
             <Select
               isMulti
               options={aimsOptions}
@@ -134,10 +132,10 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
               }
               placeholder={t('Filter by Aims')}
             />
-          </Col>
+          </div>
 
           {/* ✅ Tags (everything except aims) */}
-          <Col xs={12} md={6}>
+          <div>
             <Select
               isMulti
               options={tagOptions}
@@ -147,16 +145,14 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
               }
               placeholder={t('Filter by Tags')}
             />
-          </Col>
-        </Row>
+          </div>
+        </div>
 
-        <Row>
-          <Col>
-            <Button variant="outline-secondary" size="sm" onClick={onReset}>
-              <FaUndo className="me-2" /> {t('Reset filters')}
-            </Button>
-          </Col>
-        </Row>
+        <div>
+          <Button variant="outline-secondary" size="sm" onClick={onReset}>
+            <FaUndo className="me-2" /> {t('Reset filters')}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

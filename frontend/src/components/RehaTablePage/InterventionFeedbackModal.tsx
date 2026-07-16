@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { ListGroup, Badge, Row, Col, Alert, Form } from 'react-bootstrap';
+import { ListGroup, Badge, Alert, Form } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -145,9 +145,9 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                 {safeT(t, 'No feedback available')}
               </Alert>
             ) : (
-              <Row className="g-3">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 {/* LEFT: dates list (scrollable) */}
-                <Col md={4}>
+                <div className="md:col-span-4">
                   <div className="fw-semibold mb-2">{safeT(t, 'Dates')}</div>
 
                   <div>
@@ -199,10 +199,10 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                       })}
                     </ListGroup>
                   </div>
-                </Col>
+                </div>
 
                 {/* RIGHT: feedback detail (scrollable if long) */}
-                <Col md={8}>
+                <div className="md:col-span-8">
                   {!selected ? (
                     <Alert variant="info">{safeT(t, 'Select a date')}</Alert>
                   ) : (
@@ -276,8 +276,8 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                       )}
                     </div>
                   )}
-                </Col>
-              </Row>
+                </div>
+              </div>
             )}
           </>
         )}

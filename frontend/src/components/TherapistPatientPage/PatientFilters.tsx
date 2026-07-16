@@ -1,6 +1,6 @@
 // src/components/TherapistPatientPage/PatientFilters.tsx
 import React from 'react';
-import { Button, Card, Col, Form, Row } from 'react-bootstrap';
+import { Button, Card, Form } from 'react-bootstrap';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
 
@@ -18,26 +18,26 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
   return (
     <Card className="mb-3">
       <Card.Body>
-        <Row className="g-3">
-          <Col xs={12} md={3}>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div>
             <Form.Control
               type="text"
               placeholder={String(t('Search by name, ID or username'))}
               value={store.searchTerm}
               onChange={(e) => store.setSearchTerm(e.target.value)}
             />
-          </Col>
+          </div>
 
-          <Col xs={12} md={3}>
+          <div>
             <Form.Control
               type="date"
               value={store.birthdateFilter}
               onChange={(e) => store.setBirthdateFilter(e.target.value)}
               aria-label={String(t('Filter by Birth Date'))}
             />
-          </Col>
+          </div>
 
-          <Col xs={12} md={3}>
+          <div>
             <Form.Select
               value={store.sexFilter}
               onChange={(e) => store.setSexFilter(e.target.value)}
@@ -49,9 +49,9 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
                 </option>
               ))}
             </Form.Select>
-          </Col>
+          </div>
 
-          <Col xs={12} md={3}>
+          <div>
             <Form.Select
               value={store.durationFilter}
               onChange={(e) => store.setDurationFilter(e.target.value)}
@@ -63,11 +63,11 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
                 </option>
               ))}
             </Form.Select>
-          </Col>
-        </Row>
+          </div>
+        </div>
 
-        <Row className="mt-3 align-items-center">
-          <Col xs={12} md={3}>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="w-full md:w-1/4">
             <Form.Select
               value={store.diseaseFilter}
               onChange={(e) => store.setDiseaseFilter(e.target.value)}
@@ -79,9 +79,9 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
                 </option>
               ))}
             </Form.Select>
-          </Col>
+          </div>
 
-          <Col xs={12} md={6}>
+          <div className="w-full md:w-5/12">
             <Form.Label className="me-2">{String(t('Sort by'))}</Form.Label>
             <Form.Select
               aria-label="Sort by"
@@ -92,15 +92,15 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
               <option value="ampel">{String(t('Performance'))}</option>
               <option value="created">{String(t('Newest created'))}</option>
             </Form.Select>
-          </Col>
+          </div>
 
-          <Col className="d-flex flex-wrap gap-3 justify-content-end">
+          <div className="flex flex-wrap gap-3 justify-end md:flex-1">
             <Button variant="outline-secondary" onClick={store.resetFilters}>
               {String(t('Reset filters'))}
             </Button>
-          </Col>
+          </div>
 
-          <Col className="d-flex flex-wrap gap-3 justify-content-end">
+          <div className="flex flex-wrap gap-3 justify-end md:flex-1">
             <Form.Check
               type="switch"
               id="toggle-completed"
@@ -108,8 +108,8 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
               checked={store.showCompleted}
               onChange={(e) => store.setShowCompleted(e.currentTarget.checked)}
             />
-          </Col>
-        </Row>
+          </div>
+        </div>
       </Card.Body>
     </Card>
   );

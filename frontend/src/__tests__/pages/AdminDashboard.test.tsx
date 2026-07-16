@@ -81,6 +81,7 @@ jest.mock('@/stores/authStore', () => ({
 }));
 
 import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import AdminDashboard from '@/pages/AdminDashboard';
 import '@testing-library/jest-dom';
@@ -307,7 +308,7 @@ describe('AdminDashboard', () => {
     act(() => {
       mockStoreInstance.error = 'Store failed';
     });
-    fireEvent.click(screen.getByText('Interventions'));
+    await userEvent.click(screen.getByText('Interventions'));
 
     expect(await screen.findByText('Store failed')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'dismiss-store-error' }));
@@ -357,7 +358,7 @@ describe('AdminDashboard', () => {
 
     // Switch to access-requests tab
     await waitFor(() => expect(screen.getByText('Access change requests')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Access change requests'));
+    await userEvent.click(screen.getByText('Access change requests'));
 
     await waitFor(() => {
       expect(screen.getByText('Jane Doe')).toBeInTheDocument();
@@ -377,7 +378,7 @@ describe('AdminDashboard', () => {
     );
 
     await waitFor(() => expect(screen.getByText('Access change requests')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Access change requests'));
+    await userEvent.click(screen.getByText('Access change requests'));
 
     await waitFor(() => {
       expect(screen.getByText('Inselspital')).toBeInTheDocument();
@@ -398,7 +399,7 @@ describe('AdminDashboard', () => {
 
     // Switch to access-requests tab
     await waitFor(() => expect(screen.getByText('Access change requests')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Access change requests'));
+    await userEvent.click(screen.getByText('Access change requests'));
 
     // Wait for tab-specific content ("Requested clinics" column only exists in this tab)
     // then wait for data to load (Jane Doe's row must be present)
@@ -429,7 +430,7 @@ describe('AdminDashboard', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByText('Access change requests'));
+    await userEvent.click(screen.getByText('Access change requests'));
     expect(await screen.findByText('load down')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close alert' }));
@@ -449,7 +450,7 @@ describe('AdminDashboard', () => {
     );
 
     await waitFor(() => expect(screen.getByText('Access change requests')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Access change requests'));
+    await userEvent.click(screen.getByText('Access change requests'));
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument());
 
     fireEvent.click(screen.getByText('Approve'));
@@ -468,7 +469,7 @@ describe('AdminDashboard', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByText('Access change requests'));
+    await userEvent.click(screen.getByText('Access change requests'));
     await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument());
 
     fireEvent.click(screen.getByText('Decline'));
@@ -493,7 +494,7 @@ describe('AdminDashboard', () => {
     );
 
     await waitFor(() => expect(screen.getByText('Access change requests')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Access change requests'));
+    await userEvent.click(screen.getByText('Access change requests'));
 
     await waitFor(() => {
       expect(screen.getByText('No pending access change requests')).toBeInTheDocument();
@@ -552,7 +553,7 @@ describe('AdminDashboard', () => {
       );
 
       await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/admin/interventions/'));
-      fireEvent.click(screen.getByText('Interventions'));
+      await userEvent.click(screen.getByText('Interventions'));
 
       await waitFor(() => {
         expect(screen.getByText('3500_web')).toBeInTheDocument();
@@ -570,7 +571,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Interventions'));
+      await userEvent.click(screen.getByText('Interventions'));
       await waitFor(() =>
         expect(screen.getByText('Private', { selector: 'span.badge' })).toBeInTheDocument()
       );
@@ -585,7 +586,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Interventions'));
+      await userEvent.click(screen.getByText('Interventions'));
       await waitFor(() => expect(screen.getByText('No interventions found')).toBeInTheDocument());
     });
 
@@ -608,7 +609,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Interventions'));
+      await userEvent.click(screen.getByText('Interventions'));
       await waitFor(() => expect(screen.getByText('Relaxation Audio')).toBeInTheDocument());
 
       fireEvent.change(screen.getByPlaceholderText('Search by title or ID…'), {
@@ -631,7 +632,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Interventions'));
+      await userEvent.click(screen.getByText('Interventions'));
       await waitFor(() => expect(screen.getByText('network down')).toBeInTheDocument());
     });
 
@@ -645,7 +646,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Interventions'));
+      await userEvent.click(screen.getByText('Interventions'));
       await waitFor(() => expect(screen.getByText('Breathing Exercise')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
@@ -668,7 +669,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Interventions'));
+      await userEvent.click(screen.getByText('Interventions'));
       await waitFor(() => expect(screen.getByText('Breathing Exercise')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
@@ -690,7 +691,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Interventions'));
+      await userEvent.click(screen.getByText('Interventions'));
       await waitFor(() => expect(screen.getByText('Breathing Exercise')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
@@ -737,7 +738,7 @@ describe('AdminDashboard', () => {
       );
 
       await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith('/admin/questionnaires/'));
-      fireEvent.click(screen.getByText('Questionnaires'));
+      await userEvent.click(screen.getByText('Questionnaires'));
 
       await waitFor(() => {
         expect(screen.getByText('PHQ9')).toBeInTheDocument();
@@ -756,7 +757,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Questionnaires'));
+      await userEvent.click(screen.getByText('Questionnaires'));
       await waitFor(() => expect(screen.getByText('No questionnaires found')).toBeInTheDocument());
     });
 
@@ -774,7 +775,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Questionnaires'));
+      await userEvent.click(screen.getByText('Questionnaires'));
       await waitFor(() => expect(screen.getByText('GAD-7')).toBeInTheDocument());
 
       fireEvent.change(screen.getByPlaceholderText('Search by title, key or tag…'), {
@@ -795,7 +796,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Questionnaires'));
+      await userEvent.click(screen.getByText('Questionnaires'));
       await waitFor(() => expect(screen.getByText('PHQ-9')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -829,7 +830,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Questionnaires'));
+      await userEvent.click(screen.getByText('Questionnaires'));
       await waitFor(() => expect(screen.getByText('PHQ-9')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -851,7 +852,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Questionnaires'));
+      await userEvent.click(screen.getByText('Questionnaires'));
       await waitFor(() => expect(screen.getByText('PHQ-9')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
@@ -878,7 +879,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Questionnaires'));
+      await userEvent.click(screen.getByText('Questionnaires'));
       expect(await screen.findByText('fetch failed')).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: 'Close alert' }));
@@ -895,7 +896,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Questionnaires'));
+      await userEvent.click(screen.getByText('Questionnaires'));
       await waitFor(() => expect(screen.getByText('PHQ-9')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
@@ -915,7 +916,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Questionnaires'));
+      await userEvent.click(screen.getByText('Questionnaires'));
       await waitFor(() => expect(screen.getByText('PHQ-9')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -936,7 +937,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Questionnaires'));
+      await userEvent.click(screen.getByText('Questionnaires'));
       await waitFor(() => expect(screen.getByText('PHQ-9')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
@@ -956,7 +957,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Questionnaires'));
+      await userEvent.click(screen.getByText('Questionnaires'));
       await waitFor(() => expect(screen.getByText('PHQ-9')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -996,7 +997,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Export'));
+      await userEvent.click(screen.getByText('Export'));
       await waitFor(() =>
         expect(screen.getByText('No clinics found in the database.')).toBeInTheDocument()
       );
@@ -1011,7 +1012,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Export'));
+      await userEvent.click(screen.getByText('Export'));
       await waitFor(() => expect(screen.getByLabelText('Inselspital')).toBeInTheDocument());
 
       expect(screen.getByLabelText('Inselspital')).toBeChecked();
@@ -1028,7 +1029,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Export'));
+      await userEvent.click(screen.getByText('Export'));
       await waitFor(() => expect(screen.getByLabelText('Inselspital')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Deselect all' }));
@@ -1049,7 +1050,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Export'));
+      await userEvent.click(screen.getByText('Export'));
       await waitFor(() => expect(screen.getByLabelText('Inselspital')).toBeInTheDocument());
 
       fireEvent.click(screen.getByLabelText('Inselspital'));
@@ -1066,7 +1067,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Export'));
+      await userEvent.click(screen.getByText('Export'));
       await waitFor(() => expect(screen.getByLabelText('Inselspital')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Export all patients (ZIP)' }));
@@ -1091,7 +1092,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Export'));
+      await userEvent.click(screen.getByText('Export'));
       await waitFor(() => expect(screen.getByLabelText('A')).toBeInTheDocument());
 
       fireEvent.click(screen.getByRole('button', { name: 'Export all patients (ZIP)' }));
@@ -1113,7 +1114,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Export'));
+      await userEvent.click(screen.getByText('Export'));
       expect(await screen.findByText('clinics down')).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: 'Close alert' }));
@@ -1129,7 +1130,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Export'));
+      await userEvent.click(screen.getByText('Export'));
       await waitFor(() => expect(screen.getByLabelText('Inselspital')).toBeInTheDocument());
 
       fireEvent.click(screen.getByLabelText('Berner Reha Centrum'));
@@ -1146,7 +1147,7 @@ describe('AdminDashboard', () => {
   // ── analytics tab ─────────────────────────────────────────────────────────
 
   describe('analytics tab', () => {
-    it('shows a placeholder before the tab has ever been opened', async () => {
+    it('does not fetch analytics before the tab has ever been opened', async () => {
       render(
         <MemoryRouter>
           <AdminDashboard />
@@ -1158,7 +1159,7 @@ describe('AdminDashboard', () => {
           screen.getByRole('heading', { name: 'Admin Dashboard', level: 1 })
         ).toBeInTheDocument()
       );
-      expect(screen.getByText('Click the Analytics tab to load data.')).toBeInTheDocument();
+      expect(apiClient.get).not.toHaveBeenCalledWith('/admin/analytics/devices/');
     });
 
     it('fetches and renders device analytics when the tab is opened', async () => {
@@ -1180,7 +1181,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Analytics'));
+      await userEvent.click(screen.getByText('Analytics'));
 
       await waitFor(() => {
         expect(apiClient.get).toHaveBeenCalledWith('/admin/analytics/devices/');
@@ -1520,7 +1521,7 @@ describe('AdminDashboard', () => {
       );
 
       await waitFor(() => expect(screen.getByText('Access change requests')).toBeInTheDocument());
-      fireEvent.click(screen.getByText('Access change requests'));
+      await userEvent.click(screen.getByText('Access change requests'));
       await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument());
 
       fireEvent.click(screen.getByText('Decline'));
@@ -1555,7 +1556,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Access change requests'));
+      await userEvent.click(screen.getByText('Access change requests'));
       await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument());
 
       fireEvent.click(screen.getByText('Decline'));
@@ -1579,7 +1580,7 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      fireEvent.click(screen.getByText('Access change requests'));
+      await userEvent.click(screen.getByText('Access change requests'));
       await waitFor(() => expect(screen.getByText('Jane Doe')).toBeInTheDocument());
 
       fireEvent.click(screen.getByText('Decline'));
