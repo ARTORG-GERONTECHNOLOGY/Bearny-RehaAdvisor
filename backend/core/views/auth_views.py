@@ -22,7 +22,7 @@ from django.utils.html import strip_tags
 from django.views.decorators.csrf import csrf_exempt
 from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.models import (
@@ -487,7 +487,7 @@ def generate_random_password(length=12):
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def reset_password_view(request):
     try:
         data = json.loads(request.body)
@@ -496,7 +496,7 @@ def reset_password_view(request):
         if not email:
             return JsonResponse({"error": "Email is required"}, status=400)
 
-        user = User.objects.filter(email=email).first()
+        user = User.objects(email=email).first()
         # Return same response whether or not the user exists to prevent email enumeration.
         _RESET_RESPONSE = {"message": "If this email is registered, a new password has been sent."}
         if not user:
@@ -505,9 +505,9 @@ def reset_password_view(request):
         # Generate random password
         new_password = generate_random_password()
 
-        # Hash and save the new password
-        hashed_password = make_password(new_password)
-        User.objects.filter(email=email).update(pwdhash=hashed_password)
+        # Hash and save using the same pattern as change_password / user_views
+        user.pwdhash = make_password(new_password)
+        user.save()
 
         # Send email with the new password
         send_mail(
