@@ -45,8 +45,8 @@ const EditQuestionnaireDialog: React.FC<Props> = ({
   const { t } = useTranslation();
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onCancel()}>
-      <DialogContent>
+    <Dialog open={open} onOpenChange={(next) => !next && !saving && onCancel()}>
+      <DialogContent hideClose={saving} onPointerDownOutside={(e) => saving && e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{t('Edit questionnaire')}</DialogTitle>
         </DialogHeader>

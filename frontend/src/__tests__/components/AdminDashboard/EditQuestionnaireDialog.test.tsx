@@ -89,4 +89,15 @@ describe('EditQuestionnaireDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(defaultProps.onCancel).toHaveBeenCalled();
   });
+
+  it('hides the header close (X) button while saving', () => {
+    render(<EditQuestionnaireDialog {...defaultProps} saving />);
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+  });
+
+  it('does not call onCancel when dismissed via onOpenChange while saving', () => {
+    render(<EditQuestionnaireDialog {...defaultProps} saving />);
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape', code: 'Escape' });
+    expect(defaultProps.onCancel).not.toHaveBeenCalled();
+  });
 });

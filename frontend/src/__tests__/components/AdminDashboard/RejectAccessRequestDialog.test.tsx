@@ -63,4 +63,15 @@ describe('RejectAccessRequestDialog', () => {
     expect(screen.getByRole('button', { name: 'Declining...' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   });
+
+  it('hides the header close (X) button while submitting', () => {
+    render(<RejectAccessRequestDialog {...defaultProps} submitting />);
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+  });
+
+  it('does not call onCancel when dismissed via onOpenChange while submitting', () => {
+    render(<RejectAccessRequestDialog {...defaultProps} submitting />);
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape', code: 'Escape' });
+    expect(defaultProps.onCancel).not.toHaveBeenCalled();
+  });
 });

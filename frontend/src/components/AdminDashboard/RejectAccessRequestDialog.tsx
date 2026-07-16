@@ -31,8 +31,11 @@ const RejectAccessRequestDialog: React.FC<Props> = ({
   const { t } = useTranslation();
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onCancel()}>
-      <DialogContent>
+    <Dialog open={open} onOpenChange={(next) => !next && !submitting && onCancel()}>
+      <DialogContent
+        hideClose={submitting}
+        onPointerDownOutside={(e) => submitting && e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{t('Decline access change request')}</DialogTitle>
         </DialogHeader>
