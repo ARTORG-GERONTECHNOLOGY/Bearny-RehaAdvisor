@@ -280,9 +280,10 @@ describe('ImportFromRedcapModal', () => {
 
     it('calls onHide when the footer Close button is clicked', () => {
       render(<ImportFromRedcapModal {...defaultProps} />);
-      // Bootstrap's header dismiss button also has aria-label "Close"; the footer one is last.
+      // The dialog's built-in header dismiss button also has an accessible name of "Close".
       const closeButtons = screen.getAllByRole('button', { name: 'Close' });
-      fireEvent.click(closeButtons[closeButtons.length - 1]);
+      const footerClose = closeButtons.find((b) => !b.querySelector('svg'))!;
+      fireEvent.click(footerClose);
       expect(defaultProps.onHide).toHaveBeenCalled();
     });
 
@@ -296,7 +297,8 @@ describe('ImportFromRedcapModal', () => {
       );
       expect(screen.getByRole('button', { name: 'Refresh list' })).toBeDisabled();
       const closeButtons = screen.getAllByRole('button', { name: 'Close' });
-      expect(closeButtons[closeButtons.length - 1]).toBeDisabled();
+      const footerClose = closeButtons.find((b) => !b.querySelector('svg'))!;
+      expect(footerClose).toBeDisabled();
     });
 
     it('hides the header close button while a row is importing', () => {

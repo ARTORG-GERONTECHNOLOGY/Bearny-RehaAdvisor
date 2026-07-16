@@ -122,7 +122,9 @@ test.describe('Import Interventions modal — default language', () => {
       .first();
     await expect(importBtn).toBeVisible({ timeout: 10_000 });
     await importBtn.click();
-    await expect(page.locator('.modal.show')).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('[role="dialog"][data-state="open"]')).toBeVisible({
+      timeout: 5_000,
+    });
   }
 
   test('default language field is set to the UI language (not always "en")', async ({ page }) => {
@@ -136,7 +138,7 @@ test.describe('Import Interventions modal — default language', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     // The language select/input inside the Excel Import tab should show "de"
     const langField = modal
       .locator(
@@ -161,7 +163,7 @@ test.describe('Import Interventions modal — default language', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     const langField = modal
       .locator(
         'select[name="defaultLang"], input[name="defaultLang"], [data-testid="default-lang"]'

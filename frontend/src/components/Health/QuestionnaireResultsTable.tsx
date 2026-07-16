@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { Table } from 'react-bootstrap';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { QuestionnaireEntry } from '@/types/health';
 import { eachDateInRange, isInRange } from '@/utils/healthCharts';
@@ -131,21 +131,21 @@ const QuestionnaireResultsTable: React.FC<Props> = ({ data, start, end, lang, t 
         })}
       </div>
 
-      <Sheet open={!!selectedDay} onOpenChange={(open) => !open && setSelectedDay(null)}>
-        <SheetContent side="right" className="overflow-y-auto min-w-[40vw]">
-          <SheetHeader>
-            <SheetTitle>{t('Questionnaire Results By Date')}</SheetTitle>
-            <SheetDescription>
+      <Dialog open={!!selectedDay} onOpenChange={(open) => !open && setSelectedDay(null)}>
+        <DialogContent className="min-w-[40vw]">
+          <DialogHeader>
+            <DialogTitle>{t('Questionnaire Results By Date')}</DialogTitle>
+            <DialogDescription>
               {t('Date')}: {selectedDay}
-            </SheetDescription>
-          </SheetHeader>
+            </DialogDescription>
+          </DialogHeader>
           <div className="mt-4">
             {selectedDay && grouped[selectedDay] && (
               <DayResultsTable entries={grouped[selectedDay]} lang={lang} t={t} />
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

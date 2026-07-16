@@ -1,7 +1,15 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Modal, Button, ListGroup, Badge, Row, Col, Alert, Form } from 'react-bootstrap';
+import { ListGroup, Badge, Row, Col, Alert, Form } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import StarRating, { getRatingFromDateEntry } from './StarRating';
+import { Button } from '@/components/ui/button';
 
 type AnyObj = Record<string, any>;
 
@@ -104,21 +112,14 @@ const InterventionFeedbackModal: React.FC<Props> = ({
   const title = intervention?.title || safeT(t, 'Intervention');
 
   return (
-    <Modal
-      show={show}
-      onHide={onHide}
-      centered
-      size="lg"
-      dialogClassName="reha-feedback-modal"
-      contentClassName="reha-feedback-modal__content"
-    >
-      <Modal.Header closeButton>
-        <Modal.Title>
-          {safeT(t, 'Feedback')}: {title}
-        </Modal.Title>
-      </Modal.Header>
+    <Dialog open={show} onOpenChange={(open) => !open && onHide()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>
+            {safeT(t, 'Feedback')}: {title}
+          </DialogTitle>
+        </DialogHeader>
 
-      <Modal.Body className="reha-feedback-modal__body">
         {!totalScheduled ? (
           <Alert variant="info" className="mb-0">
             {safeT(t, 'No scheduled events found')}
@@ -149,7 +150,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                 <Col md={4}>
                   <div className="fw-semibold mb-2">{safeT(t, 'Dates')}</div>
 
-                  <div className="reha-feedback-modal__datesScroll">
+                  <div>
                     <ListGroup>
                       {visibleDates.map((d: any, idx: number) => {
                         const st = String(d?.status || '').toLowerCase();
@@ -205,7 +206,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                   {!selected ? (
                     <Alert variant="info">{safeT(t, 'Select a date')}</Alert>
                   ) : (
-                    <div className="reha-feedback-modal__detailScroll">
+                    <div>
                       {/* video */}
                       {selected?.video?.video_url ? (
                         <div className="mb-3">
@@ -280,14 +281,14 @@ const InterventionFeedbackModal: React.FC<Props> = ({
             )}
           </>
         )}
-      </Modal.Body>
 
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
-          {safeT(t, 'Close')}
-        </Button>
-      </Modal.Footer>
-    </Modal>
+        <DialogFooter>
+          <Button size="dashboard" variant="secondary" onClick={onHide}>
+            {safeT(t, 'Close')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

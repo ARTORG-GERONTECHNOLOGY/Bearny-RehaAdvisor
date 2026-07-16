@@ -22,7 +22,7 @@ jest.mock(
     }
 );
 jest.mock(
-  '@/components/PatientPage/PatientInterventionPopUp',
+  '@/components/RehaTablePage/PatientInterventionPopUp',
   () =>
     function PatientInterventionPopUp(props: any) {
       return (

@@ -46,7 +46,7 @@ test.describe('Therapist questionnaire builder full flow', () => {
       .first()
       .click();
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await expect(modal.getByText(/create questionnaire/i)).toBeVisible();
 
     await modal.locator('#q-builder-title').fill(uniqueTitle);
@@ -79,7 +79,7 @@ test.describe('Therapist questionnaire builder full flow', () => {
 
     await availableRow.getByRole('button', { name: /assign/i }).click();
 
-    const scheduleModal = page.locator('.modal.show');
+    const scheduleModal = page.locator('[role="dialog"][data-state="open"]');
     await expect(scheduleModal.getByText(/assign questionnaire/i)).toBeVisible();
 
     // Week mode requires selected weekdays; switching to month avoids optional day-selection flakiness.

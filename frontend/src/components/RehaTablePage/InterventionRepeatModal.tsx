@@ -1,13 +1,21 @@
 import React, { useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
+import { Form, Row, Col, Alert } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
-import authStore from '../../stores/authStore';
-import config from '../../config/config.json';
-import { InterventionRepeatModalStore } from '../../stores/interventionRepeatModalStore';
+import authStore from '@/stores/authStore';
+import config from '@/config/config.json';
+import { InterventionRepeatModalStore } from '@/stores/interventionRepeatModalStore';
+import { Button } from '@/components/ui/button';
 
 type Mode = 'create' | 'modify';
 
@@ -71,12 +79,12 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
   }, [store.success, show]);
 
   return (
-    <Modal show={show} onHide={onHide} centered>
-      <Modal.Header closeButton>
-        <Modal.Title>{store.isModify ? t('Modify schedule') : t('Frequency')}</Modal.Title>
-      </Modal.Header>
+    <Dialog open={show} onOpenChange={(open) => !open && onHide()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{store.isModify ? t('Modify schedule') : t('Frequency')}</DialogTitle>
+        </DialogHeader>
 
-      <Modal.Body>
         {store.error && (
           <Alert
             variant="danger"
@@ -182,7 +190,9 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                     {store.weekdays.map((day) => (
                       <Button
                         key={day}
-                        variant={store.selectedDays.includes(day) ? 'primary' : 'outline-secondary'}
+                        type="button"
+                        size="dashboard"
+                        variant={store.selectedDays.includes(day) ? undefined : 'secondary'}
                         onClick={() => store.toggleDay(day)}
                       >
                         {t(day)}
@@ -255,28 +265,35 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
             />
           </Form.Group>
         </Form>
-      </Modal.Body>
 
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide} disabled={store.submitting}>
-          {t('Cancel')}
-        </Button>
-        <Button
-          variant="primary"
-          onClick={() =>
-            store.submit({
-              patient,
-              intervention,
-              therapistId,
-              isDiagnosis,
-            })
-          }
-          disabled={!store.canSubmit || store.submitting}
-        >
-          {store.submitting ? t('Saving...') : store.isModify ? t('Save changes') : t('Save')}
-        </Button>
-      </Modal.Footer>
-    </Modal>
+        <DialogFooter>
+          <Button
+            type="button"
+            size="dashboard"
+            variant="secondary"
+            onClick={onHide}
+            disabled={store.submitting}
+          >
+            {t('Cancel')}
+          </Button>
+          <Button
+            type="button"
+            size="dashboard"
+            onClick={() =>
+              store.submit({
+                patient,
+                intervention,
+                therapistId,
+                isDiagnosis,
+              })
+            }
+            disabled={!store.canSubmit || store.submitting}
+          >
+            {store.submitting ? t('Saving...') : store.isModify ? t('Save changes') : t('Save')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 });
 

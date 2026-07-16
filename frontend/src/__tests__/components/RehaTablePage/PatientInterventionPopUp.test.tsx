@@ -23,7 +23,7 @@ jest.mock('@/assets/icons/arrow-right-fill.svg?react', () => ({
 }));
 
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import PatientInterventionPopUp from '@/components/PatientPage/PatientInterventionPopUp';
+import PatientInterventionPopUp from '@/components/RehaTablePage/PatientInterventionPopUp';
 import '@testing-library/jest-dom';
 
 jest.mock(
@@ -102,7 +102,9 @@ describe('PatientInterventionPopUp Component', () => {
   it('calls handleClose when the close button is clicked', () => {
     const handleClose = jest.fn();
     render(<PatientInterventionPopUp show={true} item={defaultItem} handleClose={handleClose} />);
-    fireEvent.click(screen.getByLabelText(/close/i));
+    // The dialog's built-in header dismiss button also has an accessible name of "Close".
+    const [closeButton] = screen.getAllByRole('button', { name: /close/i });
+    fireEvent.click(closeButton);
     expect(handleClose).toHaveBeenCalled();
   });
 

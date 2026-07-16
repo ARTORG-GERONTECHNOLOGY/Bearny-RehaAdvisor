@@ -1,5 +1,12 @@
 import React from 'react';
-import { Modal } from 'react-bootstrap';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 type Props = {
   show: boolean;
@@ -8,10 +15,15 @@ type Props = {
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: 'sm' | 'lg' | 'xl';
-  centered?: boolean;
   backdrop?: true | 'static';
   keyboard?: boolean;
   className?: string;
+};
+
+const sizeClassName: Record<NonNullable<Props['size']>, string> = {
+  sm: 'max-w-sm',
+  lg: 'max-w-3xl',
+  xl: 'max-w-5xl',
 };
 
 const StandardModal: React.FC<Props> = ({
@@ -21,31 +33,33 @@ const StandardModal: React.FC<Props> = ({
   children,
   footer,
   size = 'lg',
-  centered = true,
   backdrop = 'static',
   keyboard = false,
   className,
 }) => {
   return (
-    <Modal
-      show={show}
-      onHide={onHide}
-      centered={centered}
-      size={size}
-      backdrop={backdrop}
-      keyboard={keyboard}
-      dialogClassName={`rs-modal ${className || ''}`.trim()}
-    >
-      {title !== undefined && (
-        <Modal.Header closeButton>
-          <Modal.Title className="rs-modal__title">{title}</Modal.Title>
-        </Modal.Header>
-      )}
+    <Dialog open={show} onOpenChange={(open) => !open && onHide()}>
+      <DialogContent
+        className={cn(sizeClassName[size], className)}
+        onPointerDownOutside={(e) => backdrop === 'static' && e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          if (!keyboard) e.preventDefault();
+        }}
+      >
+        {title !== undefined ? (
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+          </DialogHeader>
+        ) : (
+          // Radix requires a DialogTitle for a11y even when this modal has no visible header.
+          <DialogTitle className="sr-only">Dialog</DialogTitle>
+        )}
 
-      <Modal.Body className="rs-modal__body">{children}</Modal.Body>
+        {children}
 
-      {footer !== undefined && <Modal.Footer className="rs-modal__footer">{footer}</Modal.Footer>}
-    </Modal>
+        {footer !== undefined && <DialogFooter>{footer}</DialogFooter>}
+      </DialogContent>
+    </Dialog>
   );
 };
 

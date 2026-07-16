@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { FaKey } from 'react-icons/fa';
 
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { FieldGroup } from '@/components/ui/field';
 import PasswordField from '@/components/forms/input/PasswordField';
@@ -45,12 +45,12 @@ const PasswordResetSheet: React.FC<PasswordResetSheetProps> = ({
   const { t } = useTranslation();
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right">
-        <SheetHeader>
-          <SheetTitle>{t('ResetPassword')}</SheetTitle>
-          <SheetDescription>{t('PasswordStrengthHint')}</SheetDescription>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('ResetPassword')}</DialogTitle>
+          <DialogDescription>{t('PasswordStrengthHint')}</DialogDescription>
+        </DialogHeader>
 
         <div className="mt-4">
           {passwordError && <ErrorAlert message={passwordError} />}
@@ -80,15 +80,15 @@ const PasswordResetSheet: React.FC<PasswordResetSheetProps> = ({
             />
           </FieldGroup>
 
-          <SheetFooter className="mt-4">
+          <DialogFooter className="mt-4">
             <Button size="dashboard" disabled={passwordSaving} onClick={onSubmit}>
               <FaKey />
               {passwordSaving ? t('Saving...') : t('SetNewPassword')}
             </Button>
-          </SheetFooter>
+          </DialogFooter>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 };
 

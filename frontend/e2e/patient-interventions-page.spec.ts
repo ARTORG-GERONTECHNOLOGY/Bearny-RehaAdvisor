@@ -84,7 +84,7 @@ test.describe('Patient interventions page', () => {
     }
   });
 
-  test('opens and closes intervention details modal when at least one intervention exists', async ({
+  test('navigates to intervention details page and back when at least one intervention exists', async ({
     page,
   }) => {
     await loginAsSeededPatient(page);
@@ -101,10 +101,13 @@ test.describe('Patient interventions page', () => {
 
     await firstItem.click();
 
-    const detailsModal = page.locator('.modal.show');
-    await expect(detailsModal).toBeVisible();
+    // Details view is a dedicated route (see PatientInterventionDetail.tsx), not a modal.
+    await expect(page).toHaveURL(/\/patient-intervention\/[^/?]+/);
 
-    await detailsModal.getByRole('button', { name: /close/i }).first().click();
-    await expect(detailsModal).toBeHidden();
+    const backButton = page.getByRole('button', { name: /back/i });
+    await expect(backButton).toBeVisible();
+
+    await backButton.click();
+    await expect(page).toHaveURL(/\/patient-interventions(?:\/)?$/);
   });
 });

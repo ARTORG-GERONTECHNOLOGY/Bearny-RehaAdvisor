@@ -1,8 +1,9 @@
 // components/TherapistInterventionPage/TemplateTimeline.tsx
 import React, { useMemo, useState } from 'react';
-import { Card, Badge, Modal } from 'react-bootstrap';
+import { Card, Badge } from 'react-bootstrap';
 import { TemplateItem } from '../../types/templates';
 import { useTranslation } from 'react-i18next';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -137,13 +138,13 @@ const TemplateTimeline: React.FC<Props> = ({ items, horizonDays = 84, translated
         ))}
       </div>
 
-      <Modal show={openDay != null} onHide={() => setOpenDay(null)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>
-            {t('Day')} {openDay}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
+      <Dialog open={openDay != null} onOpenChange={(open) => !open && setOpenDay(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t('Day')} {openDay}
+            </DialogTitle>
+          </DialogHeader>
           {dayEvents.length === 0 ? (
             <div className="text-muted">{t('No items on this day.')}</div>
           ) : (
@@ -167,8 +168,8 @@ const TemplateTimeline: React.FC<Props> = ({ items, horizonDays = 84, translated
               );
             })
           )}
-        </Modal.Body>
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
