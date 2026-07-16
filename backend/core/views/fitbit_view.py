@@ -449,6 +449,15 @@ def fitbit_status(request, patient_id):
     )
 
 
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def fitbit_disconnect(request):
+    user = request.user
+    deleted = FitbitUserToken.objects(user=user).delete()
+    logger.info("[fitbit_disconnect] deleted %s token(s) for user %s", deleted, user.id)
+    return JsonResponse({"ok": True})
+
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def fitbit_callback(request):
