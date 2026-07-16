@@ -173,15 +173,9 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
         <DialogContent className="min-w-[40vw]">
           <DialogHeader>
             <DialogTitle>{t('Exercises')}</DialogTitle>
-            <DialogDescription>
-              {t('Date')}: {selectedDate}
-            </DialogDescription>
+            <DialogDescription>{selectedDate}</DialogDescription>
           </DialogHeader>
-          <div className="mt-4">
-            {selectedDateObj && (
-              <ExerciseSessionsTable data={data} start={selectedDateObj} end={selectedDateObj} />
-            )}
-          </div>
+          {selectedDateObj && <ExerciseSessionsTable data={data} date={selectedDateObj} />}
         </DialogContent>
       </Dialog>
     </>

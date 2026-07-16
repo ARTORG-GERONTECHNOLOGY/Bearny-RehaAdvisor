@@ -27,51 +27,26 @@ const session = (overrides: Record<string, any> = {}) => ({
 
 describe('ExerciseSessionsTable', () => {
   it('shows a placeholder when there is no data', () => {
-    render(
-      <ExerciseSessionsTable
-        data={[]}
-        start={new Date('2026-01-01')}
-        end={new Date('2026-01-31')}
-      />
-    );
+    render(<ExerciseSessionsTable data={[]} date={new Date('2026-01-05')} />);
     expect(screen.getByText('No exercise sessions in this period.')).toBeInTheDocument();
   });
 
-  it('shows a placeholder when all entries fall outside the date range', () => {
+  it('shows a placeholder when no entries match the selected date', () => {
     const data = [makeEntry('2026-02-01', [session()])];
-    render(
-      <ExerciseSessionsTable
-        data={data}
-        start={new Date('2026-01-01')}
-        end={new Date('2026-01-31')}
-      />
-    );
+    render(<ExerciseSessionsTable data={data} date={new Date('2026-01-05')} />);
     expect(screen.getByText('No exercise sessions in this period.')).toBeInTheDocument();
   });
 
-  it('shows a placeholder when in-range entries have no sessions', () => {
+  it('shows a placeholder when the matching entry has no sessions', () => {
     const data = [makeEntry('2026-01-05', [])];
-    render(
-      <ExerciseSessionsTable
-        data={data}
-        start={new Date('2026-01-01')}
-        end={new Date('2026-01-31')}
-      />
-    );
+    render(<ExerciseSessionsTable data={data} date={new Date('2026-01-05')} />);
     expect(screen.getByText('No exercise sessions in this period.')).toBeInTheDocument();
   });
 
   it('renders one row per session with formatted values', () => {
     const data = [makeEntry('2026-01-05', [session()])];
-    render(
-      <ExerciseSessionsTable
-        data={data}
-        start={new Date('2026-01-01')}
-        end={new Date('2026-01-31')}
-      />
-    );
+    render(<ExerciseSessionsTable data={data} date={new Date('2026-01-05')} />);
 
-    expect(screen.getByText('2026-01-05')).toBeInTheDocument();
     expect(screen.getByText('Run')).toBeInTheDocument();
     expect(screen.getByText('30m')).toBeInTheDocument();
     expect(screen.getByText('120')).toBeInTheDocument();
@@ -82,13 +57,7 @@ describe('ExerciseSessionsTable', () => {
 
   it('formats durations over an hour as hours and minutes', () => {
     const data = [makeEntry('2026-01-05', [session({ duration: 90 * 60000 })])];
-    render(
-      <ExerciseSessionsTable
-        data={data}
-        start={new Date('2026-01-01')}
-        end={new Date('2026-01-31')}
-      />
-    );
+    render(<ExerciseSessionsTable data={data} date={new Date('2026-01-05')} />);
     expect(screen.getByText('1h 30m')).toBeInTheDocument();
   });
 
@@ -104,38 +73,24 @@ describe('ExerciseSessionsTable', () => {
         },
       ]),
     ];
-    render(
-      <ExerciseSessionsTable
-        data={data}
-        start={new Date('2026-01-01')}
-        end={new Date('2026-01-31')}
-      />
-    );
+    render(<ExerciseSessionsTable data={data} date={new Date('2026-01-05')} />);
 
-    expect(screen.getByText('2026-01-05')).toBeInTheDocument();
     // name '-' , duration '-', avgHR '-', peakRange '-', peakMinutes '-', calories '-'
     const dashCells = screen.getAllByText('-');
     expect(dashCells.length).toBeGreaterThanOrEqual(6);
   });
 
-  it('renders multiple sessions across multiple days sorted by date', () => {
+  it('renders multiple sessions for the selected date only', () => {
     const data = [
-      makeEntry('2026-01-10', [session({ name: 'Bike' })]),
-      makeEntry('2026-01-02', [session({ name: 'Swim' })]),
+      makeEntry('2026-01-05', [session({ name: 'Bike' }), session({ name: 'Swim' })]),
+      makeEntry('2026-01-10', [session({ name: 'Run' })]),
     ];
-    render(
-      <ExerciseSessionsTable
-        data={data}
-        start={new Date('2026-01-01')}
-        end={new Date('2026-01-31')}
-      />
-    );
+    render(<ExerciseSessionsTable data={data} date={new Date('2026-01-05')} />);
 
     const rows = screen.getAllByRole('row').slice(1); // skip header row
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveTextContent('2026-01-02');
-    expect(rows[0]).toHaveTextContent('Swim');
-    expect(rows[1]).toHaveTextContent('2026-01-10');
-    expect(rows[1]).toHaveTextContent('Bike');
+    expect(rows[0]).toHaveTextContent('Bike');
+    expect(rows[1]).toHaveTextContent('Swim');
+    expect(screen.queryByText('Run')).not.toBeInTheDocument();
   });
 });

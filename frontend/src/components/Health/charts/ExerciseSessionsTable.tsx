@@ -1,15 +1,22 @@
 /* eslint-disable */
 import React, { useMemo } from 'react';
-import { Table, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { FitbitEntry } from '@/types/health';
 import { isInRange } from '@/utils/healthCharts';
 import { formatDurationMs } from '@/utils/dateFormat';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 type Props = {
   data: FitbitEntry[];
-  start: Date;
-  end: Date;
+  date: Date;
 };
 
 const formatDurationHM = (ms?: number | null): string => {
@@ -32,11 +39,10 @@ const getPeakZone = (zones?: any[]): { range: string | null; minutes: number | n
   };
 };
 
-const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
+const ExerciseSessionsTable: React.FC<Props> = ({ data, date }) => {
   const { t } = useTranslation();
   const rows = useMemo(() => {
     const result: {
-      date: string;
       name: string;
       duration: string;
       avgHR: number | null;
@@ -46,16 +52,14 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
     }[] = [];
 
     data
-      .filter((d) => isInRange(d.date, start, end))
+      .filter((d) => isInRange(d.date, date, date))
       .forEach((d) => {
-        const dateStr = d.date.slice(0, 10);
         const sessions = d.exercise?.sessions || [];
 
         sessions.forEach((s: any) => {
           const peak = getPeakZone(s.heartRateZones);
 
           result.push({
-            date: dateStr,
             name: s.name || '-',
             duration: formatDurationHM(s.duration),
             avgHR: typeof s.averageHeartRate === 'number' ? s.averageHeartRate : null,
@@ -66,46 +70,43 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, start, end }) => {
         });
       });
 
-    result.sort((a, b) => a.date.localeCompare(b.date));
     return result;
-  }, [data, start, end]);
+  }, [data, date]);
 
   if (!rows.length) {
     return <div className="text-muted small">{t('No exercise sessions in this period.')}</div>;
   }
 
   return (
-    <Table striped bordered hover size="sm" className="mb-0">
-      <thead>
-        <tr>
-          <th>{t('Date')}</th>
-          <th>{t('Exercise')}</th>
-          <th>{t('Duration')}</th>
-          <th>{t('Avg HR')}</th>
-          <th>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>{t('Exercise')}</TableHead>
+          <TableHead>{t('Duration')}</TableHead>
+          <TableHead>{t('Avg HR')}</TableHead>
+          <TableHead>
             <OverlayTrigger
               overlay={<Tooltip>{t('Fitbit Peak heart-rate zone range (bpm)')}</Tooltip>}
             >
               <span>{t('Peak zone (bpm)')}</span>
             </OverlayTrigger>
-          </th>
-          <th>{t('Peak minutes')}</th>
-          <th>{t('Calories')}</th>
-        </tr>
-      </thead>
-      <tbody>
+          </TableHead>
+          <TableHead>{t('Peak minutes')}</TableHead>
+          <TableHead>{t('Calories')}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.map((r, idx) => (
-          <tr key={`${r.date}-${idx}`}>
-            <td>{r.date}</td>
-            <td>{r.name}</td>
-            <td>{r.duration}</td>
-            <td>{r.avgHR ?? '-'}</td>
-            <td>{r.peakRange ?? '-'}</td>
-            <td>{r.peakMinutes ?? '-'}</td>
-            <td>{r.calories ?? '-'}</td>
-          </tr>
+          <TableRow key={idx}>
+            <TableCell>{r.name}</TableCell>
+            <TableCell>{r.duration}</TableCell>
+            <TableCell>{r.avgHR ?? '-'}</TableCell>
+            <TableCell>{r.peakRange ?? '-'}</TableCell>
+            <TableCell>{r.peakMinutes ?? '-'}</TableCell>
+            <TableCell>{r.calories ?? '-'}</TableCell>
+          </TableRow>
         ))}
-      </tbody>
+      </TableBody>
     </Table>
   );
 };
