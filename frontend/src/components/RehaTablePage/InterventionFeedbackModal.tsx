@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Button, ListGroup, Badge, Row, Col, Alert, Form } from 'react-bootstrap';
+import { ListGroup, Badge, Row, Col, Alert, Form } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import StarRating, { getRatingFromDateEntry } from './StarRating';
+import { Button } from '@/components/ui/button';
 
 type AnyObj = Record<string, any>;
 
@@ -282,7 +283,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
         )}
 
         <DialogFooter>
-          <Button variant="secondary" onClick={onHide}>
+          <Button size="dashboard" variant="secondary" onClick={onHide}>
             {safeT(t, 'Close')}
           </Button>
         </DialogFooter>

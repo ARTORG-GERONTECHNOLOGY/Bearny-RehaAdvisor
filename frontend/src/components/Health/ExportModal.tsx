@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Form } from 'react-bootstrap';
+import { Form } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 type Props = {
   show: boolean;
@@ -113,7 +114,7 @@ const ExportModal: React.FC<Props> = ({
         <Form.Label className="fw-bold">{t('Select Plots to Export')}</Form.Label>
         <div className="mb-2">
           <span
-            className={`badge rounded-pill px-3 py-2 ${allSelected ? 'bg-success text-white' : 'bg-light text-success border border-success'}`}
+            className={`badge rounded-pill px-3 py-2 ${allSelected ? 'bg-brand text-white' : 'bg-light text-success border border-success'}`}
             style={{ cursor: 'pointer' }}
             onClick={toggleAll}
           >
@@ -137,19 +138,19 @@ const ExportModal: React.FC<Props> = ({
         </div>
 
         <DialogFooter className="sm:justify-between">
-          <Button variant="outline-secondary" onClick={onClose}>
+          <Button size="dashboard" variant="secondary" onClick={onClose}>
             {t('Cancel')}
           </Button>
           <div className="d-flex gap-2">
             <Button
-              variant="outline-secondary"
+              size="dashboard"
               disabled={disabled}
               onClick={() => from && to && onExportCSV(from, to, chosen)}
             >
               <i className="bi bi-file-earmark-spreadsheet"></i> {t('Export CSV')}
             </Button>
             <Button
-              variant="outline-primary"
+              size="dashboard"
               disabled={disabled}
               onClick={() => from && to && onExportPDF(from, to, chosen)}
             >

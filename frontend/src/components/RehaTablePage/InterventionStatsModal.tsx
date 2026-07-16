@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Button, Table, Badge } from 'react-bootstrap';
+import { Table, Badge } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import StarRating from './StarRating';
+import { Button } from '@/components/ui/button';
 
 type AnyObj = Record<string, any>;
 
@@ -142,7 +143,7 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
         </Table>
 
         <DialogFooter>
-          <Button variant="secondary" onClick={onHide}>
+          <Button size="dashboard" variant="secondary" onClick={onHide}>
             {safeT(t, 'Close')}
           </Button>
         </DialogFooter>
