@@ -1,12 +1,9 @@
 // components/TherapistInterventionPage/ProductPopup.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Col,
-  Row,
   Badge,
   Button,
   Form,
-  Container,
   OverlayTrigger,
   Tooltip,
   ButtonGroup,
@@ -164,12 +161,6 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
     const q = diagSearch.trim().toLowerCase();
     return q ? allDiagnoses.filter((d) => d.toLowerCase().includes(q)) : allDiagnoses;
   }, [allDiagnoses, diagSearch]);
-
-  const chunk = useCallback(<T,>(arr: T[], size: number): T[][] => {
-    const out: T[][] = [];
-    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-    return out;
-  }, []);
 
   const hasUnsavedChanges = useMemo(
     () => diagSearch.trim().length > 0 || error.trim().length > 0,
@@ -586,38 +577,36 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
           {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
-          <Container fluid>
+          <div>
             {/* Language buttons INSIDE modal */}
             {sortedLangOptions.length > 1 && (
-              <Row className="mb-3">
-                <Col>
-                  <div className="d-flex align-items-center justify-content-between mb-2">
-                    <h5 className="mb-0">{t('Languages')}</h5>
-                    {loadingLangs ? <small className="text-muted">{t('Loading…')}</small> : null}
-                  </div>
+              <div className="mb-3">
+                <div className="d-flex align-items-center justify-content-between mb-2">
+                  <h5 className="mb-0">{t('Languages')}</h5>
+                  {loadingLangs ? <small className="text-muted">{t('Loading…')}</small> : null}
+                </div>
 
-                  <ButtonGroup className="flex-wrap gap-2">
-                    {sortedLangOptions.map((opt) => {
-                      const optLang = String(opt.language || '').toLowerCase();
-                      const active = optLang === String(effectiveItem.language || '').toLowerCase();
-                      return (
-                        <Button
-                          key={optLang}
-                          variant={active ? 'primary' : 'outline-primary'}
-                          size="sm"
-                          onClick={() => switchVariantByLang(optLang)}
-                        >
-                          {optLang.toUpperCase()}
-                        </Button>
-                      );
-                    })}
-                  </ButtonGroup>
-                </Col>
-              </Row>
+                <ButtonGroup className="flex-wrap gap-2">
+                  {sortedLangOptions.map((opt) => {
+                    const optLang = String(opt.language || '').toLowerCase();
+                    const active = optLang === String(effectiveItem.language || '').toLowerCase();
+                    return (
+                      <Button
+                        key={optLang}
+                        variant={active ? 'primary' : 'outline-primary'}
+                        size="sm"
+                        onClick={() => switchVariantByLang(optLang)}
+                      >
+                        {optLang.toUpperCase()}
+                      </Button>
+                    );
+                  })}
+                </ButtonGroup>
+              </div>
             )}
 
-            <Row className="mb-3">
-              <Col xs={12} md={6}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+              <div>
                 <h5>{t('Description')}</h5>
                 <p className="text-muted mb-0">
                   {detectedLang ? (
@@ -671,9 +660,9 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                     />
                   </div>
                 )}
-              </Col>
+              </div>
 
-              <Col xs={12} md={6}>
+              <div>
                 <div className="d-flex align-items-center justify-content-between">
                   <h5 className="mb-0">{t('Media')}</h5>
                   <Badge
@@ -690,63 +679,59 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                   </Badge>
                 </div>
                 <div className="mt-2">{renderMediaContentEffective()}</div>
-              </Col>
-            </Row>
+              </div>
+            </div>
 
-            <Row className="mb-3">
-              <Col>
-                <h5>{t('Tags & Benefits')}</h5>
+            <div className="mb-3">
+              <h5>{t('Tags & Benefits')}</h5>
 
-                <div className="mb-2">
-                  {effectiveTags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      className="me-2 mb-1"
-                      style={{
-                        backgroundColor: getTagColor(tagColors, tag) || '#888',
-                        color: '#fff',
-                      }}
-                      role="status"
-                    >
-                      {t(tag)}
-                    </Badge>
-                  ))}
+              <div className="mb-2">
+                {effectiveTags.map((tag) => (
+                  <Badge
+                    key={tag}
+                    className="me-2 mb-1"
+                    style={{
+                      backgroundColor: getTagColor(tagColors, tag) || '#888',
+                      color: '#fff',
+                    }}
+                    role="status"
+                  >
+                    {t(tag)}
+                  </Badge>
+                ))}
 
-                  {effectiveBenefits.map((b) => (
-                    <Badge key={b} className="me-2 mb-1 bg-info text-dark">
-                      {t(b)}
-                    </Badge>
-                  ))}
-                </div>
+                {effectiveBenefits.map((b) => (
+                  <Badge key={b} className="me-2 mb-1 bg-info text-dark">
+                    {t(b)}
+                  </Badge>
+                ))}
+              </div>
 
-                {!effectiveIsPrivate && effectivePatientTypes.length > 0 && (
-                  <div className="mt-2">
-                    <div className="fw-semibold mb-1">{t('Recommended for')}</div>
-                    <div className="d-flex flex-wrap gap-2">
-                      {effectivePatientTypes.map((pt, idx) => (
-                        <Badge key={idx} bg="secondary">
-                          {t(norm(pt.type))} • {t(norm(pt.diagnosis))} • {t(norm(pt.frequency))}
-                        </Badge>
-                      ))}
-                    </div>
+              {!effectiveIsPrivate && effectivePatientTypes.length > 0 && (
+                <div className="mt-2">
+                  <div className="fw-semibold mb-1">{t('Recommended for')}</div>
+                  <div className="d-flex flex-wrap gap-2">
+                    {effectivePatientTypes.map((pt, idx) => (
+                      <Badge key={idx} bg="secondary">
+                        {t(norm(pt.type))} • {t(norm(pt.diagnosis))} • {t(norm(pt.frequency))}
+                      </Badge>
+                    ))}
                   </div>
-                )}
-              </Col>
-            </Row>
+                </div>
+              )}
+            </div>
 
             {!effectiveIsPrivate ? (
               <>
-                <Row className="mb-2">
-                  <Col className="d-flex align-items-center justify-content-between">
-                    <h5 className="mb-0">{t('Add/modify in template by diagnosis')}</h5>
-                    <small className="text-muted">
-                      {loadingAssignments ? t('Loading assignments…') : null}
-                    </small>
-                  </Col>
-                </Row>
+                <div className="mb-2 flex items-center justify-between">
+                  <h5 className="mb-0">{t('Add/modify in template by diagnosis')}</h5>
+                  <small className="text-muted">
+                    {loadingAssignments ? t('Loading assignments…') : null}
+                  </small>
+                </div>
 
-                <Row className="mb-3">
-                  <Col md={6}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <div>
                     <InputGroup>
                       <InputGroup.Text>
                         <FaSearch />
@@ -757,102 +742,90 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                         onChange={(e) => setDiagSearch(e.target.value)}
                       />
                     </InputGroup>
-                  </Col>
-                </Row>
-
-                <div className="diag-scroll" role="region" aria-label={t('Diagnoses')}>
-                  <Row className="g-2">
-                    {chunk(filteredDiagnoses, 2).map((pair, i) => (
-                      <React.Fragment key={i}>
-                        {pair.map((d) => {
-                          const isAssigned = assignedDiagSet.has(d);
-                          return (
-                            <Col xs={12} md={6} key={d}>
-                              <div className="d-flex align-items-center justify-content-between border rounded px-2 py-2">
-                                <div className="me-2">
-                                  <div className="fw-semibold">
-                                    {t(d)}{' '}
-                                    {isAssigned && (
-                                      <Badge bg="success" className="ms-1">
-                                        {t('Assigned')}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                                <div>
-                                  <ButtonGroup size="sm">
-                                    <OverlayTrigger
-                                      placement="top"
-                                      overlay={
-                                        <Tooltip>
-                                          {isAssigned
-                                            ? t('Modify from day…')
-                                            : t('Add (Day S → N)')}
-                                        </Tooltip>
-                                      }
-                                    >
-                                      <Button
-                                        variant={
-                                          isAssigned ? 'outline-secondary' : 'outline-success'
-                                        }
-                                        onClick={() => openAssign(d)}
-                                      >
-                                        {isAssigned ? <FaEdit /> : <FaPlus />}
-                                      </Button>
-                                    </OverlayTrigger>
-
-                                    {isAssigned && (
-                                      <OverlayTrigger
-                                        placement="top"
-                                        overlay={<Tooltip>{t('Delete from template')}</Tooltip>}
-                                      >
-                                        <Button
-                                          variant="outline-danger"
-                                          onClick={() => void removeFromTemplate(d)}
-                                        >
-                                          <FaTrash />
-                                        </Button>
-                                      </OverlayTrigger>
-                                    )}
-                                  </ButtonGroup>
-                                </div>
-                              </div>
-                            </Col>
-                          );
-                        })}
-                      </React.Fragment>
-                    ))}
-
-                    {filteredDiagnoses.length === 0 && (
-                      <Col>
-                        <div className="text-muted">{t('No diagnoses match your search.')}</div>
-                      </Col>
-                    )}
-                  </Row>
+                  </div>
                 </div>
 
-                <Row className="mt-3">
-                  <Col>
-                    <small className="text-muted">
-                      {t(
-                        'This assigns a relative schedule (Day S → N) to the diagnosis template. Actual calendar dates are chosen when applying the template to a patient.'
-                      )}
-                    </small>
-                  </Col>
-                </Row>
+                <div className="diag-scroll" role="region" aria-label={t('Diagnoses')}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {filteredDiagnoses.map((d) => {
+                      const isAssigned = assignedDiagSet.has(d);
+                      return (
+                        <div key={d}>
+                          <div className="d-flex align-items-center justify-content-between border rounded px-2 py-2">
+                            <div className="me-2">
+                              <div className="fw-semibold">
+                                {t(d)}{' '}
+                                {isAssigned && (
+                                  <Badge bg="success" className="ms-1">
+                                    {t('Assigned')}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <ButtonGroup size="sm">
+                                <OverlayTrigger
+                                  placement="top"
+                                  overlay={
+                                    <Tooltip>
+                                      {isAssigned ? t('Modify from day…') : t('Add (Day S → N)')}
+                                    </Tooltip>
+                                  }
+                                >
+                                  <Button
+                                    variant={isAssigned ? 'outline-secondary' : 'outline-success'}
+                                    onClick={() => openAssign(d)}
+                                  >
+                                    {isAssigned ? <FaEdit /> : <FaPlus />}
+                                  </Button>
+                                </OverlayTrigger>
+
+                                {isAssigned && (
+                                  <OverlayTrigger
+                                    placement="top"
+                                    overlay={<Tooltip>{t('Delete from template')}</Tooltip>}
+                                  >
+                                    <Button
+                                      variant="outline-danger"
+                                      onClick={() => void removeFromTemplate(d)}
+                                    >
+                                      <FaTrash />
+                                    </Button>
+                                  </OverlayTrigger>
+                                )}
+                              </ButtonGroup>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {filteredDiagnoses.length === 0 && (
+                      <div className="md:col-span-2">
+                        <div className="text-muted">{t('No diagnoses match your search.')}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <small className="text-muted">
+                    {t(
+                      'This assigns a relative schedule (Day S → N) to the diagnosis template. Actual calendar dates are chosen when applying the template to a patient.'
+                    )}
+                  </small>
+                </div>
               </>
             ) : (
-              <Row className="mt-2">
-                <Col>
-                  <Alert variant="secondary" className="mb-0">
-                    {t(
-                      'This is a private intervention. Template assignment by diagnosis is disabled.'
-                    )}
-                  </Alert>
-                </Col>
-              </Row>
+              <div className="mt-2">
+                <Alert variant="secondary" className="mb-0">
+                  {t(
+                    'This is a private intervention. Template assignment by diagnosis is disabled.'
+                  )}
+                </Alert>
+              </div>
             )}
-          </Container>
+          </div>
         </DialogContent>
       </Dialog>
 

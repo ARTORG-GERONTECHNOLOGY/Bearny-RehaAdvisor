@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Badge, Button, Col, Form, ListGroup, Row, Spinner } from 'react-bootstrap';
+import { Badge, Button, Form, ListGroup, Spinner } from 'react-bootstrap';
 import apiClient from '@/api/client';
 import { useTranslation } from 'react-i18next';
 import { matchesHost } from '@/utils/urlUtils';
@@ -187,25 +187,23 @@ const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
           </div>
         ) : (
           <>
-            <Row className="mb-3">
-              <Col>
-                <Form.Group controlId="contentTypeFilter">
-                  <Form.Label>{t('Filter by Content Type')}</Form.Label>
-                  <Form.Select
-                    value={contentTypeFilter}
-                    onChange={(e) => setContentTypeFilter(e.target.value)}
-                    aria-label={t('Filter by Content Type')}
-                  >
-                    <option value="">{t('All')}</option>
-                    <option value={t('Video')}>{t('Video')}</option>
-                    <option value={t('Audio')}>{t('Audio')}</option>
-                    <option value={t('PDF')}>{t('PDF')}</option>
-                    <option value={t('Image')}>{t('Image')}</option>
-                    <option value={t('Link')}>{t('Link')}</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-            </Row>
+            <div className="mb-3">
+              <Form.Group controlId="contentTypeFilter">
+                <Form.Label>{t('Filter by Content Type')}</Form.Label>
+                <Form.Select
+                  value={contentTypeFilter}
+                  onChange={(e) => setContentTypeFilter(e.target.value)}
+                  aria-label={t('Filter by Content Type')}
+                >
+                  <option value="">{t('All')}</option>
+                  <option value={t('Video')}>{t('Video')}</option>
+                  <option value={t('Audio')}>{t('Audio')}</option>
+                  <option value={t('PDF')}>{t('PDF')}</option>
+                  <option value={t('Image')}>{t('Image')}</option>
+                  <option value={t('Link')}>{t('Link')}</option>
+                </Form.Select>
+              </Form.Group>
+            </div>
 
             <ListGroup aria-label={t('Interventions list')}>
               {filteredInterventions.length === 0 ? (

@@ -1,14 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Col,
-  Row,
-  Badge,
-  Button,
-  Container,
-  OverlayTrigger,
-  Tooltip,
-  ButtonGroup,
-} from 'react-bootstrap';
+import { Badge, Button, OverlayTrigger, Tooltip, ButtonGroup } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { FaLock } from 'react-icons/fa';
 
@@ -624,39 +615,37 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
         {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
-        <Container fluid>
+        <div className="w-full">
           {/* languages */}
           {(loadingLangs || sortedLangOptions.length > 1) && (
-            <Row className="mb-3">
-              <Col>
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <h5 className="mb-0">{t('Languages')}</h5>
-                  {loadingLangs ? <small className="text-muted">{t('Loading…')}</small> : null}
-                </div>
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-2">
+                <h5 className="mb-0">{t('Languages')}</h5>
+                {loadingLangs ? <small className="text-muted">{t('Loading…')}</small> : null}
+              </div>
 
-                <ButtonGroup className="flex-wrap gap-2">
-                  {sortedLangOptions.map((opt) => {
-                    const optLang = String(opt.language || '').toLowerCase();
-                    const active = optLang === currentLang;
-                    return (
-                      <Button
-                        key={optLang}
-                        variant={active ? 'primary' : 'outline-primary'}
-                        size="sm"
-                        onClick={() => switchVariantByLang(optLang)}
-                        aria-pressed={active}
-                      >
-                        {optLang.toUpperCase()}
-                      </Button>
-                    );
-                  })}
-                </ButtonGroup>
-              </Col>
-            </Row>
+              <ButtonGroup className="flex-wrap gap-2">
+                {sortedLangOptions.map((opt) => {
+                  const optLang = String(opt.language || '').toLowerCase();
+                  const active = optLang === currentLang;
+                  return (
+                    <Button
+                      key={optLang}
+                      variant={active ? 'primary' : 'outline-primary'}
+                      size="sm"
+                      onClick={() => switchVariantByLang(optLang)}
+                      aria-pressed={active}
+                    >
+                      {optLang.toUpperCase()}
+                    </Button>
+                  );
+                })}
+              </ButtonGroup>
+            </div>
           )}
 
-          <Row className="mb-3">
-            <Col xs={12} md={6}>
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
+            <div className="md:col-span-6">
               <h5>{t('Description')}</h5>
 
               <p className="text-muted mb-2">
@@ -669,10 +658,9 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
                 )}
               </p>
 
-              {/* ✅ tags under description */}
               {renderMetaTags()}
 
-              <div className="mt-3 d-flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {/* content type badge should match therapist colors */}
                 <Badge bg={mediaVariant as any} aria-label={t('Media type')}>
                   {t(mediaLabel, { defaultValue: mediaLabel })}
@@ -688,19 +676,19 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
                   </Badge>
                 ) : null}
               </div>
-            </Col>
+            </div>
 
-            <Col xs={12} md={6}>
-              <div className="d-flex align-items-center justify-content-between">
+            <div className="md:col-span-6">
+              <div className="flex items-center justify-between">
                 <h5 className="mb-0">{t('Media')}</h5>
                 <Badge bg={effectiveMediaBadge.variant as any}>
                   {t(effectiveMediaBadge.label)}
                 </Badge>
               </div>
               <div className="mt-2">{renderMediaContent()}</div>
-            </Col>
-          </Row>
-        </Container>
+            </div>
+          </div>
+        </div>
 
         <style>{`
           .meta-tag-row {

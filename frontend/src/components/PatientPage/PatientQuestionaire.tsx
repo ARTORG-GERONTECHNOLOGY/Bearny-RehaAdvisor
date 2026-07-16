@@ -1,11 +1,11 @@
 // src/components/patient/PatientQuestionaire.tsx
 import React, { useState } from 'react';
-import { Button, Col, Form, Modal, Row, Spinner } from 'react-bootstrap';
+import { Button, Form, Modal, Spinner } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import Select from 'react-select';
-import apiClient from '../../api/client';
-import config from '../../config/config.json';
-import { PatientType } from '../../types/index';
+import apiClient from '@/api/client';
+import config from '@/config/config.json';
+import { PatientType } from '@/types/index';
 import ErrorAlert from '../common/ErrorAlert';
 
 interface PatientPopupProps {
@@ -244,16 +244,16 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
               {section.fields
                 .filter((f: any) => !['password', 'repeatPassword'].includes(f.type))
                 .map((field: any, fieldIdx: number) => (
-                  <Row
+                  <div
                     key={field.be_name || `${field.label}-${fieldIdx}`}
                     className="pq-field mb-3"
                   >
-                    <Form.Group as={Col}>
+                    <Form.Group>
                       <Form.Label className="pq-label">{t(field.label)}</Form.Label>
                       {renderField(field)}
                       {field.help && <Form.Text className="text-muted">{t(field.help)}</Form.Text>}
                     </Form.Group>
-                  </Row>
+                  </div>
                 ))}
             </div>
           ))}

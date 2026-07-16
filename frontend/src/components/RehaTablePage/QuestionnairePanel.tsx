@@ -1,5 +1,4 @@
 import React from 'react';
-import { Row, Col } from 'react-bootstrap';
 import { TFunction } from 'i18next';
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -111,8 +110,8 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
         <FaPlus />
         {t('Create')}
       </Button>
-      <Row className="rehab-row">
-        <Col xs={12} md={5} className="rehab-col">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 rehab-row">
+        <div className="md:col-span-5 rehab-col">
           <Card>
             <CardHeader>
               <CardTitle>{t('Available questionnaires')}</CardTitle>
@@ -136,9 +135,9 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
               ))}
             </CardContent>
           </Card>
-        </Col>
+        </div>
 
-        <Col xs={12} md={7} className="rehab-col">
+        <div className="md:col-span-7 rehab-col">
           <Card>
             <CardHeader>
               <CardTitle>{t('Assigned questionnaires')}</CardTitle>
@@ -162,8 +161,8 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
               ))}
             </CardContent>
           </Card>
-        </Col>
-      </Row>
+        </div>
+      </div>
 
       <QuestionnaireDetailSheet
         open={!!sheetItem}
