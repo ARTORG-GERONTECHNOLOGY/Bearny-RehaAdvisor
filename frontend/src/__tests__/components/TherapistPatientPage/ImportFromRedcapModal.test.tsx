@@ -301,7 +301,7 @@ describe('ImportFromRedcapModal', () => {
       expect(footerClose).toBeDisabled();
     });
 
-    it('ignores the header close button while a row is importing', () => {
+    it('hides the header close button while a row is importing', () => {
       render(
         <ImportFromRedcapModal
           {...defaultProps}
@@ -309,10 +309,7 @@ describe('ImportFromRedcapModal', () => {
           importingKey="ProjA::P01"
         />
       );
-      const closeButtons = screen.getAllByRole('button', { name: 'Close' });
-      const headerClose = closeButtons.find((b) => b.querySelector('svg'))!;
-      fireEvent.click(headerClose);
-      expect(defaultProps.onHide).not.toHaveBeenCalled();
+      expect(screen.getAllByRole('button', { name: 'Close' })).toHaveLength(1);
     });
   });
 });

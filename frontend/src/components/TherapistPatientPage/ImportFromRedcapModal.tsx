@@ -77,7 +77,11 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
 
   return (
     <Dialog open={show} onOpenChange={(open) => !open && !anyImporting && onHide()}>
-      <DialogContent className="max-w-3xl" onPointerDownOutside={(e) => e.preventDefault()}>
+      <DialogContent
+        className="max-w-3xl"
+        hideClose={anyImporting}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>{t('Import patients from REDCap')}</DialogTitle>
         </DialogHeader>

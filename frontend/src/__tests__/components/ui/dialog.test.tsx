@@ -141,4 +141,15 @@ describe('Dialog', () => {
     );
     expect(screen.getByRole('dialog')).toHaveClass('my-content');
   });
+
+  it('hides the built-in close button when hideClose is set', () => {
+    render(
+      <Dialog open>
+        <DialogContent hideClose>
+          <DialogTitle>My Title</DialogTitle>
+        </DialogContent>
+      </Dialog>
+    );
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+  });
 });

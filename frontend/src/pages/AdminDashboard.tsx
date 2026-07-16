@@ -1144,6 +1144,7 @@ const AdminDashboard: React.FC = observer(() => {
         >
           <DialogContent
             className="max-w-3xl"
+            hideClose={accessLoading}
             onPointerDownOutside={(e) => accessLoading && e.preventDefault()}
           >
             <DialogHeader>
