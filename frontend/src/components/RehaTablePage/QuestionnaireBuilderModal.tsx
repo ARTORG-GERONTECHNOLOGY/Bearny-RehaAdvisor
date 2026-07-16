@@ -1,10 +1,17 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Button, Col, Form, Modal, Row, Spinner } from 'react-bootstrap';
+import { Alert, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 type BuilderType = 'open-answer' | 'one-choice' | 'multiple-choice';
 
@@ -109,12 +116,12 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered size="lg" backdrop="static">
-      <Modal.Header closeButton>
-        <Modal.Title>{t('Create questionnaire')}</Modal.Title>
-      </Modal.Header>
+    <Dialog open={show} onOpenChange={(open) => !open && onHide()}>
+      <DialogContent className="max-w-3xl" onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle>{t('Create questionnaire')}</DialogTitle>
+        </DialogHeader>
 
-      <Modal.Body>
         {error ? <Alert variant="danger">{error}</Alert> : null}
 
         <Form.Group className="mb-3" controlId="q-builder-title">
@@ -187,24 +194,24 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
         <Button variant="outline-primary" onClick={addQuestion}>
           {t('Add question')}
         </Button>
-      </Modal.Body>
 
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide} disabled={submitting}>
-          {t('Cancel')}
-        </Button>
-        <Button variant="success" onClick={submit} disabled={!canSubmit || submitting}>
-          {submitting ? (
-            <>
-              <Spinner animation="border" size="sm" className="me-2" />
-              {t('Saving...')}
-            </>
-          ) : (
-            t('Create')
-          )}
-        </Button>
-      </Modal.Footer>
-    </Modal>
+        <DialogFooter>
+          <Button variant="secondary" onClick={onHide} disabled={submitting}>
+            {t('Cancel')}
+          </Button>
+          <Button variant="success" onClick={submit} disabled={!canSubmit || submitting}>
+            {submitting ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-2" />
+                {t('Saving...')}
+              </>
+            ) : (
+              t('Create')
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

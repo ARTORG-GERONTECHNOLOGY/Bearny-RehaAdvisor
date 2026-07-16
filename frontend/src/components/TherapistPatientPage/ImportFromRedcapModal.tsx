@@ -1,6 +1,13 @@
 import React from 'react';
-import { Modal, Button, Form, Spinner, Table, Badge, Alert } from 'react-bootstrap';
+import { Button, Form, Spinner, Table, Badge, Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 export type Candidate = {
   project: string;
@@ -69,12 +76,12 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
   };
 
   return (
-    <Modal show={show} onHide={onHide} size="lg" backdrop="static" keyboard={!anyImporting}>
-      <Modal.Header closeButton={!anyImporting}>
-        <Modal.Title>{t('Import patients from REDCap')}</Modal.Title>
-      </Modal.Header>
+    <Dialog open={show} onOpenChange={(open) => !open && !anyImporting && onHide()}>
+      <DialogContent className="max-w-3xl" onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle>{t('Import patients from REDCap')}</DialogTitle>
+        </DialogHeader>
 
-      <Modal.Body>
         <div className="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
           <div className="d-flex align-items-center gap-2 flex-wrap">
             <Button variant="primary" onClick={onRefresh} disabled={loading || anyImporting}>
@@ -176,14 +183,14 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
             </tbody>
           </Table>
         )}
-      </Modal.Body>
 
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide} disabled={anyImporting}>
-          {t('Close')}
-        </Button>
-      </Modal.Footer>
-    </Modal>
+        <DialogFooter>
+          <Button variant="secondary" onClick={onHide} disabled={anyImporting}>
+            {t('Close')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

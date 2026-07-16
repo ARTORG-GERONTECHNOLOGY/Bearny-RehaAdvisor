@@ -9,7 +9,7 @@ import { RehabTableStore } from '@/stores/rehabTableStore';
 import InterventionLeftPanel from '@/components/RehaTablePage/InterventionLeftPanel';
 import InterventionCalendar from '@/components/RehaTablePage/InterventionCalendar';
 
-import PatientInterventionPopUp from '@/components/PatientPage/PatientInterventionPopUp';
+import PatientInterventionPopUp from '@/components/RehaTablePage/PatientInterventionPopUp';
 import InterventionRepeatModal from '@/components/RehaTablePage/InterventionRepeatModal';
 import InterventionStatsModal from '@/components/RehaTablePage/InterventionStatsModal';
 import InterventionFeedbackModal from '@/components/RehaTablePage/InterventionFeedbackModal';

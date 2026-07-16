@@ -1,11 +1,18 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Table, Button, Spinner, Modal, Form, Badge, Alert, Nav, Tab } from 'react-bootstrap';
+import { Table, Button, Spinner, Form, Badge, Alert, Nav, Tab } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 import adminStore from '@/stores/adminStore';
 import authStore from '@/stores/authStore';
@@ -1085,15 +1092,14 @@ const AdminDashboard: React.FC = observer(() => {
         </main>
 
         {/* Reject access request modal */}
-        <Modal
-          show={rejectModal.open}
-          onHide={() => setRejectModal({ open: false, requestId: '' })}
-          centered
+        <Dialog
+          open={rejectModal.open}
+          onOpenChange={(open) => !open && setRejectModal({ open: false, requestId: '' })}
         >
-          <Modal.Header closeButton>
-            <Modal.Title>{t('Decline access change request')}</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('Decline access change request')}</DialogTitle>
+            </DialogHeader>
             <Form.Group>
               <Form.Label>{t('Note for therapist (optional)')}</Form.Label>
               <Form.Control
@@ -1104,20 +1110,20 @@ const AdminDashboard: React.FC = observer(() => {
                 placeholder={t('Explain why the request is being declined...')}
               />
             </Form.Group>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button
-              variant="secondary"
-              onClick={() => setRejectModal({ open: false, requestId: '' })}
-              disabled={rejectSubmitting}
-            >
-              {t('Cancel')}
-            </Button>
-            <Button variant="danger" onClick={submitReject} disabled={rejectSubmitting}>
-              {rejectSubmitting ? t('Declining...') : t('Decline')}
-            </Button>
-          </Modal.Footer>
-        </Modal>
+            <DialogFooter>
+              <Button
+                variant="secondary"
+                onClick={() => setRejectModal({ open: false, requestId: '' })}
+                disabled={rejectSubmitting}
+              >
+                {t('Cancel')}
+              </Button>
+              <Button variant="danger" onClick={submitReject} disabled={rejectSubmitting}>
+                {rejectSubmitting ? t('Declining...') : t('Decline')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Decline confirm */}
         <ConfirmModal
@@ -1132,21 +1138,20 @@ const AdminDashboard: React.FC = observer(() => {
         />
 
         {/* Access Modal */}
-        <Modal
-          show={accessModal.open}
-          onHide={closeAccessModal}
-          centered
-          size="lg"
-          backdrop={accessLoading ? 'static' : true}
-          keyboard={!accessLoading}
+        <Dialog
+          open={accessModal.open}
+          onOpenChange={(open) => !open && !accessLoading && closeAccessModal()}
         >
-          <Modal.Header closeButton={!accessLoading}>
-            <Modal.Title>
-              {t('Therapist access')} — {accessModal.therapistName}
-            </Modal.Title>
-          </Modal.Header>
+          <DialogContent
+            className="max-w-3xl"
+            onPointerDownOutside={(e) => accessLoading && e.preventDefault()}
+          >
+            <DialogHeader>
+              <DialogTitle>
+                {t('Therapist access')} — {accessModal.therapistName}
+              </DialogTitle>
+            </DialogHeader>
 
-          <Modal.Body>
             {accessSuccess && (
               <Alert variant="success" dismissible onClose={() => setAccessSuccess(null)}>
                 {accessSuccess}
@@ -1228,29 +1233,29 @@ const AdminDashboard: React.FC = observer(() => {
                 )}
               </>
             )}
-          </Modal.Body>
 
-          <Modal.Footer>
-            <Button variant="secondary" onClick={closeAccessModal} disabled={accessLoading}>
-              {t('Close')}
-            </Button>
-            <Button
-              variant="primary"
-              onClick={saveAccess}
-              disabled={accessLoading || selectedProjects.length === 0}
-              title={selectedProjects.length === 0 ? t('Select at least one project') : undefined}
-            >
-              {accessLoading ? (
-                <>
-                  <Spinner animation="border" size="sm" className="me-2" />
-                  {t('Saving')}...
-                </>
-              ) : (
-                t('Save')
-              )}
-            </Button>
-          </Modal.Footer>
-        </Modal>
+            <DialogFooter>
+              <Button variant="secondary" onClick={closeAccessModal} disabled={accessLoading}>
+                {t('Close')}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={saveAccess}
+                disabled={accessLoading || selectedProjects.length === 0}
+                title={selectedProjects.length === 0 ? t('Select at least one project') : undefined}
+              >
+                {accessLoading ? (
+                  <>
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    {t('Saving')}...
+                  </>
+                ) : (
+                  t('Save')
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Delete intervention confirm */}
         <ConfirmModal
@@ -1305,17 +1310,16 @@ const AdminDashboard: React.FC = observer(() => {
         />
 
         {/* Edit questionnaire modal */}
-        <Modal
-          show={qEditModal.open}
-          onHide={() =>
-            setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
+        <Dialog
+          open={qEditModal.open}
+          onOpenChange={(open) =>
+            !open && setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
           }
-          centered
         >
-          <Modal.Header closeButton>
-            <Modal.Title>{t('Edit questionnaire')}</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t('Edit questionnaire')}</DialogTitle>
+            </DialogHeader>
             {qEditError && (
               <Alert variant="danger" dismissible onClose={() => setQEditError(null)}>
                 {qEditError}
@@ -1357,26 +1361,27 @@ const AdminDashboard: React.FC = observer(() => {
                 />
               </Form.Group>
             </Form>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
-              }
-              disabled={qEditSaving}
-            >
-              {t('Cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              onClick={saveQEdit}
-              disabled={qEditSaving || !qEditModal.title.trim()}
-            >
-              {qEditSaving ? t('Saving...') : t('Save')}
-            </Button>
-          </Modal.Footer>
-        </Modal>
+
+            <DialogFooter>
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  setQEditModal({ open: false, id: '', title: '', description: '', tags: '' })
+                }
+                disabled={qEditSaving}
+              >
+                {t('Cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={saveQEdit}
+                disabled={qEditSaving || !qEditModal.title.trim()}
+              >
+                {qEditSaving ? t('Saving...') : t('Save')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

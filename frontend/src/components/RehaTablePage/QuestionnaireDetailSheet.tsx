@@ -1,12 +1,12 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
 import CirclePlusFill from '@/assets/icons/circle-plus-fill.svg?react';
@@ -61,11 +61,11 @@ const QuestionnaireDetailSheet: React.FC<QuestionnaireDetailSheetProps> = ({
   sheetQuestions,
   t,
 }) => (
-  <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-    <SheetContent className="overflow-y-auto flex flex-col min-w-[40vw]">
-      <SheetHeader>
-        <SheetTitle>{title}</SheetTitle>
-        {description && <SheetDescription>{description}</SheetDescription>}
+  <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <DialogContent className="flex flex-col min-w-[40vw]">
+      <DialogHeader>
+        <DialogTitle>{title}</DialogTitle>
+        {description && <DialogDescription>{description}</DialogDescription>}
         <div>
           {isAssigned ? (
             <div className="flex gap-1 items-center text-ok text-sm">
@@ -79,7 +79,7 @@ const QuestionnaireDetailSheet: React.FC<QuestionnaireDetailSheetProps> = ({
             </Button>
           )}
         </div>
-      </SheetHeader>
+      </DialogHeader>
 
       {answeredDays.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -149,8 +149,8 @@ const QuestionnaireDetailSheet: React.FC<QuestionnaireDetailSheetProps> = ({
           })}
         </div>
       )}
-    </SheetContent>
-  </Sheet>
+    </DialogContent>
+  </Dialog>
 );
 
 export default QuestionnaireDetailSheet;

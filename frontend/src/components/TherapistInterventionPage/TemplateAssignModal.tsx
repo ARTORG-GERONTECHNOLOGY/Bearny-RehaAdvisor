@@ -1,10 +1,17 @@
 // components/TherapistInterventionPage/TemplateAssignModal.tsx
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { Modal, Button, Form, Row, Col, Alert } from 'react-bootstrap';
+import { Button, Form, Row, Col, Alert } from 'react-bootstrap';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
 import { toLocalYMD } from '@/utils/dateFormat';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 type Mode = 'create' | 'modify';
 
@@ -246,24 +253,22 @@ const TemplateAssignModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal
-      show={show}
-      onHide={confirmClose} // ✅ X uses confirmClose
-      onEscapeKeyDown={(e) => {
-        e.preventDefault();
-        confirmClose();
-      }}
-      centered
-      backdrop="static"
-      keyboard // ✅ Esc triggers onHide
-    >
-      <Modal.Header closeButton>
-        <Modal.Title>
-          {mode === 'modify' ? t('Modify template (from day S)') : t('Add to template (Day S → N)')}
-        </Modal.Title>
-      </Modal.Header>
+    <Dialog open={show} onOpenChange={(open) => !open && confirmClose()}>
+      <DialogContent
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+          confirmClose();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>
+            {mode === 'modify'
+              ? t('Modify template (from day S)')
+              : t('Add to template (Day S → N)')}
+          </DialogTitle>
+        </DialogHeader>
 
-      <Modal.Body>
         {/* SUCCESS BANNER */}
         {success && <Alert variant="success">{t('Intervention successfully added')}</Alert>}
 
@@ -451,21 +456,21 @@ const TemplateAssignModal: React.FC<Props> = ({
               : t('Invalid range.')}
           </div>
         </Form>
-      </Modal.Body>
 
-      <Modal.Footer>
-        <Button variant="secondary" onClick={confirmClose} disabled={submitting || success}>
-          {t('Cancel')}
-        </Button>
-        <Button
-          variant="primary"
-          onClick={handleSave}
-          disabled={!canSubmit || submitting || success}
-        >
-          {submitting ? t('Saving...') : success ? t('Saved!') : t('Save')}
-        </Button>
-      </Modal.Footer>
-    </Modal>
+        <DialogFooter>
+          <Button variant="secondary" onClick={confirmClose} disabled={submitting || success}>
+            {t('Cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSave}
+            disabled={!canSubmit || submitting || success}
+          >
+            {submitting ? t('Saving...') : success ? t('Saved!') : t('Save')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
