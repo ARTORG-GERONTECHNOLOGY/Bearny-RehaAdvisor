@@ -1,8 +1,15 @@
 // src/components/TherapistInterventionPage/ImportInterventionsModal.tsx
 import React, { useMemo, useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Alert, Badge, Button, Form, Modal, Nav, Spinner } from 'react-bootstrap';
+import { Alert, Badge, Button, Form, Nav, Spinner } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 import interventionsConfig from '../../config/interventions.json';
 import { interventionsImportStore } from '../../stores/interventionsImportStore';
@@ -183,12 +190,12 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
   const vr = interventionsMediaUploadStore.results;
 
   return (
-    <Modal show={show} onHide={close} centered size="lg" backdrop="static" keyboard>
-      <Modal.Header closeButton>
-        <Modal.Title>{t('Import interventions')}</Modal.Title>
-      </Modal.Header>
+    <Dialog open={show} onOpenChange={(open) => !open && close()}>
+      <DialogContent className="max-w-3xl" onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle>{t('Import interventions')}</DialogTitle>
+        </DialogHeader>
 
-      <Modal.Body>
         {/* ── Tab switcher ── */}
         <Nav
           variant="tabs"
@@ -596,46 +603,46 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
             )}
           </>
         )}
-      </Modal.Body>
 
-      <Modal.Footer className="d-flex justify-content-between">
-        <Button
-          variant="outline-secondary"
-          onClick={close}
-          disabled={interventionsImportStore.loading || interventionsMediaUploadStore.loading}
-        >
-          {t('Close')}
-        </Button>
-
-        {activeTab === 'excel' && (
-          <Button variant="primary" onClick={submitExcel} disabled={!canSubmit}>
-            {interventionsImportStore.loading ? (
-              <span className="d-inline-flex align-items-center gap-2">
-                <Spinner animation="border" size="sm" /> {t('Importing...')}
-              </span>
-            ) : (
-              t('Import')
-            )}
-          </Button>
-        )}
-
-        {activeTab === 'media' && (
+        <DialogFooter className="sm:justify-between">
           <Button
-            variant="primary"
-            onClick={submitMedia}
-            disabled={!hasValidMediaFiles || interventionsMediaUploadStore.loading}
+            variant="outline-secondary"
+            onClick={close}
+            disabled={interventionsImportStore.loading || interventionsMediaUploadStore.loading}
           >
-            {interventionsMediaUploadStore.loading ? (
-              <span className="d-inline-flex align-items-center gap-2">
-                <Spinner animation="border" size="sm" /> {t('Uploading...')}
-              </span>
-            ) : (
-              t('Upload')
-            )}
+            {t('Close')}
           </Button>
-        )}
-      </Modal.Footer>
-    </Modal>
+
+          {activeTab === 'excel' && (
+            <Button variant="primary" onClick={submitExcel} disabled={!canSubmit}>
+              {interventionsImportStore.loading ? (
+                <span className="d-inline-flex align-items-center gap-2">
+                  <Spinner animation="border" size="sm" /> {t('Importing...')}
+                </span>
+              ) : (
+                t('Import')
+              )}
+            </Button>
+          )}
+
+          {activeTab === 'media' && (
+            <Button
+              variant="primary"
+              onClick={submitMedia}
+              disabled={!hasValidMediaFiles || interventionsMediaUploadStore.loading}
+            >
+              {interventionsMediaUploadStore.loading ? (
+                <span className="d-inline-flex align-items-center gap-2">
+                  <Spinner animation="border" size="sm" /> {t('Uploading...')}
+                </span>
+              ) : (
+                t('Upload')
+              )}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 });
 

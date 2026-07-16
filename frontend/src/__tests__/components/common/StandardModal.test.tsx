@@ -22,13 +22,15 @@ describe('StandardModal', () => {
     expect(screen.getByText('Body content')).toBeInTheDocument();
   });
 
-  it('renders no header when title is not provided', () => {
+  it('renders no visible title text when title is not provided', () => {
     render(
       <StandardModal show onHide={jest.fn()}>
         <div>Body content</div>
       </StandardModal>
     );
-    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+    // The dialog still exposes an accessible (visually hidden) title for screen readers,
+    // and always renders its built-in close button regardless of header/title.
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
 
   it('renders a header with a close button when title is provided', () => {
@@ -53,12 +55,12 @@ describe('StandardModal', () => {
   });
 
   it('renders no footer when footer is not provided', () => {
-    const { container } = render(
+    render(
       <StandardModal show onHide={jest.fn()}>
         <div>Body content</div>
       </StandardModal>
     );
-    expect(container.querySelector('.rs-modal__footer')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
   });
 
   it('renders the footer when provided', () => {
@@ -70,27 +72,24 @@ describe('StandardModal', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
   });
 
-  it('applies the provided className alongside the default rs-modal class', () => {
+  it('applies the provided className alongside the default size class', () => {
     render(
       <StandardModal show onHide={jest.fn()} className="extra-class">
         <div>Body content</div>
       </StandardModal>
     );
-    const dialog = document.querySelector('.modal-dialog');
-    expect(dialog).toHaveClass('rs-modal');
+    const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveClass('extra-class');
+    expect(dialog).toHaveClass('max-w-3xl');
   });
 
-  it('defaults to size lg, centered, static backdrop, and keyboard disabled', () => {
+  it('defaults to size lg and static backdrop with keyboard disabled', () => {
     render(
       <StandardModal show onHide={jest.fn()}>
         <div>Body content</div>
       </StandardModal>
     );
-    const dialog = document.querySelector('.modal-dialog');
-    expect(dialog).toHaveClass('modal-lg');
-    expect(dialog).toHaveClass('modal-dialog-centered');
-    // Static backdrop + keyboard disabled -> Escape key should not call onHide
+    expect(screen.getByRole('dialog')).toHaveClass('max-w-3xl');
   });
 
   it('does not call onHide on Escape when keyboard defaults to false (static backdrop)', () => {
@@ -121,15 +120,15 @@ describe('StandardModal', () => {
         <div>Body content</div>
       </StandardModal>
     );
-    expect(document.querySelector('.modal-dialog')).toHaveClass('modal-sm');
+    expect(screen.getByRole('dialog')).toHaveClass('max-w-sm');
   });
 
-  it('renders uncentered when centered is false', () => {
+  it('renders an extra-large size when size="xl" is passed', () => {
     render(
-      <StandardModal show onHide={jest.fn()} centered={false}>
+      <StandardModal show onHide={jest.fn()} size="xl">
         <div>Body content</div>
       </StandardModal>
     );
-    expect(document.querySelector('.modal-dialog')).not.toHaveClass('modal-dialog-centered');
+    expect(screen.getByRole('dialog')).toHaveClass('max-w-5xl');
   });
 });

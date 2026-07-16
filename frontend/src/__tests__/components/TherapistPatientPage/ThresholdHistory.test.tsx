@@ -5,10 +5,10 @@ import { ThresholdHistoryItem } from '@/stores/patientPopupStore';
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
-jest.mock('@/components/ui/sheet', () => {
+jest.mock('@/components/ui/dialog', () => {
   const React = jest.requireActual('react');
   return {
-    Sheet: ({
+    Dialog: ({
       open,
       onOpenChange,
       children,
@@ -22,16 +22,16 @@ jest.mock('@/components/ui/sheet', () => {
             'div',
             null,
             children,
-            React.createElement('button', { onClick: () => onOpenChange(false) }, 'close-sheet')
+            React.createElement('button', { onClick: () => onOpenChange(false) }, 'close-dialog')
           )
         : null,
-    SheetContent: ({ children }: { children: React.ReactNode }) =>
+    DialogContent: ({ children }: { children: React.ReactNode }) =>
       React.createElement('div', null, children),
-    SheetHeader: ({ children }: { children: React.ReactNode }) =>
+    DialogHeader: ({ children }: { children: React.ReactNode }) =>
       React.createElement('div', null, children),
-    SheetTitle: ({ children }: { children: React.ReactNode }) =>
+    DialogTitle: ({ children }: { children: React.ReactNode }) =>
       React.createElement('h2', null, children),
-    SheetDescription: ({ children }: { children: React.ReactNode }) =>
+    DialogDescription: ({ children }: { children: React.ReactNode }) =>
       React.createElement('p', null, children),
   };
 });
@@ -147,7 +147,7 @@ describe('ThresholdHistory', () => {
     fireEvent.keyDown(row, { key: 'Enter' });
     expect(screen.getByText('Previous values')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('close-sheet'));
+    fireEvent.click(screen.getByText('close-dialog'));
     fireEvent.keyDown(row, { key: ' ' });
     expect(screen.getByText('Previous values')).toBeInTheDocument();
   });
@@ -172,7 +172,7 @@ describe('ThresholdHistory', () => {
     fireEvent.click(screen.getAllByRole('button')[0]);
     expect(screen.getByText('Previous values')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText('close-sheet'));
+    fireEvent.click(screen.getByText('close-dialog'));
     expect(screen.queryByText('Previous values')).not.toBeInTheDocument();
   });
 });

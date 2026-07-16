@@ -280,11 +280,11 @@ src/__tests__/
 │   │   └── Modal.test.tsx
 │   ├── PatientPage/
 │   │   ├── InterventionList.test.tsx
-│   │   ├── PatientInterventionPopUp.test.tsx
 │   │   └── FeedbackPopup.test.tsx
 │   ├── RehaTablePage/
 │   │   ├── InterventionFeedbackModal.test.tsx
-│   │   └── InterventionStatsModal.test.tsx
+│   │   ├── InterventionStatsModal.test.tsx
+│   │   └── PatientInterventionPopUp.test.tsx
 │   ├── TherapistIntervention/
 │   │   ├── InterventionList.test.tsx
 │   │   ├── AddInterventionModal.test.tsx

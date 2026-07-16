@@ -1,7 +1,15 @@
 import React, { useMemo } from 'react';
-import { Modal, Button, Table, Badge } from 'react-bootstrap';
+import { Table, Badge } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import StarRating from './StarRating';
+import { Button } from '@/components/ui/button';
 
 type AnyObj = Record<string, any>;
 
@@ -77,14 +85,14 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
   const title = intervention?.title || safeT(t, 'Intervention');
 
   return (
-    <Modal show={show} onHide={onHide} centered size="lg">
-      <Modal.Header closeButton>
-        <Modal.Title>
-          {safeT(t, 'Statistics')}: {title}
-        </Modal.Title>
-      </Modal.Header>
+    <Dialog open={show} onOpenChange={(open) => !open && onHide()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>
+            {safeT(t, 'Statistics')}: {title}
+          </DialogTitle>
+        </DialogHeader>
 
-      <Modal.Body>
         <div className="d-flex flex-wrap gap-2 mb-3">
           <Badge bg="secondary">
             {safeT(t, 'Total')}: {stats.total}
@@ -133,14 +141,14 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
             </tr>
           </tbody>
         </Table>
-      </Modal.Body>
 
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
-          {safeT(t, 'Close')}
-        </Button>
-      </Modal.Footer>
-    </Modal>
+        <DialogFooter>
+          <Button size="dashboard" variant="secondary" onClick={onHide}>
+            {safeT(t, 'Close')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

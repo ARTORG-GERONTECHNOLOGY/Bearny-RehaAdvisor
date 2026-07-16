@@ -1,8 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Button, Form } from 'react-bootstrap';
+import { Form } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 type Props = {
   show: boolean;
@@ -70,15 +79,14 @@ const ExportModal: React.FC<Props> = ({
   const disabled = !from || !to;
 
   return (
-    <Modal show={show} onHide={onClose} size="lg" centered>
-      <Modal.Header closeButton>
-        <Modal.Title>{t('Export')}</Modal.Title>
-      </Modal.Header>
-
-      <Modal.Body>
-        <p className="text-muted small mb-3">
-          {t('Export date range only affects the files; it does not change the charts.')}
-        </p>
+    <Dialog open={show} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{t('Export')}</DialogTitle>
+          <DialogDescription>
+            {t('Export date range only affects the files; it does not change the charts.')}
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="row g-3 align-items-end">
           <div className="col-md-6">
@@ -106,7 +114,7 @@ const ExportModal: React.FC<Props> = ({
         <Form.Label className="fw-bold">{t('Select Plots to Export')}</Form.Label>
         <div className="mb-2">
           <span
-            className={`badge rounded-pill px-3 py-2 ${allSelected ? 'bg-success text-white' : 'bg-light text-success border border-success'}`}
+            className={`badge rounded-pill px-3 py-2 ${allSelected ? 'bg-brand text-white' : 'bg-light text-success border border-success'}`}
             style={{ cursor: 'pointer' }}
             onClick={toggleAll}
           >
@@ -128,30 +136,30 @@ const ExportModal: React.FC<Props> = ({
             </span>
           ))}
         </div>
-      </Modal.Body>
 
-      <Modal.Footer className="justify-content-between">
-        <Button variant="outline-secondary" onClick={onClose}>
-          {t('Cancel')}
-        </Button>
-        <div className="d-flex gap-2">
-          <Button
-            variant="outline-secondary"
-            disabled={disabled}
-            onClick={() => from && to && onExportCSV(from, to, chosen)}
-          >
-            <i className="bi bi-file-earmark-spreadsheet"></i> {t('Export CSV')}
+        <DialogFooter className="sm:justify-between">
+          <Button size="dashboard" variant="secondary" onClick={onClose}>
+            {t('Cancel')}
           </Button>
-          <Button
-            variant="outline-primary"
-            disabled={disabled}
-            onClick={() => from && to && onExportPDF(from, to, chosen)}
-          >
-            <i className="bi bi-file-earmark-pdf"></i> {t('Export PDF')}
-          </Button>
-        </div>
-      </Modal.Footer>
-    </Modal>
+          <div className="d-flex gap-2">
+            <Button
+              size="dashboard"
+              disabled={disabled}
+              onClick={() => from && to && onExportCSV(from, to, chosen)}
+            >
+              <i className="bi bi-file-earmark-spreadsheet"></i> {t('Export CSV')}
+            </Button>
+            <Button
+              size="dashboard"
+              disabled={disabled}
+              onClick={() => from && to && onExportPDF(from, to, chosen)}
+            >
+              <i className="bi bi-file-earmark-pdf"></i> {t('Export PDF')}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

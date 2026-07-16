@@ -1490,8 +1490,10 @@ describe('AdminDashboard', () => {
       await waitFor(() => expect(screen.getByText('Test User')).toBeInTheDocument());
       fireEvent.click(screen.getByText('Edit access'));
 
-      const closeButton = await screen.findByRole('button', { name: 'Close' });
-      fireEvent.click(closeButton);
+      // The dialog's built-in header dismiss button also has an accessible name of "Close".
+      const closeButtons = await screen.findAllByRole('button', { name: 'Close' });
+      const footerClose = closeButtons.find((b) => !b.querySelector('svg'))!;
+      fireEvent.click(footerClose);
 
       await waitFor(() =>
         expect(screen.queryByText('No projects configured on the server.')).not.toBeInTheDocument()

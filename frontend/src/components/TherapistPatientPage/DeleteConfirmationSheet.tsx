@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { FaTrash } from 'react-icons/fa';
 
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
 interface DeleteConfirmationSheetProps {
@@ -28,14 +28,14 @@ const DeleteConfirmationSheet: React.FC<DeleteConfirmationSheetProps> = ({
   const { t } = useTranslation();
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right">
-        <SheetHeader>
-          <SheetTitle>{t('ConfirmDeletion')}</SheetTitle>
-          <SheetDescription>{t('DeleteConfirPAt')}</SheetDescription>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('ConfirmDeletion')}</DialogTitle>
+          <DialogDescription>{t('DeleteConfirPAt')}</DialogDescription>
+        </DialogHeader>
 
-        <SheetFooter className="mt-3">
+        <DialogFooter className="mt-3">
           <Button variant="secondary" size="dashboard" onClick={() => onOpenChange(false)}>
             {t('Cancel')}
           </Button>
@@ -48,9 +48,9 @@ const DeleteConfirmationSheet: React.FC<DeleteConfirmationSheetProps> = ({
             <FaTrash />
             {t('Delete')}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

@@ -59,10 +59,10 @@ jest.mock('@/components/ui/chart', () => {
   };
 });
 
-jest.mock('@/components/ui/sheet', () => {
+jest.mock('@/components/ui/dialog', () => {
   const ReactActual = jest.requireActual('react');
   return {
-    Sheet: ({
+    Dialog: ({
       open,
       onOpenChange,
       children,
@@ -83,13 +83,13 @@ jest.mock('@/components/ui/sheet', () => {
             )
           )
         : null,
-    SheetContent: ({ children }: { children: React.ReactNode }) =>
+    DialogContent: ({ children }: { children: React.ReactNode }) =>
       ReactActual.createElement('div', null, children),
-    SheetHeader: ({ children }: { children: React.ReactNode }) =>
+    DialogHeader: ({ children }: { children: React.ReactNode }) =>
       ReactActual.createElement('div', null, children),
-    SheetTitle: ({ children }: { children: React.ReactNode }) =>
+    DialogTitle: ({ children }: { children: React.ReactNode }) =>
       ReactActual.createElement('h2', null, children),
-    SheetDescription: ({ children }: { children: React.ReactNode }) =>
+    DialogDescription: ({ children }: { children: React.ReactNode }) =>
       ReactActual.createElement('p', null, children),
   };
 });

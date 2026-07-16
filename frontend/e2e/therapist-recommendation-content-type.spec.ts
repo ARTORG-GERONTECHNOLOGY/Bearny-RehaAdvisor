@@ -49,7 +49,7 @@ async function openAddRecommendationPopup(page: Parameters<Parameters<typeof tes
     .first();
   await expect(addBtn).toBeVisible({ timeout: 10_000 });
   await addBtn.click();
-  await expect(page.locator('.modal.show')).toBeVisible({ timeout: 5_000 });
+  await expect(page.locator('[role="dialog"][data-state="open"]')).toBeVisible({ timeout: 5_000 });
 }
 
 // ---------------------------------------------------------------------------
@@ -124,7 +124,7 @@ test.describe('Recommendation content type — submit mapping', () => {
       skipUnlessSeeded(test);
       await openAddRecommendationPopup(page);
 
-      const modal = page.locator('.modal.show');
+      const modal = page.locator('[role="dialog"][data-state="open"]');
 
       // Fill required fields
       await modal.locator('#title').fill('E2E content-type test');

@@ -2,7 +2,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel, FieldGroup } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -32,11 +38,11 @@ const CopyTemplateSheet: React.FC<CopyTemplateSheetProps> = ({
   const { t } = useTranslation();
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right">
-        <SheetHeader>
-          <SheetTitle>{t('Copy template')}</SheetTitle>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('Copy template')}</DialogTitle>
+        </DialogHeader>
 
         <FieldGroup className="mt-4">
           <Field>
@@ -60,7 +66,7 @@ const CopyTemplateSheet: React.FC<CopyTemplateSheetProps> = ({
           </Field>
         </FieldGroup>
 
-        <SheetFooter className="mt-4">
+        <DialogFooter className="mt-4">
           <Button
             variant="secondary"
             size="dashboard"
@@ -72,9 +78,9 @@ const CopyTemplateSheet: React.FC<CopyTemplateSheetProps> = ({
           <Button size="dashboard" onClick={onSubmit} disabled={!name.trim() || submitting}>
             {submitting ? t('Copying...') : t('Copy')}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

@@ -4,12 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTable';
 import type { FitbitEntry } from '@/types/health';
 import { averageNonNull, eachDateInRange, isInRange } from '@/utils/healthCharts';
@@ -169,21 +169,21 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
         </BarChart>
       </ChartContainer>
 
-      <Sheet open={!!selectedDate} onOpenChange={(open) => !open && setSelectedDate(null)}>
-        <SheetContent side="right" className="overflow-y-auto min-w-[40vw]">
-          <SheetHeader>
-            <SheetTitle>{t('Exercises')}</SheetTitle>
-            <SheetDescription>
+      <Dialog open={!!selectedDate} onOpenChange={(open) => !open && setSelectedDate(null)}>
+        <DialogContent className="min-w-[40vw]">
+          <DialogHeader>
+            <DialogTitle>{t('Exercises')}</DialogTitle>
+            <DialogDescription>
               {t('Date')}: {selectedDate}
-            </SheetDescription>
-          </SheetHeader>
+            </DialogDescription>
+          </DialogHeader>
           <div className="mt-4">
             {selectedDateObj && (
               <ExerciseSessionsTable data={data} start={selectedDateObj} end={selectedDateObj} />
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </>
   );
 });

@@ -2,7 +2,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel, FieldGroup } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -37,11 +43,11 @@ const NewTemplateSheet: React.FC<NewTemplateSheetProps> = ({
   const { t } = useTranslation();
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right">
-        <SheetHeader>
-          <SheetTitle>{t('Create new template')}</SheetTitle>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('Create new template')}</DialogTitle>
+        </DialogHeader>
 
         <FieldGroup className="mt-4">
           <Field>
@@ -72,7 +78,7 @@ const NewTemplateSheet: React.FC<NewTemplateSheetProps> = ({
           </Field>
         </FieldGroup>
 
-        <SheetFooter className="mt-4">
+        <DialogFooter className="mt-4">
           <Button
             variant="secondary"
             size="dashboard"
@@ -84,9 +90,9 @@ const NewTemplateSheet: React.FC<NewTemplateSheetProps> = ({
           <Button size="dashboard" onClick={onSubmit} disabled={!name.trim() || submitting}>
             {submitting ? t('Creating...') : t('Create')}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

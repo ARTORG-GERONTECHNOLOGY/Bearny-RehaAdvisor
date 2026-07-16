@@ -2,7 +2,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Col,
-  Modal,
   Row,
   Badge,
   Button,
@@ -17,6 +16,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import Microlink from '@microlink/react';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 import { FaPlus, FaEdit, FaTrash, FaSearch, FaLock } from 'react-icons/fa';
 import apiClient from '@/api/client';
@@ -555,40 +555,35 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
   return (
     <>
-      <Modal
-        show={show}
-        onHide={confirmClose}
-        onEscapeKeyDown={(e) => {
-          e.preventDefault();
-          confirmClose();
-        }}
-        centered
-        size="lg"
-        scrollable
-        backdrop="static"
-        keyboard
-      >
-        <Modal.Header closeButton>
-          <Modal.Title as="h2" className="d-flex align-items-center gap-2 flex-wrap">
-            {effectiveIsPrivate && (
-              <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
-                <span className="text-muted">
-                  <FaLock />
-                </span>
-              </OverlayTrigger>
-            )}
+      <Dialog open={show} onOpenChange={(open) => !open && confirmClose()}>
+        <DialogContent
+          className="max-w-3xl"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => {
+            e.preventDefault();
+            confirmClose();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
+              {effectiveIsPrivate && (
+                <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
+                  <span className="text-muted">
+                    <FaLock />
+                  </span>
+                </OverlayTrigger>
+              )}
 
-            {titleLang ? (
-              <OverlayTrigger overlay={<Tooltip>{String(effectiveItem.title || '')}</Tooltip>}>
-                <span>{translatedTitle}</span>
-              </OverlayTrigger>
-            ) : (
-              String(effectiveItem.title || '')
-            )}
-          </Modal.Title>
-        </Modal.Header>
+              {titleLang ? (
+                <OverlayTrigger overlay={<Tooltip>{String(effectiveItem.title || '')}</Tooltip>}>
+                  <span>{translatedTitle}</span>
+                </OverlayTrigger>
+              ) : (
+                String(effectiveItem.title || '')
+              )}
+            </DialogTitle>
+          </DialogHeader>
 
-        <Modal.Body>
           {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
           <Container fluid>
@@ -858,8 +853,8 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
               </Row>
             )}
           </Container>
-        </Modal.Body>
-      </Modal>
+        </DialogContent>
+      </Dialog>
 
       {assignOpen && !effectiveIsPrivate && (
         <TemplateAssignModal

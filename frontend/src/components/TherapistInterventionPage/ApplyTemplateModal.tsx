@@ -1,10 +1,17 @@
 // src/components/TherapistInterventionPage/ApplyTemplateModal.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Button, Form, Row, Col, Alert, Spinner, Badge } from 'react-bootstrap';
+import { Button, Form, Row, Col, Alert, Spinner, Badge } from 'react-bootstrap';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
 import { toLocalYMD } from '@/utils/dateFormat';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 type PatientOption = {
   _id: string;
@@ -230,23 +237,19 @@ const ApplyTemplateModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal
-      show={show}
-      onHide={confirmClose}
-      onEscapeKeyDown={(e) => {
-        e.preventDefault();
-        confirmClose();
-      }}
-      centered
-      backdrop="static"
-      keyboard
-      size="lg"
-    >
-      <Modal.Header closeButton>
-        <Modal.Title>{t('Apply template to patient')}</Modal.Title>
-      </Modal.Header>
+    <Dialog open={show} onOpenChange={(open) => !open && confirmClose()}>
+      <DialogContent
+        className="max-w-3xl"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+          confirmClose();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>{t('Apply template to patient')}</DialogTitle>
+        </DialogHeader>
 
-      <Modal.Body>
         {error && (
           <Alert variant="danger" dismissible onClose={() => setError('')}>
             <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
@@ -437,17 +440,17 @@ const ApplyTemplateModal: React.FC<Props> = ({
             />
           </Form.Group>
         </Form>
-      </Modal.Body>
 
-      <Modal.Footer>
-        <Button variant="secondary" onClick={confirmClose} disabled={submitting}>
-          {t('Cancel')}
-        </Button>
-        <Button variant="primary" onClick={handleApply} disabled={!canSubmit || submitting}>
-          {submitting ? t('Applying...') : t('Apply')}
-        </Button>
-      </Modal.Footer>
-    </Modal>
+        <DialogFooter>
+          <Button variant="secondary" onClick={confirmClose} disabled={submitting}>
+            {t('Cancel')}
+          </Button>
+          <Button variant="primary" onClick={handleApply} disabled={!canSubmit || submitting}>
+            {submitting ? t('Applying...') : t('Apply')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

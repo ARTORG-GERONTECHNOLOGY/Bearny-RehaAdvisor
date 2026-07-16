@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface DeleteConfirmationProps {
   show: boolean;
@@ -33,10 +33,8 @@ const DeleteConfirmationSheet: React.FC<DeleteConfirmationProps> = ({
   };
 
   return (
-    <Sheet open={show} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="flex flex-col max-w-lg mx-auto"
+    <Dialog open={show} onOpenChange={handleOpenChange}>
+      <DialogContent
         onEscapeKeyDown={(event) => {
           if (isLoading) {
             event.preventDefault();
@@ -48,14 +46,14 @@ const DeleteConfirmationSheet: React.FC<DeleteConfirmationProps> = ({
           }
         }}
       >
-        <SheetHeader>
-          <SheetTitle>{t('Delete Account')}</SheetTitle>
-          <SheetDescription>
+        <DialogHeader>
+          <DialogTitle>{t('Delete Account')}</DialogTitle>
+          <DialogDescription>
             {t('Are you sure you want to delete your account? This action cannot be undone.')}
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
-        <SheetFooter>
+        <DialogFooter>
           <Button variant="secondary" onClick={handleClose} disabled={isLoading}>
             {t('Cancel')}
           </Button>
@@ -66,9 +64,9 @@ const DeleteConfirmationSheet: React.FC<DeleteConfirmationProps> = ({
           >
             {isLoading ? t('Deleting...') : t('Delete Account')}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

@@ -21,11 +21,11 @@ frontend/src/__tests__/
 │   │   ├── FeedbackPopup.test.tsx
 │   │   ├── FeedbackPopup2.test.tsx
 │   │   ├── InterventionList.test.tsx
-│   │   ├── PatientInterventionPopUp.test.tsx
 │   │   └── PatientQuestionaire.test.tsx
 │   ├── RehaTablePage/
 │   │   ├── InterventionFeedbackModal.test.tsx
-│   │   └── InterventionStatsModal.test.tsx
+│   │   ├── InterventionStatsModal.test.tsx
+│   │   └── PatientInterventionPopUp.test.tsx
 │   ├── TherapistInterventionPage/
 │   │   ├── ApplyTemplateModal.test.tsx
 │   │   └── TemplateAssignModal.test.tsx
@@ -129,7 +129,7 @@ Component tests verify that React components render correctly and respond to use
     - Test async form submission
     - Verify error messages display
 
-#### Patient Page Components (5 tests)
+#### Patient Page Components (4 tests)
 
 - **[FeedbackPopup.test.tsx](../../../frontend/src/__tests__/components/PatientPage/FeedbackPopup.test.tsx)**
   - Purpose: Test feedback submission modal
@@ -154,13 +154,6 @@ Component tests verify that React components render correctly and respond to use
     - Filtering by status
     - Click handlers for intervention details
 
-- **[PatientInterventionPopUp.test.tsx](../../../frontend/src/__tests__/components/PatientPage/PatientInterventionPopUp.test.tsx)**
-  - Purpose: Test intervention details popup
-  - Tested Features:
-    - Intervention details display
-    - Modal open/close functionality
-    - Action buttons (start, pause, complete)
-
 - **[PatientQuestionaire.test.tsx](../../../frontend/src/__tests__/components/PatientPage/PatientQuestionaire.test.tsx)**
   - Purpose: Test questionnaire/survey component
   - Tested Features:
@@ -169,7 +162,7 @@ Component tests verify that React components render correctly and respond to use
     - Form submission
     - Progress tracking
 
-#### Reha Table Page Components (2 tests)
+#### Reha Table Page Components (3 tests)
 
 - **[InterventionFeedbackModal.test.tsx](../../../frontend/src/__tests__/components/RehaTablePage/InterventionFeedbackModal.test.tsx)**
   - Purpose: Test feedback review modal
@@ -184,6 +177,13 @@ Component tests verify that React components render correctly and respond to use
     - Display completion statistics
     - Chart rendering
     - Data filtering and aggregation
+
+- **[PatientInterventionPopUp.test.tsx](../../../frontend/src/__tests__/components/RehaTablePage/PatientInterventionPopUp.test.tsx)**
+  - Purpose: Test intervention details popup
+  - Tested Features:
+    - Intervention details display
+    - Modal open/close functionality
+    - Action buttons (start, pause, complete)
 
 #### Therapist Intervention Components (6 tests)
 

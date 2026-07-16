@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { PatientThresholds, ThresholdHistoryItem } from '@/stores/patientPopupStore';
 import { formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
 
@@ -76,21 +76,21 @@ const ThresholdHistory: React.FC<ThresholdHistoryProps> = ({ history }) => {
         ))}
       </div>
 
-      <Sheet open={!!historyEntry} onOpenChange={(v) => !v && setHistoryEntry(null)}>
-        <SheetContent side="right">
-          <SheetHeader>
-            <SheetTitle>{t('Previous values')}</SheetTitle>
-            <SheetDescription>
+      <Dialog open={!!historyEntry} onOpenChange={(v) => !v && setHistoryEntry(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Previous values')}</DialogTitle>
+            <DialogDescription>
               {historyEntry?.effective_from
                 ? formatLocaleDateTime(historyEntry.effective_from)
                 : ''}
-            </SheetDescription>
-          </SheetHeader>
+            </DialogDescription>
+          </DialogHeader>
           <div data-testid="threshold-history-values" className="mt-4 whitespace-pre-wrap text-sm">
             {historyEntry ? formatThresholdSnapshot(historyEntry.thresholds, t) : ''}
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

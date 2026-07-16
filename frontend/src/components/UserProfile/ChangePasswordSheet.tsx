@@ -6,7 +6,13 @@ import { observer } from 'mobx-react-lite';
 import userProfileStore from '@/stores/userProfileStore';
 
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import PasswordField from '@/components/forms/input/PasswordField';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import { FieldGroup } from '@/components/ui/field';
@@ -71,10 +77,8 @@ const ChangePasswordSheet: React.FC<Props> = observer(({ show, onCancel }) => {
   };
 
   return (
-    <Sheet open={show} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="flex flex-col max-w-lg mx-auto"
+    <Dialog open={show} onOpenChange={handleOpenChange}>
+      <DialogContent
         onEscapeKeyDown={(event) => {
           if (saving) event.preventDefault();
         }}
@@ -82,9 +86,9 @@ const ChangePasswordSheet: React.FC<Props> = observer(({ show, onCancel }) => {
           if (saving) event.preventDefault();
         }}
       >
-        <SheetHeader>
-          <SheetTitle>{t('Change Password')}</SheetTitle>
-        </SheetHeader>
+        <DialogHeader>
+          <DialogTitle>{t('Change Password')}</DialogTitle>
+        </DialogHeader>
 
         <form onSubmit={submit} aria-label={t('Change Password Form')}>
           {localError && <ErrorAlert message={localError} onClose={() => setLocalError('')} />}
@@ -119,17 +123,17 @@ const ChangePasswordSheet: React.FC<Props> = observer(({ show, onCancel }) => {
             />
           </FieldGroup>
 
-          <SheetFooter className="mt-6">
+          <DialogFooter className="mt-6">
             <Button variant="secondary" type="button" onClick={onCancel} disabled={saving}>
               {t('Cancel')}
             </Button>
             <Button type="submit" disabled={saving}>
               {saving ? t('Saving...') : t('Change Password')}
             </Button>
-          </SheetFooter>
+          </DialogFooter>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 });
 

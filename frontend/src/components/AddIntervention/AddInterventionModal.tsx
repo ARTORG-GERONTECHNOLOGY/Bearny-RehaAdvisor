@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Badge, Button, Col, Form, ListGroup, Modal, Row, Spinner } from 'react-bootstrap';
+import { Badge, Button, Col, Form, ListGroup, Row, Spinner } from 'react-bootstrap';
 import apiClient from '@/api/client';
 import { useTranslation } from 'react-i18next';
 import { matchesHost } from '@/utils/urlUtils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // -------------------- TYPES --------------------
 interface PatientType {
@@ -167,23 +168,19 @@ const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
   }, [recommendations, contentTypeFilter, recommendationTypeFilter, t]);
 
   return (
-    <Modal
-      show={show}
-      onHide={confirmClose} // ✅ X button + Esc path uses confirmClose
-      onEscapeKeyDown={(e) => {
-        e.preventDefault();
-        confirmClose();
-      }}
-      centered
-      size="lg"
-      backdrop="static"
-      keyboard // ✅ allow Esc to trigger onHide
-    >
-      <Modal.Header closeButton>
-        <Modal.Title>{t('Add Intervention')}</Modal.Title>
-      </Modal.Header>
+    <Dialog open={show} onOpenChange={(open) => !open && confirmClose()}>
+      <DialogContent
+        className="max-w-3xl"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+          confirmClose();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>{t('Add Intervention')}</DialogTitle>
+        </DialogHeader>
 
-      <Modal.Body>
         {loading ? (
           <div className="text-center">
             <Spinner animation="border" role="status" aria-label={t('Loading recommendations')} />
@@ -277,10 +274,8 @@ const AddInterventionModal: React.FC<AddInterventionModalProps> = ({
             </ListGroup>
           </>
         )}
-      </Modal.Body>
-
-      <Modal.Footer />
-    </Modal>
+      </DialogContent>
+    </Dialog>
   );
 };
 

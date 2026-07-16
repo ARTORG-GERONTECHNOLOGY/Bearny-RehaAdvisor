@@ -60,7 +60,7 @@ async function openImportModal(page: Parameters<Parameters<typeof test>[1]>[0]) 
     .first();
   await expect(importBtn).toBeVisible({ timeout: 10_000 });
   await importBtn.click();
-  await expect(page.locator('.modal.show')).toBeVisible({ timeout: 5_000 });
+  await expect(page.locator('[role="dialog"][data-state="open"]')).toBeVisible({ timeout: 5_000 });
 }
 
 // ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ test.describe('Import Interventions modal', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
 
     await expect(modal.getByRole('link', { name: /Excel Import/i })).toBeVisible();
     await expect(modal.getByRole('link', { name: /Upload Media/i })).toBeVisible();
@@ -87,7 +87,7 @@ test.describe('Import Interventions modal', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
     await expect(modal.getByText(/Drag & drop/i)).toBeVisible();
@@ -100,7 +100,7 @@ test.describe('Import Interventions modal', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
     await modal.getByRole('link', { name: /Excel Import/i }).click();
 
@@ -113,7 +113,7 @@ test.describe('Import Interventions modal', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
     const fileInput = modal.locator('#media-file-input');
@@ -129,7 +129,7 @@ test.describe('Import Interventions modal', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
     await expect(modal.getByRole('button', { name: /^Upload$/i })).toBeDisabled();
@@ -140,7 +140,7 @@ test.describe('Import Interventions modal', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
     await page.locator('#media-file-input').setInputFiles({
@@ -158,7 +158,7 @@ test.describe('Import Interventions modal', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
     await page.locator('#media-file-input').setInputFiles({
@@ -176,7 +176,7 @@ test.describe('Import Interventions modal', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
     await page.route('**/api/interventions/import/media/', async (route) => {
@@ -210,7 +210,7 @@ test.describe('Import Interventions modal', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
     await page.locator('#media-file-input').setInputFiles({
@@ -228,7 +228,7 @@ test.describe('Import Interventions modal', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
     await expect(modal.getByText(/3500_web_de\.mp4/)).toBeVisible();
@@ -242,8 +242,13 @@ test.describe('Import Interventions modal', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    await page.locator('.modal.show').getByRole('button', { name: /close/i }).click();
-    await expect(page.locator('.modal.show')).not.toBeVisible({ timeout: 3_000 });
+    await page
+      .locator('[role="dialog"][data-state="open"]')
+      .getByRole('button', { name: /close/i })
+      .click();
+    await expect(page.locator('[role="dialog"][data-state="open"]')).not.toBeVisible({
+      timeout: 3_000,
+    });
   });
 });
 
@@ -398,7 +403,7 @@ test.describe('COPAIN MSK file import — UI level', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
 
     const sheetField = modal.getByLabel(/sheet name/i);
     await sheetField.fill(COPAIN_SHEET);
@@ -442,7 +447,7 @@ test.describe('COPAIN MSK file import — UI level', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
 
     // Leave sheet name as "Content" — intentionally wrong for this file
     const fileInput = modal.locator('input[type="file"]').first();
@@ -476,7 +481,7 @@ test.describe('COPAIN MSK file import — UI level', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
     // The naming convention box should mention slot numbers
@@ -489,7 +494,7 @@ test.describe('COPAIN MSK file import — UI level', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
 
     // The Excel tab help text should mention slot suffixes
     await expect(modal.getByText(/3500_web_de_2/)).toBeVisible();

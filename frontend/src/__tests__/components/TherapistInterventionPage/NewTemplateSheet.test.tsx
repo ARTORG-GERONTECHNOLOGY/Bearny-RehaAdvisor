@@ -4,18 +4,18 @@ import NewTemplateSheet from '@/components/TherapistInterventionPage/NewTemplate
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
-jest.mock('@/components/ui/sheet', () => {
+jest.mock('@/components/ui/dialog', () => {
   const React = jest.requireActual('react');
   return {
-    Sheet: ({ open, children }: { open?: boolean; children: React.ReactNode }) =>
+    Dialog: ({ open, children }: { open?: boolean; children: React.ReactNode }) =>
       open ? React.createElement(React.Fragment, null, children) : null,
-    SheetContent: ({ children }: { children: React.ReactNode }) =>
+    DialogContent: ({ children }: { children: React.ReactNode }) =>
       React.createElement('div', null, children),
-    SheetHeader: ({ children }: { children: React.ReactNode }) =>
+    DialogHeader: ({ children }: { children: React.ReactNode }) =>
       React.createElement('div', null, children),
-    SheetTitle: ({ children }: { children: React.ReactNode }) =>
+    DialogTitle: ({ children }: { children: React.ReactNode }) =>
       React.createElement('h2', null, children),
-    SheetFooter: ({ children }: { children: React.ReactNode }) =>
+    DialogFooter: ({ children }: { children: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
 });

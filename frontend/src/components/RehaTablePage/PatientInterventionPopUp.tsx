@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Col,
-  Modal,
   Row,
   Badge,
   Button,
@@ -15,6 +14,13 @@ import { FaLock } from 'react-icons/fa';
 
 import apiClient from '@/api/client';
 import ErrorAlert from '@/components/common/ErrorAlert';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { translateText } from '@/utils/translate';
 import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
@@ -594,36 +600,28 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   const titleRaw = effectiveItem?.title || effectiveItem?.intervention_title || '';
 
   return (
-    <Modal
-      show={show}
-      onHide={confirmClose}
-      centered
-      size="lg"
-      scrollable
-      backdrop="static"
-      keyboard
-    >
-      <Modal.Header closeButton>
-        <Modal.Title as="h2" className="d-flex align-items-center gap-2 flex-wrap">
-          {effectiveIsPrivate && (
-            <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
-              <span className="text-muted">
-                <FaLock />
-              </span>
-            </OverlayTrigger>
-          )}
+    <Dialog open={show} onOpenChange={(open) => !open && confirmClose()}>
+      <DialogContent className="max-w-3xl" onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
+            {effectiveIsPrivate && (
+              <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
+                <span className="text-muted">
+                  <FaLock />
+                </span>
+              </OverlayTrigger>
+            )}
 
-          {titleLang ? (
-            <OverlayTrigger overlay={<Tooltip>{titleRaw}</Tooltip>}>
-              <span>{translatedTitle}</span>
-            </OverlayTrigger>
-          ) : (
-            titleRaw
-          )}
-        </Modal.Title>
-      </Modal.Header>
+            {titleLang ? (
+              <OverlayTrigger overlay={<Tooltip>{titleRaw}</Tooltip>}>
+                <span>{translatedTitle}</span>
+              </OverlayTrigger>
+            ) : (
+              titleRaw
+            )}
+          </DialogTitle>
+        </DialogHeader>
 
-      <Modal.Body>
         {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
         <Container fluid>
@@ -783,14 +781,14 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
             user-select: none;
           }
         `}</style>
-      </Modal.Body>
 
-      <Modal.Footer>
-        <Button variant="secondary" onClick={confirmClose}>
-          {t('Close')}
-        </Button>
-      </Modal.Footer>
-    </Modal>
+        <DialogFooter>
+          <Button variant="secondary" onClick={confirmClose}>
+            {t('Close')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

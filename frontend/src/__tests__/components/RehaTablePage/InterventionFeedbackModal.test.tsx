@@ -104,7 +104,7 @@ describe('InterventionFeedbackModal', () => {
       <InterventionFeedbackModal show={true} onHide={onHideMock} intervention={intervention} />
     );
 
-    const closeButton = screen.getByLabelText(/close/i);
+    const [closeButton] = screen.getAllByRole('button', { name: /close/i });
     fireEvent.click(closeButton);
 
     expect(onHideMock).toHaveBeenCalled();

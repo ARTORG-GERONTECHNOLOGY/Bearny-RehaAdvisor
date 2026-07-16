@@ -7,13 +7,13 @@ import { Button } from '@/components/ui/button';
 import InputField from '@/components/forms/input/InputField';
 import MultiSelectField from '@/components/forms/input/MultiSelectField';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import config from '@/config/config.json';
 import apiClient from '@/api/client';
@@ -202,10 +202,9 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
 
   return (
     <>
-      <Sheet open={show} onOpenChange={handleOpenChange}>
-        <SheetContent
-          side="bottom"
-          className="flex flex-col max-w-lg mx-auto overflow-y-auto max-h-[90vh]"
+      <Dialog open={show} onOpenChange={handleOpenChange}>
+        <DialogContent
+          className="flex flex-col"
           onEscapeKeyDown={(event) => {
             if (saving) event.preventDefault();
           }}
@@ -213,9 +212,9 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
             if (saving) event.preventDefault();
           }}
         >
-          <SheetHeader>
-            <SheetTitle>{t('Edit Info')}</SheetTitle>
-          </SheetHeader>
+          <DialogHeader>
+            <DialogTitle>{t('Edit Info')}</DialogTitle>
+          </DialogHeader>
 
           <form onSubmit={handleSubmit} aria-label={t('Edit Profile Form')}>
             {error && <ErrorAlert message={error} onClose={() => setError('')} />}
@@ -310,28 +309,27 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
               </Card>
             </FieldGroup>
 
-            <SheetFooter className="mt-4">
+            <DialogFooter className="mt-4">
               <Button variant="secondary" type="button" onClick={onCancel} disabled={saving}>
                 {t('Cancel')}
               </Button>
               <Button type="submit" disabled={saving}>
                 {saving ? t('Saving...') : t('Save Changes')}
               </Button>
-            </SheetFooter>
+            </DialogFooter>
           </form>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Access change request sheet ── */}
-      <Sheet
+      <Dialog
         open={showAccessSheet}
         onOpenChange={(open) => {
           if (!open && !reqSubmitting) setShowAccessSheet(false);
         }}
       >
-        <SheetContent
-          side="bottom"
-          className="flex flex-col max-w-lg mx-auto overflow-y-auto max-h-[90vh]"
+        <DialogContent
+          className="flex flex-col"
           onEscapeKeyDown={(event) => {
             if (reqSubmitting) event.preventDefault();
           }}
@@ -339,14 +337,14 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
             if (reqSubmitting) event.preventDefault();
           }}
         >
-          <SheetHeader>
-            <SheetTitle>{t('Request clinic / project change')}</SheetTitle>
-            <SheetDescription>
+          <DialogHeader>
+            <DialogTitle>{t('Request clinic / project change')}</DialogTitle>
+            <DialogDescription>
               {t(
                 'Changes to your clinic and project access require admin approval. Your current access will remain unchanged until the request is reviewed. You will be notified by e-mail.'
               )}
-            </SheetDescription>
-          </SheetHeader>
+            </DialogDescription>
+          </DialogHeader>
 
           {reqSuccess ? (
             <div role="status" className="bg-ok/5 p-3 text-ok text-sm rounded-md">
@@ -392,7 +390,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
             </FieldGroup>
           )}
 
-          <SheetFooter className="mt-4">
+          <DialogFooter className="mt-4">
             <Button
               variant="secondary"
               type="button"
@@ -410,9 +408,9 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
                 {reqSubmitting ? t('Submitting...') : t('Submit request')}
               </Button>
             )}
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 });
