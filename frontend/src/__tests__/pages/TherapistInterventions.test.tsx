@@ -708,9 +708,9 @@ describe('TherapistInterventions — Templates tab', () => {
     await waitFor(() => expect(screen.getByTitle('Edit name / description')).toBeInTheDocument());
 
     fireEvent.click(screen.getByTitle('Edit name / description'));
-    // Scope to the modal — the template selector's own displayed option text also matches "Mine".
-    const modal = screen.getByText('Edit template info').closest('.modal-content') as HTMLElement;
-    const nameInput = within(modal).getByDisplayValue('Mine');
+    // Scope to the sheet — the template selector's own displayed option text also matches "Mine".
+    const sheet = screen.getByRole('dialog');
+    const nameInput = within(sheet).getByDisplayValue('Mine');
     fireEvent.change(nameInput, { target: { value: 'Renamed' } });
 
     (apiClient.patch as jest.Mock).mockResolvedValueOnce({

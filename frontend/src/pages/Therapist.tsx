@@ -1,7 +1,7 @@
 // src/pages/Therapist.tsx
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
-import { Col, Container, Row, Collapse } from 'react-bootstrap';
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
@@ -176,268 +176,250 @@ const Therapist: React.FC = observer(() => {
     <Layout>
       <WelcomeArea user="therapist" />
 
-      <div className="d-flex flex-column mt-4">
-        <Container>
-          {store.error && (
-            <Row className="mb-3">
-              <Col>
-                <div className="alert alert-danger d-flex justify-content-between align-items-start">
-                  <div>
-                    <div>{store.error}</div>
-                    {store.showErrorDetails && store.errorDetails && (
-                      <pre
-                        className="bg-light p-2 mt-2 border rounded small"
-                        style={{ whiteSpace: 'pre-wrap' }}
-                      >
-                        {store.errorDetails}
-                      </pre>
-                    )}
-                  </div>
-                  <div className="ms-3 d-flex flex-column gap-2 align-items-end">
-                    {store.errorDetails && (
-                      <Button
-                        size="dashboard"
-                        variant="secondary"
-                        onClick={store.toggleErrorDetails}
-                      >
-                        {store.showErrorDetails
-                          ? String(t('Hide details'))
-                          : String(t('Show details'))}
-                      </Button>
-                    )}
-                    <Button
-                      size="dashboard"
-                      variant="secondary"
-                      onClick={() => store.fetchPatients(t)}
-                      disabled={store.loading}
-                    >
-                      {store.loading ? String(t('Loading...')) : String(t('Retry'))}
-                    </Button>
-                  </div>
-                </div>
-              </Col>
-            </Row>
-          )}
-
-          <Row className="mb-3">
-            <Col className="d-flex gap-2 flex-wrap">
-              {!appModeStore.loaded ? (
-                <>
-                  <Skeleton className="h-9 w-36 rounded" />
-                  <Skeleton className="h-9 w-40 rounded" />
-                </>
-              ) : (
-                <>
-                  {appModeStore.showManualCreate && (
-                    <Button
-                      size="dashboard"
-                      onClick={store.openAddPatient}
-                      disabled={store.loading}
-                    >
-                      {String(t('Add a New Patient'))}
-                    </Button>
-                  )}
-
-                  {appModeStore.showRedcapImport && (
-                    <Button
-                      size="dashboard"
-                      variant="secondary"
-                      onClick={async () => {
-                        store.openImportRedcap();
-                        await store.fetchRedcapCandidates(t);
-                      }}
-                      disabled={store.loading}
-                    >
-                      {String(t('Import from REDCap'))}
-                    </Button>
-                  )}
-                </>
+      <div className="flex gap-2 flex-col mt-3">
+        {store.error && (
+          <div className="alert alert-danger flex justify-content-between items-start">
+            <div>
+              <div>{store.error}</div>
+              {store.showErrorDetails && store.errorDetails && (
+                <pre
+                  className="bg-light p-2 mt-2 border rounded small"
+                  style={{ whiteSpace: 'pre-wrap' }}
+                >
+                  {store.errorDetails}
+                </pre>
               )}
-            </Col>
-          </Row>
+            </div>
+            <div className="ml-3 flex flex-col gap-2 items-end">
+              {store.errorDetails && (
+                <Button size="dashboard" variant="secondary" onClick={store.toggleErrorDetails}>
+                  {store.showErrorDetails ? String(t('Hide details')) : String(t('Show details'))}
+                </Button>
+              )}
+              <Button
+                size="dashboard"
+                variant="secondary"
+                onClick={() => store.fetchPatients(t)}
+                disabled={store.loading}
+              >
+                {store.loading ? String(t('Loading...')) : String(t('Retry'))}
+              </Button>
+            </div>
+          </div>
+        )}
 
-          <PatientFilters store={store} sexOptions={sexOptions} durationOptions={durationOptions} />
+        <div className="flex gap-2 flex-wrap">
+          {!appModeStore.loaded ? (
+            <>
+              <Skeleton className="h-9 w-36 rounded" />
+              <Skeleton className="h-9 w-40 rounded" />
+            </>
+          ) : (
+            <>
+              {appModeStore.showManualCreate && (
+                <Button size="dashboard" onClick={store.openAddPatient} disabled={store.loading}>
+                  {String(t('Add a New Patient'))}
+                </Button>
+              )}
 
-          <h5 className="mb-2">
-            {String(t('Active patients'))} ({activePatients.length})
-          </h5>
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>{t('Name')}</TableHead>
-                <TableHead>{t('Birth Date')}</TableHead>
-                <TableHead>{t('Sex')}</TableHead>
-                <TableHead>{t('Diagnosis_patient_list')}</TableHead>
-                <TableHead
-                  onClick={() => handleColSort('last_login')}
-                  className="cursor-pointer transition-colors hover:bg-muted/50"
+              {appModeStore.showRedcapImport && (
+                <Button
+                  size="dashboard"
+                  variant="secondary"
+                  onClick={async () => {
+                    store.openImportRedcap();
+                    await store.fetchRedcapCandidates(t);
+                  }}
+                  disabled={store.loading}
                 >
-                  <div className="flex gap-1 items-center">
-                    {t('Login')}
-                    {renderSortIcon('last_login')}
-                  </div>
-                </TableHead>
-                <TableHead
-                  onClick={() => handleColSort('adherence')}
-                  className="cursor-pointer transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex gap-1 items-center">
-                    {t('Adherence')}
-                    {renderSortIcon('adherence')}
-                  </div>
-                </TableHead>
-                <TableHead
-                  onClick={() => handleColSort('feedback')}
-                  className="cursor-pointer transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex gap-1 items-center">
-                    {t('Feedback')}
-                    {renderSortIcon('feedback')}
-                  </div>
-                </TableHead>
-                <TableHead
-                  onClick={() => handleColSort('wear')}
-                  className="cursor-pointer transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex gap-1 items-center">
-                    {t('Wear')}
-                    {renderSortIcon('wear')}
-                  </div>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {activePatients.map((p) => {
-                const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
-                const diagnosis = Array.isArray(p.diagnosis)
-                  ? p.diagnosis.map((d) => String(t(d))).join(', ')
-                  : String(t(p.diagnosis || ''));
-                const patientId = getPatientIdStr(p);
-                const mongoId = getPatientMongoId(p);
+                  {String(t('Import from REDCap'))}
+                </Button>
+              )}
+            </>
+          )}
+        </div>
 
-                return (
-                  <TableRow
-                    key={mongoId || patientId}
-                    role="link"
-                    tabIndex={0}
-                    onClick={() => handlePatientClick(mongoId)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handlePatientClick(mongoId);
-                      }
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <TableCell className="text-muted">{patientId}</TableCell>
-                    <TableCell>{fullName}</TableCell>
-                    <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
-                    <TableCell className="text-muted">{String(t(p.sex))}</TableCell>
-                    <TableCell className="text-muted">{diagnosis}</TableCell>
-                    <TableCell>
-                      <LoginBadge patient={p} />
-                    </TableCell>
-                    <TableCell>
-                      <AdherenceProgress patient={p} />
-                    </TableCell>
-                    <TableCell>
-                      <FeedbackBadge patient={p} />
-                    </TableCell>
-                    <TableCell>
-                      <WearBadge patient={p} />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+        <PatientFilters store={store} sexOptions={sexOptions} durationOptions={durationOptions} />
 
-              {activePatients.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted">
-                    {store.loading
-                      ? String(t('Loading patients...'))
-                      : String(t('No active patients'))}
+        <h5>
+          {String(t('Active patients'))} ({activePatients.length})
+        </h5>
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID</TableHead>
+              <TableHead>{t('Name')}</TableHead>
+              <TableHead>{t('Birth Date')}</TableHead>
+              <TableHead>{t('Sex')}</TableHead>
+              <TableHead>{t('Diagnosis_patient_list')}</TableHead>
+              <TableHead
+                onClick={() => handleColSort('last_login')}
+                className="cursor-pointer transition-colors hover:bg-muted/50"
+              >
+                <div className="flex gap-1 items-center">
+                  {t('Login')}
+                  {renderSortIcon('last_login')}
+                </div>
+              </TableHead>
+              <TableHead
+                onClick={() => handleColSort('adherence')}
+                className="cursor-pointer transition-colors hover:bg-muted/50"
+              >
+                <div className="flex gap-1 items-center">
+                  {t('Adherence')}
+                  {renderSortIcon('adherence')}
+                </div>
+              </TableHead>
+              <TableHead
+                onClick={() => handleColSort('feedback')}
+                className="cursor-pointer transition-colors hover:bg-muted/50"
+              >
+                <div className="flex gap-1 items-center">
+                  {t('Feedback')}
+                  {renderSortIcon('feedback')}
+                </div>
+              </TableHead>
+              <TableHead
+                onClick={() => handleColSort('wear')}
+                className="cursor-pointer transition-colors hover:bg-muted/50"
+              >
+                <div className="flex gap-1 items-center">
+                  {t('Wear')}
+                  {renderSortIcon('wear')}
+                </div>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {activePatients.map((p) => {
+              const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
+              const diagnosis = Array.isArray(p.diagnosis)
+                ? p.diagnosis.map((d) => String(t(d))).join(', ')
+                : String(t(p.diagnosis || ''));
+              const patientId = getPatientIdStr(p);
+              const mongoId = getPatientMongoId(p);
+
+              return (
+                <TableRow
+                  key={mongoId || patientId}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => handlePatientClick(mongoId)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handlePatientClick(mongoId);
+                    }
+                  }}
+                  className="cursor-pointer"
+                >
+                  <TableCell className="text-muted">{patientId}</TableCell>
+                  <TableCell>{fullName}</TableCell>
+                  <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
+                  <TableCell className="text-muted">{String(t(p.sex))}</TableCell>
+                  <TableCell className="text-muted">{diagnosis}</TableCell>
+                  <TableCell>
+                    <LoginBadge patient={p} />
+                  </TableCell>
+                  <TableCell>
+                    <AdherenceProgress patient={p} />
+                  </TableCell>
+                  <TableCell>
+                    <FeedbackBadge patient={p} />
+                  </TableCell>
+                  <TableCell>
+                    <WearBadge patient={p} />
                   </TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              );
+            })}
 
-          <Collapse in={store.showCompleted}>
-            <div>
-              <h5 className="mt-4 mb-2">
-                {String(t('Completed'))} ({completedPatients.length})
-              </h5>
+            {activePatients.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center text-muted">
+                  {store.loading
+                    ? String(t('Loading patients...'))
+                    : String(t('No active patients'))}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>{t('Name')}</TableHead>
-                    <TableHead>{t('Birth Date')}</TableHead>
-                    <TableHead>{t('Sex')}</TableHead>
-                    <TableHead>{t('Diagnosis_patient_list')}</TableHead>
-                    <TableHead>{t('Status')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {completedPatients.map((p) => {
-                    const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
-                    const diagnosis = Array.isArray(p.diagnosis)
-                      ? p.diagnosis.map((d) => String(t(d))).join(', ')
-                      : String(t(p.diagnosis || ''));
-                    const patientId = getPatientIdStr(p);
-                    const mongoId = getPatientMongoId(p);
+        <Collapsible open={store.showCompleted}>
+          <CollapsibleContent className="mt-4 flex flex-col gap-2">
+            <h5>
+              {String(t('Completed'))} ({completedPatients.length})
+            </h5>
 
-                    const extra = getPatientExtra(p);
-                    const endDate = getIsoMaybe(extra.rehab_end_date);
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>{t('Name')}</TableHead>
+                  <TableHead>{t('Birth Date')}</TableHead>
+                  <TableHead>{t('Sex')}</TableHead>
+                  <TableHead>{t('Diagnosis_patient_list')}</TableHead>
+                  <TableHead>{t('Status')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {completedPatients.map((p) => {
+                  const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
+                  const diagnosis = Array.isArray(p.diagnosis)
+                    ? p.diagnosis.map((d) => String(t(d))).join(', ')
+                    : String(t(p.diagnosis || ''));
+                  const patientId = getPatientIdStr(p);
+                  const mongoId = getPatientMongoId(p);
 
-                    return (
-                      <TableRow
-                        key={mongoId || patientId}
-                        role="link"
-                        tabIndex={0}
-                        onClick={() => handlePatientClick(mongoId)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handlePatientClick(mongoId);
-                          }
-                        }}
-                        className="cursor-pointer completed-row opacity-75"
-                      >
-                        <TableCell className="text-muted">{patientId}</TableCell>
-                        <TableCell>{fullName}</TableCell>
-                        <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
-                        <TableCell className="text-muted">{String(t(p.sex))}</TableCell>
-                        <TableCell className="text-muted">{diagnosis}</TableCell>
-                        <TableCell>
-                          <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
-                            {String(t('Completed'))}
-                          </Badge>
-                          {endDate && (
-                            <div className="text-xs text-muted mt-1">
-                              {String(t('Discharged'))}: {fmtDate(endDate)}
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  const extra = getPatientExtra(p);
+                  const endDate = getIsoMaybe(extra.rehab_end_date);
 
-                  {completedPatients.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted">
-                        {String(t('No completed patients'))}
+                  return (
+                    <TableRow
+                      key={mongoId || patientId}
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => handlePatientClick(mongoId)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handlePatientClick(mongoId);
+                        }
+                      }}
+                      className="cursor-pointer completed-row opacity-75"
+                    >
+                      <TableCell className="text-muted">{patientId}</TableCell>
+                      <TableCell>{fullName}</TableCell>
+                      <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
+                      <TableCell className="text-muted">{String(t(p.sex))}</TableCell>
+                      <TableCell className="text-muted">{diagnosis}</TableCell>
+                      <TableCell>
+                        <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
+                          {String(t('Completed'))}
+                        </Badge>
+                        {endDate && (
+                          <div className="text-xs text-muted mt-1">
+                            {String(t('Discharged'))}: {fmtDate(endDate)}
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </Collapse>
-        </Container>
+                  );
+                })}
+
+                {completedPatients.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted">
+                      {String(t('No completed patients'))}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CollapsibleContent>
+        </Collapsible>
 
         {appModeStore.showManualCreate && (
           <AddPatientPopup show={store.showAddPatientPopup} handleClose={handleCloseAdd} />

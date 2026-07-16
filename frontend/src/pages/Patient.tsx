@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 
-import ErrorAlert from '@/components/common/ErrorAlert';
+import StatusBanner from '@/components/common/StatusBanner';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import ActivitySection from '@/components/PatientPage/ActivitySection';
@@ -30,7 +30,7 @@ import HomeIllustration from '@/assets/home_illustration.svg?react';
 
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
   const { isAllowed } = useRoleAuthGate('Patient');
 
@@ -38,6 +38,7 @@ const PatientView: React.FC = observer(() => {
 
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState('');
+  const [pageSuccess, setPageSuccess] = useState('');
 
   const fitbitStatus = useMemo(() => searchParams.get('fitbit_status'), [searchParams]);
   const fitbitError = useMemo(() => searchParams.get('fitbit_error'), [searchParams]);
@@ -86,9 +87,18 @@ const PatientView: React.FC = observer(() => {
   useEffect(() => {
     if (!isAllowed) return;
 
-    if (fitbitStatus === 'error') setPageError(String(t('Fitbit connection failed.')));
-    if (fitbitStatus === 'misconfigured')
+    if (fitbitStatus === 'connected') {
+      setPageError('');
+      setPageSuccess(String(t('Your Fitbit account has been successfully connected.')));
+    }
+    if (fitbitStatus === 'error') {
+      setPageSuccess('');
+      setPageError(String(t('Fitbit connection failed.')));
+    }
+    if (fitbitStatus === 'misconfigured') {
+      setPageSuccess('');
       setPageError(String(t('Fitbit is not configured on this server. Please contact support.')));
+    }
     if (fitbitStatus === 'auth_error') {
       const desc =
         fitbitError === 'redirect_uri_mismatch'
@@ -98,6 +108,7 @@ const PatientView: React.FC = observer(() => {
             : fitbitError === 'access_denied'
               ? t('Fitbit authorization was denied.')
               : t('Fitbit authorization failed: {{error}}.', { error: fitbitError ?? 'unknown' });
+      setPageSuccess('');
       setPageError(String(desc));
     }
 
@@ -111,6 +122,25 @@ const PatientView: React.FC = observer(() => {
 
     setLoading(false);
   }, [isAllowed, fitbitStatus, fitbitError, t, patientId, i18n.language]);
+
+  const clearFitbitParams = () => {
+    if (!fitbitStatus && !fitbitError) return;
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('fitbit_status');
+    nextParams.delete('fitbit_error');
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const dismissPageSuccess = () => {
+    setPageSuccess('');
+    clearFitbitParams();
+  };
+
+  const dismissPageError = () => {
+    setPageError('');
+    clearFitbitParams();
+  };
 
   if (loading) return null;
 
@@ -134,7 +164,8 @@ const PatientView: React.FC = observer(() => {
           }
         />
 
-        {pageError && <ErrorAlert message={pageError} onClose={() => setPageError('')} />}
+        <StatusBanner type="success" message={pageSuccess} onClose={dismissPageSuccess} />
+        <StatusBanner type="danger" message={pageError} onClose={dismissPageError} />
 
         <ActivitySection
           loading={patientFitbitStore.connected === null || patientFitbitStore.summaryLoading}

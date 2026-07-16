@@ -1,6 +1,6 @@
 // components/TherapistInterventionPage/FilterBar.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Card, Dropdown, Form } from 'react-bootstrap';
+import { Button, Dropdown, Form } from 'react-bootstrap';
 import Select from 'react-select';
 import interventionsConfig from '../../config/interventions.json';
 import { FaFilter } from 'react-icons/fa';

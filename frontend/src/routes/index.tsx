@@ -58,8 +58,6 @@ const ErrorPage = lazyWithRetry(() => import('@/pages/ErrorPage'));
 const HealthSlider = lazyWithRetry(() => import('@/pages/eva'));
 const TermsAndConditions = lazyWithRetry(() => import('@/pages/TermsAndConditions'));
 const PrivacyPolicy = lazyWithRetry(() => import('@/pages/PrivacyPolicy'));
-const SuccessPage = lazyWithRetry(() => import('@/pages/SuccessPage'));
-const FitbitErrorPage = lazyWithRetry(() => import('@/pages/FitbitErrorPage'));
 const HelpPage = lazyWithRetry(() => import('@/pages/Help'));
 const Eva = lazyWithRetry(() => import('@/pages/eva2'));
 const HealthSliderDownloadsPage = lazyWithRetry(() => import('@/pages/HealthSliderDownloadsPage'));
@@ -124,14 +122,6 @@ export const router = createBrowserRouter([
         element: withSuspense(
           createElement(RootLayout, null, createElement(TherapistRecomendations))
         ),
-      },
-      {
-        path: 'fitbit-success',
-        element: createElement(SuccessPage),
-      },
-      {
-        path: 'fitbit-error',
-        element: createElement(FitbitErrorPage),
       },
       {
         path: 'icf/:patientId?',

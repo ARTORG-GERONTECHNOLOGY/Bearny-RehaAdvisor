@@ -38,7 +38,7 @@ frontend/
 │   │   ├── PatientInterventionsLibrary.tsx, PatientInterventionDetail.tsx
 │   │   ├── AdminDashboard.tsx, UserProfile.tsx, Help.tsx
 │   │   ├── eva.tsx, eva2.tsx, HealthSliderDownloadsPage.tsx
-│   │   └── ErrorPage.tsx, FitbitErrorPage.tsx, UnauthorizedAccess.tsx, ...
+│   │   └── ErrorPage.tsx, UnauthorizedAccess.tsx, ...
 │   │
 │   ├── stores/                  # MobX state (singleton instances, makeAutoObservable)
 │   │   ├── authStore.ts        # httpOnly-cookie session state, 2FA, inactivity timeout

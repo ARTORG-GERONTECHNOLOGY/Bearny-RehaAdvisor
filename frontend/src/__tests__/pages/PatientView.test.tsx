@@ -6,6 +6,7 @@ let mockIsAuthenticated = true;
 let mockUserType = 'Patient';
 
 const mockNavigate = jest.fn();
+const mockSetSearchParams = jest.fn();
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
@@ -153,17 +154,16 @@ jest.mock('@/components/PatientPage/PatientQuestionaire', () => {
   return MockPatientQuestionaire;
 });
 
-jest.mock('@/components/common/ErrorAlert', () => {
-  function MockErrorAlert({ message, onClose }: { message: string; onClose: () => void }) {
-    return (
-      <div role="alert">
+jest.mock('@/components/common/StatusBanner', () => ({
+  __esModule: true,
+  default: ({ type, message, onClose }: { type: string; message: string; onClose: () => void }) =>
+    message ? (
+      <div data-testid={`banner-${type}`}>
         {message}
-        <button onClick={onClose}>close-alert</button>
+        <button onClick={onClose}>{`close-${type}`}</button>
       </div>
-    );
-  }
-  return MockErrorAlert;
-});
+    ) : null,
+}));
 
 jest.mock('@/hooks/useInterventions', () => ({
   useInterventions: jest.fn(() => ({
@@ -176,7 +176,7 @@ jest.mock('react-router-dom', () => {
   return {
     ...actual,
     useNavigate: jest.fn(),
-    useSearchParams: jest.fn(() => [new URLSearchParams()]),
+    useSearchParams: jest.fn(() => [new URLSearchParams(), jest.fn()]),
   };
 });
 
@@ -208,7 +208,10 @@ describe('PatientView', () => {
 
     const routerMocks = getRouterMocks();
     (routerMocks.useNavigate as jest.Mock).mockReturnValue(mockNavigate);
-    (routerMocks.useSearchParams as jest.Mock).mockReturnValue([new URLSearchParams()]);
+    (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
+      new URLSearchParams(),
+      mockSetSearchParams,
+    ]);
 
     const fitbitStore = getFitbitStore();
     const vitalsStore = getVitalsStore();
@@ -415,11 +418,14 @@ describe('PatientView', () => {
     const routerMocks = getRouterMocks();
     (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
       new URLSearchParams('fitbit_status=error'),
+      mockSetSearchParams,
     ]);
 
     render(<PatientView />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Fitbit connection failed.');
+    expect(await screen.findByTestId('banner-danger')).toHaveTextContent(
+      'Fitbit connection failed.'
+    );
   });
 
   it('renders both feedback popups when intervention and health popups are enabled', async () => {
@@ -467,11 +473,12 @@ describe('PatientView', () => {
     const routerMocks = getRouterMocks();
     (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
       new URLSearchParams('fitbit_status=misconfigured'),
+      mockSetSearchParams,
     ]);
 
     render(<PatientView />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    expect(await screen.findByTestId('banner-danger')).toHaveTextContent(
       'Fitbit is not configured on this server. Please contact support.'
     );
   });
@@ -487,11 +494,12 @@ describe('PatientView', () => {
       const routerMocks = getRouterMocks();
       (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
         new URLSearchParams(`fitbit_status=auth_error&fitbit_error=${fitbitError}`),
+        mockSetSearchParams,
       ]);
 
       render(<PatientView />);
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(expectedMessage);
+      expect(await screen.findByTestId('banner-danger')).toHaveTextContent(expectedMessage);
     }
   );
 
@@ -499,15 +507,47 @@ describe('PatientView', () => {
     const routerMocks = getRouterMocks();
     (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
       new URLSearchParams('fitbit_status=error'),
+      mockSetSearchParams,
     ]);
 
     render(<PatientView />);
 
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('close-alert'));
+    expect(await screen.findByTestId('banner-danger')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('close-danger'));
 
     await waitFor(() => {
-      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('banner-danger')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows fitbit success banner when fitbit_status=connected', async () => {
+    const routerMocks = getRouterMocks();
+    (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
+      new URLSearchParams('fitbit_status=connected'),
+      mockSetSearchParams,
+    ]);
+
+    render(<PatientView />);
+
+    expect(await screen.findByTestId('banner-success')).toHaveTextContent(
+      'Your Fitbit account has been successfully connected.'
+    );
+  });
+
+  it('dismisses the fitbit success banner via onClose', async () => {
+    const routerMocks = getRouterMocks();
+    (routerMocks.useSearchParams as jest.Mock).mockReturnValue([
+      new URLSearchParams('fitbit_status=connected'),
+      mockSetSearchParams,
+    ]);
+
+    render(<PatientView />);
+
+    expect(await screen.findByTestId('banner-success')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('close-success'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('banner-success')).not.toBeInTheDocument();
     });
   });
 
