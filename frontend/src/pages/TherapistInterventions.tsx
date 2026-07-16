@@ -1,6 +1,7 @@
-// src/pages/TherapistRecomendations.tsx
+// src/pages/TherapistInterventions.tsx
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { Container, Card, Form, Button, ButtonGroup, Spinner, Modal } from 'react-bootstrap';
+import { useSearchParams } from 'react-router-dom';
+import { Form, Button, ButtonGroup, Spinner } from 'react-bootstrap';
 import { FaPlus, FaTrash, FaCopy, FaUpload, FaEdit, FaBell } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
@@ -13,6 +14,9 @@ import AddInterventionPopup from '@/components/AddIntervention/AddRecomendationP
 
 import TemplateAssignModal from '@/components/TherapistInterventionPage/TemplateAssignModal';
 import TemplateTimeline from '@/components/TherapistInterventionPage/TemplateTimeline';
+import NewTemplateSheet from '@/components/TherapistInterventionPage/NewTemplateSheet';
+import CopyTemplateSheet from '@/components/TherapistInterventionPage/CopyTemplateSheet';
+import EditTemplateMetaSheet from '@/components/TherapistInterventionPage/EditTemplateMetaSheet';
 
 import authStore from '@/stores/authStore';
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
@@ -42,6 +46,7 @@ import TemplatesLayout, {
 } from '@/components/TherapistInterventionPage/TemplatesLayout';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
+import { Card, CardContent } from '@/components/ui/card';
 
 // ---------------- Template helpers (unchanged logic, moved out of render) ----------------
 const normalizeSegment = (segOrSchedule: any) => {
@@ -93,7 +98,21 @@ const TherapistRecomendations: React.FC = observer(() => {
 
   // ─────────────────────────── tabs ───────────────────────────
   type MainTab = 'library' | 'templates';
-  const [mainTab, setMainTab] = useState<MainTab>('library');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const mainTab: MainTab = tabParam === 'templates' ? 'templates' : 'library';
+  const setMainTab = useCallback(
+    (tab: MainTab) =>
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', tab);
+          return next;
+        },
+        { replace: true }
+      ),
+    [setSearchParams]
+  );
 
   // ─────────────────────────── auth gate ───────────────────────────
   const { isAllowed } = useRoleAuthGate('Therapist');
@@ -706,7 +725,7 @@ const TherapistRecomendations: React.FC = observer(() => {
     <Layout>
       <PageHeader title={t('Interventions')} />
 
-      <Container className="main-content mt-4">
+      <div className="flex flex-col gap-2 mt-4">
         {error && (
           <ErrorAlert
             message={error}
@@ -742,7 +761,7 @@ const TherapistRecomendations: React.FC = observer(() => {
           <>
             {/* ── Named template management bar ── */}
             <Card className="mb-3">
-              <Card.Body>
+              <CardContent className="p-4">
                 {/* ── Row 1: search + selector + actions ── */}
                 <div className="d-flex align-items-center flex-wrap gap-2 mb-2">
                   {/* ── Template autocomplete search ── */}
@@ -911,7 +930,7 @@ const TherapistRecomendations: React.FC = observer(() => {
                 </div>
 
                 {/* ── Row 2: view options (diagnosis + horizon) ── */}
-                <div className="d-flex align-items-center flex-wrap gap-3 mb-2">
+                <div className="d-flex align-items-center flex-wrap gap-3">
                   <div className="d-flex align-items-center gap-1">
                     <small className="text-muted">{t('Diagnosis_patient_list')}:</small>
                     <Form.Select
@@ -1057,7 +1076,7 @@ const TherapistRecomendations: React.FC = observer(() => {
                       </div>
                     );
                   })()}
-              </Card.Body>
+              </CardContent>
             </Card>
 
             <TemplatesLayout
@@ -1092,7 +1111,7 @@ const TherapistRecomendations: React.FC = observer(() => {
             />
           </>
         )}
-      </Container>
+      </div>
 
       {/* Apply named template to patient */}
       <ApplyTemplateModal
@@ -1114,49 +1133,19 @@ const TherapistRecomendations: React.FC = observer(() => {
         }}
       />
 
-      {/* New template modal */}
-      <Modal show={showNewTemplateModal} onHide={() => setShowNewTemplateModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>{t('Create new template')}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form.Group className="mb-3">
-            <Form.Label>{t('Name')}</Form.Label>
-            <Form.Control
-              value={newTemplateName}
-              onChange={(e) => setNewTemplateName(e.target.value)}
-              placeholder={t('Template name')}
-            />
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>{t('Description (optional)')}</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={2}
-              value={newTemplateDesc}
-              onChange={(e) => setNewTemplateDesc(e.target.value)}
-            />
-          </Form.Group>
-          <Form.Check
-            type="checkbox"
-            label={t('Public (visible to all therapists)')}
-            checked={newTemplatePublic}
-            onChange={(e) => setNewTemplatePublic(e.target.checked)}
-          />
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowNewTemplateModal(false)}>
-            {t('Cancel')}
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleCreateTemplate}
-            disabled={!newTemplateName.trim() || newTemplateSubmitting}
-          >
-            {newTemplateSubmitting ? t('Creating...') : t('Create')}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {/* New template sheet */}
+      <NewTemplateSheet
+        open={showNewTemplateModal}
+        onOpenChange={setShowNewTemplateModal}
+        name={newTemplateName}
+        description={newTemplateDesc}
+        isPublic={newTemplatePublic}
+        submitting={newTemplateSubmitting}
+        onNameChange={setNewTemplateName}
+        onDescriptionChange={setNewTemplateDesc}
+        onPublicChange={setNewTemplatePublic}
+        onSubmit={handleCreateTemplate}
+      />
 
       {selectedItem && (
         <ProductPopup
@@ -1205,100 +1194,35 @@ const TherapistRecomendations: React.FC = observer(() => {
         />
       )}
 
-      {/* Copy template modal */}
-      <Modal show={showCopyModal} onHide={() => setShowCopyModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>{t('Copy template')}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form.Group className="mb-3">
-            <Form.Label>{t('Name')}</Form.Label>
-            <Form.Control
-              value={copyModalName}
-              onChange={(e) => setCopyModalName(e.target.value)}
-              placeholder={t('Template name')}
-            />
-          </Form.Group>
-          <Form.Group>
-            <Form.Label>{t('Description (optional)')}</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={2}
-              value={copyModalDesc}
-              onChange={(e) => setCopyModalDesc(e.target.value)}
-            />
-          </Form.Group>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowCopyModal(false)}
-            disabled={copyModalSubmitting}
-          >
-            {t('Cancel')}
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleConfirmCopy}
-            disabled={!copyModalName.trim() || copyModalSubmitting}
-          >
-            {copyModalSubmitting ? t('Copying...') : t('Copy')}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {/* Copy template sheet */}
+      <CopyTemplateSheet
+        open={showCopyModal}
+        onOpenChange={setShowCopyModal}
+        name={copyModalName}
+        description={copyModalDesc}
+        submitting={copyModalSubmitting}
+        onNameChange={setCopyModalName}
+        onDescriptionChange={setCopyModalDesc}
+        onSubmit={handleConfirmCopy}
+      />
 
-      {/* Edit template name / description / visibility modal */}
-      <Modal show={showEditMetaModal} onHide={() => setShowEditMetaModal(false)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title>{t('Edit template info')}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form.Group className="mb-3">
-            <Form.Label>{t('Name')}</Form.Label>
-            <Form.Control
-              value={editMetaName}
-              onChange={(e) => setEditMetaName(e.target.value)}
-              placeholder={t('Template name')}
-            />
-          </Form.Group>
-          <Form.Group className="mb-3">
-            <Form.Label>{t('Description (optional)')}</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={2}
-              value={editMetaDesc}
-              onChange={(e) => setEditMetaDesc(e.target.value)}
-            />
-          </Form.Group>
-          {(templateStore.templates.find((x) => x.id === activeTemplateId)?.created_by ===
-            authStore.id ||
-            authStore.userType === 'Admin') && (
-            <Form.Check
-              type="checkbox"
-              id="edit-meta-public"
-              label={t('Public (visible to all therapists)')}
-              checked={editMetaPublic}
-              onChange={(e) => setEditMetaPublic(e.target.checked)}
-            />
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowEditMetaModal(false)}
-            disabled={editMetaSubmitting}
-          >
-            {t('Cancel')}
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleConfirmEditMeta}
-            disabled={!editMetaName.trim() || editMetaSubmitting}
-          >
-            {editMetaSubmitting ? t('Saving...') : t('Save')}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      {/* Edit template name / description / visibility sheet */}
+      <EditTemplateMetaSheet
+        open={showEditMetaModal}
+        onOpenChange={setShowEditMetaModal}
+        name={editMetaName}
+        description={editMetaDesc}
+        isPublic={editMetaPublic}
+        showPublicToggle={
+          templateStore.templates.find((x) => x.id === activeTemplateId)?.created_by ===
+            authStore.id || authStore.userType === 'Admin'
+        }
+        submitting={editMetaSubmitting}
+        onNameChange={setEditMetaName}
+        onDescriptionChange={setEditMetaDesc}
+        onPublicChange={setEditMetaPublic}
+        onSubmit={handleConfirmEditMeta}
+      />
     </Layout>
   );
 });

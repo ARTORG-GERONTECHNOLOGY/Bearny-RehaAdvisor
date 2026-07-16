@@ -8,19 +8,19 @@ describe('MainTabs', () => {
   it('renders both tab labels', () => {
     render(<MainTabs mainTab="library" onChange={jest.fn()} />);
     expect(screen.getByText('Interventions')).toBeInTheDocument();
-    expect(screen.getByText('Your Templates')).toBeInTheDocument();
+    expect(screen.getByText('Templates')).toBeInTheDocument();
   });
 
   it('marks the active tab based on mainTab prop', () => {
     render(<MainTabs mainTab="templates" onChange={jest.fn()} />);
-    expect(screen.getByText('Your Templates')).toHaveClass('active');
-    expect(screen.getByText('Interventions')).not.toHaveClass('active');
+    expect(screen.getByText('Templates')).toHaveAttribute('data-state', 'active');
+    expect(screen.getByText('Interventions')).toHaveAttribute('data-state', 'inactive');
   });
 
   it('calls onChange with the selected tab key', () => {
     const onChange = jest.fn();
     render(<MainTabs mainTab="library" onChange={onChange} />);
-    fireEvent.click(screen.getByText('Your Templates'));
+    fireEvent.mouseDown(screen.getByText('Templates'));
     expect(onChange).toHaveBeenCalledWith('templates');
   });
 });

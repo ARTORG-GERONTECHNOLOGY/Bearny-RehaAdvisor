@@ -1,5 +1,5 @@
 import React from 'react';
-import { Row, Col, Nav } from 'react-bootstrap';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTranslation } from 'react-i18next';
 
 type MainTab = 'library' | 'templates';
@@ -12,23 +12,16 @@ type Props = {
 const MainTabs: React.FC<Props> = ({ mainTab, onChange }) => {
   const { t } = useTranslation();
   return (
-    <Row className="mb-3">
-      <Col>
-        <Nav
-          variant="tabs"
-          role="tablist"
-          activeKey={mainTab}
-          onSelect={(k) => onChange((k as MainTab) || 'library')}
-        >
-          <Nav.Item>
-            <Nav.Link eventKey="library">{t('Interventions')}</Nav.Link>
-          </Nav.Item>
-          <Nav.Item>
-            <Nav.Link eventKey="templates">{t('Your Templates')}</Nav.Link>
-          </Nav.Item>
-        </Nav>
-      </Col>
-    </Row>
+    <Tabs
+      value={mainTab}
+      onValueChange={(value) => onChange((value as MainTab) || 'library')}
+      className="mb-3"
+    >
+      <TabsList>
+        <TabsTrigger value="library">{t('Interventions')}</TabsTrigger>
+        <TabsTrigger value="templates">{t('Templates')}</TabsTrigger>
+      </TabsList>
+    </Tabs>
   );
 };
 

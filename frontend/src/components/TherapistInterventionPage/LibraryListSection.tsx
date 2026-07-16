@@ -1,5 +1,4 @@
 import React from 'react';
-import { Row, Col } from 'react-bootstrap';
 import InterventionList from '@/components/TherapistInterventionPage/InterventionList';
 import type { InterventionTypeTh } from '@/types';
 
@@ -18,13 +17,7 @@ const LibraryListSection: React.FC<Props> = ({ loading, items, onClick, t, trans
     );
   }
 
-  return (
-    <Row>
-      <Col xs={12}>
-        <InterventionList items={items} onClick={onClick} translatedTitles={translatedTitles} />
-      </Col>
-    </Row>
-  );
+  return <InterventionList items={items} onClick={onClick} translatedTitles={translatedTitles} />;
 };
 
 export default LibraryListSection;

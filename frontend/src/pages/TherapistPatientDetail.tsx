@@ -97,11 +97,14 @@ const TherapistPatientDetail: React.FC = observer(() => {
       <Tabs
         value={activeTab}
         onValueChange={(value) =>
-          setSearchParams((prev) => {
-            const next = new URLSearchParams(prev);
-            next.set('tab', value);
-            return next;
-          })
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.set('tab', value);
+              return next;
+            },
+            { replace: true }
+          )
         }
       >
         <TabsList>
