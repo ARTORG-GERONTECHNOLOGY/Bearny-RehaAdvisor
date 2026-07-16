@@ -39,6 +39,7 @@ jest.mock('@/stores/patientFitbitStore', () => ({
       return mockFitbitConnected;
     },
     fetchStatus: (...args: unknown[]) => mockFetchStatus(...args),
+    disconnect: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -354,5 +355,26 @@ describe('PatientProfile - Fitbit', () => {
     expect(screen.getByText('Fitness Tracker')).toBeInTheDocument();
     const button = screen.getByTestId('fitbit-connect-button');
     expect(button).toBeInTheDocument();
+  });
+
+  it('shows a Disconnect button when Fitbit is connected', () => {
+    mockFitbitConnected = true;
+    renderPatientProfile();
+    expect(screen.getByRole('button', { name: 'Disconnect' })).toBeInTheDocument();
+  });
+
+  it('does not show a Disconnect button when Fitbit is not connected', () => {
+    mockFitbitConnected = false;
+    renderPatientProfile();
+    expect(screen.queryByRole('button', { name: 'Disconnect' })).not.toBeInTheDocument();
+  });
+
+  it('opens a confirmation sheet when Disconnect is clicked', async () => {
+    mockFitbitConnected = true;
+    renderPatientProfile();
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
+    await waitFor(() => {
+      expect(screen.getByText('Disconnect Fitbit')).toBeInTheDocument();
+    });
   });
 });
