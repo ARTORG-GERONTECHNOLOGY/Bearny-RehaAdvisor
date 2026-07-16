@@ -1,6 +1,6 @@
 // src/components/TherapistInterventionPage/TemplatesLayout.tsx
 import React from 'react';
-import { Row, Col, Button, ButtonGroup, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Button, ButtonGroup, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { FaPlus, FaMinus, FaEdit } from 'react-icons/fa';
 import { getTagColor } from '@/utils/interventions';
 import FilterBar from '@/components/TherapistInterventionPage/FilterBar';
@@ -66,8 +66,8 @@ const TemplatesLayout: React.FC<Props> = ({
   tagColors,
 }) => {
   return (
-    <Row className="g-2">
-      <Col xs={12} md={4} className="flex flex-col gap-2">
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+      <div className="md:col-span-4 flex flex-col gap-2">
         <Card>
           <CardHeader>
             <CardTitle>{t('In Template')}</CardTitle>
@@ -247,16 +247,16 @@ const TemplatesLayout: React.FC<Props> = ({
             </div>
           </CardContent>
         </Card>
-      </Col>
+      </div>
 
-      <Col xs={12} md={8}>
+      <div className="md:col-span-8">
         <Card className="h-100">
           <CardContent className="p-4">
             <div className="min-vh-50 overflow-auto">{timeline}</div>
           </CardContent>
         </Card>
-      </Col>
-    </Row>
+      </div>
+    </div>
   );
 };
 

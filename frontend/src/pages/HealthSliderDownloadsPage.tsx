@@ -30,7 +30,7 @@
  */
 
 import React, { useState } from 'react';
-import { Button, Table, Spinner, Container, Row, Col, Form } from 'react-bootstrap';
+import { Button, Table, Spinner, Form } from 'react-bootstrap';
 import { zipSync, strToU8 } from 'fflate';
 import { toISODateUTC, formatLocaleDateTime } from '@/utils/dateFormat';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
@@ -195,8 +195,8 @@ export default function DownloadsPage() {
 
   if (!hlsToken) {
     return (
-      <Container
-        className="py-5"
+      <div
+        className="container mx-auto py-5"
         style={{ maxWidth: 480, fontFamily: 'Atkinson Hyperlegible, sans-serif' }}
       >
         <h3 className="mb-4">ICF Monitor — Secure Access</h3>
@@ -251,20 +251,23 @@ export default function DownloadsPage() {
             </Button>
           </>
         )}
-      </Container>
+      </div>
     );
   }
 
   return (
-    <Container className="py-5" style={{ fontFamily: 'Atkinson Hyperlegible, sans-serif' }}>
+    <div
+      className="container mx-auto py-5"
+      style={{ fontFamily: 'Atkinson Hyperlegible, sans-serif' }}
+    >
       <div className="d-flex align-items-center justify-content-between mb-4">
         <h3 className="mb-0">Admin Dashboard (V2.2)</h3>
         <Button variant="outline-danger" size="sm" onClick={logout}>
           Logout
         </Button>
       </div>
-      <Row className="mb-4 align-items-end">
-        <Col md={4}>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end mb-4">
+        <div className="md:col-span-4">
           <Form.Group>
             <Form.Label className="fw-bold">Patient ID (Format: Pxx)</Form.Label>
             <Form.Control
@@ -273,8 +276,8 @@ export default function DownloadsPage() {
               placeholder="e.g. P01"
             />
           </Form.Group>
-        </Col>
-        <Col>
+        </div>
+        <div className="md:col-span-8">
           <Button onClick={fetchItems} variant="primary" className="me-2 px-4 shadow-sm">
             Search
           </Button>
@@ -286,8 +289,8 @@ export default function DownloadsPage() {
           >
             {loading ? <Spinner size="sm" /> : 'Download All (ZIP + CSV)'}
           </Button>
-        </Col>
-      </Row>
+        </div>
+      </div>
 
       <Table striped bordered hover responsive className="mt-2 align-middle">
         <thead className="table-dark">
@@ -360,6 +363,6 @@ export default function DownloadsPage() {
           )}
         </tbody>
       </Table>
-    </Container>
+    </div>
   );
 }

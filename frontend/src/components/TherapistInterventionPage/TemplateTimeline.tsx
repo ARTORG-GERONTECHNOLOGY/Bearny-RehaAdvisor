@@ -1,7 +1,7 @@
 // components/TherapistInterventionPage/TemplateTimeline.tsx
 import React, { useMemo, useState } from 'react';
 import { Card, Badge } from 'react-bootstrap';
-import { TemplateItem } from '../../types/templates';
+import { TemplateItem } from '@/types/templates';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 

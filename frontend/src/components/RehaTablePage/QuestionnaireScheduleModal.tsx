@@ -1,6 +1,6 @@
 // src/components/RehaTablePage/QuestionnaireScheduleModal.tsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Alert, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
@@ -377,41 +377,43 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
             </Form.Group>
           )}
 
-          <Form.Group as={Row} className="mb-3" controlId="q-start-time">
-            <Form.Label column sm={4}>
-              {t('Start Time')}
-            </Form.Label>
-            <Col sm={8}>
+          <Form.Group
+            className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center mb-3"
+            controlId="q-start-time"
+          >
+            <Form.Label className="sm:col-span-4 mb-0">{t('Start Time')}</Form.Label>
+            <div className="sm:col-span-8">
               <Form.Control
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
               />
-            </Col>
+            </div>
           </Form.Group>
 
-          <Form.Group as={Row} className="mb-3" controlId="q-repeat-every">
-            <Form.Label column sm={4}>
-              {t('Repeat every')}
-            </Form.Label>
-            <Col sm={4}>
+          <Form.Group
+            className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center mb-3"
+            controlId="q-repeat-every"
+          >
+            <Form.Label className="sm:col-span-4 mb-0">{t('Repeat every')}</Form.Label>
+            <div className="sm:col-span-4">
               <Form.Control
                 type="number"
                 min={1}
                 value={interval}
                 onChange={(e) => setInterval(parseInt(e.target.value || '1', 10))}
               />
-            </Col>
-            <Col sm={4}>
+            </div>
+            <div className="sm:col-span-4">
               <Form.Select value={unit} onChange={(e) => setUnit(e.target.value as any)}>
                 <option value="day">{t('Day')}</option>
                 <option value="week">{t('Week')}</option>
                 <option value="month">{t('Month')}</option>
               </Form.Select>
-            </Col>
-            <Col xs={12}>
+            </div>
+            <div className="sm:col-span-12">
               <Form.Text className="text-muted">{summary}</Form.Text>
-            </Col>
+            </div>
           </Form.Group>
 
           {unit === 'week' && (

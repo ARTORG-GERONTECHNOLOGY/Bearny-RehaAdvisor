@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Col, Form, Row, Spinner } from 'react-bootstrap';
+import { Alert, Form, Spinner } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 
 import apiClient from '@/api/client';
@@ -157,8 +157,8 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
               ) : null}
             </div>
 
-            <Row className="g-2">
-              <Col md={8}>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+              <div className="md:col-span-8">
                 <Form.Group controlId={`q-builder-text-${idx}`}>
                   <Form.Label>{t('Question text')}</Form.Label>
                   <Form.Control
@@ -166,8 +166,8 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
                     onChange={(e) => updateQuestion(idx, { text: e.target.value })}
                   />
                 </Form.Group>
-              </Col>
-              <Col md={4}>
+              </div>
+              <div className="md:col-span-4">
                 <Form.Group controlId={`q-builder-type-${idx}`}>
                   <Form.Label>{t('Answer type')}</Form.Label>
                   <Form.Select
@@ -179,8 +179,8 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
                     <option value="multiple-choice">{t('Multiple choice')}</option>
                   </Form.Select>
                 </Form.Group>
-              </Col>
-            </Row>
+              </div>
+            </div>
 
             {q.type === 'one-choice' || q.type === 'multiple-choice' ? (
               <Form.Group className="mt-2" controlId={`q-builder-options-${idx}`}>
