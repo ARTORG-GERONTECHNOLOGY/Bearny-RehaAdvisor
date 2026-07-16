@@ -1,4 +1,3 @@
-/* eslint-disable */
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FitbitEntry } from '@/types/health';
@@ -73,7 +72,7 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, date }) => {
   }, [data, date]);
 
   if (!rows.length) {
-    return <div className="text-muted small">{t('No exercise sessions in this period.')}</div>;
+    return <div className="text-sm text-zinc-500">{t('No exercise sessions in this period.')}</div>;
   }
 
   return (
