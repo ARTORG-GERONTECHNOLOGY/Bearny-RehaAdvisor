@@ -15,7 +15,6 @@ type Props = {
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: 'sm' | 'lg' | 'xl';
-  centered?: boolean;
   backdrop?: true | 'static';
   keyboard?: boolean;
   className?: string;
