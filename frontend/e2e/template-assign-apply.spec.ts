@@ -495,7 +495,7 @@ test.describe('Template assign/apply — UI level', () => {
 
     // 1. Create a template via the UI
     await page.getByRole('button', { name: /\+ new/i }).click();
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await expect(modal).toBeVisible();
 
     const uniqueName = `E2E Apply Test ${Date.now()}`;
@@ -521,7 +521,7 @@ test.describe('Template assign/apply — UI level', () => {
     await page.getByRole('option', { name: uniqueName }).waitFor({ timeout: 5000 });
     await page.getByRole('combobox').first().selectOption({ label: uniqueName });
 
-    const applyModal = page.locator('.modal.show');
+    const applyModal = page.locator('[role="dialog"][data-state="open"]');
     await page.getByRole('button', { name: /^apply$/i }).click();
     await expect(applyModal).toBeVisible();
 
@@ -597,7 +597,7 @@ test.describe('Template assign/apply — UI level', () => {
       );
 
       await page.getByRole('button', { name: /^apply$/i }).click();
-      const applyModal = page.locator('.modal.show');
+      const applyModal = page.locator('[role="dialog"][data-state="open"]');
       await expect(applyModal).toBeVisible();
 
       const datePicker = applyModal.locator('input[type="date"]');

@@ -74,7 +74,7 @@ test.describe('Therapist Interventions — Templates tab', () => {
     await openTemplatesTab(page);
 
     await page.getByRole('button', { name: /\+ new/i }).click();
-    await expect(page.locator('.modal.show')).toBeVisible();
+    await expect(page.locator('[role="dialog"][data-state="open"]')).toBeVisible();
     await expect(page.getByRole('heading', { name: /new template/i })).toBeVisible();
   });
 
@@ -84,7 +84,7 @@ test.describe('Therapist Interventions — Templates tab', () => {
 
     await page.getByRole('button', { name: /\+ new/i }).click();
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await expect(modal).toBeVisible();
 
     const uniqueName = `E2E Template ${Date.now()}`;
@@ -166,7 +166,7 @@ test.describe('Therapist Interventions — Templates tab', () => {
     await expect(editBtn).toBeVisible();
     await editBtn.click();
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await expect(modal).toBeVisible();
     await expect(modal.getByRole('heading', { name: /edit template/i })).toBeVisible();
     // Public checkbox visible for own templates
@@ -195,7 +195,7 @@ test.describe('Therapist Interventions — Templates tab', () => {
     await selector.selectOption(namedOptionValue as string);
     await page.getByRole('button', { name: /^apply$/i }).click();
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await expect(modal).toBeVisible();
     await expect(modal.getByText(/Apply template to patient/i)).toBeVisible();
 
@@ -246,7 +246,7 @@ test.describe('Therapist Interventions — Templates tab', () => {
 
     // Create a template first so we can safely delete it
     await page.getByRole('button', { name: /\+ new/i }).click();
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     const uniqueName = `E2E Delete ${Date.now()}`;
     await modal.getByLabel(/template name/i).fill(uniqueName);
 

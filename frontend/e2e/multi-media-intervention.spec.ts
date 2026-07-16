@@ -37,7 +37,7 @@ async function openAddInterventionModal(page: Parameters<Parameters<typeof test>
     .first();
   await expect(addBtn).toBeVisible({ timeout: 10_000 });
   await addBtn.click();
-  await expect(page.locator('.modal.show')).toBeVisible({ timeout: 5_000 });
+  await expect(page.locator('[role="dialog"][data-state="open"]')).toBeVisible({ timeout: 5_000 });
 }
 
 async function openImportModal(page: Parameters<Parameters<typeof test>[1]>[0]) {
@@ -48,7 +48,7 @@ async function openImportModal(page: Parameters<Parameters<typeof test>[1]>[0]) 
     .first();
   await expect(importBtn).toBeVisible({ timeout: 10_000 });
   await importBtn.click();
-  await expect(page.locator('.modal.show')).toBeVisible({ timeout: 5_000 });
+  await expect(page.locator('[role="dialog"][data-state="open"]')).toBeVisible({ timeout: 5_000 });
 }
 
 test.describe('Multi-media per intervention', () => {
@@ -57,7 +57,7 @@ test.describe('Multi-media per intervention', () => {
     await loginAsTherapist(page);
     await openAddInterventionModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
 
     // The multi-media info alert should be visible
     await expect(modal.getByText(/You can add multiple media items/i)).toBeVisible({
@@ -73,7 +73,7 @@ test.describe('Multi-media per intervention', () => {
     await loginAsTherapist(page);
     await openAddInterventionModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     const addMediaBtn = modal.getByRole('button', { name: /Add media/i });
 
     // Click "Add media" twice to get 2 rows
@@ -90,7 +90,7 @@ test.describe('Multi-media per intervention', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
     await modal.getByRole('link', { name: /Upload Media/i }).click();
 
     await expect(modal.getByText(/Multiple media per intervention/i)).toBeVisible({
@@ -105,7 +105,7 @@ test.describe('Multi-media per intervention', () => {
     await loginAsTherapist(page);
     await openImportModal(page);
 
-    const modal = page.locator('.modal.show');
+    const modal = page.locator('[role="dialog"][data-state="open"]');
 
     // The Excel help text should contain the slot-2 example
     await expect(modal.getByText(/3500_web_de_2/i)).toBeVisible({ timeout: 5_000 });
