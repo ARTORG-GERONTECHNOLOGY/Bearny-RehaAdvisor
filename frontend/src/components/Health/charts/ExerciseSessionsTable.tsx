@@ -1,6 +1,5 @@
 /* eslint-disable */
 import React, { useMemo } from 'react';
-import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { FitbitEntry } from '@/types/health';
 import { isInRange } from '@/utils/healthCharts';
@@ -84,13 +83,7 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, date }) => {
           <TableHead>{t('Exercise')}</TableHead>
           <TableHead>{t('Duration')}</TableHead>
           <TableHead>{t('Avg HR')}</TableHead>
-          <TableHead>
-            <OverlayTrigger
-              overlay={<Tooltip>{t('Fitbit Peak heart-rate zone range (bpm)')}</Tooltip>}
-            >
-              <span>{t('Peak zone (bpm)')}</span>
-            </OverlayTrigger>
-          </TableHead>
+          <TableHead>{t('Peak zone (bpm)')}</TableHead>
           <TableHead>{t('Peak minutes')}</TableHead>
           <TableHead>{t('Calories')}</TableHead>
         </TableRow>
