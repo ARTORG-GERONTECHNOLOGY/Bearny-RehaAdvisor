@@ -61,7 +61,10 @@ const FitbitCard = observer(() => {
         )}
       </div>
 
-      <Sheet open={showConfirm} onOpenChange={(open) => !open && !isDisconnecting && setShowConfirm(false)}>
+      <Sheet
+        open={showConfirm}
+        onOpenChange={(open) => !open && !isDisconnecting && setShowConfirm(false)}
+      >
         <SheetContent
           side="bottom"
           className="flex flex-col max-w-lg mx-auto"
@@ -70,12 +73,14 @@ const FitbitCard = observer(() => {
         >
           <SheetHeader>
             <SheetTitle>{t('Disconnect Fitbit')}</SheetTitle>
-            <SheetDescription>
-              {t('disconnectFitbitConfirm')}
-            </SheetDescription>
+            <SheetDescription>{t('disconnectFitbitConfirm')}</SheetDescription>
           </SheetHeader>
           <SheetFooter>
-            <Button variant="secondary" onClick={() => setShowConfirm(false)} disabled={isDisconnecting}>
+            <Button
+              variant="secondary"
+              onClick={() => setShowConfirm(false)}
+              disabled={isDisconnecting}
+            >
               {t('Cancel')}
             </Button>
             <Button
