@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Table, Button, Spinner, Form, Badge, Alert, Nav, Tab } from 'react-bootstrap';
+import { Button, Spinner, Form, Badge, Alert, Nav, Tab } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -24,6 +24,14 @@ import PageHeader from '@/components/PageHeader';
 import LogoutFill from '@/assets/icons/logout-fill.svg?react';
 import { toLocalYMD, formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 type AccessModalState = {
   open: boolean;
@@ -590,43 +598,43 @@ const AdminDashboard: React.FC = observer(() => {
             ) : adminStore.pendingEntries.length === 0 ? (
               <p className="text-center text-muted">{t('No pending entries')}</p>
             ) : (
-              <Table striped bordered hover responsive>
-                <thead>
-                  <tr>
-                    <th>{t('Name')}</th>
-                    <th>{t('Email')}</th>
-                    <th>{t('Type')}</th>
-                    <th style={{ minWidth: 220 }}>{t('Clinics')}</th>
-                    <th style={{ minWidth: 220 }}>{t('Projects')}</th>
-                    <th style={{ minWidth: 260 }}>{t('Actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('Name')}</TableHead>
+                    <TableHead>{t('Email')}</TableHead>
+                    <TableHead>{t('Type')}</TableHead>
+                    <TableHead>{t('Clinics')}</TableHead>
+                    <TableHead>{t('Projects')}</TableHead>
+                    <TableHead>{t('Actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {adminStore.pendingEntries.map((entry: any) => {
                     const role = String(entry.role || '').toLowerCase();
                     const isTherapist = role === 'therapist';
                     const clinics: string[] = Array.isArray(entry?.clinics) ? entry.clinics : [];
                     const projects: string[] = Array.isArray(entry?.projects) ? entry.projects : [];
                     return (
-                      <tr key={entry.id}>
-                        <td>{entry.name || '—'}</td>
-                        <td>{entry.email || '—'}</td>
-                        <td>{t(entry.role)}</td>
-                        <td>
+                      <TableRow key={entry.id}>
+                        <TableCell>{entry.name || '—'}</TableCell>
+                        <TableCell>{entry.email || '—'}</TableCell>
+                        <TableCell>{t(entry.role)}</TableCell>
+                        <TableCell>
                           {isTherapist ? (
                             renderBadges(clinics, 'info')
                           ) : (
                             <span className="text-muted">—</span>
                           )}
-                        </td>
-                        <td>
+                        </TableCell>
+                        <TableCell>
                           {isTherapist ? (
                             renderBadges(projects, 'secondary')
                           ) : (
                             <span className="text-muted">—</span>
                           )}
-                        </td>
-                        <td className="d-flex gap-2 flex-wrap">
+                        </TableCell>
+                        <TableCell className="d-flex gap-2 flex-wrap">
                           {isTherapist && (
                             <Button
                               variant="outline-primary"
@@ -644,11 +652,11 @@ const AdminDashboard: React.FC = observer(() => {
                           >
                             {t('Decline')}
                           </Button>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
+                </TableBody>
               </Table>
             )}
           </Tab.Pane>
@@ -669,42 +677,42 @@ const AdminDashboard: React.FC = observer(() => {
             ) : changeRequests.length === 0 ? (
               <p className="text-center text-muted">{t('No pending access change requests')}</p>
             ) : (
-              <Table striped bordered hover responsive>
-                <thead>
-                  <tr>
-                    <th>{t('Therapist')}</th>
-                    <th>{t('Email')}</th>
-                    <th>{t('Current clinics')}</th>
-                    <th>{t('Current projects')}</th>
-                    <th>{t('Requested clinics')}</th>
-                    <th>{t('Requested projects')}</th>
-                    <th>{t('Submitted')}</th>
-                    <th style={{ minWidth: 200 }}>{t('Actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('Therapist')}</TableHead>
+                    <TableHead>{t('Email')}</TableHead>
+                    <TableHead>{t('Current clinics')}</TableHead>
+                    <TableHead>{t('Current projects')}</TableHead>
+                    <TableHead>{t('Requested clinics')}</TableHead>
+                    <TableHead>{t('Requested projects')}</TableHead>
+                    <TableHead>{t('Submitted')}</TableHead>
+                    <TableHead style={{ minWidth: 200 }}>{t('Actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {changeRequests.map((req) => (
-                    <tr key={req.id}>
-                      <td>{req.therapistName || '—'}</td>
-                      <td>{req.therapistEmail || '—'}</td>
-                      <td>{renderBadges(req.currentClinics, 'info')}</td>
-                      <td>{renderBadges(req.currentProjects, 'secondary')}</td>
-                      <td>{renderBadges(req.requestedClinics, 'primary')}</td>
-                      <td>{renderBadges(req.requestedProjects, 'dark')}</td>
-                      <td>
+                    <TableRow key={req.id}>
+                      <TableCell>{req.therapistName || '—'}</TableCell>
+                      <TableCell>{req.therapistEmail || '—'}</TableCell>
+                      <TableCell>{renderBadges(req.currentClinics, 'info')}</TableCell>
+                      <TableCell>{renderBadges(req.currentProjects, 'secondary')}</TableCell>
+                      <TableCell>{renderBadges(req.requestedClinics, 'primary')}</TableCell>
+                      <TableCell>{renderBadges(req.requestedProjects, 'dark')}</TableCell>
+                      <TableCell>
                         <small>{req.createdAt ? formatLocaleDate(req.createdAt) : '—'}</small>
-                      </td>
-                      <td className="d-flex gap-2 flex-wrap">
+                      </TableCell>
+                      <TableCell className="d-flex gap-2 flex-wrap">
                         <Button variant="success" size="sm" onClick={() => approveRequest(req.id)}>
                           {t('Approve')}
                         </Button>
                         <Button variant="danger" size="sm" onClick={() => openRejectModal(req.id)}>
                           {t('Decline')}
                         </Button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
+                </TableBody>
               </Table>
             )}
           </Tab.Pane>
@@ -742,29 +750,29 @@ const AdminDashboard: React.FC = observer(() => {
             ) : filteredInterventions.length === 0 ? (
               <p className="text-center text-muted">{t('No interventions found')}</p>
             ) : (
-              <Table striped bordered hover responsive>
-                <thead>
-                  <tr>
-                    <th>{t('ID')}</th>
-                    <th>{t('Title')}</th>
-                    <th>{t('Language')}</th>
-                    <th>{t('Type')}</th>
-                    <th>{t('Private')}</th>
-                    <th style={{ minWidth: 100 }}>{t('Actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('ID')}</TableHead>
+                    <TableHead>{t('Title')}</TableHead>
+                    <TableHead>{t('Language')}</TableHead>
+                    <TableHead>{t('Type')}</TableHead>
+                    <TableHead>{t('Private')}</TableHead>
+                    <TableHead style={{ minWidth: 100 }}>{t('Actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filteredInterventions.map((iv) => (
-                    <tr key={iv._id}>
-                      <td>
+                    <TableRow key={iv._id}>
+                      <TableCell>
                         <code>{iv.external_id}</code>
-                      </td>
-                      <td>{iv.title}</td>
-                      <td>
+                      </TableCell>
+                      <TableCell>{iv.title}</TableCell>
+                      <TableCell>
                         <Badge bg="secondary">{iv.language}</Badge>
-                      </td>
-                      <td>{iv.content_type}</td>
-                      <td>
+                      </TableCell>
+                      <TableCell>{iv.content_type}</TableCell>
+                      <TableCell>
                         {iv.is_private ? (
                           <Badge bg="warning" text="dark">
                             {t('Private')}
@@ -772,8 +780,8 @@ const AdminDashboard: React.FC = observer(() => {
                         ) : (
                           <Badge bg="success">{t('Public')}</Badge>
                         )}
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         <Button
                           variant="danger"
                           size="sm"
@@ -783,10 +791,10 @@ const AdminDashboard: React.FC = observer(() => {
                         >
                           {t('Delete')}
                         </Button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
+                </TableBody>
               </Table>
             )}
           </Tab.Pane>
@@ -824,29 +832,31 @@ const AdminDashboard: React.FC = observer(() => {
             ) : filteredQuestionnaires.length === 0 ? (
               <p className="text-center text-muted">{t('No questionnaires found')}</p>
             ) : (
-              <Table striped bordered hover responsive>
-                <thead>
-                  <tr>
-                    <th>{t('Key')}</th>
-                    <th>{t('Title')}</th>
-                    <th>{t('Tags')}</th>
-                    <th>{t('Questions')}</th>
-                    <th>{t('Used in plans')}</th>
-                    <th title={t('Increments each time an admin edits title, description or tags')}>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('Key')}</TableHead>
+                    <TableHead>{t('Title')}</TableHead>
+                    <TableHead>{t('Tags')}</TableHead>
+                    <TableHead>{t('Questions')}</TableHead>
+                    <TableHead>{t('Used in plans')}</TableHead>
+                    <TableHead
+                      title={t('Increments each time an admin edits title, description or tags')}
+                    >
                       {t('Version')}
-                    </th>
-                    <th>{t('Created by')}</th>
-                    <th style={{ minWidth: 140 }}>{t('Actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
+                    </TableHead>
+                    <TableHead>{t('Created by')}</TableHead>
+                    <TableHead style={{ minWidth: 140 }}>{t('Actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filteredQuestionnaires.map((qn) => (
-                    <tr key={qn._id}>
-                      <td>
+                    <TableRow key={qn._id}>
+                      <TableCell>
                         <code>{qn.key}</code>
-                      </td>
-                      <td>{qn.title}</td>
-                      <td>
+                      </TableCell>
+                      <TableCell>{qn.title}</TableCell>
+                      <TableCell>
                         {qn.tags?.length ? (
                           <div className="d-flex flex-wrap gap-1">
                             {qn.tags.map((tag) => (
@@ -858,9 +868,9 @@ const AdminDashboard: React.FC = observer(() => {
                         ) : (
                           <span className="text-muted">—</span>
                         )}
-                      </td>
-                      <td className="text-center">{qn.question_count}</td>
-                      <td className="text-center">
+                      </TableCell>
+                      <TableCell className="text-center">{qn.question_count}</TableCell>
+                      <TableCell className="text-center">
                         {qn.usage_count > 0 ? (
                           <Badge bg="warning" text="dark">
                             {qn.usage_count}
@@ -868,8 +878,8 @@ const AdminDashboard: React.FC = observer(() => {
                         ) : (
                           <span className="text-muted">0</span>
                         )}
-                      </td>
-                      <td
+                      </TableCell>
+                      <TableCell
                         className="text-center"
                         title={
                           qn.updatedAt
@@ -880,9 +890,11 @@ const AdminDashboard: React.FC = observer(() => {
                         <Badge bg={qn.version > 1 ? 'info' : 'light'} text="dark">
                           v{qn.version ?? 1}
                         </Badge>
-                      </td>
-                      <td>{qn.created_by_name || <span className="text-muted">—</span>}</td>
-                      <td className="d-flex gap-1">
+                      </TableCell>
+                      <TableCell>
+                        {qn.created_by_name || <span className="text-muted">—</span>}
+                      </TableCell>
+                      <TableCell className="d-flex gap-1">
                         <Button
                           variant="outline-primary"
                           size="sm"
@@ -904,10 +916,10 @@ const AdminDashboard: React.FC = observer(() => {
                         >
                           {t('Delete')}
                         </Button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
+                </TableBody>
               </Table>
             )}
           </Tab.Pane>
@@ -1038,29 +1050,29 @@ const AdminDashboard: React.FC = observer(() => {
                   })}
                 </div>
                 {Object.keys(deviceAnalytics.by_role).length > 0 && (
-                  <>
+                  <div className="max-w-[480px]">
                     <h6 className="mb-2">{t('By user role')}</h6>
-                    <Table bordered size="sm" style={{ maxWidth: 480 }}>
-                      <thead>
-                        <tr>
-                          <th>{t('Role')}</th>
-                          <th>Mobile</th>
-                          <th>Desktop</th>
-                          <th>Tablet</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t('Role')}</TableHead>
+                          <TableHead>Mobile</TableHead>
+                          <TableHead>Desktop</TableHead>
+                          <TableHead>Tablet</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {Object.entries(deviceAnalytics.by_role).map(([role, counts]) => (
-                          <tr key={role}>
-                            <td>{role}</td>
-                            <td>{counts['Mobile'] ?? 0}</td>
-                            <td>{counts['Desktop'] ?? 0}</td>
-                            <td>{counts['Tablet'] ?? 0}</td>
-                          </tr>
+                          <TableRow key={role}>
+                            <TableCell>{role}</TableCell>
+                            <TableCell>{counts['Mobile'] ?? 0}</TableCell>
+                            <TableCell>{counts['Desktop'] ?? 0}</TableCell>
+                            <TableCell>{counts['Tablet'] ?? 0}</TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
+                      </TableBody>
                     </Table>
-                  </>
+                  </div>
                 )}
               </div>
             ) : (
