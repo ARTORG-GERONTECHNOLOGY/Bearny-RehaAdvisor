@@ -125,7 +125,6 @@ describe('patientFitbitStore', () => {
     });
   });
 
-
   // ------------------------------------------------------------------
   // fetchSummary
   // ------------------------------------------------------------------
@@ -319,3 +318,5 @@ describe('patientFitbitStore', () => {
       (apiClient.delete as jest.Mock).mockRejectedValueOnce(new Error('network'));
       await expect(patientFitbitStore.disconnect()).rejects.toThrow('network');
     });
+  });
+});
