@@ -134,14 +134,14 @@ describe('patientFitbitStore', () => {
     it('requests the summary with the given day count', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: summaryPayload });
       await patientFitbitStore.fetchSummary('p1', 14);
-      expect(apiClient.get).toHaveBeenCalledWith('/fitbit/summary/p1/', { params: { days: 14 } });
+      expect(apiClient.get).toHaveBeenCalledWith('/google-health/summary/p1/', { params: { days: 14 } });
       expect(patientFitbitStore.summary).toEqual(summaryPayload);
     });
 
     it('defaults to 7 days', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: summaryPayload });
       await patientFitbitStore.fetchSummary('p1');
-      expect(apiClient.get).toHaveBeenCalledWith('/fitbit/summary/p1/', { params: { days: 7 } });
+      expect(apiClient.get).toHaveBeenCalledWith('/google-health/summary/p1/', { params: { days: 7 } });
     });
 
     it('caches the summary in sessionStorage after a successful fetch', async () => {
@@ -230,7 +230,7 @@ describe('patientFitbitStore', () => {
       await patientFitbitStore.refresh('p1');
 
       expect(apiClient.get).toHaveBeenNthCalledWith(1, '/google-health/status/p1/');
-      expect(apiClient.get).toHaveBeenNthCalledWith(2, '/fitbit/summary/p1/', {
+      expect(apiClient.get).toHaveBeenNthCalledWith(2, '/google-health/summary/p1/', {
         params: { days: 7 },
       });
     });
@@ -244,7 +244,7 @@ describe('patientFitbitStore', () => {
       await patientFitbitStore.refresh('p1');
 
       expect(apiClient.get).toHaveBeenCalledTimes(1);
-      expect(apiClient.get).toHaveBeenCalledWith('/fitbit/summary/p1/', { params: { days: 7 } });
+      expect(apiClient.get).toHaveBeenCalledWith('/google-health/summary/p1/', { params: { days: 7 } });
     });
   });
 
@@ -260,11 +260,11 @@ describe('patientFitbitStore', () => {
 
       await patientFitbitStore.submitManualSteps('p1', '2026-01-05', 4200);
 
-      expect(apiClient.post).toHaveBeenCalledWith('/fitbit/manual_steps/p1/', {
+      expect(apiClient.post).toHaveBeenCalledWith('/google-health/manual_steps/p1/', {
         date: '2026-01-05',
         steps: 4200,
       });
-      expect(apiClient.get).toHaveBeenCalledWith('/fitbit/summary/p1/', { params: { days: 7 } });
+      expect(apiClient.get).toHaveBeenCalledWith('/google-health/summary/p1/', { params: { days: 7 } });
     });
 
     it('clears any existing error before submitting', async () => {
