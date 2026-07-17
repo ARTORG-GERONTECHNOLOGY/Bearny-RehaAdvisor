@@ -110,6 +110,9 @@ def google_health_callback(request):
             set__refresh_token=td["refresh_token"],
             set__expires_at=timezone.now() + timedelta(seconds=td["expires_in"]),
             set__google_user_id=td.get("sub", ""),
+            set__connected_at=timezone.now(),
+            set__is_revoked=False,
+            set__revoked_at=None,
             upsert=True,
         )
         logger.info("[google_health_callback] token saved for user %s", user.id)
@@ -131,15 +134,39 @@ def google_health_callback(request):
 def google_health_status(request, patient_id):
     user = _resolve_user_for_fitbit_status(patient_id)
     if not user:
-        return JsonResponse({"connected": False, "has_data": False, "last_data": None})
+        return JsonResponse(
+            {"connected": False, "has_data": False, "last_data": None, "needs_reconnect": False, "days_until_expiry": None}
+        )
 
-    connected = GoogleHealthUserToken.objects(user=user).count() > 0
+    token = GoogleHealthUserToken.objects(user=user).first()
+    connected = bool(token) and not getattr(token, "is_revoked", False)
     latest = GoogleHealthData.objects(user=user).order_by("-date").first()
+
+    needs_reconnect = False
+    days_until_expiry = None
+    if token and connected and getattr(token, "connected_at", None):
+        connected_at = token.connected_at
+        if timezone.is_naive(connected_at):
+            connected_at = timezone.make_aware(connected_at)
+        elapsed = (timezone.now() - connected_at).days
+        days_until_expiry = max(0, 7 - elapsed)
+        needs_reconnect = elapsed >= 6
+
+    patient = None
+    try:
+        from core.models import Patient as _Patient
+        patient = _Patient.objects(userId=user).first()
+    except Exception:
+        pass
+
     return JsonResponse(
         {
             "connected": connected,
             "has_data": latest is not None,
             "last_data": latest.date.isoformat() if latest else None,
+            "needs_reconnect": needs_reconnect,
+            "days_until_expiry": days_until_expiry,
+            "wearable_device": getattr(patient, "wearable_device", "fitbit") or "fitbit",
         }
     )
 

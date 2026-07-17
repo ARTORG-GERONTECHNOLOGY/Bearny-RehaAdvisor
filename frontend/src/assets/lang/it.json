@@ -178,7 +178,6 @@
   "lastSync": "Ultima sincronizzazione: {{date}}",
   "today": "Oggi",
   "steps": "Passi",
-  "activeMinutes": "Minuti di zona attiva",
   "activeZoneMinutes": "Minuti di zona attiva",
   "fatBurnZone": "Brucia grassi",
   "cardioZone": "Cardio",
@@ -1410,5 +1409,9 @@
   "Engagement": "Coinvolgimento",
   "Cardiovascular": "Cardiovascolare",
   "Activity": "Attività",
-  "Sleep & Recovery": "Sonno e recupero"
+  "Sleep & Recovery": "Sonno e recupero",
+  "Reconnect": "Riconnetti",
+  "reconnectBannerWarning": "La connessione dei dati sanitari scade tra {{count}} giorno/i. Riconnettiti ora.",
+  "reconnectBannerExpired": "La connessione dei dati sanitari è scaduta. Riconnettiti per ripristinarla.",
+  "reconnectBannerReason": "La verifica dell'app richiede una nuova autorizzazione periodica."
 }

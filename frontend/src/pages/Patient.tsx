@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 
 import StatusBanner from '@/components/common/StatusBanner';
+import ReconnectBanner from '@/components/PatientPage/ReconnectBanner';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import ActivitySection from '@/components/PatientPage/ActivitySection';
@@ -166,7 +167,7 @@ const PatientView: React.FC = observer(() => {
 
         <StatusBanner type="success" message={pageSuccess} onClose={dismissPageSuccess} />
         <StatusBanner type="danger" message={pageError} onClose={dismissPageError} />
-
+        <ReconnectBanner />
         <ActivitySection
           loading={patientFitbitStore.connected === null || patientFitbitStore.summaryLoading}
           connected={Boolean(patientFitbitStore.connected)}

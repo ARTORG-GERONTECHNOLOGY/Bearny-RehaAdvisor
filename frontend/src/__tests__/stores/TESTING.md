@@ -89,5 +89,6 @@ intervention templates.
 | File                                 | Store                                                        |
 | ------------------------------------ | ------------------------------------------------------------ |
 | `adminStore.test.tsx`                | `AdminStore` — admin user management                         |
+| `patientFitbitStore.test.ts`         | `PatientFitbitStore` — `fetchStatus` reconnect fields (`needsReconnect`, `daysUntilExpiry`) populated from `/google-health/status/` response |
 | `patientQuestionnairesStore.test.ts` | `PatientQuestionnairesStore` — questionnaire fetch and state |
 | `patientVitalsStore.test.ts`         | `PatientVitalsStore` — vitals fetch and threshold checks     |

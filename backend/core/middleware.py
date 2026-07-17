@@ -65,6 +65,7 @@ _PUBLIC_PREFIXES: tuple[str, ...] = (
     "/api/auth/token/",  # covers /api/auth/token/refresh/
     "/api/healthslider/",  # ICF Monitor — own auth protocol
     "/api/fitbit/callback/",  # Fitbit OAuth server callback
+    "/api/google-health/callback/",  # Google OAuth server callback
 )
 
 
