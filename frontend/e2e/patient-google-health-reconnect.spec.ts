@@ -96,9 +96,7 @@ test.describe('Google Health reconnect banner', () => {
 
     await expect(page.getByRole('link', { name: /reconnect/i })).toBeVisible({ timeout: 8000 });
 
-    const href = await page
-      .getByRole('link', { name: /reconnect/i })
-      .getAttribute('href');
+    const href = await page.getByRole('link', { name: /reconnect/i }).getAttribute('href');
 
     expect(href).toContain('accounts.google.com');
     expect(href).toContain('googlehealth');

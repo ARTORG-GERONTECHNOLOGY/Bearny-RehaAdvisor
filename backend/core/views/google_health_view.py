@@ -135,7 +135,13 @@ def google_health_status(request, patient_id):
     user = _resolve_user_for_fitbit_status(patient_id)
     if not user:
         return JsonResponse(
-            {"connected": False, "has_data": False, "last_data": None, "needs_reconnect": False, "days_until_expiry": None}
+            {
+                "connected": False,
+                "has_data": False,
+                "last_data": None,
+                "needs_reconnect": False,
+                "days_until_expiry": None,
+            }
         )
 
     token = GoogleHealthUserToken.objects(user=user).first()
@@ -155,6 +161,7 @@ def google_health_status(request, patient_id):
     patient = None
     try:
         from core.models import Patient as _Patient
+
         patient = _Patient.objects(userId=user).first()
     except Exception:
         pass

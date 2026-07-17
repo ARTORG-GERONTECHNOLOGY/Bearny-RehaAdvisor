@@ -36,9 +36,7 @@ const ReconnectBanner: React.FC = observer(() => {
         <div className="font-bold text-sm text-zinc-800">
           {expired ? t('reconnectBannerExpired') : t('reconnectBannerWarning', { count: days })}
         </div>
-        <div className="font-medium text-xs text-zinc-500 mt-0.5">
-          {t('reconnectBannerReason')}
-        </div>
+        <div className="font-medium text-xs text-zinc-500 mt-0.5">{t('reconnectBannerReason')}</div>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
