@@ -18,16 +18,16 @@ the 7-day re-authorisation window imposed by Google's unverified-app testing mod
 
 ### Scenarios covered
 
-| Scenario | Expected behaviour |
-|---|---|
-| `needsReconnect=false` | Nothing rendered |
-| Already dismissed this session (sessionStorage key set) | Nothing rendered |
-| `needsReconnect=true`, `daysUntilExpiry >= 1` | Shows "expires in N day(s)" warning message |
-| `needsReconnect=true`, `daysUntilExpiry=0` | Shows "has expired" message |
-| `needsReconnect=true`, `daysUntilExpiry=null` | Shows "has expired" message (safe default) |
-| Reconnect link | Points to `accounts.google.com` OAuth URL containing the patient ID |
-| Dismiss click | Banner hidden; `reconnect_banner_dismissed_<id>` written to `sessionStorage` |
-| Dismiss uses localStorage id when present | `sessionStorage` key uses the correct patient ID |
+| Scenario                                                | Expected behaviour                                                           |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `needsReconnect=false`                                  | Nothing rendered                                                             |
+| Already dismissed this session (sessionStorage key set) | Nothing rendered                                                             |
+| `needsReconnect=true`, `daysUntilExpiry >= 1`           | Shows "expires in N day(s)" warning message                                  |
+| `needsReconnect=true`, `daysUntilExpiry=0`              | Shows "has expired" message                                                  |
+| `needsReconnect=true`, `daysUntilExpiry=null`           | Shows "has expired" message (safe default)                                   |
+| Reconnect link                                          | Points to `accounts.google.com` OAuth URL containing the patient ID          |
+| Dismiss click                                           | Banner hidden; `reconnect_banner_dismissed_<id>` written to `sessionStorage` |
+| Dismiss uses localStorage id when present               | `sessionStorage` key uses the correct patient ID                             |
 
 **7 tests**
 
@@ -35,15 +35,15 @@ the 7-day re-authorisation window imposed by Google's unverified-app testing mod
 
 ## Other files
 
-| File | Component |
-|---|---|
-| `ActivitySection.test.tsx` | `ActivitySection` — step/sleep/activity data layout |
-| `FeedbackPopup.test.tsx` | `FeedbackPopup` — intervention feedback sheet |
-| `FitbitStatus.test.tsx` | `FitbitStatus` / `GoogleHealthConnectButton` — connect button rendering |
-| `HealthCheckInSection.test.tsx` | `HealthCheckInSection` — daily vitals prompt |
-| `ManualBloodPressureSheet.test.tsx` | `ManualBloodPressureSheet` — BP manual entry |
-| `ManualStepsSheet.test.tsx` | `ManualStepsSheet` — steps manual entry |
-| `ManualWeightSheet.test.tsx` | `ManualWeightSheet` — weight manual entry |
-| `PatientInterventionPopUp.test.tsx` | `PatientInterventionPopUp` — intervention detail sheet |
-| `PatientQuestionaire.test.tsx` | `PatientQuestionaire` — questionnaire popup |
-| `ProgressIndicator.test.tsx` | `ProgressIndicator` — circular progress ring |
+| File                                | Component                                                               |
+| ----------------------------------- | ----------------------------------------------------------------------- |
+| `ActivitySection.test.tsx`          | `ActivitySection` — step/sleep/activity data layout                     |
+| `FeedbackPopup.test.tsx`            | `FeedbackPopup` — intervention feedback sheet                           |
+| `FitbitStatus.test.tsx`             | `FitbitStatus` / `GoogleHealthConnectButton` — connect button rendering |
+| `HealthCheckInSection.test.tsx`     | `HealthCheckInSection` — daily vitals prompt                            |
+| `ManualBloodPressureSheet.test.tsx` | `ManualBloodPressureSheet` — BP manual entry                            |
+| `ManualStepsSheet.test.tsx`         | `ManualStepsSheet` — steps manual entry                                 |
+| `ManualWeightSheet.test.tsx`        | `ManualWeightSheet` — weight manual entry                               |
+| `PatientInterventionPopUp.test.tsx` | `PatientInterventionPopUp` — intervention detail sheet                  |
+| `PatientQuestionaire.test.tsx`      | `PatientQuestionaire` — questionnaire popup                             |
+| `ProgressIndicator.test.tsx`        | `ProgressIndicator` — circular progress ring                            |

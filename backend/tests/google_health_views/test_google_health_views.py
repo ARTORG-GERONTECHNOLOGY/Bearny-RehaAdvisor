@@ -210,9 +210,7 @@ def test_callback_sets_connected_at_on_success(mock_post):
         },
     )
 
-    resp = client.get(
-        f"/api/google-health/callback/?code=testcode&state={user.id}"
-    )
+    resp = client.get(f"/api/google-health/callback/?code=testcode&state={user.id}")
     assert resp.status_code == 302
 
     token = GoogleHealthUserToken.objects(user=user).first()
