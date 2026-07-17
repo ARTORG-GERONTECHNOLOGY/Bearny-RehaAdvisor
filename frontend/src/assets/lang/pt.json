@@ -1442,5 +1442,9 @@
   "e.g. Called patient, left voicemail.": "por ex. Paciente contactado, mensagem deixada no atendedor de chamadas.",
   "Failed to add comment.": "Falha ao adicionar o comentário.",
   "Failed to load comments.": "Falha ao carregar os comentários.",
-  "Failed to update flag.": "Falha ao atualizar a sinalização."
+  "Failed to update flag.": "Falha ao atualizar a sinalização.",
+  "Reconnect": "Reconectar",
+  "reconnectBannerWarning": "A sua ligação de dados de saúde expira em {{count}} dia(s). Reconecte-se agora.",
+  "reconnectBannerExpired": "A sua ligação de dados de saúde expirou. Reconecte-se para a restaurar.",
+  "reconnectBannerReason": "A verificação da aplicação requer re-autorização periódica."
 }

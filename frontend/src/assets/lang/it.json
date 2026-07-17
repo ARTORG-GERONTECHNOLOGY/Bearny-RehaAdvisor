@@ -1442,5 +1442,9 @@
   "e.g. Called patient, left voicemail.": "ad es. Paziente chiamato, lasciato messaggio in segreteria.",
   "Failed to add comment.": "Impossibile aggiungere il commento.",
   "Failed to load comments.": "Impossibile caricare i commenti.",
-  "Failed to update flag.": "Impossibile aggiornare la segnalazione."
+  "Failed to update flag.": "Impossibile aggiornare la segnalazione.",
+  "Reconnect": "Riconnetti",
+  "reconnectBannerWarning": "La connessione dei dati sanitari scade tra {{count}} giorno/i. Riconnettiti ora.",
+  "reconnectBannerExpired": "La connessione dei dati sanitari è scaduta. Riconnettiti per ripristinarla.",
+  "reconnectBannerReason": "La verifica dell'app richiede una nuova autorizzazione periodica."
 }

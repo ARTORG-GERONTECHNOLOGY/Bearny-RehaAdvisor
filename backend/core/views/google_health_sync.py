@@ -56,6 +56,11 @@ def get_valid_google_access_token(user) -> str:
                     resp.status_code,
                     resp.text,
                 )
+                if "invalid_grant" in resp.text:
+                    token.is_revoked = True
+                    token.revoked_at = timezone.now()
+                    token.save()
+                    logger.warning("[google_health] Token revoked (invalid_grant) for user %s", user.id)
                 raise Exception("Failed to refresh Google access token")
         except Exception:
             logger.exception("[google_health] Exception refreshing token for user %s", user.id)

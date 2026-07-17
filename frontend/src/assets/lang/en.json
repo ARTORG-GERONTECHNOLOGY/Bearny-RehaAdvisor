@@ -1442,5 +1442,9 @@
   "e.g. Called patient, left voicemail.": "e.g. Called patient, left voicemail.",
   "Failed to add comment.": "Failed to add comment.",
   "Failed to load comments.": "Failed to load comments.",
-  "Failed to update flag.": "Failed to update flag."
+  "Failed to update flag.": "Failed to update flag.",
+  "Reconnect": "Reconnect",
+  "reconnectBannerWarning": "Your health data connection expires in {{count}} day(s). Reconnect now to keep your data flowing.",
+  "reconnectBannerExpired": "Your health data connection has expired. Reconnect to restore it.",
+  "reconnectBannerReason": "App verification requires periodic re-authorisation."
 }

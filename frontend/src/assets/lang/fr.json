@@ -1442,5 +1442,9 @@
   "e.g. Called patient, left voicemail.": "p. ex. Patient appelé, message vocal laissé.",
   "Failed to add comment.": "Échec de l'ajout du commentaire.",
   "Failed to load comments.": "Échec du chargement des commentaires.",
-  "Failed to update flag.": "Échec de la mise à jour du signalement."
+  "Failed to update flag.": "Échec de la mise à jour du signalement.",
+  "Reconnect": "Reconnecter",
+  "reconnectBannerWarning": "Votre connexion de données de santé expire dans {{count}} jour(s). Reconnectez-vous pour continuer.",
+  "reconnectBannerExpired": "Votre connexion de données de santé a expiré. Reconnectez-vous pour la rétablir.",
+  "reconnectBannerReason": "La vérification de l'application nécessite une ré-autorisation périodique."
 }

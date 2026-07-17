@@ -1442,5 +1442,9 @@
   "e.g. Called patient, left voicemail.": "bijv. Patiënt gebeld, voicemail achtergelaten.",
   "Failed to add comment.": "Toevoegen van opmerking mislukt.",
   "Failed to load comments.": "Laden van opmerkingen mislukt.",
-  "Failed to update flag.": "Bijwerken van markering mislukt."
+  "Failed to update flag.": "Bijwerken van markering mislukt.",
+  "Reconnect": "Opnieuw verbinden",
+  "reconnectBannerWarning": "Uw gezondheidsdataverbinding verloopt over {{count}} dag(en). Verbind opnieuw om uw data bij te houden.",
+  "reconnectBannerExpired": "Uw gezondheidsdataverbinding is verlopen. Verbind opnieuw om deze te herstellen.",
+  "reconnectBannerReason": "App-verificatie vereist periodieke hertoestemming."
 }

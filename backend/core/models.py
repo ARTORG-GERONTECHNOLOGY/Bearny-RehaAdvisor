@@ -172,6 +172,9 @@ class GoogleHealthUserToken(Document):
     refresh_token = StringField(required=True, max_length=2048)
     expires_at = DateTimeField()
     google_user_id = StringField()  # Google "sub" claim
+    connected_at = DateTimeField()  # set on every successful auth code exchange
+    is_revoked = BooleanField(default=False)  # True when refresh fails with invalid_grant
+    revoked_at = DateTimeField(null=True)
 
 
 class GoogleHealthData(Document):
