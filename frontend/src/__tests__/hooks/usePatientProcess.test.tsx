@@ -66,7 +66,7 @@ describe('usePatientProcess', () => {
         });
       }
 
-      if (url.includes('/fitbit/summary/')) {
+      if (url.includes('/google-health/summary/')) {
         return Promise.resolve({
           data: {
             thresholds: {
@@ -118,7 +118,7 @@ describe('usePatientProcess', () => {
         }),
       })
     );
-    expect(apiClient.get).toHaveBeenNthCalledWith(2, '/fitbit/summary/patient-123/', {
+    expect(apiClient.get).toHaveBeenNthCalledWith(2, '/google-health/summary/patient-123/', {
       params: { days: 7 },
     });
 
@@ -195,7 +195,7 @@ describe('usePatientProcess', () => {
     });
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/fitbit/summary/patient-123/', {
+      expect(apiClient.get).toHaveBeenCalledWith('/google-health/summary/patient-123/', {
         params: { days: 30 },
       });
     });
@@ -211,7 +211,7 @@ describe('usePatientProcess', () => {
       if (url.includes('/patients/health-combined-history/')) {
         return Promise.resolve({ data: { adherence: [] } });
       }
-      if (url.includes('/fitbit/summary/')) {
+      if (url.includes('/google-health/summary/')) {
         return Promise.resolve({
           data: {
             thresholds: {
