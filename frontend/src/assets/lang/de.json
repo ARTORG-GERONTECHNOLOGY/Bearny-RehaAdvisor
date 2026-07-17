@@ -178,7 +178,6 @@
   "lastSync": "Letzte Synchronisierung: {{date}}",
   "today": "Heute",
   "steps": "Schritte",
-  "activeMinutes": "Aktive Zonenminuten",
   "activeZoneMinutes": "Aktive Zonenminuten",
   "fatBurnZone": "Fettverbrennung",
   "cardioZone": "Cardio",
@@ -1410,5 +1409,9 @@
   "Engagement": "Engagement",
   "Cardiovascular": "Herz-Kreislauf",
   "Activity": "Aktivität",
-  "Sleep & Recovery": "Schlaf & Erholung"
+  "Sleep & Recovery": "Schlaf & Erholung",
+  "Reconnect": "Erneut verbinden",
+  "reconnectBannerWarning": "Ihre Gesundheitsdatenverbindung läuft in {{count}} Tag(en) ab. Verbinden Sie sich jetzt erneut.",
+  "reconnectBannerExpired": "Ihre Gesundheitsdatenverbindung ist abgelaufen. Verbinden Sie sich erneut.",
+  "reconnectBannerReason": "Die App-Verifizierung erfordert eine regelmäßige erneute Autorisierung."
 }

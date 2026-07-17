@@ -172,7 +172,6 @@
   "lastSync": "Laatste synchronisatie: {{date}}",
   "today": "Vandaag",
   "steps": "Stappen",
-  "activeMinutes": "Actieve zoneminuten",
   "activeZoneMinutes": "Actieve zoneminuten",
   "fatBurnZone": "Vetverbranding",
   "cardioZone": "Cardio",
@@ -1410,5 +1409,9 @@
   "Engagement": "Betrokkenheid",
   "Cardiovascular": "Cardiovasculair",
   "Activity": "Activiteit",
-  "Sleep & Recovery": "Slaap & Herstel"
+  "Sleep & Recovery": "Slaap & Herstel",
+  "Reconnect": "Opnieuw verbinden",
+  "reconnectBannerWarning": "Uw gezondheidsdataverbinding verloopt over {{count}} dag(en). Verbind opnieuw om uw data bij te houden.",
+  "reconnectBannerExpired": "Uw gezondheidsdataverbinding is verlopen. Verbind opnieuw om deze te herstellen.",
+  "reconnectBannerReason": "App-verificatie vereist periodieke hertoestemming."
 }

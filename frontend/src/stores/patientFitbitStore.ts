@@ -91,6 +91,8 @@ class PatientFitbitStore {
   connected: boolean | null = null;
   statusLoading = false;
   wearableDevice: 'fitbit' | 'omron' | 'none' = 'fitbit';
+  needsReconnect = false;
+  daysUntilExpiry: number | null = null;
 
   summary: FitbitSummary | null = null;
   summaryLoading = false;
@@ -135,6 +137,8 @@ class PatientFitbitStore {
       const { data } = await apiClient.get(`/google-health/status/${patientId}/`);
       runInAction(() => {
         this.connected = !!data?.connected;
+        this.needsReconnect = !!data?.needs_reconnect;
+        this.daysUntilExpiry = data?.days_until_expiry ?? null;
         if (data?.wearable_device && ['fitbit', 'omron', 'none'].includes(data.wearable_device)) {
           this.wearableDevice = data.wearable_device;
         }
