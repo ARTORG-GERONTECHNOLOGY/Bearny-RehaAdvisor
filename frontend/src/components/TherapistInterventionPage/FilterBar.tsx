@@ -218,6 +218,7 @@ const FilterBar: React.FC<Props> = ({
           >
             <Dropdown.Toggle
               as={Button}
+              // TODO: type cast needed until Bootstrap Dropdown is removed in a future bootstrap removal task
               size={'dashboard' as 'sm' | 'lg'}
               variant="secondary"
               onClick={(e) => {
