@@ -1,11 +1,13 @@
 // src/components/HomePage/RegisteringForm.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Modal, Spinner } from 'react-bootstrap';
 import Select from 'react-select';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../api/client';
 import config from '../../config/config.json';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 interface FormDataShape {
   [key: string]: any; // string | string[]
@@ -42,7 +44,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     phone: '',
     specialisation: [],
     clinic: [],
-    projects: [], // ✅ NEW
+    projects: [],
     researcherInfo: '',
     adminInfo: '',
     function: [],
@@ -498,295 +500,305 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     Array.isArray(formData.clinic) && (formData.clinic as string[]).length === 0;
 
   return (
-    <Modal
-      show={show}
-      onHide={handleCloseForm}
-      onEscapeKeyDown={(e) => {
-        e.preventDefault();
-        confirmClose();
-      }}
-      centered
-      size="lg"
-      backdrop="static"
-      keyboard
-    >
-      <Modal.Header closeButton>
-        <Modal.Title>{t('Register')}</Modal.Title>
-      </Modal.Header>
+    <Sheet open={show} onOpenChange={(open) => !open && confirmClose()}>
+      <SheetContent
+        side="bottom"
+        className="max-h-[90vh] flex flex-col"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          e.preventDefault();
+          confirmClose();
+        }}
+      >
+        <SheetHeader>
+          <SheetTitle>{t('Register')}</SheetTitle>
+        </SheetHeader>
 
-      <Modal.Body>
-        {formError && (
-          <div className="alert alert-danger">
-            <div className="d-flex justify-content-between align-items-center">
-              <span style={{ whiteSpace: 'pre-line' }}>{formError}</span>
+        <div className="flex-1 overflow-y-auto">
+          {formError && (
+            <div className="alert alert-danger">
+              <div className="d-flex justify-content-between align-items-center">
+                <span style={{ whiteSpace: 'pre-line' }}>{formError}</span>
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label={t('Close')}
+                  onClick={() => {
+                    setFormError(null);
+                    setServerDetail(null);
+                    setShowDetails(false);
+                  }}
+                />
+              </div>
+
+              {serverDetail && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    className="btn btn-link p-0"
+                    onClick={() => setShowDetails((v) => !v)}
+                  >
+                    {t('Additional information')}
+                  </button>
+                  {showDetails && (
+                    <pre className="small bg-light p-2 border rounded mt-1 mb-0">
+                      {t('Status')}: {serverDetail.status ?? '-'}
+                      {'\n'}
+                      {serverDetail.message}
+                    </pre>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="alert alert-success d-flex justify-content-between align-items-center">
+              <span>{successMsg}</span>
               <button
                 type="button"
                 className="btn-close"
                 aria-label={t('Close')}
-                onClick={() => {
-                  setFormError(null);
-                  setServerDetail(null);
-                  setShowDetails(false);
-                }}
+                onClick={() => setSuccessMsg(null)}
               />
             </div>
+          )}
 
-            {serverDetail && (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  className="btn btn-link p-0"
-                  onClick={() => setShowDetails((v) => !v)}
-                >
-                  {t('Additional information')}
-                </button>
-                {showDetails && (
-                  <pre className="small bg-light p-2 border rounded mt-1 mb-0">
-                    {t('Status')}: {serverDetail.status ?? '-'}
-                    {'\n'}
-                    {serverDetail.message}
-                  </pre>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+          <form
+            onSubmit={handleSubmit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+                e.preventDefault();
+              }
+            }}
+          >
+            <fieldset disabled={loading || !!successMsg}>
+              <h4 className="mb-3">{t(formSteps[step]?.title)}</h4>
 
-        {successMsg && (
-          <div className="alert alert-success d-flex justify-content-between align-items-center">
-            <span>{successMsg}</span>
-            <button
-              type="button"
-              className="btn-close"
-              aria-label={t('Close')}
-              onClick={() => setSuccessMsg(null)}
-            />
-          </div>
-        )}
+              {currentFields.map((field: any) => {
+                const isRequired = !!field.required;
+                const labelText = (
+                  <>
+                    {t(field.label)} {isRequired && <span className="text-danger">*</span>}
+                  </>
+                );
 
-        <form onSubmit={handleSubmit}>
-          <fieldset disabled={loading || !!successMsg}>
-            <h4 className="mb-3">{t(formSteps[step]?.title)}</h4>
+                const valueArr: string[] = Array.isArray(formData[field.name])
+                  ? (formData[field.name] as string[])
+                  : [];
 
-            {currentFields.map((field: any) => {
-              const isRequired = !!field.required;
-              const labelText = (
-                <>
-                  {t(field.label)} {isRequired && <span className="text-danger">*</span>}
-                </>
-              );
+                return (
+                  <div key={field.name} className="mb-3">
+                    <label htmlFor={field.name} className="form-label">
+                      {labelText}
+                    </label>
 
-              const valueArr: string[] = Array.isArray(formData[field.name])
-                ? (formData[field.name] as string[])
-                : [];
+                    {field.type === 'multi-select' ? (
+                      <>
+                        <Select
+                          id={field.name}
+                          isMulti
+                          isDisabled={field.name === 'projects' ? projectsDisabled : false}
+                          placeholder={
+                            field.name === 'projects' && projectsDisabled
+                              ? t('Select clinic(s) first...')
+                              : t('Select...')
+                          }
+                          value={valueArr.map((val) => ({ value: val, label: t(val) }))}
+                          options={
+                            field.name === 'diagnosis' && (formData.function || []).length > 0
+                              ? (formData.function as string[]).flatMap((spec: string) =>
+                                  (specialityDiagnosisMap[spec] || []).map((diag) => ({
+                                    value: diag,
+                                    label: t(diag),
+                                  }))
+                                )
+                              : field.name === 'specialisation' ||
+                                  field.name === 'clinic' ||
+                                  field.name === 'projects'
+                                ? getOptionsForField(field.name)
+                                : (field.options || []).map((opt: string) => ({
+                                    value: opt,
+                                    label: t(opt),
+                                  }))
+                          }
+                          onChange={(options) => handleMultiSelectChange(options, field.name)}
+                        />
 
-              return (
-                <div key={field.name} className="mb-3">
-                  <label htmlFor={field.name} className="form-label">
-                    {labelText}
-                  </label>
-
-                  {field.type === 'multi-select' ? (
-                    <>
-                      <Select
+                        {field.name === 'projects' && !projectsDisabled && (
+                          <div className="text-muted small mt-1">
+                            {t('Available projects based on selected clinic(s).')}
+                          </div>
+                        )}
+                      </>
+                    ) : field.type === 'dropdown' ? (
+                      <select
                         id={field.name}
-                        isMulti
-                        isDisabled={field.name === 'projects' ? projectsDisabled : false}
-                        placeholder={
-                          field.name === 'projects' && projectsDisabled
-                            ? t('Select clinic(s) first...')
-                            : t('Select...')
-                        }
-                        value={valueArr.map((val) => ({ value: val, label: t(val) }))}
-                        options={
-                          field.name === 'diagnosis' && (formData.function || []).length > 0
-                            ? (formData.function as string[]).flatMap((spec: string) =>
-                                (specialityDiagnosisMap[spec] || []).map((diag) => ({
-                                  value: diag,
-                                  label: t(diag),
-                                }))
-                              )
-                            : field.name === 'specialisation' ||
-                                field.name === 'clinic' ||
-                                field.name === 'projects'
-                              ? getOptionsForField(field.name)
-                              : (field.options || []).map((opt: string) => ({
-                                  value: opt,
-                                  label: t(opt),
-                                }))
-                        }
-                        onChange={(options) => handleMultiSelectChange(options, field.name)}
-                      />
-
-                      {field.name === 'projects' && !projectsDisabled && (
-                        <div className="text-muted small mt-1">
-                          {t('Available projects based on selected clinic(s).')}
-                        </div>
-                      )}
-                    </>
-                  ) : field.type === 'dropdown' ? (
-                    <select
-                      id={field.name}
-                      className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
-                      value={String(formData[field.name] || '')}
-                      onChange={handleChange}
-                      onBlur={() => {
-                        setErrors((prev) => {
-                          const next = { ...prev };
-                          if (next[field.name]) delete next[field.name];
-                          return next;
-                        });
-                      }}
-                    >
-                      <option value="">
-                        {t('Select')} {t(field.label)}
-                      </option>
-                      {(field.options || []).map((opt: string) => (
-                        <option key={opt} value={opt}>
-                          {t(opt)}
+                        className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
+                        value={String(formData[field.name] || '')}
+                        onChange={handleChange}
+                        onBlur={() => {
+                          setErrors((prev) => {
+                            const next = { ...prev };
+                            if (next[field.name]) delete next[field.name];
+                            return next;
+                          });
+                        }}
+                      >
+                        <option value="">
+                          {t('Select')} {t(field.label)}
                         </option>
-                      ))}
-                    </select>
-                  ) : field.type === 'password' ? (
-                    <div className="position-relative">
+                        {(field.options || []).map((opt: string) => (
+                          <option key={opt} value={opt}>
+                            {t(opt)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : field.type === 'password' ? (
+                      <div className="position-relative">
+                        <input
+                          type={
+                            field.name === 'password'
+                              ? showPassword
+                                ? 'text'
+                                : 'password'
+                              : showRepeatPassword
+                                ? 'text'
+                                : 'password'
+                          }
+                          className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
+                          id={field.name}
+                          value={String(formData[field.name] || '')}
+                          onChange={handleChange}
+                          aria-describedby={`${field.name}-help`}
+                          autoComplete="new-password"
+                        />
+                        <span
+                          className="position-absolute end-0 top-50 translate-middle-y me-3"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() =>
+                            togglePassword(field.name === 'password' ? 'main' : 'repeat')
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              togglePassword(field.name === 'password' ? 'main' : 'repeat');
+                            }
+                          }}
+                          aria-label={t('Toggle password visibility')}
+                        >
+                          {field.name === 'password' ? (
+                            showPassword ? (
+                              <FaEye />
+                            ) : (
+                              <FaEyeSlash />
+                            )
+                          ) : showRepeatPassword ? (
+                            <FaEye />
+                          ) : (
+                            <FaEyeSlash />
+                          )}
+                        </span>
+
+                        {errors[field.name] && (
+                          <div
+                            id={`${field.name}-help`}
+                            className="mt-1 small text-danger"
+                            aria-live="polite"
+                          >
+                            {errors[field.name]}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
                       <input
-                        type={
-                          field.name === 'password'
-                            ? showPassword
-                              ? 'text'
-                              : 'password'
-                            : showRepeatPassword
-                              ? 'text'
-                              : 'password'
-                        }
+                        type={field.type}
                         className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
                         id={field.name}
                         value={String(formData[field.name] || '')}
                         onChange={handleChange}
-                        aria-describedby={`${field.name}-help`}
-                        autoComplete="new-password"
-                      />
-                      <span
-                        className="position-absolute end-0 top-50 translate-middle-y me-3"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() =>
-                          togglePassword(field.name === 'password' ? 'main' : 'repeat')
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            togglePassword(field.name === 'password' ? 'main' : 'repeat');
-                          }
+                        onBlur={() => {
+                          setErrors((prev) => {
+                            const next = { ...prev };
+
+                            if (field.name === 'email' && formData.email) {
+                              if (!isValidEmailStrict(formData.email))
+                                next.email = t('Invalid email address.');
+                              else delete next.email;
+                            }
+
+                            if (
+                              (field.name === 'firstName' || field.name === 'lastName') &&
+                              formData[field.name]
+                            ) {
+                              if (!isValidHumanName(String(formData[field.name])))
+                                next[field.name] = t('Please enter a valid name (letters only).');
+                              else delete next[field.name];
+                            }
+
+                            if (field.name === 'phone' && formData.phone) {
+                              if (!/^\d{8,15}$/.test(String(formData.phone)))
+                                next.phone = t('Invalid phone number. Enter 8-15 digits only.');
+                              else delete next.phone;
+                            }
+
+                            return next;
+                          });
                         }}
-                        aria-label={t('Toggle password visibility')}
-                      >
-                        {field.name === 'password' ? (
-                          showPassword ? (
-                            <FaEye />
-                          ) : (
-                            <FaEyeSlash />
-                          )
-                        ) : showRepeatPassword ? (
-                          <FaEye />
-                        ) : (
-                          <FaEyeSlash />
-                        )}
-                      </span>
+                      />
+                    )}
 
-                      {errors[field.name] && (
-                        <div
-                          id={`${field.name}-help`}
-                          className="mt-1 small text-danger"
-                          aria-live="polite"
-                        >
-                          {errors[field.name]}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <input
-                      type={field.type}
-                      className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
-                      id={field.name}
-                      value={String(formData[field.name] || '')}
-                      onChange={handleChange}
-                      onBlur={() => {
-                        setErrors((prev) => {
-                          const next = { ...prev };
+                    {field.type !== 'password' && errors[field.name] && (
+                      <div className="text-danger mt-1" aria-live="polite">
+                        {errors[field.name]}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </fieldset>
 
-                          if (field.name === 'email' && formData.email) {
-                            if (!isValidEmailStrict(formData.email))
-                              next.email = t('Invalid email address.');
-                            else delete next.email;
-                          }
-
-                          if (
-                            (field.name === 'firstName' || field.name === 'lastName') &&
-                            formData[field.name]
-                          ) {
-                            if (!isValidHumanName(String(formData[field.name])))
-                              next[field.name] = t('Please enter a valid name (letters only).');
-                            else delete next[field.name];
-                          }
-
-                          if (field.name === 'phone' && formData.phone) {
-                            if (!/^\d{8,15}$/.test(String(formData.phone)))
-                              next.phone = t('Invalid phone number. Enter 8-15 digits only.');
-                            else delete next.phone;
-                          }
-
-                          return next;
-                        });
-                      }}
-                    />
-                  )}
-
-                  {field.type !== 'password' && errors[field.name] && (
-                    <div className="text-danger mt-1" aria-live="polite">
-                      {errors[field.name]}
-                    </div>
-                  )}
+            <div className="d-flex justify-content-between mt-4">
+              {successMsg ? (
+                <div className="ms-auto">
+                  <Button
+                    type="button"
+                    onClick={handleCloseForm}
+                    aria-label={t('Close and return to login')}
+                  >
+                    {t('Close')}
+                  </Button>
                 </div>
-              );
-            })}
-          </fieldset>
+              ) : step > 0 ? (
+                <>
+                  <Button type="button" variant="secondary" onClick={prevStep} disabled={loading}>
+                    {t('Back')}
+                  </Button>
 
-          <div className="d-flex justify-content-between mt-4">
-            {successMsg ? (
-              <div className="ms-auto">
-                <Button variant="primary" onClick={handleCloseForm}>
-                  {t('Close')}
-                </Button>
-              </div>
-            ) : step > 0 ? (
-              <>
-                <Button variant="secondary" onClick={prevStep} disabled={loading}>
-                  {t('Back')}
-                </Button>
-
-                {step < formSteps.length - 1 ? (
-                  <Button variant="primary" onClick={nextStep} disabled={loading}>
+                  {step < formSteps.length - 1 ? (
+                    <Button key="next" type="button" onClick={nextStep} disabled={loading}>
+                      {t('Next')}
+                    </Button>
+                  ) : (
+                    <Button key="submit" type="submit" disabled={loading}>
+                      {loading ? <Spinner /> : t('Submit')}
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span />
+                  <Button type="button" onClick={nextStep} disabled={loading}>
                     {t('Next')}
                   </Button>
-                ) : (
-                  <Button type="submit" variant="success" disabled={loading}>
-                    {loading ? <Spinner size="sm" /> : t('Submit')}
-                  </Button>
-                )}
-              </>
-            ) : (
-              <>
-                <span />
-                <Button variant="primary" onClick={nextStep} disabled={loading}>
-                  {t('Next')}
-                </Button>
-              </>
-            )}
-          </div>
-        </form>
-      </Modal.Body>
-    </Modal>
+                </>
+              )}
+            </div>
+          </form>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 };
 

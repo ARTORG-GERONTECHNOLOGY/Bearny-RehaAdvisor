@@ -29,13 +29,23 @@
  *     audio files (fetched one-by-one) + a CSV summary with ratings and timestamps.
  */
 
-import React, { useState } from 'react';
-import { Button, Table, Spinner, Form } from 'react-bootstrap';
+import { useState } from 'react';
+import { Form } from 'react-bootstrap';
 import { zipSync, strToU8 } from 'fflate';
 import { toISODateUTC, formatLocaleDateTime } from '@/utils/dateFormat';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 import axios from 'axios';
 import apiClient from '../api/client';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 export default function DownloadsPage() {
   // --- auth gate ---
@@ -221,8 +231,8 @@ export default function DownloadsPage() {
               />
             </Form.Group>
             {authError && <p className="text-danger mb-3">{authError}</p>}
-            <Button onClick={submitPassword} disabled={authLoading}>
-              {authLoading ? <Spinner size="sm" /> : 'Send code'}
+            <Button size="dashboard" onClick={submitPassword} disabled={authLoading}>
+              {authLoading ? <Spinner /> : 'Send code'}
             </Button>
           </>
         ) : (
@@ -243,10 +253,10 @@ export default function DownloadsPage() {
               />
             </Form.Group>
             {authError && <p className="text-danger mb-3">{authError}</p>}
-            <Button onClick={submitCode} disabled={authLoading} className="me-2">
-              {authLoading ? <Spinner size="sm" /> : 'Verify'}
+            <Button size="dashboard" onClick={submitCode} disabled={authLoading} className="me-2">
+              {authLoading ? <Spinner /> : 'Verify'}
             </Button>
-            <Button variant="outline-secondary" onClick={() => setStep('password')}>
+            <Button size="dashboard" variant="secondary" onClick={() => setStep('password')}>
               Back
             </Button>
           </>
@@ -262,7 +272,7 @@ export default function DownloadsPage() {
     >
       <div className="d-flex align-items-center justify-content-between mb-4">
         <h3 className="mb-0">Admin Dashboard (V2.2)</h3>
-        <Button variant="outline-danger" size="sm" onClick={logout}>
+        <Button size="dashboard" variant="secondary" onClick={logout}>
           Logout
         </Button>
       </div>
@@ -278,43 +288,43 @@ export default function DownloadsPage() {
           </Form.Group>
         </div>
         <div className="md:col-span-8">
-          <Button onClick={fetchItems} variant="primary" className="me-2 px-4 shadow-sm">
+          <Button size="dashboard" onClick={fetchItems} className="me-2">
             Search
           </Button>
           <Button
-            variant="success"
+            size="dashboard"
             onClick={downloadAll}
             disabled={!items.length || loading}
             className="px-4 shadow-sm"
           >
-            {loading ? <Spinner size="sm" /> : 'Download All (ZIP + CSV)'}
+            {loading ? <Spinner /> : 'Download All (ZIP + CSV)'}
           </Button>
         </div>
       </div>
 
-      <Table striped bordered hover responsive className="mt-2 align-middle">
-        <thead className="table-dark">
-          <tr>
-            <th className="text-center">Q#</th>
-            <th>Question & Timestamp</th>
-            <th className="text-center">Rating</th>
-            <th className="text-center">Device</th>
-            <th className="text-center">Assistance</th>
-            <th className="text-center">Audio Size</th>
-            <th style={{ width: '320px' }}>Playback</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table className="align-middle">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-center">Q#</TableHead>
+            <TableHead>Question & Timestamp</TableHead>
+            <TableHead className="text-center">Rating</TableHead>
+            <TableHead className="text-center">Device</TableHead>
+            <TableHead className="text-center">Assistance</TableHead>
+            <TableHead className="text-center">Audio Size</TableHead>
+            <TableHead style={{ width: '320px' }}>Playback</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((it) => (
-            <tr key={it.id}>
-              <td className="text-center fw-bold">{it.questionIndex + 1}</td>
-              <td>
+            <TableRow key={it.id}>
+              <TableCell className="text-center fw-bold">{it.questionIndex + 1}</TableCell>
+              <TableCell>
                 <div className="fw-semibold">{it.questionText}</div>
                 <small className="text-muted">
                   {it.answeredAt ? formatLocaleDateTime(it.answeredAt) : ''}
                 </small>
-              </td>
-              <td className="text-center">
+              </TableCell>
+              <TableCell className="text-center">
                 {it.answerValue === -1 ? (
                   <span className="badge bg-secondary">N/A</span>
                 ) : (
@@ -322,19 +332,19 @@ export default function DownloadsPage() {
                     {it.answerValue}
                   </span>
                 )}
-              </td>
-              <td className="text-center text-muted small">{it.deviceType || '—'}</td>
-              <td className="text-center text-muted small">
+              </TableCell>
+              <TableCell className="text-center text-muted small">{it.deviceType || '—'}</TableCell>
+              <TableCell className="text-center text-muted small">
                 {it.assistance === 'alone'
                   ? 'Alone'
                   : it.assistance === 'with_help'
                     ? 'With help'
                     : '—'}
-              </td>
-              <td className="text-center text-muted small">
+              </TableCell>
+              <TableCell className="text-center text-muted small">
                 {it.hasAudio ? formatSize(it.audioSize) : '—'}
-              </td>
-              <td>
+              </TableCell>
+              <TableCell>
                 {it.hasAudio ? (
                   audioUrls[it.id] ? (
                     <audio
@@ -343,25 +353,25 @@ export default function DownloadsPage() {
                       style={{ height: '35px', width: '100%' }}
                     />
                   ) : (
-                    <Button size="sm" variant="outline-dark" onClick={() => loadAudio(it.id)}>
+                    <Button size="dashboard" variant="secondary" onClick={() => loadAudio(it.id)}>
                       ▶ Load Recording
                     </Button>
                   )
                 ) : (
                   <span className="text-danger small">No recording available</span>
                 )}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
 
           {items.length === 0 && !loading && (
-            <tr>
-              <td colSpan={7} className="text-center py-5 text-muted">
+            <TableRow>
+              <TableCell colSpan={7} className="text-center py-5 text-muted">
                 Enter a Patient ID and click Search to display results.
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}
-        </tbody>
+        </TableBody>
       </Table>
     </div>
   );

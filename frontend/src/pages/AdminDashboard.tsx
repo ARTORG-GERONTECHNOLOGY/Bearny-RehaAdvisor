@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Spinner, Badge, Alert } from 'react-bootstrap';
+import { Badge, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -21,6 +21,7 @@ import PageHeader from '@/components/PageHeader';
 import LogoutFill from '@/assets/icons/logout-fill.svg?react';
 import { toLocalYMD, formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
+import { Spinner } from '@/components/ui/spinner';
 import {
   Table,
   TableBody,
@@ -578,7 +579,7 @@ const AdminDashboard: React.FC = observer(() => {
         <TabsContent value="pending">
           {store.loading ? (
             <div className="text-center my-5">
-              <Spinner animation="border" role="status" />
+              <Spinner />
               <div>{t('Loading')}...</div>
             </div>
           ) : adminStore.pendingEntries.length === 0 ? (
@@ -659,7 +660,7 @@ const AdminDashboard: React.FC = observer(() => {
 
           {changeReqLoading ? (
             <div className="text-center my-5">
-              <Spinner animation="border" role="status" />
+              <Spinner />
               <div>{t('Loading')}...</div>
             </div>
           ) : changeRequests.length === 0 ? (
@@ -732,13 +733,13 @@ const AdminDashboard: React.FC = observer(() => {
               onClick={fetchInterventions}
               disabled={interventionLoading}
             >
-              {interventionLoading ? <Spinner animation="border" size="sm" /> : t('Refresh')}
+              {interventionLoading ? <Spinner /> : t('Refresh')}
             </Button>
           </div>
 
           {interventionLoading ? (
             <div className="text-center my-5">
-              <Spinner animation="border" role="status" />
+              <Spinner />
               <div>{t('Loading')}...</div>
             </div>
           ) : filteredInterventions.length === 0 ? (
@@ -814,13 +815,13 @@ const AdminDashboard: React.FC = observer(() => {
               onClick={fetchQuestionnaires}
               disabled={questionnaireLoading}
             >
-              {questionnaireLoading ? <Spinner animation="border" size="sm" /> : t('Refresh')}
+              {questionnaireLoading ? <Spinner /> : t('Refresh')}
             </Button>
           </div>
 
           {questionnaireLoading ? (
             <div className="text-center my-5">
-              <Spinner animation="border" role="status" />
+              <Spinner />
               <div>{t('Loading')}...</div>
             </div>
           ) : filteredQuestionnaires.length === 0 ? (
@@ -933,7 +934,7 @@ const AdminDashboard: React.FC = observer(() => {
 
           {exportClinicsLoading ? (
             <div className="text-center my-5">
-              <Spinner animation="border" role="status" />
+              <Spinner />
               <div>{t('Loading')}...</div>
             </div>
           ) : (
@@ -994,7 +995,7 @@ const AdminDashboard: React.FC = observer(() => {
                 <Button size="dashboard" onClick={() => downloadExport('all')} disabled={exporting}>
                   {exporting ? (
                     <>
-                      <Spinner animation="border" size="sm" className="me-2" />
+                      <Spinner />
                       {t('Exporting...')}
                     </>
                   ) : (
@@ -1021,7 +1022,7 @@ const AdminDashboard: React.FC = observer(() => {
         <TabsContent value="analytics">
           {analyticsLoading ? (
             <div className="text-center my-5">
-              <Spinner animation="border" role="status" />
+              <Spinner />
             </div>
           ) : deviceAnalytics ? (
             <div className="my-4">
@@ -1091,7 +1092,6 @@ const AdminDashboard: React.FC = observer(() => {
         body={<p className="mb-0">{t('Are you sure you want to decline this therapist?')}</p>}
         cancelText={t('Cancel')}
         confirmText={t('Decline')}
-        confirmVariant="danger"
         onConfirm={() => store.declineConfirmed(t)}
       />
 
@@ -1127,7 +1127,6 @@ const AdminDashboard: React.FC = observer(() => {
         }
         cancelText={t('Cancel')}
         confirmText={deleteInProgress ? t('Deleting...') : t('Delete')}
-        confirmVariant="danger"
         onConfirm={confirmDelete}
       />
 
@@ -1161,7 +1160,6 @@ const AdminDashboard: React.FC = observer(() => {
         }
         cancelText={t('Cancel')}
         confirmText={qDeleteInProgress ? t('Deleting...') : t('Delete')}
-        confirmVariant="danger"
         onConfirm={confirmDeleteQuestionnaire}
       />
 

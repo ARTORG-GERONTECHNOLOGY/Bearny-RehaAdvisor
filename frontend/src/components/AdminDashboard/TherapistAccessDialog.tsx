@@ -1,5 +1,5 @@
 import React from 'react';
-import { Spinner, Alert } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
 
 interface Props {
   open: boolean;
@@ -76,7 +77,7 @@ const TherapistAccessDialog: React.FC<Props> = ({
 
         {loading ? (
           <div className="d-flex align-items-center gap-2">
-            <Spinner animation="border" size="sm" />
+            <Spinner />
             <div>{t('Loading')}...</div>
           </div>
         ) : (
@@ -163,7 +164,7 @@ const TherapistAccessDialog: React.FC<Props> = ({
           >
             {loading ? (
               <>
-                <Spinner animation="border" size="sm" className="me-2" />
+                <Spinner />
                 {t('Saving')}...
               </>
             ) : (

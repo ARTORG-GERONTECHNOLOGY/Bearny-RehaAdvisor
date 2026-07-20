@@ -1,7 +1,6 @@
 // components/TherapistInterventionPage/InterventionList.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Spinner } from 'react-bootstrap';
 import { translateText } from '@/utils/translate';
 import { getTypeIcon, getContentTypeIcon, InterventionMedia } from '@/utils/interventions';
 import {
@@ -14,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import StarRating from '@/components/RehaTablePage/StarRating';
 import { Badge } from '@/components/ui/badge';
+import { InterventionListSkeleton } from '@/components/skeletons/InterventionListSkeleton';
 import { FaLock } from 'react-icons/fa';
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 
@@ -97,12 +97,7 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
   }, [safeItems, translatedTitles]);
 
   if (loading) {
-    return (
-      <div className="text-center" aria-live="polite" role="status">
-        <Spinner animation="border" role="status" />
-        <div>{t('Loading interventions...')}</div>
-      </div>
-    );
+    return <InterventionListSkeleton />;
   }
 
   if (safeItems.length === 0) {

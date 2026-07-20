@@ -1,5 +1,5 @@
 /**
- * Tests for RegisteringForm (therapist self-registration modal).
+ * Tests for RegisteringForm (therapist self-registration sheet).
  *
  * The form is config-driven with two steps:
  *   Step 1 — credentials (email, password, repeatPassword)
@@ -9,10 +9,6 @@
  * Every assertion that verifies a translated string therefore uses the "[t]"
  * prefix, which proves the component passes the string through t() and does
  * not hard-code English text.
- *
- * Bootstrap Button mock: explicitly defaults to type="button" to prevent
- * Next/Back buttons from accidentally triggering form submission (HTML default
- * is type="submit" when no type attribute is present).
  */
 
 import { screen, fireEvent, waitFor, act } from '@testing-library/react';
@@ -34,38 +30,6 @@ jest.mock('react-icons/fa', () => ({
   FaEye: () => <span data-testid="icon-eye" />,
   FaEyeSlash: () => <span data-testid="icon-eye-slash" />,
 }));
-
-// Flatten Bootstrap Modal so tests don't fight with portal / animation logic.
-// Button receives explicit type="button" by default — without it the HTML default
-// (type="submit") would cause Next/Back clicks to also submit the <form>.
-jest.mock('react-bootstrap', () => {
-  const actual = jest.requireActual('react-bootstrap');
-  const MockModal = ({ show, children }: any) =>
-    show ? <div data-testid="modal">{children}</div> : null;
-  MockModal.Header = function ModalHeader({ children }: any) {
-    return <div data-testid="modal-header">{children}</div>;
-  };
-  MockModal.Title = function ModalTitle({ children }: any) {
-    return <h5 data-testid="modal-title">{children}</h5>;
-  };
-  MockModal.Body = function ModalBody({ children }: any) {
-    return <div data-testid="modal-body">{children}</div>;
-  };
-  MockModal.Footer = function ModalFooter({ children }: any) {
-    return <div data-testid="modal-footer">{children}</div>;
-  };
-
-  return {
-    ...actual,
-    Modal: MockModal,
-    Button: ({ children, type, ...props }: any) => (
-      <button type={type ?? 'button'} {...props}>
-        {children}
-      </button>
-    ),
-    Spinner: () => <span data-testid="spinner" />,
-  };
-});
 
 // Minimal two-step config that matches the real shape.
 // Step 0: credentials  |  Step 1: clinic + projects
@@ -566,9 +530,9 @@ describe('FormRegister — UX behaviour', () => {
     apiPost.mockReset();
   });
 
-  // Pressing Escape (or closing the modal) when the form has unsaved data must
-  // trigger window.confirm. If the user cancels, the modal stays open.
-  it('closing with unsaved changes prompts confirm; cancelling keeps modal open', () => {
+  // Pressing Escape (or closing the sheet) when the form has unsaved data must
+  // trigger window.confirm. If the user cancels, the sheet stays open.
+  it('closing with unsaved changes prompts confirm; cancelling keeps sheet open', () => {
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
     renderOpen();
 
@@ -576,7 +540,8 @@ describe('FormRegister — UX behaviour', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
 
     expect(confirmSpy).toHaveBeenCalled();
-    expect(screen.getByTestId('modal')).toBeInTheDocument();
+    expect(screen.getByText('[t]Register')).toBeInTheDocument();
+    expect(screen.getByLabelText(/\[t\]Email/i)).toBeInTheDocument();
 
     confirmSpy.mockRestore();
   });
@@ -693,7 +658,7 @@ describe('FormRegister — UX behaviour', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(confirmSpy).toHaveBeenCalledWith('[t]A request is in progress. Do you want to close?');
-    expect(screen.getByTestId('modal')).toBeInTheDocument();
+    expect(screen.getByText('[t]Register')).toBeInTheDocument();
 
     confirmSpy.mockRestore();
     resolvePost({ status: 201, data: {} });

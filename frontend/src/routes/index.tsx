@@ -58,7 +58,6 @@ const ErrorPage = lazyWithRetry(() => import('@/pages/ErrorPage'));
 const HealthSlider = lazyWithRetry(() => import('@/pages/eva'));
 const TermsAndConditions = lazyWithRetry(() => import('@/pages/TermsAndConditions'));
 const PrivacyPolicy = lazyWithRetry(() => import('@/pages/PrivacyPolicy'));
-const HelpPage = lazyWithRetry(() => import('@/pages/Help'));
 const Eva = lazyWithRetry(() => import('@/pages/eva2'));
 const HealthSliderDownloadsPage = lazyWithRetry(() => import('@/pages/HealthSliderDownloadsPage'));
 const PatientInterventionsLibrary = lazyWithRetry(
@@ -180,10 +179,6 @@ export const router = createBrowserRouter([
           createElement(RootLayout, null, createElement(PatientProfile)),
           createElement(PatientProfileSkeleton)
         ),
-      },
-      {
-        path: 'help',
-        element: withSuspense(createElement(HelpPage)),
       },
       {
         path: 'terms',
