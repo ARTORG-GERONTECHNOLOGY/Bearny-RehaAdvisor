@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Alert, Spinner } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
@@ -14,6 +14,7 @@ import PageHeader from '@/components/PageHeader';
 import { FieldGroup } from '@/components/ui/field';
 import InputField from '@/components/forms/input/InputField';
 import Card from '@/components/Card';
+import { Spinner } from '@/components/ui/spinner';
 
 const ForgotPassword: React.FC = observer(() => {
   const { t } = useTranslation();
@@ -64,13 +65,7 @@ const ForgotPassword: React.FC = observer(() => {
               <Button type="submit" disabled={store.loading}>
                 {store.loading ? (
                   <>
-                    <Spinner
-                      size="sm"
-                      className="me-2"
-                      animation="border"
-                      role="status"
-                      aria-hidden="true"
-                    />
+                    <Spinner className="me-2" />
                     {t('Loading...')}
                   </>
                 ) : (

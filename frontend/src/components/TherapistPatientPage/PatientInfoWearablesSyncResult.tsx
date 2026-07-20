@@ -1,9 +1,9 @@
 import React from 'react';
-import { Table } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
 import { PatientPopupStore } from '@/stores/patientPopupStore';
+import { Table, TableBody, TableRow, TableCell } from '@/components/ui/table';
 
 interface PatientInfoWearablesSyncResultProps {
   store: PatientPopupStore;
@@ -39,33 +39,33 @@ const PatientInfoWearablesSyncResult: React.FC<PatientInfoWearablesSyncResultPro
               return (
                 <div key={period} className="mb-1 p-2 bg-back border rounded">
                   <div className="fw-semibold mb-1">{t(period)}</div>
-                  <Table size="sm" className="mb-0">
-                    <tbody>
-                      <tr>
-                        <td>{t('status')}</td>
-                        <td>
+                  <Table>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell>{t('status')}</TableCell>
+                        <TableCell>
                           <code>{String(details.status ?? 'unknown')}</code>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                       {details.reason && (
-                        <tr>
-                          <td>{t('reason')}</td>
-                          <td>{String(details.reason)}</td>
-                        </tr>
+                        <TableRow>
+                          <TableCell>{t('reason')}</TableCell>
+                          <TableCell>{String(details.reason)}</TableCell>
+                        </TableRow>
                       )}
                       {details.error && (
-                        <tr>
-                          <td>{t('Error')}</td>
-                          <td>{String(details.error)}</td>
-                        </tr>
+                        <TableRow>
+                          <TableCell>{t('Error')}</TableCell>
+                          <TableCell>{String(details.error)}</TableCell>
+                        </TableRow>
                       )}
                       {Object.entries(record).map(([field, value]) => (
-                        <tr key={`${period}-${field}`}>
-                          <td>{field}</td>
-                          <td>{String(value)}</td>
-                        </tr>
+                        <TableRow key={`${period}-${field}`}>
+                          <TableCell>{field}</TableCell>
+                          <TableCell>{String(value)}</TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
+                    </TableBody>
                   </Table>
                 </div>
               );

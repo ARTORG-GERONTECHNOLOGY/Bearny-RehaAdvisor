@@ -1,10 +1,12 @@
 import React from 'react';
-import { Badge, Spinner, Table } from 'react-bootstrap';
+import { Badge } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PatientPopupStore } from '@/stores/patientPopupStore';
+import { Spinner } from '@/components/ui/spinner';
+import { Table, TableBody, TableRow, TableCell } from '@/components/ui/table';
 
 interface PatientInfoRedcapCardProps {
   store: PatientPopupStore;
@@ -41,7 +43,7 @@ const PatientInfoRedcapCard: React.FC<PatientInfoRedcapCardProps> = observer(({ 
 
           {store.redcapLoading ? (
             <div className="text-center my-4">
-              <Spinner animation="border" role="status" aria-label={t('Loading')} />
+              <Spinner aria-label={t('Loading')} />
               <p className="mt-3">{t('Loading')}...</p>
             </div>
           ) : !hasRedcap ? (
@@ -49,19 +51,19 @@ const PatientInfoRedcapCard: React.FC<PatientInfoRedcapCardProps> = observer(({ 
               {t('No REDCap data available for this patient.')}
             </p>
           ) : (
-            <Table hover responsive size="sm">
-              <tbody>
+            <Table>
+              <TableBody>
                 {Object.entries(store.redcapFlat || {}).map(([k, v]) => (
-                  <tr key={k}>
-                    <td>
+                  <TableRow key={k}>
+                    <TableCell>
                       <span className="text-xs text-zinc-500">{k}</span>
-                    </td>
-                    <td className="text-sm whitespace-pre-wrap font-medium">
+                    </TableCell>
+                    <TableCell className="text-sm whitespace-pre-wrap font-medium">
                       {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
+              </TableBody>
             </Table>
           )}
         </CardContent>

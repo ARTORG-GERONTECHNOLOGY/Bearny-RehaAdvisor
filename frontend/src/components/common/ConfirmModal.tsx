@@ -1,6 +1,6 @@
 import React from 'react';
-import { Button } from 'react-bootstrap';
 import StandardModal from './StandardModal';
+import { Button } from '@/components/ui/button';
 
 type Props = {
   show: boolean;
@@ -10,7 +10,6 @@ type Props = {
   confirmText: string;
   cancelText: string;
   onConfirm: () => void;
-  confirmVariant?: string;
   isConfirmDisabled?: boolean;
 };
 
@@ -22,7 +21,6 @@ const ConfirmModal: React.FC<Props> = ({
   confirmText,
   cancelText,
   onConfirm,
-  confirmVariant = 'danger',
   isConfirmDisabled = false,
 }) => {
   return (
@@ -35,10 +33,15 @@ const ConfirmModal: React.FC<Props> = ({
       keyboard={false}
       footer={
         <>
-          <Button variant="secondary" onClick={onHide}>
+          <Button size="dashboard" variant="secondary" onClick={onHide}>
             {cancelText}
           </Button>
-          <Button variant={confirmVariant} onClick={onConfirm} disabled={isConfirmDisabled}>
+          <Button
+            size="dashboard"
+            onClick={onConfirm}
+            disabled={isConfirmDisabled}
+            className="bg-nok hover:bg-nok/90"
+          >
             {confirmText}
           </Button>
         </>

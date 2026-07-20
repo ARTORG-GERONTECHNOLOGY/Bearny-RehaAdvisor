@@ -1,6 +1,6 @@
 // src/components/RehaTablePage/QuestionnaireScheduleModal.tsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Alert, Button, Form, Spinner } from 'react-bootstrap';
+import { Alert, Form } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,8 @@ import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import StandardModal from '@/components/common/StandardModal';
 import { toISODateUTC } from '@/utils/dateFormat';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 
 type Mode = 'create' | 'modify';
 
@@ -297,13 +299,13 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
 
       return (
         <div className="w-100 d-flex gap-2 justify-content-end">
-          <Button variant="outline-secondary" onClick={confirmClose} disabled={submitting}>
+          <Button size="dashboard" variant="secondary" onClick={confirmClose} disabled={submitting}>
             {t('Cancel')}
           </Button>
-          <Button variant="success" onClick={handleSubmit} disabled={!canSubmit || submitting}>
+          <Button size="dashboard" onClick={handleSubmit} disabled={!canSubmit || submitting}>
             {submitting ? (
               <>
-                <Spinner animation="border" size="sm" className="me-2" /> {t('Saving...')}
+                <Spinner /> {t('Saving...')}
               </>
             ) : (
               t('Save')
@@ -422,7 +424,9 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
                 {weekdays.map((day) => (
                   <Button
                     key={day}
-                    variant={selectedDays.includes(day) ? 'primary' : 'outline-secondary'}
+                    type="button"
+                    size="dashboard"
+                    variant={selectedDays.includes(day) ? undefined : 'secondary'}
                     onClick={() => toggleDay(day)}
                     aria-pressed={selectedDays.includes(day)}
                     disabled={submitting}

@@ -1,6 +1,6 @@
 // src/components/TherapistInterventionPage/ApplyTemplateModal.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Form, Alert, Spinner, Badge } from 'react-bootstrap';
+import { Form, Alert, Badge } from 'react-bootstrap';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 type PatientOption = {
   _id: string;
@@ -254,7 +257,12 @@ const ApplyTemplateModal: React.FC<Props> = ({
           <Alert variant="danger" dismissible onClose={() => setError('')}>
             <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
               <span>{error}</span>
-              <Button size="sm" variant="light" onClick={() => setShowErrors(!showErrors)}>
+              <Button
+                type="button"
+                size="dashboard"
+                variant="ghost"
+                onClick={() => setShowErrors(!showErrors)}
+              >
                 {showErrors ? t('Hide details') : t('Show details')}
               </Button>
             </div>
@@ -272,127 +280,119 @@ const ApplyTemplateModal: React.FC<Props> = ({
 
         <Form>
           {/* Mode toggle */}
-          <div className="d-flex gap-2 mb-3">
-            <Button
-              size="sm"
-              variant={mode === 'patient' ? 'primary' : 'outline-secondary'}
-              onClick={() => setMode('patient')}
-            >
-              {t('Select patients')}
-            </Button>
-            <Button
-              size="sm"
-              variant={mode === 'diagnosis' ? 'primary' : 'outline-secondary'}
-              onClick={() => setMode('diagnosis')}
-            >
-              {t('By diagnosis')}
-            </Button>
-          </div>
+          <Tabs value={mode} onValueChange={(v) => setMode(v as 'patient' | 'diagnosis')}>
+            <TabsList>
+              <TabsTrigger value="patient">{t('Select patients')}</TabsTrigger>
+              <TabsTrigger value="diagnosis">{t('By diagnosis')}</TabsTrigger>
+            </TabsList>
 
-          {/* ── Patient multi-select ── */}
-          {mode === 'patient' && (
-            <Form.Group className="mb-3">
-              <Form.Label>
-                {t('Patients')}{' '}
-                {selectedIds.size > 0 && (
-                  <Badge bg="primary" className="ms-1">
-                    {selectedIds.size} {t('selected')}
-                  </Badge>
-                )}
-              </Form.Label>
+            {/* ── Patient multi-select ── */}
+            <TabsContent value="patient">
+              <Form.Group className="mb-3">
+                <Form.Label>
+                  {t('Patients')}{' '}
+                  {selectedIds.size > 0 && (
+                    <Badge bg="primary" className="ms-1">
+                      {selectedIds.size} {t('selected')}
+                    </Badge>
+                  )}
+                </Form.Label>
 
-              {loadingPatients ? (
-                <div className="text-center py-3">
-                  <Spinner animation="border" size="sm" />
-                </div>
-              ) : (
-                <>
-                  <Form.Control
-                    size="sm"
-                    placeholder={t('Search')}
-                    value={patientSearch}
-                    onChange={(e) => setPatientSearch(e.target.value)}
-                    className="mb-2"
-                  />
-                  <div className="border rounded" style={{ maxHeight: 220, overflowY: 'auto' }}>
-                    {filteredPatients.length === 0 ? (
-                      <div className="text-muted text-center py-3 small">
-                        {t('No data available')}
-                      </div>
-                    ) : (
-                      <>
-                        {/* Select all row */}
-                        <div
-                          className="d-flex align-items-center px-3 py-2 border-bottom bg-light"
-                          style={{ cursor: 'pointer' }}
-                          onClick={toggleAll}
-                        >
-                          <Form.Check
-                            type="checkbox"
-                            readOnly
-                            checked={
-                              filteredPatients.length > 0 &&
-                              selectedIds.size === filteredPatients.length
-                            }
-                            className="me-2 pointer-events-none"
-                          />
-                          <span className="small fw-semibold">{t('Select All')}</span>
+                {loadingPatients ? (
+                  <div className="text-center py-3">
+                    <Spinner />
+                  </div>
+                ) : (
+                  <>
+                    <Form.Control
+                      size="sm"
+                      placeholder={t('Search')}
+                      value={patientSearch}
+                      onChange={(e) => setPatientSearch(e.target.value)}
+                      className="mb-2"
+                    />
+                    <div className="border rounded" style={{ maxHeight: 220, overflowY: 'auto' }}>
+                      {filteredPatients.length === 0 ? (
+                        <div className="text-muted text-center py-3 small">
+                          {t('No data available')}
                         </div>
-
-                        {filteredPatients.map((p) => (
+                      ) : (
+                        <>
+                          {/* Select all row */}
                           <div
-                            key={p._id}
-                            className={`d-flex align-items-center px-3 py-2 border-bottom ${selectedIds.has(p._id) ? 'bg-primary bg-opacity-10' : ''}`}
+                            className="d-flex align-items-center px-3 py-2 border-bottom bg-light"
                             style={{ cursor: 'pointer' }}
-                            onClick={() => togglePatient(p._id)}
+                            onClick={toggleAll}
                           >
                             <Form.Check
                               type="checkbox"
                               readOnly
-                              checked={selectedIds.has(p._id)}
+                              checked={
+                                filteredPatients.length > 0 &&
+                                selectedIds.size === filteredPatients.length
+                              }
                               className="me-2 pointer-events-none"
                             />
-                            <span className="small">
-                              <strong>
-                                {p.first_name} {p.name}
-                              </strong>
-                              <span className="text-muted ms-2">({p.patient_code})</span>
-                            </span>
+                            <span className="small fw-semibold">{t('Select All')}</span>
                           </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                  {fieldErrors.patientIds && (
-                    <div className="text-danger small mt-1">{fieldErrors.patientIds}</div>
-                  )}
-                </>
-              )}
-            </Form.Group>
-          )}
 
-          {/* ── Diagnosis bulk mode ── */}
-          {mode === 'diagnosis' && (
-            <Form.Group className="mb-3">
-              <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
-              <Form.Select
-                value={diagnosis}
-                onChange={(e) => setDiagnosis(e.target.value)}
-                isInvalid={!!fieldErrors.diagnosis}
-              >
-                <option value="">{t('Choose...')}</option>
-                {diagnoses.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </Form.Select>
-              <Form.Text className="text-muted">
-                {t('Applies to all clinic patients with this diagnosis.')}
-              </Form.Text>
-              <Form.Control.Feedback type="invalid">{fieldErrors.diagnosis}</Form.Control.Feedback>
-            </Form.Group>
-          )}
+                          {filteredPatients.map((p) => (
+                            <div
+                              key={p._id}
+                              className={`d-flex align-items-center px-3 py-2 border-bottom ${selectedIds.has(p._id) ? 'bg-primary bg-opacity-10' : ''}`}
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => togglePatient(p._id)}
+                            >
+                              <Form.Check
+                                type="checkbox"
+                                readOnly
+                                checked={selectedIds.has(p._id)}
+                                className="me-2 pointer-events-none"
+                              />
+                              <span className="small">
+                                <strong>
+                                  {p.first_name} {p.name}
+                                </strong>
+                                <span className="text-muted ms-2">({p.patient_code})</span>
+                              </span>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                    {fieldErrors.patientIds && (
+                      <div className="text-danger small mt-1">{fieldErrors.patientIds}</div>
+                    )}
+                  </>
+                )}
+              </Form.Group>
+            </TabsContent>
+
+            {/* ── Diagnosis bulk mode ── */}
+            <TabsContent value="diagnosis">
+              <Form.Group className="mb-3">
+                <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
+                <Form.Select
+                  value={diagnosis}
+                  onChange={(e) => setDiagnosis(e.target.value)}
+                  isInvalid={!!fieldErrors.diagnosis}
+                >
+                  <option value="">{t('Choose...')}</option>
+                  {diagnoses.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </Form.Select>
+                <Form.Text className="text-muted">
+                  {t('Applies to all clinic patients with this diagnosis.')}
+                </Form.Text>
+                <Form.Control.Feedback type="invalid">
+                  {fieldErrors.diagnosis}
+                </Form.Control.Feedback>
+              </Form.Group>
+            </TabsContent>
+          </Tabs>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
             <div className="md:col-span-6">
@@ -442,10 +442,10 @@ const ApplyTemplateModal: React.FC<Props> = ({
         </Form>
 
         <DialogFooter>
-          <Button variant="secondary" onClick={confirmClose} disabled={submitting}>
+          <Button size="dashboard" variant="secondary" onClick={confirmClose} disabled={submitting}>
             {t('Cancel')}
           </Button>
-          <Button variant="primary" onClick={handleApply} disabled={!canSubmit || submitting}>
+          <Button size="dashboard" onClick={handleApply} disabled={!canSubmit || submitting}>
             {submitting ? t('Applying...') : t('Apply')}
           </Button>
         </DialogFooter>
