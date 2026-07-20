@@ -762,7 +762,11 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
             <div className="d-flex justify-content-between mt-4">
               {successMsg ? (
                 <div className="ms-auto">
-                  <Button type="button" onClick={handleCloseForm}>
+                  <Button
+                    type="button"
+                    onClick={handleCloseForm}
+                    aria-label={t('Close and return to login')}
+                  >
                     {t('Close')}
                   </Button>
                 </div>

@@ -309,10 +309,7 @@ describe('RegisteringForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     await screen.findByText(/You have been registered/);
-    // Two buttons are now named "Close": the sheet's own X button and this
-    // in-form primary one, which is rendered after the X in DOM order.
-    const closeButtons = screen.getAllByRole('button', { name: 'Close' });
-    fireEvent.click(closeButtons[closeButtons.length - 1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Close and return to login' }));
     expect(handleRegShow).toHaveBeenCalled();
   });
 
