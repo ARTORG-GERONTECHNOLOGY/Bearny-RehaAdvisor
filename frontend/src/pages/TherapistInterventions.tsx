@@ -1,7 +1,7 @@
 // src/pages/TherapistInterventions.tsx
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Form, Button, ButtonGroup } from 'react-bootstrap';
+import { Form, ButtonGroup } from 'react-bootstrap';
 import { FaPlus, FaTrash, FaCopy, FaUpload, FaEdit, FaBell } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
@@ -48,6 +48,7 @@ import TemplatesLayout, {
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 // ---------------- Template helpers (unchanged logic, moved out of render) ----------------
 const normalizeSegment = (segOrSchedule: any) => {
@@ -882,48 +883,51 @@ const TherapistRecomendations: React.FC = observer(() => {
 
                   {templateStore.loading && <Spinner />}
 
-                  <Button
-                    size="sm"
-                    variant="outline-success"
-                    onClick={() => setShowNewTemplateModal(true)}
-                  >
-                    <FaPlus className="me-1" />
+                  <Button size="dashboard" onClick={() => setShowNewTemplateModal(true)}>
+                    <FaPlus />
                     {t('New')}
                   </Button>
 
                   {activeTemplateId && (
                     <ButtonGroup size="sm">
                       <Button
-                        variant="outline-primary"
+                        size="dashboard"
+                        variant="secondary"
                         onClick={() => setShowApplyModal(true)}
                         title={t('Apply to patient')}
                       >
-                        <FaUpload className="me-1" />
+                        <FaUpload />
                         {t('Apply')}
                       </Button>
                       <Button
-                        variant="outline-secondary"
+                        size="dashboard"
+                        variant="secondary"
                         onClick={handleOpenEditMeta}
                         title={t('Edit name / description')}
                       >
                         <FaEdit />
+                        {t('Edit')}
                       </Button>
                       <Button
-                        variant="outline-secondary"
+                        size="dashboard"
+                        variant="secondary"
                         onClick={handleCopyActiveTemplate}
                         title={t('Copy template')}
                       >
                         <FaCopy />
+                        {t('Copy')}
                       </Button>
                       {(templateStore.templates.find((x) => x.id === activeTemplateId)
                         ?.created_by === authStore.id ||
                         authStore.userType === 'Admin') && (
                         <Button
-                          variant="outline-danger"
+                          size="dashboard"
+                          className="bg-nok hover:bg-nok/90"
                           onClick={handleDeleteActiveTemplate}
                           title={t('Delete template')}
                         >
                           <FaTrash />
+                          {t('Delete')}
                         </Button>
                       )}
                     </ButtonGroup>

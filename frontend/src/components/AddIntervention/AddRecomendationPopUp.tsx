@@ -1,6 +1,6 @@
 // src/components/TherapistInterventionPage/AddInterventionPopUp.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Alert, Button, Form } from 'react-bootstrap';
+import { Alert, Form } from 'react-bootstrap';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import axios from 'axios';
 import Select from 'react-select';
@@ -12,6 +12,7 @@ import authStore from '@/stores/authStore';
 import StandardModal from '../common/StandardModal';
 import interventionsTaxonomyStore from '@/stores/interventionsTaxonomyStore';
 import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 
 const CONTENT_TYPE_TO_BACKEND: Record<string, string> = {
   brochure: 'pdf',
@@ -524,7 +525,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
     const footer = useMemo(
       () => (
-        <Button variant="outline-secondary" onClick={confirmClose} disabled={submitting}>
+        <Button size="dashboard" variant="secondary" onClick={confirmClose} disabled={submitting}>
           {t('Close')}
         </Button>
       ),
@@ -844,7 +845,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
               <hr className="my-4" />
               <div className="d-flex align-items-center justify-content-between mb-2">
                 <h5 className="mb-0">{t('Media')}</h5>
-                <Button variant="outline-primary" size="sm" onClick={addMediaRow}>
+                <Button size="dashboard" onClick={addMediaRow}>
                   <FaPlus /> {t('Add media')}
                 </Button>
               </div>
@@ -868,8 +869,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                         {t('Media item')} #{idx + 1}
                       </div>
                       <Button
-                        variant="outline-danger"
-                        size="sm"
+                        size="dashboard"
+                        variant="ghost"
+                        className="p-0 text-nok hover:text-nok/90"
                         onClick={() => removeMediaRow(idx)}
                         aria-label={t('Remove media')}
                       >
@@ -1001,8 +1003,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                         {patientsLoading ? t('Loading patients...') : t('Patients not loaded yet')}
                       </div>
                       <Button
-                        size="sm"
-                        variant="outline-secondary"
+                        size="dashboard"
+                        variant="secondary"
                         disabled={patientsLoading}
                         onClick={fetchTherapistPatients}
                       >
@@ -1031,7 +1033,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
             </fieldset>
 
             {!success && (
-              <Button variant="primary" type="submit" className="mt-4 w-100" disabled={submitting}>
+              <Button size="dashboard" type="submit" className="mt-4 w-100" disabled={submitting}>
                 {submitting ? (
                   <span className="d-inline-flex align-items-center gap-2">
                     <Spinner /> {t('Submitting...')}
@@ -1048,8 +1050,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <span>{patientsLoadError || error}</span>
                   {Object.keys(errors).length > 0 && (
                     <Button
-                      size="sm"
-                      variant="outline-light"
+                      size="dashboard"
+                      variant="secondary"
                       onClick={() => setShowErrorDetails(!showErrorDetails)}
                       aria-expanded={showErrorDetails}
                     >

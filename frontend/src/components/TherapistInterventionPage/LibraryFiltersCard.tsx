@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
-import { Form, Button } from 'react-bootstrap';
+import { Form } from 'react-bootstrap';
 import Select from 'react-select';
 import { FaUndo } from 'react-icons/fa';
 
-// ✅ NEW taxonomy config
 import interventionsConfig from '../../config/interventions.json';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export type LibraryFiltersState = {
   searchTerm: string;
@@ -13,10 +13,10 @@ export type LibraryFiltersState = {
   languageFilter: string[];
   contentTypeFilter: string;
 
-  // ✅ aims is its own field (not part of tags)
+  // aims is its own field (not part of tags)
   aimsFilter: string[];
 
-  // ✅ tags = everything except aims
+  // tags = everything except aims
   tagFilter: string[];
 };
 
@@ -43,7 +43,7 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
     [tx]
   );
 
-  // ✅ Build tag options from taxonomy EXCLUDING aims and languages
+  // Build tag options from taxonomy EXCLUDING aims and languages
   const tagOptions = useMemo(() => {
     const buckets = [
       ...(tx.topics || []),
@@ -121,7 +121,6 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-          {/* ✅ Aims */}
           <div>
             <Select
               isMulti
@@ -134,7 +133,6 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
             />
           </div>
 
-          {/* ✅ Tags (everything except aims) */}
           <div>
             <Select
               isMulti
@@ -149,8 +147,8 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
         </div>
 
         <div>
-          <Button variant="outline-secondary" size="sm" onClick={onReset}>
-            <FaUndo className="me-2" /> {t('Reset filters')}
+          <Button size="dashboard" variant="secondary" onClick={onReset}>
+            <FaUndo /> {t('Reset filters')}
           </Button>
         </div>
       </CardContent>

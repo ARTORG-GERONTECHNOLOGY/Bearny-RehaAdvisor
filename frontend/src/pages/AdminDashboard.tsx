@@ -1092,7 +1092,6 @@ const AdminDashboard: React.FC = observer(() => {
         body={<p className="mb-0">{t('Are you sure you want to decline this therapist?')}</p>}
         cancelText={t('Cancel')}
         confirmText={t('Decline')}
-        confirmVariant="danger"
         onConfirm={() => store.declineConfirmed(t)}
       />
 
@@ -1128,7 +1127,6 @@ const AdminDashboard: React.FC = observer(() => {
         }
         cancelText={t('Cancel')}
         confirmText={deleteInProgress ? t('Deleting...') : t('Delete')}
-        confirmVariant="danger"
         onConfirm={confirmDelete}
       />
 
@@ -1162,7 +1160,6 @@ const AdminDashboard: React.FC = observer(() => {
         }
         cancelText={t('Cancel')}
         confirmText={qDeleteInProgress ? t('Deleting...') : t('Delete')}
-        confirmVariant="danger"
         onConfirm={confirmDeleteQuestionnaire}
       />
 

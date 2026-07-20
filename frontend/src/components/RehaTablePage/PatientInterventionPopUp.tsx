@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, Button, OverlayTrigger, Tooltip, ButtonGroup } from 'react-bootstrap';
+import { Badge, OverlayTrigger, Tooltip, ButtonGroup } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { FaLock } from 'react-icons/fa';
 
@@ -23,6 +23,7 @@ import {
 } from '@/utils/interventions';
 import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
+import { Button } from '@/components/ui/button';
 
 // ---------- types ----------
 type Props = {
@@ -631,8 +632,8 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
                   return (
                     <Button
                       key={optLang}
-                      variant={active ? 'primary' : 'outline-primary'}
-                      size="sm"
+                      size="dashboard"
+                      variant={active ? undefined : 'secondary'}
                       onClick={() => switchVariantByLang(optLang)}
                       aria-pressed={active}
                     >
@@ -771,7 +772,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
         `}</style>
 
         <DialogFooter>
-          <Button variant="secondary" onClick={confirmClose}>
+          <Button size="dashboard" variant="secondary" onClick={confirmClose}>
             {t('Close')}
           </Button>
         </DialogFooter>

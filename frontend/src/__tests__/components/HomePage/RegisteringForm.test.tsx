@@ -309,7 +309,10 @@ describe('RegisteringForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     await screen.findByText(/You have been registered/);
-    fireEvent.click(screen.getByText('Close', { selector: 'button.btn-primary' }));
+    // Two buttons are now named "Close": the sheet's own X button and this
+    // in-form primary one, which is rendered after the X in DOM order.
+    const closeButtons = screen.getAllByRole('button', { name: 'Close' });
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
     expect(handleRegShow).toHaveBeenCalled();
   });
 
@@ -427,9 +430,8 @@ describe('RegisteringForm', () => {
 
   it('closes without confirmation when the form is untouched', () => {
     const handleRegShow = setup();
-    fireEvent.click(document.querySelector('.btn-close.position-absolute') || document.body);
-    // Use the modal header's close button instead, which always exists.
-    fireEvent.click(screen.getAllByLabelText('Close', { selector: 'button' })[0]);
+    // The sheet's own close (X) button always exists.
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(handleRegShow).toHaveBeenCalled();
   });
 
@@ -438,7 +440,7 @@ describe('RegisteringForm', () => {
     const handleRegShow = setup();
     fireEvent.change(document.getElementById('firstName')!, { target: { value: 'Jane' } });
 
-    fireEvent.click(screen.getAllByLabelText('Close', { selector: 'button' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(confirmSpy).toHaveBeenCalledWith(
       'Are you sure you want to close? Unsaved data will be lost.'
@@ -452,7 +454,7 @@ describe('RegisteringForm', () => {
     const handleRegShow = setup();
     fireEvent.change(document.getElementById('firstName')!, { target: { value: 'Jane' } });
 
-    fireEvent.click(screen.getAllByLabelText('Close', { selector: 'button' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(handleRegShow).toHaveBeenCalled();
     confirmSpy.mockRestore();
@@ -485,7 +487,7 @@ describe('RegisteringForm', () => {
     fireEvent.click(within(screen.getByTestId('select-clinic')).getByText('Inselspital'));
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
-    fireEvent.click(screen.getAllByLabelText('Close', { selector: 'button' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(confirmSpy).toHaveBeenCalledWith('A request is in progress. Do you want to close?');
     expect(handleRegShow).toHaveBeenCalled();
 

@@ -1,10 +1,11 @@
 // src/components/TherapistPatientPage/PatientFilters.tsx
 import React from 'react';
-import { Button, Card, Form } from 'react-bootstrap';
+import { Card, Form } from 'react-bootstrap';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
 
 import { TherapistPatientsStore, SortKey } from '@/stores/therapistPatientsStore';
+import { Button } from '@/components/ui/button';
 
 type Props = {
   store: TherapistPatientsStore;
@@ -95,7 +96,7 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
           </div>
 
           <div className="flex flex-wrap gap-3 justify-end md:flex-1">
-            <Button variant="outline-secondary" onClick={store.resetFilters}>
+            <Button size="dashboard" variant="secondary" onClick={store.resetFilters}>
               {String(t('Reset filters'))}
             </Button>
           </div>

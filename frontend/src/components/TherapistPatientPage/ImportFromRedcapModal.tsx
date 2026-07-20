@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Form, Table, Badge, Alert } from 'react-bootstrap';
+import { Form, Table, Badge, Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -9,6 +9,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 
 export type Candidate = {
   project: string;
@@ -89,7 +90,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
 
         <div className="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
           <div className="d-flex align-items-center gap-2 flex-wrap">
-            <Button variant="primary" onClick={onRefresh} disabled={loading || anyImporting}>
+            <Button size="dashboard" onClick={onRefresh} disabled={loading || anyImporting}>
               {t('Refresh list')}
             </Button>
 
@@ -174,8 +175,8 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
 
                     <td className="text-end">
                       <Button
-                        size="sm"
-                        variant={imported ? 'secondary' : 'success'}
+                        size="dashboard"
+                        variant={imported ? 'secondary' : undefined}
                         disabled={!canImportRow(c)}
                         onClick={() => onImportOne(c)}
                       >
@@ -190,7 +191,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
         )}
 
         <DialogFooter>
-          <Button variant="secondary" onClick={onHide} disabled={anyImporting}>
+          <Button size="dashboard" variant="secondary" onClick={onHide} disabled={anyImporting}>
             {t('Close')}
           </Button>
         </DialogFooter>

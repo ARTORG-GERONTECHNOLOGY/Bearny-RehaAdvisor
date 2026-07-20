@@ -1,9 +1,10 @@
 // components/TherapistInterventionPage/FilterBar.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Dropdown, Form } from 'react-bootstrap';
+import { Dropdown, Form } from 'react-bootstrap';
 import Select from 'react-select';
 import interventionsConfig from '../../config/interventions.json';
 import { FaFilter } from 'react-icons/fa';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   searchTerm: string;
@@ -176,8 +177,8 @@ const FilterBar: React.FC<Props> = ({
       {onReset ? (
         <div className="d-flex justify-content-end">
           <Button
-            size="sm"
-            variant="outline-secondary"
+            size="dashboard"
+            variant="secondary"
             onClick={() => {
               onReset();
               setOpen(false);
@@ -217,8 +218,8 @@ const FilterBar: React.FC<Props> = ({
           >
             <Dropdown.Toggle
               as={Button}
-              variant="outline-secondary"
-              className="filterbar-toggle"
+              size={'dashboard' as 'sm' | 'lg'}
+              variant="secondary"
               onClick={(e) => {
                 e.stopPropagation();
                 setOpen((v) => !v);
@@ -240,7 +241,7 @@ const FilterBar: React.FC<Props> = ({
       </div>
 
       {/* meta row */}
-      {typeof resultCount === 'number' || loading ? (
+      {typeof resultCount === 'number' || loading || (!isNarrow && onReset) ? (
         <div className="filterbar-meta">
           <div className="text-muted small">
             {loading
@@ -252,17 +253,10 @@ const FilterBar: React.FC<Props> = ({
 
           {/* non-narrow: show reset here (single place) */}
           {!isNarrow && onReset ? (
-            <Button size="sm" variant="outline-secondary" onClick={onReset}>
+            <Button size="dashboard" variant="secondary" onClick={onReset}>
               {t('Reset filters')}
             </Button>
           ) : null}
-        </div>
-      ) : !isNarrow && onReset ? (
-        <div className="filterbar-meta">
-          <div />
-          <Button size="sm" variant="outline-secondary" onClick={onReset}>
-            {t('Reset filters')}
-          </Button>
         </div>
       ) : null}
 
@@ -275,7 +269,6 @@ const FilterBar: React.FC<Props> = ({
           gap: 12px;
           align-items: center;
         }
-        .filterbar-toggle { white-space: nowrap; }
         .filterbar-meta {
           display: flex;
           justify-content: space-between;
