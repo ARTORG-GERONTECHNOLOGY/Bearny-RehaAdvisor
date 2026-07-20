@@ -30,7 +30,7 @@
  */
 
 import { useState } from 'react';
-import { Table, Form } from 'react-bootstrap';
+import { Form } from 'react-bootstrap';
 import { zipSync, strToU8 } from 'fflate';
 import { toISODateUTC, formatLocaleDateTime } from '@/utils/dateFormat';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
@@ -38,6 +38,14 @@ import axios from 'axios';
 import apiClient from '../api/client';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 export default function DownloadsPage() {
   // --- auth gate ---
@@ -294,29 +302,29 @@ export default function DownloadsPage() {
         </div>
       </div>
 
-      <Table striped bordered hover responsive className="mt-2 align-middle">
-        <thead className="table-dark">
-          <tr>
-            <th className="text-center">Q#</th>
-            <th>Question & Timestamp</th>
-            <th className="text-center">Rating</th>
-            <th className="text-center">Device</th>
-            <th className="text-center">Assistance</th>
-            <th className="text-center">Audio Size</th>
-            <th style={{ width: '320px' }}>Playback</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table className="align-middle">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-center">Q#</TableHead>
+            <TableHead>Question & Timestamp</TableHead>
+            <TableHead className="text-center">Rating</TableHead>
+            <TableHead className="text-center">Device</TableHead>
+            <TableHead className="text-center">Assistance</TableHead>
+            <TableHead className="text-center">Audio Size</TableHead>
+            <TableHead style={{ width: '320px' }}>Playback</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((it) => (
-            <tr key={it.id}>
-              <td className="text-center fw-bold">{it.questionIndex + 1}</td>
-              <td>
+            <TableRow key={it.id}>
+              <TableCell className="text-center fw-bold">{it.questionIndex + 1}</TableCell>
+              <TableCell>
                 <div className="fw-semibold">{it.questionText}</div>
                 <small className="text-muted">
                   {it.answeredAt ? formatLocaleDateTime(it.answeredAt) : ''}
                 </small>
-              </td>
-              <td className="text-center">
+              </TableCell>
+              <TableCell className="text-center">
                 {it.answerValue === -1 ? (
                   <span className="badge bg-secondary">N/A</span>
                 ) : (
@@ -324,19 +332,19 @@ export default function DownloadsPage() {
                     {it.answerValue}
                   </span>
                 )}
-              </td>
-              <td className="text-center text-muted small">{it.deviceType || '—'}</td>
-              <td className="text-center text-muted small">
+              </TableCell>
+              <TableCell className="text-center text-muted small">{it.deviceType || '—'}</TableCell>
+              <TableCell className="text-center text-muted small">
                 {it.assistance === 'alone'
                   ? 'Alone'
                   : it.assistance === 'with_help'
                     ? 'With help'
                     : '—'}
-              </td>
-              <td className="text-center text-muted small">
+              </TableCell>
+              <TableCell className="text-center text-muted small">
                 {it.hasAudio ? formatSize(it.audioSize) : '—'}
-              </td>
-              <td>
+              </TableCell>
+              <TableCell>
                 {it.hasAudio ? (
                   audioUrls[it.id] ? (
                     <audio
@@ -352,18 +360,18 @@ export default function DownloadsPage() {
                 ) : (
                   <span className="text-danger small">No recording available</span>
                 )}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
 
           {items.length === 0 && !loading && (
-            <tr>
-              <td colSpan={7} className="text-center py-5 text-muted">
+            <TableRow>
+              <TableCell colSpan={7} className="text-center py-5 text-muted">
                 Enter a Patient ID and click Search to display results.
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}
-        </tbody>
+        </TableBody>
       </Table>
     </div>
   );

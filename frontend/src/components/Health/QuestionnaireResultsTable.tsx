@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { Table } from 'react-bootstrap';
 import {
   Dialog,
   DialogContent,
@@ -7,6 +6,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import type { QuestionnaireEntry } from '@/types/health';
 import { eachDateInRange, isInRange } from '@/utils/healthCharts';
@@ -31,17 +38,17 @@ const DayResultsTable: React.FC<{
   lang: string;
   t: (k: string) => string;
 }> = ({ entries, lang, t }) => (
-  <Table size="sm" striped responsive>
-    <thead>
-      <tr>
-        <th>{t('Question')}</th>
-        <th>{t('Type')}</th>
-        <th>{t('Answers')}</th>
-        <th>{t('Comment')}</th>
-        <th>{t('Media')}</th>
-      </tr>
-    </thead>
-    <tbody>
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableHead>{t('Question')}</TableHead>
+        <TableHead>{t('Type')}</TableHead>
+        <TableHead>{t('Answers')}</TableHead>
+        <TableHead>{t('Comment')}</TableHead>
+        <TableHead>{t('Media')}</TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
       {entries.map((entry, idx) => {
         const questionText =
           pickText(entry.questionTranslations, lang) || entry.questionKey || t('Unknown');
@@ -52,16 +59,16 @@ const DayResultsTable: React.FC<{
         const media = (entry.media_urls || []).filter(Boolean).join(', ');
 
         return (
-          <tr key={`${entry.questionKey}-${idx}`}>
-            <td>{questionText}</td>
-            <td>{entry.answerType || 'text'}</td>
-            <td>{answers || '—'}</td>
-            <td>{entry.comment || '—'}</td>
-            <td>{media || '—'}</td>
-          </tr>
+          <TableRow key={`${entry.questionKey}-${idx}`}>
+            <TableCell>{questionText}</TableCell>
+            <TableCell>{entry.answerType || 'text'}</TableCell>
+            <TableCell>{answers || '—'}</TableCell>
+            <TableCell>{entry.comment || '—'}</TableCell>
+            <TableCell>{media || '—'}</TableCell>
+          </TableRow>
         );
       })}
-    </tbody>
+    </TableBody>
   </Table>
 );
 

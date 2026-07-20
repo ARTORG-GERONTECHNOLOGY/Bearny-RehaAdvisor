@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Table, Badge } from 'react-bootstrap';
+import { Badge } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import StarRating from './StarRating';
 import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableRow, TableCell } from '@/components/ui/table';
 
 type AnyObj = Record<string, any>;
 
@@ -111,35 +112,35 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
           </Badge>
         </div>
 
-        <Table bordered responsive className="mb-0">
-          <tbody>
-            <tr>
-              <th style={{ width: 220 }}>{safeT(t, 'Average rating')}</th>
-              <td>
+        <Table>
+          <TableBody>
+            <TableRow>
+              <TableCell className="font-medium w-1/3">{safeT(t, 'Average rating')}</TableCell>
+              <TableCell>
                 {stats.avgRating > 0 ? <StarRating value={stats.avgRating} showNumber /> : '-'}
-              </td>
-            </tr>
-            <tr>
-              <th>{safeT(t, 'Feedback entries')}</th>
-              <td>{stats.feedbackCount}</td>
-            </tr>
-            <tr>
-              <th>{safeT(t, 'Video feedback')}</th>
-              <td>{stats.videoCount}</td>
-            </tr>
-            <tr>
-              <th>{safeT(t, 'Duration')}</th>
-              <td>{stats.duration ? `${stats.duration} min` : '-'}</td>
-            </tr>
-            <tr>
-              <th>{safeT(t, 'Frequency')}</th>
-              <td>{stats.frequency || '-'}</td>
-            </tr>
-            <tr>
-              <th>{safeT(t, 'Notes')}</th>
-              <td style={{ whiteSpace: 'pre-wrap' }}>{stats.notes || '-'}</td>
-            </tr>
-          </tbody>
+              </TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className="font-medium">{safeT(t, 'Feedback entries')}</TableCell>
+              <TableCell>{stats.feedbackCount}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className="font-medium">{safeT(t, 'Video feedback')}</TableCell>
+              <TableCell>{stats.videoCount}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className="font-medium">{safeT(t, 'Duration')}</TableCell>
+              <TableCell>{stats.duration ? `${stats.duration} min` : '-'}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className="font-medium">{safeT(t, 'Frequency')}</TableCell>
+              <TableCell>{stats.frequency || '-'}</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell className="font-medium">{safeT(t, 'Notes')}</TableCell>
+              <TableCell style={{ whiteSpace: 'pre-wrap' }}>{stats.notes || '-'}</TableCell>
+            </TableRow>
+          </TableBody>
         </Table>
 
         <DialogFooter>

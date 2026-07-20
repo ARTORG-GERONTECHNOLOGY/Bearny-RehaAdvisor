@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Table, Badge, Alert } from 'react-bootstrap';
+import { Form, Badge, Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -10,6 +10,14 @@ import {
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 export type Candidate = {
   project: string;
@@ -112,20 +120,20 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
             {t('No importable patients found for your clinic/projects.')}
           </div>
         ) : (
-          <Table responsive hover className="align-middle">
-            <thead>
-              <tr>
-                <th>{t('Patient')}</th>
-                <th>{t('Record ID')}</th>
-                <th>{t('Project')}</th>
-                <th style={{ minWidth: 240 }}>{t('Password')}</th>
-                <th style={{ width: 140 }} className="text-end">
+          <Table className="align-middle">
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('Patient')}</TableHead>
+                <TableHead>{t('Record ID')}</TableHead>
+                <TableHead>{t('Project')}</TableHead>
+                <TableHead style={{ minWidth: 240 }}>{t('Password')}</TableHead>
+                <TableHead style={{ width: 140 }} className="text-end">
                   {t('Action')}
-                </th>
-              </tr>
-            </thead>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
 
-            <tbody>
+            <TableBody>
               {candidates.map((c) => {
                 const key = redcapKey(c);
                 const imported = !!importedKeys[key];
@@ -139,25 +147,25 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
                 );
 
                 return (
-                  <tr key={key} style={imported ? { opacity: 0.55 } : undefined}>
-                    <td style={{ whiteSpace: 'nowrap' }}>
+                  <TableRow key={key} style={imported ? { opacity: 0.55 } : undefined}>
+                    <TableCell style={{ whiteSpace: 'nowrap' }}>
                       {patientCell}
                       {c.dag ? (
                         <Badge bg="light" text="dark" className="ms-2">
                           DAG: {c.dag}
                         </Badge>
                       ) : null}
-                    </td>
+                    </TableCell>
 
-                    <td style={{ whiteSpace: 'nowrap' }}>
+                    <TableCell style={{ whiteSpace: 'nowrap' }}>
                       <code>{c.record_id || c.identifier || '—'}</code>
-                    </td>
+                    </TableCell>
 
-                    <td>
+                    <TableCell>
                       <Badge bg="info">{c.project}</Badge>
-                    </td>
+                    </TableCell>
 
-                    <td>
+                    <TableCell>
                       <Form.Control
                         type="text"
                         value={rowPasswords[key] ?? ''} // ✅ controlled by store map
@@ -171,9 +179,9 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
                           ? t('Password for this patient.')
                           : t('Password for this record-only patient.')}
                       </Form.Text>
-                    </td>
+                    </TableCell>
 
-                    <td className="text-end">
+                    <TableCell className="text-end">
                       <Button
                         size="dashboard"
                         variant={imported ? 'secondary' : undefined}
@@ -182,11 +190,11 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
                       >
                         {imported ? t('Imported') : isImporting ? t('Importing...') : t('Import')}
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
+            </TableBody>
           </Table>
         )}
 
