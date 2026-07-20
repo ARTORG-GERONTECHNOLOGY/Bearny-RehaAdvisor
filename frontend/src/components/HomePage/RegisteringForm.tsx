@@ -1,11 +1,12 @@
 // src/components/HomePage/RegisteringForm.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Modal, Spinner } from 'react-bootstrap';
+import { Button, Modal } from 'react-bootstrap';
 import Select from 'react-select';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import apiClient from '../../api/client';
 import config from '../../config/config.json';
+import { Spinner } from '@/components/ui/spinner';
 
 interface FormDataShape {
   [key: string]: any; // string | string[]
@@ -771,7 +772,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                   </Button>
                 ) : (
                   <Button type="submit" variant="success" disabled={loading}>
-                    {loading ? <Spinner size="sm" /> : t('Submit')}
+                    {loading ? <Spinner /> : t('Submit')}
                   </Button>
                 )}
               </>

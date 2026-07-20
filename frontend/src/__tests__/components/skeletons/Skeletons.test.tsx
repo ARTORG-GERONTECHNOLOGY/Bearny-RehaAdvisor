@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react';
 
+jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 jest.mock('@/components/Layout', () => jest.requireActual('@/__mocks__/components/Layout'));
 jest.mock(
   '@/components/Section',
@@ -31,6 +32,7 @@ import TermsAndConditionsSkeleton from '@/components/skeletons/TermsAndCondition
 import PrivacyPolicySkeleton from '@/components/skeletons/PrivacyPolicySkeleton';
 import UserProfileSkeleton from '@/components/skeletons/UserProfileSkeleton';
 import FallbackSkeleton from '@/components/skeletons/FallbackSkeleton';
+import InterventionListSkeleton from '@/components/skeletons/InterventionListSkeleton';
 
 const smoke = (Component: React.ComponentType) => () => {
   const { container } = render(<Component />);
@@ -57,4 +59,5 @@ describe('Skeleton components', () => {
   it('PrivacyPolicySkeleton renders', smoke(PrivacyPolicySkeleton));
   it('UserProfileSkeleton renders', smoke(UserProfileSkeleton));
   it('FallbackSkeleton renders', smoke(FallbackSkeleton));
+  it('InterventionListSkeleton renders', smoke(InterventionListSkeleton));
 });

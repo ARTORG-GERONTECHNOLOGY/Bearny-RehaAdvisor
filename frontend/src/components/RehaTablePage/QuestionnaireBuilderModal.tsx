@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Form, Spinner } from 'react-bootstrap';
+import { Alert, Form } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 
 import apiClient from '@/api/client';
@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 
 type BuilderType = 'open-answer' | 'one-choice' | 'multiple-choice';
 
@@ -207,7 +208,7 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
           <Button size="dashboard" onClick={submit} disabled={!canSubmit || submitting}>
             {submitting ? (
               <>
-                <Spinner animation="border" size="sm" className="me-2" />
+                <Spinner />
                 {t('Saving...')}
               </>
             ) : (

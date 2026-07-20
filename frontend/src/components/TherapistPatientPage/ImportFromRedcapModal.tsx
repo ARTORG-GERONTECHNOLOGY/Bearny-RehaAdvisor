@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Form, Spinner, Table, Badge, Alert } from 'react-bootstrap';
+import { Button, Form, Table, Badge, Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Spinner } from '@/components/ui/spinner';
 
 export type Candidate = {
   project: string;
@@ -102,7 +103,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
 
         {loading ? (
           <div className="text-center py-4">
-            <Spinner animation="border" role="status" />
+            <Spinner />
             <div className="mt-2">{t('Loading candidates…')}</div>
           </div>
         ) : candidates.length === 0 ? (

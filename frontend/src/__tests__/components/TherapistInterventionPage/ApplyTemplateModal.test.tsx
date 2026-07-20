@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import ApplyTemplateModal from '@/components/TherapistInterventionPage/ApplyTemplateModal';
 import apiClient from '@/api/client';
@@ -25,8 +26,10 @@ const defaultProps = {
 };
 
 /** Switch to "By diagnosis" mode and return the diagnosis <select>. */
-const switchToDiagnosisMode = () => {
-  fireEvent.click(screen.getByRole('button', { name: /by diagnosis/i }));
+const switchToDiagnosisMode = async () => {
+  // Radix's Tabs.Trigger activates on pointer events, which fireEvent.click
+  // doesn't dispatch — userEvent simulates the full pointer sequence.
+  await userEvent.click(screen.getByRole('tab', { name: /by diagnosis/i }));
   return screen.getByRole('combobox') as HTMLSelectElement;
 };
 
@@ -46,28 +49,28 @@ describe('ApplyTemplateModal', () => {
       expect(screen.getByText(/Apply template to patient/i)).toBeInTheDocument();
     });
 
-    it('shows mode-toggle buttons', () => {
+    it('shows mode-toggle tabs', () => {
       render(<ApplyTemplateModal {...defaultProps} />);
-      expect(screen.getByRole('button', { name: /select patients/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /by diagnosis/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /select patients/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /by diagnosis/i })).toBeInTheDocument();
     });
 
-    it('shows "Choose..." as default option in diagnosis mode', () => {
+    it('shows "Choose..." as default option in diagnosis mode', async () => {
       render(<ApplyTemplateModal {...defaultProps} />);
-      switchToDiagnosisMode();
+      await switchToDiagnosisMode();
       expect(screen.getByRole('option', { name: /choose/i })).toBeInTheDocument();
     });
 
-    it('shows diagnoses as options in diagnosis mode', () => {
+    it('shows diagnoses as options in diagnosis mode', async () => {
       render(<ApplyTemplateModal {...defaultProps} />);
-      switchToDiagnosisMode();
+      await switchToDiagnosisMode();
       expect(screen.getByRole('option', { name: 'Stroke' })).toBeInTheDocument();
       expect(screen.getByRole('option', { name: 'COPD' })).toBeInTheDocument();
     });
 
-    it('pre-selects defaultDiagnosis in diagnosis mode', () => {
+    it('pre-selects defaultDiagnosis in diagnosis mode', async () => {
       render(<ApplyTemplateModal {...defaultProps} defaultDiagnosis="Stroke" />);
-      const select = switchToDiagnosisMode();
+      const select = await switchToDiagnosisMode();
       expect(select.value).toBe('Stroke');
     });
 
@@ -109,9 +112,9 @@ describe('ApplyTemplateModal', () => {
       expect(screen.getByRole('button', { name: /^Apply$/i })).toBeDisabled();
     });
 
-    it('Apply button is disabled when diagnosis mode has no diagnosis selected', () => {
+    it('Apply button is disabled when diagnosis mode has no diagnosis selected', async () => {
       render(<ApplyTemplateModal {...defaultProps} />);
-      switchToDiagnosisMode();
+      await switchToDiagnosisMode();
       expect(screen.getByRole('button', { name: /^Apply$/i })).toBeDisabled();
     });
 
@@ -123,9 +126,9 @@ describe('ApplyTemplateModal', () => {
       expect(screen.getByRole('button', { name: /^Apply$/i })).not.toBeDisabled();
     });
 
-    it('Apply button is enabled after selecting a diagnosis', () => {
+    it('Apply button is enabled after selecting a diagnosis', async () => {
       render(<ApplyTemplateModal {...defaultProps} />);
-      const select = switchToDiagnosisMode();
+      const select = await switchToDiagnosisMode();
       fireEvent.change(select, { target: { value: 'Stroke' } });
       expect(screen.getByRole('button', { name: /^Apply$/i })).not.toBeDisabled();
     });
@@ -202,7 +205,7 @@ describe('ApplyTemplateModal', () => {
       });
 
       render(<ApplyTemplateModal {...defaultProps} templateId="tpl-1" />);
-      const select = switchToDiagnosisMode();
+      const select = await switchToDiagnosisMode();
       fireEvent.change(select, { target: { value: 'COPD' } });
 
       await act(async () => {
@@ -407,11 +410,11 @@ describe('ApplyTemplateModal', () => {
       expect(defaultProps.onHide).toHaveBeenCalled();
     });
 
-    it('confirms before closing when there are unsaved changes, and respects Cancel', () => {
+    it('confirms before closing when there are unsaved changes, and respects Cancel', async () => {
       const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
       render(<ApplyTemplateModal {...defaultProps} />);
 
-      const select = switchToDiagnosisMode();
+      const select = await switchToDiagnosisMode();
       fireEvent.change(select, { target: { value: 'Stroke' } });
 
       fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
@@ -421,11 +424,11 @@ describe('ApplyTemplateModal', () => {
       confirmSpy.mockRestore();
     });
 
-    it('closes on Escape when confirmed', () => {
+    it('closes on Escape when confirmed', async () => {
       const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
       render(<ApplyTemplateModal {...defaultProps} />);
 
-      const select = switchToDiagnosisMode();
+      const select = await switchToDiagnosisMode();
       fireEvent.change(select, { target: { value: 'Stroke' } });
 
       fireEvent.keyDown(window, { key: 'Escape' });

@@ -30,12 +30,13 @@
  */
 
 import React, { useState } from 'react';
-import { Button, Table, Spinner, Form } from 'react-bootstrap';
+import { Button, Table, Form } from 'react-bootstrap';
 import { zipSync, strToU8 } from 'fflate';
 import { toISODateUTC, formatLocaleDateTime } from '@/utils/dateFormat';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 import axios from 'axios';
 import apiClient from '../api/client';
+import { Spinner } from '@/components/ui/spinner';
 
 export default function DownloadsPage() {
   // --- auth gate ---
@@ -222,7 +223,7 @@ export default function DownloadsPage() {
             </Form.Group>
             {authError && <p className="text-danger mb-3">{authError}</p>}
             <Button onClick={submitPassword} disabled={authLoading}>
-              {authLoading ? <Spinner size="sm" /> : 'Send code'}
+              {authLoading ? <Spinner /> : 'Send code'}
             </Button>
           </>
         ) : (
@@ -244,7 +245,7 @@ export default function DownloadsPage() {
             </Form.Group>
             {authError && <p className="text-danger mb-3">{authError}</p>}
             <Button onClick={submitCode} disabled={authLoading} className="me-2">
-              {authLoading ? <Spinner size="sm" /> : 'Verify'}
+              {authLoading ? <Spinner /> : 'Verify'}
             </Button>
             <Button variant="outline-secondary" onClick={() => setStep('password')}>
               Back
@@ -287,7 +288,7 @@ export default function DownloadsPage() {
             disabled={!items.length || loading}
             className="px-4 shadow-sm"
           >
-            {loading ? <Spinner size="sm" /> : 'Download All (ZIP + CSV)'}
+            {loading ? <Spinner /> : 'Download All (ZIP + CSV)'}
           </Button>
         </div>
       </div>

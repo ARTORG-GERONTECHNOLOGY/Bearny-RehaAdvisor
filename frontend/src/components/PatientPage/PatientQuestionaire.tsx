@@ -1,12 +1,14 @@
 // src/components/patient/PatientQuestionaire.tsx
 import React, { useState } from 'react';
-import { Button, Form, Modal, Spinner } from 'react-bootstrap';
+import { Form, Modal } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import Select from 'react-select';
 import apiClient from '@/api/client';
 import config from '@/config/config.json';
 import { PatientType } from '@/types/index';
 import ErrorAlert from '../common/ErrorAlert';
+import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 
 interface PatientPopupProps {
   patient_id: PatientType;
@@ -200,7 +202,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
   if (!patient_id) {
     return (
       <div className="text-center my-4">
-        <Spinner animation="border" role="status" />
+        <Spinner />
         <p className="mt-3">{t('Loading')}...</p>
       </div>
     );
@@ -261,9 +263,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
       </Modal.Body>
 
       <Modal.Footer>
-        <Button variant="success" onClick={handleSave}>
-          {t('Submit')}
-        </Button>
+        <Button onClick={handleSave}>{t('Submit')}</Button>
       </Modal.Footer>
 
       <style>{`

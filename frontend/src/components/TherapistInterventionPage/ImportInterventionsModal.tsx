@@ -1,7 +1,7 @@
 // src/components/TherapistInterventionPage/ImportInterventionsModal.tsx
 import React, { useMemo, useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Alert, Badge, Button, Form, Nav, Spinner } from 'react-bootstrap';
+import { Alert, Badge, Form, Nav } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Spinner } from '@/components/ui/spinner';
 
 import interventionsConfig from '../../config/interventions.json';
 import { interventionsImportStore } from '../../stores/interventionsImportStore';
@@ -18,6 +19,7 @@ import {
   interventionsMediaUploadStore,
   MediaUploadFileResult,
 } from '../../stores/interventionsMediaUploadStore';
+import { Button } from '@/components/ui/button';
 
 type Props = {
   show: boolean;
@@ -530,8 +532,8 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                     )}
 
                     <Button
-                      variant="link"
-                      size="sm"
+                      size="dashboard"
+                      variant="ghost"
                       className="p-0 ms-1 text-muted"
                       onClick={() => removeMediaFile(idx)}
                       aria-label={t('Remove file')}
@@ -606,7 +608,8 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
 
         <DialogFooter className="sm:justify-between">
           <Button
-            variant="outline-secondary"
+            size="dashboard"
+            variant="secondary"
             onClick={close}
             disabled={interventionsImportStore.loading || interventionsMediaUploadStore.loading}
           >
@@ -614,10 +617,10 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
           </Button>
 
           {activeTab === 'excel' && (
-            <Button variant="primary" onClick={submitExcel} disabled={!canSubmit}>
+            <Button size="dashboard" onClick={submitExcel} disabled={!canSubmit}>
               {interventionsImportStore.loading ? (
                 <span className="d-inline-flex align-items-center gap-2">
-                  <Spinner animation="border" size="sm" /> {t('Importing...')}
+                  <Spinner /> {t('Importing...')}
                 </span>
               ) : (
                 t('Import')
@@ -627,13 +630,13 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
 
           {activeTab === 'media' && (
             <Button
-              variant="primary"
+              size="dashboard"
               onClick={submitMedia}
               disabled={!hasValidMediaFiles || interventionsMediaUploadStore.loading}
             >
               {interventionsMediaUploadStore.loading ? (
                 <span className="d-inline-flex align-items-center gap-2">
-                  <Spinner animation="border" size="sm" /> {t('Uploading...')}
+                  <Spinner /> {t('Uploading...')}
                 </span>
               ) : (
                 t('Upload')

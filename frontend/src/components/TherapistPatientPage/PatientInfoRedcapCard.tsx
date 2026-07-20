@@ -1,10 +1,11 @@
 import React from 'react';
-import { Badge, Spinner, Table } from 'react-bootstrap';
+import { Badge, Table } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PatientPopupStore } from '@/stores/patientPopupStore';
+import { Spinner } from '@/components/ui/spinner';
 
 interface PatientInfoRedcapCardProps {
   store: PatientPopupStore;
@@ -41,7 +42,7 @@ const PatientInfoRedcapCard: React.FC<PatientInfoRedcapCardProps> = observer(({ 
 
           {store.redcapLoading ? (
             <div className="text-center my-4">
-              <Spinner animation="border" role="status" aria-label={t('Loading')} />
+              <Spinner aria-label={t('Loading')} />
               <p className="mt-3">{t('Loading')}...</p>
             </div>
           ) : !hasRedcap ? (

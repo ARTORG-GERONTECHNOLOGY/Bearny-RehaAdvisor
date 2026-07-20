@@ -1,16 +1,17 @@
 // src/components/TherapistInterventionPage/AddInterventionPopUp.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Alert, Button, Form, Spinner } from 'react-bootstrap';
+import { Alert, Button, Form } from 'react-bootstrap';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import axios from 'axios';
 import Select from 'react-select';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
-import apiClient from '../../api/client';
-import authStore from '../../stores/authStore';
+import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
 import StandardModal from '../common/StandardModal';
-import interventionsTaxonomyStore from '../../stores/interventionsTaxonomyStore';
+import interventionsTaxonomyStore from '@/stores/interventionsTaxonomyStore';
+import { Spinner } from '@/components/ui/spinner';
 
 const CONTENT_TYPE_TO_BACKEND: Record<string, string> = {
   brochure: 'pdf',
@@ -1033,7 +1034,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
               <Button variant="primary" type="submit" className="mt-4 w-100" disabled={submitting}>
                 {submitting ? (
                   <span className="d-inline-flex align-items-center gap-2">
-                    <Spinner animation="border" size="sm" /> {t('Submitting...')}
+                    <Spinner /> {t('Submitting...')}
                   </span>
                 ) : (
                   t('Submit')

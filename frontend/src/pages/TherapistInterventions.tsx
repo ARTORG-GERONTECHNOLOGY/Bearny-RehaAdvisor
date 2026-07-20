@@ -1,7 +1,7 @@
 // src/pages/TherapistInterventions.tsx
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Form, Button, ButtonGroup, Spinner } from 'react-bootstrap';
+import { Form, Button, ButtonGroup } from 'react-bootstrap';
 import { FaPlus, FaTrash, FaCopy, FaUpload, FaEdit, FaBell } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
@@ -31,6 +31,7 @@ import { filterInterventions } from '@/utils/filterUtils';
 import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
 import { translateText } from '@/utils/translate';
 import { formatLocaleDate } from '@/utils/dateFormat';
+import { Spinner } from '@/components/ui/spinner';
 
 import type { TemplateItem, TemplatePayload } from '@/types/templates';
 import type { InterventionTypeTh } from '@/types';
@@ -879,7 +880,7 @@ const TherapistRecomendations: React.FC = observer(() => {
                     )}
                   </div>
 
-                  {templateStore.loading && <Spinner size="sm" />}
+                  {templateStore.loading && <Spinner />}
 
                   <Button
                     size="sm"
