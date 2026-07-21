@@ -1,6 +1,6 @@
 // src/components/RehaTablePage/InterventionLeftPanel.tsx
 import React, { useMemo, useRef, useState } from 'react';
-import { Dropdown, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import Select, { StylesConfig } from 'react-select';
 import { TFunction } from 'i18next';
 import { FaPlus, FaMinus, FaChartBar, FaEdit, FaUndo, FaGlobe, FaFilter } from 'react-icons/fa';
@@ -28,7 +28,11 @@ import {
 } from '@/components/ui/select';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Button } from '@/components/ui/button';
-import { useDismissableDropdown } from '@/hooks/useDismissableDropdown';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Sentinel for the "clear filter" Select item — Radix forbids an empty-string item value.
 const ALL_FILTER_VALUE = '__all__';
@@ -139,8 +143,6 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
   } = actions;
 
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const { containerRef: filtersDropdownRef, onToggle: handleFiltersToggle } =
-    useDismissableDropdown(setFiltersOpen);
 
   const listScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -340,6 +342,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
 
   const selectStyles: StylesConfig<{ value: string; label: string }, true> = {
     container: (base) => ({ ...base, width: '100%', minWidth: 0 }),
+    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
   };
 
   const renderFiltersBar = () => (
@@ -354,133 +357,127 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
         />
       </Field>
 
-      <div
-        ref={filtersDropdownRef as React.RefObject<HTMLDivElement>}
-        style={{ display: 'contents' }}
-      >
-        <Dropdown show={filtersOpen} onToggle={handleFiltersToggle} align="end">
-          <Dropdown.Toggle as={Button} variant="secondary" size={'dashboard' as 'sm' | 'lg'}>
-            <FaFilter className="me-2" />
+      <DropdownMenu open={filtersOpen} onOpenChange={setFiltersOpen} modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="secondary" size="dashboard">
+            <FaFilter />
             {t('Filters')}
             {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
-          </Dropdown.Toggle>
+          </Button>
+        </DropdownMenuTrigger>
 
-          <Dropdown.Menu className="p-3 w-[min(420px,86vw)]" onClick={(e) => e.stopPropagation()}>
-            <div className="grid grid-cols-2 gap-2.5">
-              <Field>
-                <UiSelect
-                  value={patientTypeFilter || ALL_FILTER_VALUE}
-                  onValueChange={(value) =>
-                    setPatientTypeFilter(value === ALL_FILTER_VALUE ? '' : value)
-                  }
-                >
-                  <SelectTrigger id="patientTypeFilter">
-                    <SelectValue placeholder={t('Filter by Patient Type')} />
-                  </SelectTrigger>
-                  {/* Bootstrap's .dropdown-menu sits at z-index 1000, above
-                    this portaled content's default z-50. */}
-                  <SelectContent className="z-[9999]">
-                    <SelectItem value={ALL_FILTER_VALUE}>{t('All Patient Types')}</SelectItem>
-                    {diagnoses.map((type: string) => (
-                      <SelectItem key={type} value={type}>
-                        {t(type)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </UiSelect>
-              </Field>
+        <DropdownMenuContent align="end" className="p-3 w-[min(420px,86vw)]">
+          <div className="grid grid-cols-2 gap-2.5">
+            <Field>
+              <UiSelect
+                value={patientTypeFilter || ALL_FILTER_VALUE}
+                onValueChange={(value) =>
+                  setPatientTypeFilter(value === ALL_FILTER_VALUE ? '' : value)
+                }
+              >
+                <SelectTrigger id="patientTypeFilter">
+                  <SelectValue placeholder={t('Filter by Patient Type')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_FILTER_VALUE}>{t('All Patient Types')}</SelectItem>
+                  {diagnoses.map((type: string) => (
+                    <SelectItem key={type} value={type}>
+                      {t(type)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </UiSelect>
+            </Field>
 
-              <Field>
-                <UiSelect
-                  value={contentTypeFilter || ALL_FILTER_VALUE}
-                  onValueChange={(value) =>
-                    setContentTypeFilter(value === ALL_FILTER_VALUE ? '' : value)
-                  }
-                >
-                  <SelectTrigger id="contentTypeFilter">
-                    <SelectValue placeholder={t('Filter by Content Type')} />
-                  </SelectTrigger>
-                  {/* Bootstrap's .dropdown-menu sits at z-index 1000, above
-                    this portaled content's default z-50. */}
-                  <SelectContent className="z-[9999]">
-                    <SelectItem value={ALL_FILTER_VALUE}>{t('All Content Types')}</SelectItem>
-                    {config.RecomendationInfo.types.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {t(type)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </UiSelect>
-              </Field>
+            <Field>
+              <UiSelect
+                value={contentTypeFilter || ALL_FILTER_VALUE}
+                onValueChange={(value) =>
+                  setContentTypeFilter(value === ALL_FILTER_VALUE ? '' : value)
+                }
+              >
+                <SelectTrigger id="contentTypeFilter">
+                  <SelectValue placeholder={t('Filter by Content Type')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_FILTER_VALUE}>{t('All Content Types')}</SelectItem>
+                  {config.RecomendationInfo.types.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {t(type)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </UiSelect>
+            </Field>
 
-              <Field>
-                <Select
-                  classNamePrefix="select"
-                  isMulti
-                  options={config.RecomendationInfo.tags.map((tag) => ({
-                    value: tag,
-                    label: t(tag),
-                  }))}
-                  value={tagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
-                  onChange={(opts) => setTagFilter((opts || []).map((opt: any) => opt.value))}
-                  placeholder={t('Filter by Tags')}
-                  styles={selectStyles}
-                />
-              </Field>
+            <Field>
+              <Select
+                classNamePrefix="select"
+                isMulti
+                options={config.RecomendationInfo.tags.map((tag) => ({
+                  value: tag,
+                  label: t(tag),
+                }))}
+                value={tagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
+                onChange={(opts) => setTagFilter((opts || []).map((opt: any) => opt.value))}
+                placeholder={t('Filter by Tags')}
+                styles={selectStyles}
+                menuPortalTarget={document.body}
+              />
+            </Field>
 
-              <Field>
-                <Select
-                  classNamePrefix="select"
-                  isMulti
-                  options={config.RecomendationInfo.benefits.map((b) => ({
-                    value: b,
-                    label: t(b),
-                  }))}
-                  value={benefitForFilter.map((b) => ({ value: b, label: t(b) }))}
-                  onChange={(opts) =>
-                    setBenefitForFilter((opts || []).map((opt: any) => opt.value))
-                  }
-                  placeholder={t('Filter by Benefit')}
-                  styles={selectStyles}
-                />
-              </Field>
+            <Field>
+              <Select
+                classNamePrefix="select"
+                isMulti
+                options={config.RecomendationInfo.benefits.map((b) => ({
+                  value: b,
+                  label: t(b),
+                }))}
+                value={benefitForFilter.map((b) => ({ value: b, label: t(b) }))}
+                onChange={(opts) => setBenefitForFilter((opts || []).map((opt: any) => opt.value))}
+                placeholder={t('Filter by Benefit')}
+                styles={selectStyles}
+                menuPortalTarget={document.body}
+              />
+            </Field>
 
-              <Field className="col-span-2">
-                <Select
-                  classNamePrefix="select"
-                  isMulti
-                  options={languageOptions}
-                  value={languageFilter.map((l) => ({ value: l, label: l.toUpperCase() }))}
-                  onChange={(opts) => setLanguageFilter((opts || []).map((opt: any) => opt.value))}
-                  placeholder={t('Filter by Language')}
-                  styles={selectStyles}
-                />
-              </Field>
+            <Field className="col-span-2">
+              <Select
+                classNamePrefix="select"
+                isMulti
+                options={languageOptions}
+                value={languageFilter.map((l) => ({ value: l, label: l.toUpperCase() }))}
+                onChange={(opts) => setLanguageFilter((opts || []).map((opt: any) => opt.value))}
+                placeholder={t('Filter by Language')}
+                styles={selectStyles}
+                menuPortalTarget={document.body}
+              />
+            </Field>
 
-              <div className="col-span-2 d-flex justify-content-between">
-                <Button variant="secondary" size="dashboard" onClick={handleReset}>
-                  <FaUndo /> {t('Reset filters')}
-                </Button>
+            <div className="col-span-2 flex justify-between">
+              <Button variant="secondary" size="dashboard" onClick={handleReset}>
+                <FaUndo /> {t('Reset filters')}
+              </Button>
 
-                <Button
-                  variant="secondary"
-                  size="dashboard"
-                  onClick={scrollListToTop}
-                  aria-label={t('Scroll to top')}
-                  title={t('Scroll to top')}
-                >
-                  ↑
-                </Button>
-              </div>
+              <Button
+                variant="secondary"
+                size="dashboard"
+                onClick={scrollListToTop}
+                aria-label={t('Scroll to top')}
+                title={t('Scroll to top')}
+              >
+                ↑
+              </Button>
             </div>
-          </Dropdown.Menu>
-        </Dropdown>
-      </div>
+          </div>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 
   return (
-    <div className="flex flex-column gap-2">
+    <div className="flex flex-col gap-2">
       <Card>
         <CardHeader>
           <CardTitle>{t('Active interventions')}</CardTitle>

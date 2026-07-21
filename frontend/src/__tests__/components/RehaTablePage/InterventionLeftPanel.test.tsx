@@ -322,7 +322,7 @@ describe('InterventionLeftPanel', () => {
     it('opens the filter menu and updates the patient type filter', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+      await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       // Defaults to the sentinel "All Patient Types" option (clearable
       // without needing the "Reset filters" button), so it can't be found by
@@ -336,7 +336,7 @@ describe('InterventionLeftPanel', () => {
     it('clears the patient type filter via the "All Patient Types" option', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel({ filters: { patientTypeFilter: 'Stroke' } });
-      fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+      await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       const select = document.getElementById('patientTypeFilter')!;
       await user.click(select);
@@ -347,7 +347,7 @@ describe('InterventionLeftPanel', () => {
     it('updates the content type filter', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+      await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       const select = document.getElementById('contentTypeFilter')!;
       await user.click(select);
@@ -355,10 +355,27 @@ describe('InterventionLeftPanel', () => {
       expect(filters.setContentTypeFilter).toHaveBeenCalledWith('Video');
     });
 
+    it('keeps the Filters dropdown open after selecting a nested Select option', async () => {
+      const user = userEvent.setup();
+      renderPanel();
+      await user.click(screen.getByRole('button', { name: /Filters/i }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+
+      const select = document.getElementById('contentTypeFilter')!;
+      await user.click(select);
+      await user.click(await screen.findByRole('option', { name: 'Video' }));
+
+      // The nested Radix Select closing must not also close the outer
+      // DropdownMenu — both are Radix now, so they should coordinate
+      // correctly instead of the Select's portal click being mistaken
+      // for an "outside" click on the dropdown.
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+    });
+
     it('clears the content type filter via the "All Content Types" option', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel({ filters: { contentTypeFilter: 'Video' } });
-      fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+      await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       const select = document.getElementById('contentTypeFilter')!;
       await user.click(select);
@@ -366,27 +383,30 @@ describe('InterventionLeftPanel', () => {
       expect(filters.setContentTypeFilter).toHaveBeenCalledWith('');
     });
 
-    it('updates the tag filter via react-select', () => {
+    it('updates the tag filter via react-select', async () => {
+      const user = userEvent.setup();
       const { filters } = renderPanel();
-      fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+      await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       const tagSelect = screen.getByTestId('tag-select');
       fireEvent.click(within(tagSelect).getByText('change tag-select'));
       expect(filters.setTagFilter).toHaveBeenCalledWith(['picked']);
     });
 
-    it('updates the benefit filter via react-select', () => {
+    it('updates the benefit filter via react-select', async () => {
+      const user = userEvent.setup();
       const { filters } = renderPanel();
-      fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+      await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       const benefitSelect = screen.getByTestId('benefit-select');
       fireEvent.click(within(benefitSelect).getByText('change benefit-select'));
       expect(filters.setBenefitForFilter).toHaveBeenCalledWith(['picked']);
     });
 
-    it('updates the language filter via react-select and clears it back to []', () => {
+    it('updates the language filter via react-select and clears it back to []', async () => {
+      const user = userEvent.setup();
       const { filters } = renderPanel();
-      fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+      await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       const languageSelect = screen.getByTestId('language-select');
       fireEvent.click(within(languageSelect).getByText('change language-select'));
@@ -396,14 +416,16 @@ describe('InterventionLeftPanel', () => {
       expect(filters.setLanguageFilter).toHaveBeenCalledWith([]);
     });
 
-    it('calls resetAllFilters when Reset filters is clicked', () => {
+    it('calls resetAllFilters when Reset filters is clicked', async () => {
+      const user = userEvent.setup();
       const { filters } = renderPanel();
-      fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+      await user.click(screen.getByRole('button', { name: /Filters/i }));
       fireEvent.click(screen.getByRole('button', { name: /Reset filters/i }));
       expect(filters.resetAllFilters).toHaveBeenCalled();
     });
 
-    it('derives language options from available_languages arrays and the language field, deduped', () => {
+    it('derives language options from available_languages arrays and the language field, deduped', async () => {
+      const user = userEvent.setup();
       renderPanel({
         data: {
           allItems: [
@@ -413,13 +435,14 @@ describe('InterventionLeftPanel', () => {
           ],
         },
       });
-      fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+      await user.click(screen.getByRole('button', { name: /Filters/i }));
       // Just verifying the panel renders without throwing while computing language options;
       // the mocked react-select doesn't expose the passed options for direct assertion.
       expect(screen.getByTestId('language-select')).toBeInTheDocument();
     });
 
-    it('renders already-selected tag/benefit/language filter chips via react-select value prop', () => {
+    it('renders already-selected tag/benefit/language filter chips via react-select value prop', async () => {
+      const user = userEvent.setup();
       renderPanel({
         filters: {
           tagFilter: ['Exercise'],
@@ -427,7 +450,7 @@ describe('InterventionLeftPanel', () => {
           languageFilter: ['en'],
         } as any,
       });
-      fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+      await user.click(screen.getByRole('button', { name: /Filters/i }));
       expect(screen.getByTestId('tag-select')).toBeInTheDocument();
       expect(screen.getByTestId('benefit-select')).toBeInTheDocument();
       expect(screen.getByTestId('language-select')).toBeInTheDocument();

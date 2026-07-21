@@ -1,6 +1,5 @@
 // components/TherapistInterventionPage/FilterBar.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Dropdown } from 'react-bootstrap';
 import Select from 'react-select';
 import interventionsConfig from '../../config/interventions.json';
 import { FaFilter } from 'react-icons/fa';
@@ -14,7 +13,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useDismissableDropdown } from '@/hooks/useDismissableDropdown';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Sentinel for the "clear filter" Select item — Radix forbids an empty-string item value.
 const ALL_CONTENT_TYPES = '__all__';
@@ -95,8 +98,6 @@ const FilterBar: React.FC<Props> = ({
 
   // dropdown open state (controlled so it won't “flash close”)
   const [open, setOpen] = useState(false);
-  const { containerRef: dropdownRef, onToggle: handleDropdownToggle } =
-    useDismissableDropdown(setOpen);
 
   useEffect(() => {
     const el = rootRef.current;
@@ -132,7 +133,7 @@ const FilterBar: React.FC<Props> = ({
     (tagFilter?.length ? 1 : 0);
 
   const FiltersGrid = (
-    <div className="filterbar-grid" onClick={(e) => e.stopPropagation()}>
+    <div className="grid grid-cols-2 gap-3">
       <Field>
         <FieldLabel htmlFor="filterDiagnosis" className="sr-only">
           {t('Filter by Primary Diagnosis')}
@@ -178,9 +179,7 @@ const FilterBar: React.FC<Props> = ({
           <SelectTrigger id="filterContentType">
             <SelectValue placeholder={t('All Content Types')} />
           </SelectTrigger>
-          {/* Bootstrap's .dropdown-menu sits at z-index 1000, above
-                    this portaled content's default z-50. */}
-          <SelectContent className="z-[9999]">
+          <SelectContent>
             <SelectItem value={ALL_CONTENT_TYPES}>{t('All Content Types')}</SelectItem>
             {contentTypes.map((type: string) => (
               <SelectItem key={type} value={type}>
@@ -208,7 +207,7 @@ const FilterBar: React.FC<Props> = ({
       </Field>
 
       {onReset ? (
-        <div className="d-flex justify-content-end">
+        <div className="col-span-2 flex justify-end">
           <Button
             size="dashboard"
             variant="secondary"
@@ -227,8 +226,8 @@ const FilterBar: React.FC<Props> = ({
   return (
     <div ref={rootRef as any} aria-label={t('Filter Interventions')}>
       {/* top row */}
-      <div className="filterbar-top">
-        <Field className="flex-grow-1">
+      <div className="flex items-center gap-2">
+        <Field className="grow">
           <FieldLabel htmlFor="searchInput" className="sr-only">
             {t('Search Interventions')}
           </FieldLabel>
@@ -243,37 +242,25 @@ const FilterBar: React.FC<Props> = ({
 
         {/* narrow: dropdown toggle */}
         {isNarrow ? (
-          <div ref={dropdownRef as React.RefObject<HTMLDivElement>} style={{ display: 'contents' }}>
-            <Dropdown show={open} onToggle={handleDropdownToggle} align="end">
-              <Dropdown.Toggle
-                as={Button}
-                // TODO: type cast needed until Bootstrap Dropdown is removed in a future bootstrap removal task
-                size={'dashboard' as 'sm' | 'lg'}
-                variant="secondary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpen((v) => !v);
-                }}
-              >
-                <FaFilter className="me-2" />
+          <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button size="dashboard" variant="secondary">
+                <FaFilter />
                 {t('Filters')}
                 {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
-              </Dropdown.Toggle>
+              </Button>
+            </DropdownMenuTrigger>
 
-              <Dropdown.Menu
-                className="filterbar-menu"
-                onClick={(e) => e.stopPropagation()} // ✅ keep it open while interacting
-              >
-                {FiltersGrid}
-              </Dropdown.Menu>
-            </Dropdown>
-          </div>
+            <DropdownMenuContent align="end" className="p-3 w-[min(520px,86vw)]">
+              {FiltersGrid}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </div>
 
       {/* meta row */}
       {typeof resultCount === 'number' || loading || (!isNarrow && onReset) ? (
-        <div className="filterbar-meta">
+        <div className="flex items-center justify-between gap-2 mt-2.5">
           <div className="text-muted small">
             {loading
               ? `${t('Loading')}...`
@@ -293,33 +280,6 @@ const FilterBar: React.FC<Props> = ({
 
       {/* non-narrow: always visible grid */}
       {!isNarrow ? <div className="mt-3">{FiltersGrid}</div> : null}
-
-      <style>{`
-        .filterbar-top {
-          display: flex;
-          gap: 12px;
-          align-items: center;
-        }
-        .filterbar-meta {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: 10px;
-          gap: 12px;
-        }
-        .filterbar-menu {
-          padding: 12px;
-          width: min(520px, 86vw);
-        }
-        .filterbar-grid {
-          display: grid;
-          gap: 12px;
-          grid-template-columns: 1fr;
-        }
-        @media (min-width: 520px) {
-          .filterbar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-      `}</style>
     </div>
   );
 };
