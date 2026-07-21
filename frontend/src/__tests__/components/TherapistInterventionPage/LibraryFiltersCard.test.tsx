@@ -1,9 +1,19 @@
 import React from 'react';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import LibraryFiltersCard, {
   LibraryFiltersState,
 } from '@/components/TherapistInterventionPage/LibraryFiltersCard';
+
+// Radix Select (used for the content-type filter) relies on pointer capture /
+// scrollIntoView APIs that jsdom doesn't implement.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 // Mock react-select: expose a distinct testid per instance via placeholder text,
 // and buttons that trigger onChange so we can assert wiring without simulating
@@ -79,11 +89,12 @@ describe('LibraryFiltersCard', () => {
       expect(screen.getByTestId('tag-select')).toBeInTheDocument();
     });
 
-    it('renders content type options from the taxonomy config', () => {
+    it('renders content type options from the taxonomy config', async () => {
+      const user = userEvent.setup();
       renderCard();
-      const select = screen.getByRole('combobox');
-      expect(within(select).getByRole('option', { name: 'video' })).toBeInTheDocument();
-      expect(within(select).getByRole('option', { name: 'app' })).toBeInTheDocument();
+      await user.click(screen.getByRole('combobox'));
+      expect(await screen.findByRole('option', { name: 'video' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'app' })).toBeInTheDocument();
     });
 
     it('renders the Reset filters button', () => {
@@ -104,9 +115,11 @@ describe('LibraryFiltersCard', () => {
       expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ searchTerm: 'stretch' }));
     });
 
-    it('calls onChange with the updated content type', () => {
+    it('calls onChange with the updated content type', async () => {
+      const user = userEvent.setup();
       renderCard();
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'video' } });
+      await user.click(screen.getByRole('combobox'));
+      await user.click(await screen.findByRole('option', { name: 'video' }));
       expect(onChange).toHaveBeenCalledWith(
         expect.objectContaining({ contentTypeFilter: 'video' })
       );
@@ -193,7 +206,7 @@ describe('LibraryFiltersCard', () => {
         contentTypeFilter: 'video',
       });
       expect(screen.getByTestId('diagnosis-select')).toBeInTheDocument();
-      expect((screen.getByRole('combobox') as HTMLSelectElement).value).toBe('video');
+      expect(screen.getByRole('combobox')).toHaveTextContent('video');
     });
   });
 });

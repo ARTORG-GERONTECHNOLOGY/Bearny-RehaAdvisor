@@ -48,6 +48,7 @@ import {
   levelRankSmallBadFirst,
   toNum,
 } from '@/utils/patientStatus';
+import { FaPlus } from 'react-icons/fa';
 
 // config typing used on this page
 type AppConfig = {
@@ -218,6 +219,7 @@ const Therapist: React.FC = observer(() => {
             <>
               {appModeStore.showManualCreate && (
                 <Button size="dashboard" onClick={store.openAddPatient} disabled={store.loading}>
+                  <FaPlus />
                   {String(t('Add a New Patient'))}
                 </Button>
               )}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TemplateAssignModal from '@/components/TherapistInterventionPage/TemplateAssignModal';
 import apiClient from '@/api/client';
@@ -9,6 +10,23 @@ jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next')
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 jest.mock('@/stores/authStore', () => ({ default: { id: 'therapist-1' }, id: 'therapist-1' }));
+
+// Radix Checkbox (via @radix-ui/react-use-size) needs ResizeObserver, which jsdom
+// doesn't implement.
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
+// Radix Select (diagnosis / auto-apply-scope dropdowns) relies on pointer capture /
+// scrollIntoView APIs that jsdom doesn't implement.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 const defaultProps = {
   show: true,
@@ -20,10 +38,18 @@ const defaultProps = {
 };
 
 /**
- * The diagnosis <select> is the only combobox in this form.
- * Form.Group without controlId has no aria association, so we can't query by label name.
+ * The diagnosis dropdown is a Radix Select (role="combobox"); its accessible name
+ * comes from the associated <FieldLabel htmlFor="template-diagnosis">, which lets us
+ * target it even when the auto-apply-scope select is also on screen.
  */
-const getDiagnosisSelect = () => screen.getByRole('combobox');
+const getDiagnosisSelect = () => screen.getByRole('combobox', { name: /Diagnosis_patient_list/i });
+const getScopeSelect = () => screen.getByRole('combobox', { name: /Diagnosis auto-apply mode/i });
+
+const selectOption = async (trigger: HTMLElement, optionName: string | RegExp) => {
+  const user = userEvent.setup();
+  await user.click(trigger);
+  await user.click(await screen.findByRole('option', { name: optionName }));
+};
 
 describe('TemplateAssignModal', () => {
   beforeEach(() => {
@@ -51,12 +77,14 @@ describe('TemplateAssignModal', () => {
 
     it('shows "All diagnoses" as default option when templateId is set', () => {
       render(<TemplateAssignModal {...defaultProps} templateId="tpl-1" />);
-      expect(screen.getByRole('option', { name: /all diagnoses/i })).toBeInTheDocument();
+      // Radix only renders SelectItems (role="option") in the popover while it's open,
+      // so the closed-state default is verified via the trigger's displayed text.
+      expect(getDiagnosisSelect()).toHaveTextContent(/all diagnoses/i);
     });
 
     it('shows "Choose..." as default option without templateId', () => {
       render(<TemplateAssignModal {...defaultProps} />);
-      expect(screen.getByRole('option', { name: /choose/i })).toBeInTheDocument();
+      expect(getDiagnosisSelect()).toHaveTextContent(/choose/i);
     });
 
     it('does not render when show=false', () => {
@@ -79,9 +107,9 @@ describe('TemplateAssignModal', () => {
       expect(screen.getByRole('button', { name: /^Save$/i })).not.toBeDisabled();
     });
 
-    it('Save button becomes enabled after selecting a diagnosis in legacy mode', () => {
+    it('Save button becomes enabled after selecting a diagnosis in legacy mode', async () => {
       render(<TemplateAssignModal {...defaultProps} />);
-      fireEvent.change(getDiagnosisSelect(), { target: { value: 'Stroke' } });
+      await selectOption(getDiagnosisSelect(), 'Stroke');
       expect(screen.getByRole('button', { name: /^Save$/i })).not.toBeDisabled();
     });
   });
@@ -135,7 +163,7 @@ describe('TemplateAssignModal', () => {
       (apiClient.post as jest.Mock).mockResolvedValueOnce({ status: 200, data: {} });
 
       render(<TemplateAssignModal {...defaultProps} templateId="tpl-1" />);
-      fireEvent.change(getDiagnosisSelect(), { target: { value: 'COPD' } });
+      await selectOption(getDiagnosisSelect(), 'COPD');
       fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 
       await waitFor(() => {
@@ -244,14 +272,14 @@ describe('TemplateAssignModal', () => {
     it('shows the modify title and a pre-checked "keep previous" checkbox', () => {
       render(<TemplateAssignModal {...defaultProps} mode="modify" defaultDiagnosis="Stroke" />);
       expect(screen.getByText(/Modify template \(from day S\)/i)).toBeInTheDocument();
-      expect(document.querySelector('input[type="checkbox"]')).toBeChecked();
+      expect(screen.getByRole('checkbox')).toBeChecked();
     });
 
     it('unchecking "keep previous" is reflected in the save payload', async () => {
       (apiClient.post as jest.Mock).mockResolvedValueOnce({ status: 200, data: {} });
 
       render(<TemplateAssignModal {...defaultProps} mode="modify" defaultDiagnosis="Stroke" />);
-      fireEvent.click(document.querySelector('input[type="checkbox"]')!);
+      fireEvent.click(screen.getByRole('checkbox'));
       fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 
       await waitFor(() => {
@@ -265,13 +293,11 @@ describe('TemplateAssignModal', () => {
   // Auto-apply scope
   // ------------------------------------------------------------------
   describe('auto-apply scope', () => {
-    it('shows a start-date field only when scope is "all_past_and_future"', () => {
+    it('shows a start-date field only when scope is "all_past_and_future"', async () => {
       render(<TemplateAssignModal {...defaultProps} defaultDiagnosis="Stroke" />);
       expect(screen.queryByText(/Start assigning from date/i)).not.toBeInTheDocument();
 
-      const scopeSelects = screen.getAllByRole('combobox');
-      const scopeSelect = scopeSelects[scopeSelects.length - 1];
-      fireEvent.change(scopeSelect, { target: { value: 'all_past_and_future' } });
+      await selectOption(getScopeSelect(), /Assign now to all existing matching patients/i);
 
       expect(screen.getByText(/Start assigning from date/i)).toBeInTheDocument();
     });
@@ -282,10 +308,7 @@ describe('TemplateAssignModal', () => {
       render(
         <TemplateAssignModal {...defaultProps} templateId="tpl-1" defaultDiagnosis="Stroke" />
       );
-      const scopeSelects = screen.getAllByRole('combobox');
-      fireEvent.change(scopeSelects[scopeSelects.length - 1], {
-        target: { value: 'all_past_and_future' },
-      });
+      await selectOption(getScopeSelect(), /Assign now to all existing matching patients/i);
 
       fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 
@@ -319,11 +342,11 @@ describe('TemplateAssignModal', () => {
   // Close behaviour
   // ------------------------------------------------------------------
   describe('close behaviour', () => {
-    it('confirms before closing when there are unsaved changes', () => {
+    it('confirms before closing when there are unsaved changes', async () => {
       const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
       render(<TemplateAssignModal {...defaultProps} />);
 
-      fireEvent.change(getDiagnosisSelect(), { target: { value: 'Stroke' } });
+      await selectOption(getDiagnosisSelect(), 'Stroke');
       fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
 
       expect(confirmSpy).toHaveBeenCalled();

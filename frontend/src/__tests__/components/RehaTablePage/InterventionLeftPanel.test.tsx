@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import InterventionLeftPanel from '@/components/RehaTablePage/InterventionLeftPanel';
 
@@ -11,6 +12,15 @@ global.ResizeObserver = class ResizeObserver {
 
 // jsdom doesn't implement scrollTo on elements
 Element.prototype.scrollTo = jest.fn();
+
+// Radix Select (used by the patient-type/content-type filters) relies on pointer
+// capture / scrollIntoView APIs that jsdom doesn't implement.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 // Mock react-select: expose a distinct testid per instance via placeholder text,
 // and a button that triggers onChange with a fixed option so we can assert wiring.
@@ -309,22 +319,51 @@ describe('InterventionLeftPanel', () => {
       expect(screen.getByText(/Filters/).textContent).toContain('(2)');
     });
 
-    it('opens the filter menu and updates the patient type filter', () => {
+    it('opens the filter menu and updates the patient type filter', async () => {
+      const user = userEvent.setup();
       const { filters } = renderPanel();
       fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
 
-      const select = screen.getByDisplayValue('Filter by Patient Type');
-      fireEvent.change(select, { target: { value: 'Stroke' } });
+      // Defaults to the sentinel "All Patient Types" option (clearable
+      // without needing the "Reset filters" button), so it can't be found by
+      // the "Filter by Patient Type" placeholder text anymore — use its id.
+      const select = document.getElementById('patientTypeFilter')!;
+      await user.click(select);
+      await user.click(await screen.findByRole('option', { name: 'Stroke' }));
       expect(filters.setPatientTypeFilter).toHaveBeenCalledWith('Stroke');
     });
 
-    it('updates the content type filter', () => {
+    it('clears the patient type filter via the "All Patient Types" option', async () => {
+      const user = userEvent.setup();
+      const { filters } = renderPanel({ filters: { patientTypeFilter: 'Stroke' } });
+      fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+
+      const select = document.getElementById('patientTypeFilter')!;
+      await user.click(select);
+      await user.click(await screen.findByRole('option', { name: 'All Patient Types' }));
+      expect(filters.setPatientTypeFilter).toHaveBeenCalledWith('');
+    });
+
+    it('updates the content type filter', async () => {
+      const user = userEvent.setup();
       const { filters } = renderPanel();
       fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
 
-      const select = screen.getByDisplayValue('Filter by Content Type');
-      fireEvent.change(select, { target: { value: 'Video' } });
+      const select = document.getElementById('contentTypeFilter')!;
+      await user.click(select);
+      await user.click(await screen.findByRole('option', { name: 'Video' }));
       expect(filters.setContentTypeFilter).toHaveBeenCalledWith('Video');
+    });
+
+    it('clears the content type filter via the "All Content Types" option', async () => {
+      const user = userEvent.setup();
+      const { filters } = renderPanel({ filters: { contentTypeFilter: 'Video' } });
+      fireEvent.click(screen.getByRole('button', { name: /Filters/i }));
+
+      const select = document.getElementById('contentTypeFilter')!;
+      await user.click(select);
+      await user.click(await screen.findByRole('option', { name: 'All Content Types' }));
+      expect(filters.setContentTypeFilter).toHaveBeenCalledWith('');
     });
 
     it('updates the tag filter via react-select', () => {

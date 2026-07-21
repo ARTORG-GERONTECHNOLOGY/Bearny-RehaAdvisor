@@ -1,9 +1,17 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import PatientQuestionaire from '@/components/PatientPage/PatientQuestionaire';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '../../../../i18n';
 import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
+
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 jest.mock('@/api/client', () => ({
   post: jest.fn(),
@@ -333,15 +341,20 @@ describe('PatientQuestionaire', () => {
     expect(styles.input({ margin: 4 }).margin).toBe(0);
     expect(styles.indicatorsContainer({}).height).toBe(44);
     expect(styles.menuPortal({}).zIndex).toBe(9999);
+    // The Sheet (Radix Dialog) this form renders in sets
+    // document.body.style.pointerEvents = 'none' while open, exempting only
+    // its own content — react-select's menu portals separately to
+    // document.body, so without this override every option is unclickable.
+    expect(styles.menuPortal({}).pointerEvents).toBe('auto');
   });
 
   it('selects a dropdown value and submits it', async () => {
+    const user = userEvent.setup();
     renderComponent();
     await screen.findByText('Initial Questionnaire');
 
-    fireEvent.change(screen.getByLabelText('Professional Status'), {
-      target: { value: 'Employed' },
-    });
+    await user.click(screen.getByRole('combobox', { name: 'Professional Status' }));
+    await user.click(await screen.findByRole('option', { name: 'Employed' }));
     fireEvent.click(screen.getByText('Submit'));
 
     await waitFor(() =>

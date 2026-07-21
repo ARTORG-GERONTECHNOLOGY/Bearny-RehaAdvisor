@@ -1,6 +1,6 @@
 // src/components/TherapistInterventionPage/AddInterventionPopUp.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Alert, Form } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import axios from 'axios';
 import Select from 'react-select';
@@ -13,6 +13,19 @@ import StandardModal from '../common/StandardModal';
 import interventionsTaxonomyStore from '@/stores/interventionsTaxonomyStore';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel, FieldDescription, FieldError } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import {
+  Select as UiSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 
 const CONTENT_TYPE_TO_BACKEND: Record<string, string> = {
   brochure: 'pdf',
@@ -218,7 +231,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
       if (!formData.isPrivate) return;
       setPrivateCheckedOnce(true);
       if (!patientsLoaded && !patientsLoading) fetchTherapistPatients();
-    }, [formData.isPrivate, patientsLoaded, patientsLoading, fetchTherapistPatients]);
+    }, [formData.isPrivate]);
 
     // -------------------- RESET --------------------
     const resetForm = useCallback(() => {
@@ -543,164 +556,184 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
         footer={footer}
       >
         <div className="px-1 px-sm-2">
-          <Form onSubmit={handleSubmit} noValidate>
+          <form onSubmit={handleSubmit} noValidate>
             <fieldset disabled={success || submitting}>
               {/* ---------- core fields ---------- */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
                 <div className="md:col-span-8">
-                  <Form.Group controlId="title" className="mb-3">
-                    <Form.Label className="fw-semibold">{t('InterventionTitle')}</Form.Label>
-                    <Form.Control
+                  <Field>
+                    <FieldLabel htmlFor="title">{t('InterventionTitle')}</FieldLabel>
+                    <Input
+                      id="title"
                       type="text"
                       value={formData.title}
                       onChange={handleChange}
-                      isInvalid={!!fe('title')}
                       required
                     />
-                    <Form.Control.Feedback type="invalid">{fe('title')}</Form.Control.Feedback>
-                  </Form.Group>
+                    {fe('title') && <FieldError>{fe('title')}</FieldError>}
+                  </Field>
                 </div>
 
                 <div className="md:col-span-4">
-                  <Form.Group controlId="language" className="mb-3">
-                    <Form.Label className="fw-semibold">{t('Language')}</Form.Label>
-                    <Form.Control
-                      as="select"
+                  <Field>
+                    <FieldLabel htmlFor="language">{t('Language')}</FieldLabel>
+                    <UiSelect
                       value={formData.language}
-                      onChange={handleChange}
-                      isInvalid={!!fe('language')}
+                      onValueChange={(value) =>
+                        handleChange({ target: { id: 'language', value, type: 'text' } } as any)
+                      }
                     >
-                      {langOptions.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </Form.Control>
-                    <Form.Control.Feedback type="invalid">{fe('language')}</Form.Control.Feedback>
-                  </Form.Group>
+                      <SelectTrigger id="language">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {langOptions.map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </UiSelect>
+                    {fe('language') && <FieldError>{fe('language')}</FieldError>}
+                  </Field>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
-                  <Form.Group controlId="externalId" className="mb-3">
-                    <Form.Label className="fw-semibold">{t('External ID (optional)')}</Form.Label>
-                    <Form.Control
+                  <Field>
+                    <FieldLabel htmlFor="externalId">{t('External ID (optional)')}</FieldLabel>
+                    <Input
+                      id="externalId"
                       type="text"
                       value={formData.externalId}
                       onChange={handleChange}
                       placeholder="e.g. 3500_web or 30500_vid"
                     />
-                    <Form.Text className="text-muted">
+                    <FieldDescription>
                       4 digits = original · 5 digits = self-made · format: vid, img, gfx, pdf, br,
                       web, aud, app
-                    </Form.Text>
-                  </Form.Group>
+                    </FieldDescription>
+                  </Field>
                 </div>
 
                 <div>
-                  <Form.Group controlId="provider" className="mb-3">
-                    <Form.Label className="fw-semibold">{t('Provider (optional)')}</Form.Label>
-                    <Form.Control
+                  <Field>
+                    <FieldLabel htmlFor="provider">{t('Provider (optional)')}</FieldLabel>
+                    <Input
+                      id="provider"
                       type="text"
                       value={formData.provider}
                       onChange={handleChange}
                       placeholder="e.g. compass / spotify / youtube"
                     />
-                  </Form.Group>
+                  </Field>
                 </div>
               </div>
 
-              <Form.Group controlId="description" className="mb-3">
-                <Form.Label className="fw-semibold">{t('Description')}</Form.Label>
-                <Form.Control
-                  as="textarea"
+              <Field className="mb-3">
+                <FieldLabel htmlFor="description">{t('Description')}</FieldLabel>
+                <Textarea
+                  id="description"
                   rows={3}
                   value={formData.description}
                   onChange={handleChange}
-                  isInvalid={!!fe('description')}
                 />
-                <Form.Control.Feedback type="invalid">{fe('description')}</Form.Control.Feedback>
-              </Form.Group>
+                {fe('description') && <FieldError>{fe('description')}</FieldError>}
+              </Field>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <Form.Group controlId="duration" className="mb-3">
-                    <Form.Label className="fw-semibold">{t('Duration (min)')}</Form.Label>
-                    <Form.Control
+                  <Field>
+                    <FieldLabel htmlFor="duration">{t('Duration (min)')}</FieldLabel>
+                    <Input
+                      id="duration"
                       type="number"
                       value={formData.duration}
                       onChange={handleChange}
-                      isInvalid={!!fe('duration')}
                     />
-                    <Form.Control.Feedback type="invalid">{fe('duration')}</Form.Control.Feedback>
-                  </Form.Group>
+                    {fe('duration') && <FieldError>{fe('duration')}</FieldError>}
+                  </Field>
                 </div>
 
                 <div>
-                  <Form.Group className="mb-3" controlId="contentType">
-                    <Form.Label className="fw-semibold">{t('Content type')}</Form.Label>
-                    <Form.Control
-                      as="select"
-                      value={formData.contentType}
-                      onChange={handleChange}
-                      isInvalid={!!fe('contentType')}
+                  <Field>
+                    <FieldLabel htmlFor="contentType">{t('Content type')}</FieldLabel>
+                    <UiSelect
+                      value={formData.contentType || undefined}
+                      onValueChange={(value) =>
+                        handleChange({
+                          target: { id: 'contentType', value, type: 'text' },
+                        } as any)
+                      }
                     >
-                      <option value="">{t('Select')}</option>
-                      {contentTypes.map((ct: string) => (
-                        <option key={ct} value={ct}>
-                          {t(ct)}
-                        </option>
-                      ))}
-                    </Form.Control>
-                    <Form.Control.Feedback type="invalid">
-                      {fe('contentType')}
-                    </Form.Control.Feedback>
-                  </Form.Group>
+                      <SelectTrigger id="contentType">
+                        <SelectValue placeholder={t('Select')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {contentTypes.map((ct: string) => (
+                          <SelectItem key={ct} value={ct}>
+                            {t(ct)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </UiSelect>
+                    {fe('contentType') && <FieldError>{fe('contentType')}</FieldError>}
+                  </Field>
                 </div>
               </div>
 
               {/* ---------- taxonomy fields ---------- */}
-              <hr className="my-4" />
+              <Separator className="my-6" />
               <h5 className="mb-3">{t('Taxonomy')}</h5>
 
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
                 <div className="md:col-span-6">
-                  <Form.Label className="fw-semibold">{t('Input from')}</Form.Label>
-                  <Select
-                    isMulti
-                    placeholder={t('Select...')}
-                    options={inputFromOptions}
-                    value={inputFromOptions.filter((o) =>
-                      (formData.inputFrom || []).includes(o.value)
-                    )}
-                    onChange={(opts) => handleMultiChange('inputFrom', opts as any)}
-                  />
+                  <Field>
+                    <FieldLabel htmlFor="inputFrom">{t('Input from')}</FieldLabel>
+                    <Select
+                      inputId="inputFrom"
+                      isMulti
+                      placeholder={t('Select...')}
+                      options={inputFromOptions}
+                      value={inputFromOptions.filter((o) =>
+                        (formData.inputFrom || []).includes(o.value)
+                      )}
+                      onChange={(opts) => handleMultiChange('inputFrom', opts as any)}
+                    />
+                  </Field>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
-                  <Form.Group controlId="originalLanguage">
-                    <Form.Label className="fw-semibold">{t('Original language')}</Form.Label>
-                    <Form.Control
-                      as="select"
-                      value={formData.originalLanguage}
-                      onChange={handleChange}
+                  <Field>
+                    <FieldLabel htmlFor="originalLanguage">{t('Original language')}</FieldLabel>
+                    <UiSelect
+                      value={formData.originalLanguage || undefined}
+                      onValueChange={(value) =>
+                        handleChange({
+                          target: { id: 'originalLanguage', value, type: 'text' },
+                        } as any)
+                      }
                     >
-                      <option value="">{t('Select')}</option>
-                      {originalLanguageOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {x}
-                        </option>
-                      ))}
-                    </Form.Control>
-                  </Form.Group>
+                      <SelectTrigger id="originalLanguage">
+                        <SelectValue placeholder={t('Select')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {originalLanguageOptions.map((x) => (
+                          <SelectItem key={x} value={x}>
+                            {x}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </UiSelect>
+                  </Field>
                 </div>
 
                 <div>
-                  <Form.Group controlId="primaryDiagnosis">
-                    <Form.Label className="fw-semibold">{t('Primary diagnosis')}</Form.Label>
+                  <Field>
+                    <FieldLabel htmlFor="primaryDiagnosis">{t('Primary diagnosis')}</FieldLabel>
                     <Select
                       isMulti
                       inputId="primaryDiagnosis"
@@ -717,127 +750,173 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       }
                       placeholder={t('Select')}
                     />
-                  </Form.Group>
+                  </Field>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
-                  <Form.Label className="fw-semibold">{t('Aims')}</Form.Label>
-                  <Select
-                    isMulti
-                    placeholder={t('Select...')}
-                    options={aimsOptions}
-                    value={aimsOptions.filter((o) => (formData.aims || []).includes(o.value))}
-                    onChange={(opts) => handleMultiChange('aims', opts as any)}
-                  />
+                  <Field>
+                    <FieldLabel htmlFor="aims">{t('Aims')}</FieldLabel>
+                    <Select
+                      inputId="aims"
+                      isMulti
+                      placeholder={t('Select...')}
+                      options={aimsOptions}
+                      value={aimsOptions.filter((o) => (formData.aims || []).includes(o.value))}
+                      onChange={(opts) => handleMultiChange('aims', opts as any)}
+                    />
+                  </Field>
                 </div>
 
                 <div>
-                  <Form.Label className="fw-semibold">{t('Topics')}</Form.Label>
-                  <Select
-                    isMulti
-                    placeholder={t('Select...')}
-                    options={topicsOptions}
-                    value={topicsOptions.filter((o) => (formData.topics || []).includes(o.value))}
-                    onChange={(opts) => handleMultiChange('topics', opts as any)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-1">
-                <div>
-                  <Form.Group controlId="cognitiveLevel">
-                    <Form.Label className="fw-semibold">{t('Cognitive level')}</Form.Label>
-                    <Form.Control
-                      as="select"
-                      value={formData.cognitiveLevel}
-                      onChange={handleChange}
-                    >
-                      <option value="">{t('Select')}</option>
-                      {cognitiveLevelOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {t(x)}
-                        </option>
-                      ))}
-                    </Form.Control>
-                  </Form.Group>
-                </div>
-
-                <div>
-                  <Form.Group controlId="physicalLevel">
-                    <Form.Label className="fw-semibold">{t('Physical level')}</Form.Label>
-                    <Form.Control
-                      as="select"
-                      value={formData.physicalLevel}
-                      onChange={handleChange}
-                    >
-                      <option value="">{t('Select')}</option>
-                      {physicalLevelOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {t(x)}
-                        </option>
-                      ))}
-                    </Form.Control>
-                  </Form.Group>
-                </div>
-
-                <div>
-                  <Form.Group controlId="durationBucket">
-                    <Form.Label className="fw-semibold">{t('Duration bucket')}</Form.Label>
-                    <Form.Control
-                      as="select"
-                      value={formData.durationBucket}
-                      onChange={handleChange}
-                    >
-                      <option value="">{t('Select')}</option>
-                      {durationBucketOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {x}
-                        </option>
-                      ))}
-                    </Form.Control>
-                  </Form.Group>
+                  <Field>
+                    <FieldLabel htmlFor="topics">{t('Topics')}</FieldLabel>
+                    <Select
+                      inputId="topics"
+                      isMulti
+                      placeholder={t('Select...')}
+                      options={topicsOptions}
+                      value={topicsOptions.filter((o) => (formData.topics || []).includes(o.value))}
+                      onChange={(opts) => handleMultiChange('topics', opts as any)}
+                    />
+                  </Field>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mt-1">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                <div>
+                  <Field>
+                    <FieldLabel htmlFor="cognitiveLevel">{t('Cognitive level')}</FieldLabel>
+                    <UiSelect
+                      value={formData.cognitiveLevel || undefined}
+                      onValueChange={(value) =>
+                        handleChange({
+                          target: { id: 'cognitiveLevel', value, type: 'text' },
+                        } as any)
+                      }
+                    >
+                      <SelectTrigger id="cognitiveLevel">
+                        <SelectValue placeholder={t('Select')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cognitiveLevelOptions.map((x) => (
+                          <SelectItem key={x} value={x}>
+                            {t(x)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </UiSelect>
+                  </Field>
+                </div>
+
+                <div>
+                  <Field>
+                    <FieldLabel htmlFor="physicalLevel">{t('Physical level')}</FieldLabel>
+                    <UiSelect
+                      value={formData.physicalLevel || undefined}
+                      onValueChange={(value) =>
+                        handleChange({
+                          target: { id: 'physicalLevel', value, type: 'text' },
+                        } as any)
+                      }
+                    >
+                      <SelectTrigger id="physicalLevel">
+                        <SelectValue placeholder={t('Select')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {physicalLevelOptions.map((x) => (
+                          <SelectItem key={x} value={x}>
+                            {t(x)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </UiSelect>
+                  </Field>
+                </div>
+
+                <div>
+                  <Field>
+                    <FieldLabel htmlFor="durationBucket">{t('Duration bucket')}</FieldLabel>
+                    <UiSelect
+                      value={formData.durationBucket || undefined}
+                      onValueChange={(value) =>
+                        handleChange({
+                          target: { id: 'durationBucket', value, type: 'text' },
+                        } as any)
+                      }
+                    >
+                      <SelectTrigger id="durationBucket">
+                        <SelectValue placeholder={t('Select')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {durationBucketOptions.map((x) => (
+                          <SelectItem key={x} value={x}>
+                            {x}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </UiSelect>
+                  </Field>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
                 <div className="md:col-span-4">
-                  <Form.Group controlId="sexSpecific">
-                    <Form.Label className="fw-semibold">{t('Sex specific')}</Form.Label>
-                    <Form.Control as="select" value={formData.sexSpecific} onChange={handleChange}>
-                      <option value="">{t('Select')}</option>
-                      {sexSpecificOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {t(x)}
-                        </option>
-                      ))}
-                    </Form.Control>
-                  </Form.Group>
+                  <Field>
+                    <FieldLabel htmlFor="sexSpecific">{t('Sex specific')}</FieldLabel>
+                    <UiSelect
+                      value={formData.sexSpecific || undefined}
+                      onValueChange={(value) =>
+                        handleChange({
+                          target: { id: 'sexSpecific', value, type: 'text' },
+                        } as any)
+                      }
+                    >
+                      <SelectTrigger id="sexSpecific">
+                        <SelectValue placeholder={t('Select')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sexSpecificOptions.map((x) => (
+                          <SelectItem key={x} value={x}>
+                            {t(x)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </UiSelect>
+                  </Field>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
-                  <Form.Label className="fw-semibold">{t('Where')}</Form.Label>
-                  <Select
-                    isMulti
-                    placeholder={t('Select...')}
-                    options={whereOptions}
-                    value={whereOptions.filter((o) => (formData.where || []).includes(o.value))}
-                    onChange={(opts) => handleMultiChange('where', opts as any)}
-                  />
+                  <Field>
+                    <FieldLabel htmlFor="where">{t('Where')}</FieldLabel>
+                    <Select
+                      inputId="where"
+                      isMulti
+                      placeholder={t('Select...')}
+                      options={whereOptions}
+                      value={whereOptions.filter((o) => (formData.where || []).includes(o.value))}
+                      onChange={(opts) => handleMultiChange('where', opts as any)}
+                    />
+                  </Field>
                 </div>
 
                 <div>
-                  <Form.Label className="fw-semibold">{t('Setting')}</Form.Label>
-                  <Select
-                    isMulti
-                    placeholder={t('Select...')}
-                    options={settingOptions}
-                    value={settingOptions.filter((o) => (formData.setting || []).includes(o.value))}
-                    onChange={(opts) => handleMultiChange('setting', opts as any)}
-                  />
+                  <Field>
+                    <FieldLabel htmlFor="setting">{t('Setting')}</FieldLabel>
+                    <Select
+                      inputId="setting"
+                      isMulti
+                      placeholder={t('Select...')}
+                      options={settingOptions}
+                      value={settingOptions.filter((o) =>
+                        (formData.setting || []).includes(o.value)
+                      )}
+                      onChange={(opts) => handleMultiChange('setting', opts as any)}
+                    />
+                  </Field>
                 </div>
               </div>
 
@@ -865,7 +944,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                 return (
                   <div key={idx} className="border rounded p-3 mb-3">
                     <div className="d-flex justify-content-between align-items-start gap-2">
-                      <div className="fw-semibold">
+                      <div className="fw-semibold mb-3">
                         {t('Media item')} #{idx + 1}
                       </div>
                       <Button
@@ -879,100 +958,102 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       </Button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mt-1">
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                       <div className="md:col-span-4">
-                        <Form.Group>
-                          <Form.Label className="fw-semibold">{t('Kind')}</Form.Label>
-                          <Form.Control
-                            as="select"
+                        <Field>
+                          <FieldLabel>{t('Kind')}</FieldLabel>
+                          <UiSelect
                             value={m.kind}
-                            onChange={(e) =>
-                              updateMediaRow(idx, { kind: e.target.value as 'external' | 'file' })
+                            onValueChange={(value) =>
+                              updateMediaRow(idx, { kind: value as 'external' | 'file' })
                             }
-                            isInvalid={!!fe(`${baseKey}.kind`)}
                           >
-                            {kindOptions.map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {t(o.label)}
-                              </option>
-                            ))}
-                          </Form.Control>
-                        </Form.Group>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {kindOptions.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>
+                                  {t(o.label)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </UiSelect>
+                        </Field>
                       </div>
 
                       <div className="md:col-span-4">
-                        <Form.Group>
-                          <Form.Label className="fw-semibold">{t('Media type')}</Form.Label>
-                          <Form.Control
-                            as="select"
+                        <Field>
+                          <FieldLabel>{t('Media type')}</FieldLabel>
+                          <UiSelect
                             value={m.media_type}
-                            onChange={(e) =>
-                              updateMediaRow(idx, { media_type: e.target.value as MediaType })
+                            onValueChange={(value) =>
+                              updateMediaRow(idx, { media_type: value as MediaType })
                             }
-                            isInvalid={!!fe(`${baseKey}.media_type`)}
                           >
-                            {mediaTypeOptions.map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {t(o.label)}
-                              </option>
-                            ))}
-                          </Form.Control>
-                        </Form.Group>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {mediaTypeOptions.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>
+                                  {t(o.label)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </UiSelect>
+                        </Field>
                       </div>
 
                       <div className="md:col-span-4">
-                        <Form.Group>
-                          <Form.Label className="fw-semibold">
-                            {t('Provider (optional)')}
-                          </Form.Label>
-                          <Form.Control
+                        <Field>
+                          <FieldLabel>{t('Provider (optional)')}</FieldLabel>
+                          <Input
                             type="text"
                             value={m.provider || ''}
                             onChange={(e) => updateMediaRow(idx, { provider: e.target.value })}
                             placeholder="spotify / youtube / etc."
                           />
-                        </Form.Group>
+                        </Field>
                       </div>
 
                       <div className="md:col-span-6">
-                        <Form.Group>
-                          <Form.Label className="fw-semibold">{t('Title (optional)')}</Form.Label>
-                          <Form.Control
+                        <Field>
+                          <FieldLabel>{t('Title (optional)')}</FieldLabel>
+                          <Input
                             type="text"
                             value={m.title || ''}
                             onChange={(e) => updateMediaRow(idx, { title: e.target.value })}
                           />
-                        </Form.Group>
+                        </Field>
                       </div>
 
                       <div className="md:col-span-6">
                         {m.kind === 'external' ? (
-                          <Form.Group>
-                            <Form.Label className="fw-semibold">{t('URL')}</Form.Label>
-                            <Form.Control
+                          <Field>
+                            <FieldLabel>{t('URL')}</FieldLabel>
+                            <Input
                               type="text"
                               value={m.url || ''}
                               onChange={(e) => updateMediaRow(idx, { url: e.target.value })}
                               placeholder="https://..."
-                              isInvalid={!!fe(`${baseKey}.url`)}
                             />
                             {fe(`${baseKey}.url`) && (
-                              <div className="text-danger small mt-1">{fe(`${baseKey}.url`)}</div>
+                              <FieldError>{fe(`${baseKey}.url`)}</FieldError>
                             )}
-                          </Form.Group>
+                          </Field>
                         ) : (
-                          <Form.Group>
-                            <Form.Label className="fw-semibold">{t('Upload file')}</Form.Label>
-                            <Form.Control
+                          <Field>
+                            <FieldLabel>{t('Upload file')}</FieldLabel>
+                            <Input
                               type="file"
                               accept="image/*,video/*,audio/*,application/pdf"
                               onChange={handleMediaFileChange(idx)}
-                              isInvalid={!!fe(`${baseKey}.file`)}
                             />
                             {fe(`${baseKey}.file`) && (
-                              <div className="text-danger small mt-1">{fe(`${baseKey}.file`)}</div>
+                              <FieldError>{fe(`${baseKey}.file`)}</FieldError>
                             )}
-                          </Form.Group>
+                          </Field>
                         )}
                       </div>
                     </div>
@@ -982,20 +1063,22 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
               {/* ---------- privacy ---------- */}
               <hr className="my-4" />
-              <Form.Group controlId="isPrivate" className="mb-3">
-                <Form.Check
-                  type="checkbox"
-                  label={t(
-                    'Make this a private intervention (only visible to the assigned patient)'
-                  )}
+              <div className="flex items-center gap-2 mb-3">
+                <Checkbox
+                  id="isPrivate"
                   checked={formData.isPrivate}
-                  onChange={handleChange}
+                  onCheckedChange={(checked) =>
+                    handleChange({ target: { id: 'isPrivate', checked, type: 'checkbox' } } as any)
+                  }
                 />
-              </Form.Group>
+                <Label htmlFor="isPrivate" className="cursor-pointer">
+                  {t('Make this a private intervention (only visible to the assigned patient)')}
+                </Label>
+              </div>
 
               {formData.isPrivate && (
-                <Form.Group controlId="patientId" className="mb-3">
-                  <Form.Label className="fw-semibold">{t('Assign to Patient')}</Form.Label>
+                <Field>
+                  <FieldLabel htmlFor="patientId">{t('Assign to Patient')}</FieldLabel>
 
                   {!patientsLoaded && privateCheckedOnce && (
                     <div className="d-flex align-items-center justify-content-between mb-2">
@@ -1013,22 +1096,26 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                     </div>
                   )}
 
-                  <Form.Control
-                    as="select"
-                    value={formData.patientId}
-                    onChange={handleChange}
-                    isInvalid={!!fe('patientId')}
+                  <UiSelect
+                    value={formData.patientId || undefined}
+                    onValueChange={(value) =>
+                      handleChange({ target: { id: 'patientId', value, type: 'text' } } as any)
+                    }
                     disabled={patientsLoading || !patientsLoaded}
                   >
-                    <option value="">{t('Select a patient')}</option>
-                    {therapistPatients.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </Form.Control>
-                  <Form.Control.Feedback type="invalid">{fe('patientId')}</Form.Control.Feedback>
-                </Form.Group>
+                    <SelectTrigger id="patientId">
+                      <SelectValue placeholder={t('Select a patient')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {therapistPatients.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </UiSelect>
+                  {fe('patientId') && <FieldError>{fe('patientId')}</FieldError>}
+                </Field>
               )}
             </fieldset>
 
@@ -1079,7 +1166,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                 {t('Intervention successfully added')}
               </Alert>
             )}
-          </Form>
+          </form>
         </div>
       </StandardModal>
     );

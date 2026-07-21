@@ -1,6 +1,6 @@
 // components/TherapistInterventionPage/TemplateAssignModal.tsx
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { Form, Alert } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,17 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel, FieldGroup, FieldError } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 type Mode = 'create' | 'modify';
 
@@ -32,6 +43,8 @@ type Props = {
 type ErrorMap = Record<string, string>;
 type AutoApplyScope = 'off' | 'future' | 'all_past_and_future';
 const todayIso = () => toLocalYMD(new Date());
+// Sentinel for the "All diagnoses" Select item — Radix forbids an empty-string item value.
+const ALL_DIAGNOSES_VALUE = '__all__';
 
 const TemplateAssignModal: React.FC<Props> = ({
   show,
@@ -299,164 +312,192 @@ const TemplateAssignModal: React.FC<Props> = ({
           </Alert>
         )}
 
-        <Form>
-          {/* INTERVENTION TITLE */}
-          {interventionTitle && (
-            <Form.Group className="mb-3">
-              <Form.Label>{t('Intervention')}</Form.Label>
-              <div className="fw-semibold">{interventionTitle}</div>
-            </Form.Group>
-          )}
-          <Form.Group className="mb-3">
-            <Form.Label>
-              {t('Diagnosis_patient_list')}
-              {templateId && (
-                <span className="text-muted ms-1 small">
-                  ({t('optional — leave blank for all')})
-                </span>
-              )}
-            </Form.Label>
-            <Form.Select
-              value={diagnosis}
-              onChange={(e) => setDiagnosis(e.target.value)}
-              isInvalid={!!fieldErrors['patientId']}
-            >
-              <option value="">{templateId ? t('All diagnoses') : t('Choose...')}</option>
-              {diagnoses.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </Form.Select>
-            <Form.Control.Feedback type="invalid">{fieldErrors['patientId']}</Form.Control.Feedback>
-          </Form.Group>
-
-          {/* Start / End / Interval */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
-            <div className="md:col-span-4">
-              <Form.Label>{t('Start day (S)')}</Form.Label>
-              <Form.Control
-                type="number"
-                value={startDay}
-                min={1}
-                onChange={(e) => setStartDay(parseInt(e.target.value || '1', 10))}
-                isInvalid={!!fieldErrors['interventions[0].start_day']}
-              />
-              <Form.Control.Feedback type="invalid">
-                {fieldErrors['interventions[0].start_day']}
-              </Form.Control.Feedback>
-            </div>
-
-            <div className="md:col-span-4">
-              <Form.Label>{t('Last day (N)')}</Form.Label>
-              <Form.Control
-                type="number"
-                value={lastDay}
-                min={startDay}
-                onChange={(e) => setLastDay(parseInt(e.target.value || '1', 10))}
-                isInvalid={!!fieldErrors['interventions[0].end.count']}
-              />
-              <Form.Control.Feedback type="invalid">
-                {fieldErrors['interventions[0].end.count']}
-              </Form.Control.Feedback>
-            </div>
-
-            <div className="md:col-span-4">
-              <Form.Label>{t('Every K days')}</Form.Label>
-              <Form.Control
-                type="number"
-                value={everyK}
-                min={1}
-                onChange={(e) => setEveryK(parseInt(e.target.value || '1', 10))}
-                isInvalid={!!fieldErrors['interventions[0].interval']}
-              />
-              <Form.Control.Feedback type="invalid">
-                {fieldErrors['interventions[0].interval']}
-              </Form.Control.Feedback>
-            </div>
-          </div>
-
-          {/* Suggested execution time */}
-          <Form.Group className="mb-3">
-            <Form.Label>{t('Suggested execution time')}</Form.Label>
-            <Form.Control
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
-            <small className="text-muted">
-              {t('Shown when applying the template to a patient')}
-            </small>
-          </Form.Group>
-
-          {mode === 'modify' && (
-            <Form.Group className="mb-3">
-              <Form.Check
-                type="checkbox"
-                label={t('Modify from day S onward — keep earlier days unchanged')}
-                checked={keepPrevious}
-                onChange={(e) => setKeepPrevious(e.target.checked)}
-              />
-            </Form.Group>
-          )}
-
-          <Alert variant="info">
-            {t(
-              'These are relative template days. Actual calendar dates are set when applying to a patient.'
+        <form>
+          <FieldGroup>
+            {/* INTERVENTION TITLE */}
+            {interventionTitle && (
+              <Field>
+                <FieldLabel>{t('Intervention')}</FieldLabel>
+                <div className="fw-semibold">{interventionTitle}</div>
+              </Field>
             )}
-          </Alert>
-
-          {diagnosis && (
-            <Form.Group className="mb-3">
-              <Form.Label>{t('Diagnosis auto-apply mode')}</Form.Label>
-              <Form.Select
-                value={autoApplyScope}
-                onChange={(e) => setAutoApplyScope(e.target.value as AutoApplyScope)}
-              >
+            <Field>
+              <FieldLabel htmlFor="template-diagnosis">
+                {t('Diagnosis_patient_list')}
                 {templateId && (
-                  <option value="off">
-                    {t('Only keep in template (no automatic assignment)')}
-                  </option>
+                  <span className="text-muted ms-1 small">
+                    ({t('optional — leave blank for all')})
+                  </span>
                 )}
-                <option value="future">{t('Automatically assign to new matching patients')}</option>
-                <option value="all_past_and_future">
-                  {t('Assign now to all existing matching patients and future ones')}
-                </option>
-              </Form.Select>
-              {autoApplyScope === 'all_past_and_future' && (
-                <Form.Group className="mt-2">
-                  <Form.Label>{t('Start assigning from date')}</Form.Label>
-                  <Form.Control
-                    type="date"
-                    value={autoApplyStartingFrom}
-                    onChange={(e) => setAutoApplyStartingFrom(e.target.value)}
-                  />
-                  <small className="text-muted">
-                    {t(
-                      'Defaults to today. Existing patients receive sessions from this date onward.'
-                    )}
-                  </small>
-                </Form.Group>
-              )}
-              <small className="text-muted">
-                {t('New matching patients means future registrations with this diagnosis.')}
-              </small>
-              <br />
-              <small className="text-muted">
-                {t('Matching patients are limited to your own clinic/project access.')}
-              </small>
-            </Form.Group>
-          )}
+              </FieldLabel>
+              <Select
+                value={
+                  diagnosis === '' ? (templateId ? ALL_DIAGNOSES_VALUE : undefined) : diagnosis
+                }
+                onValueChange={(v) => setDiagnosis(v === ALL_DIAGNOSES_VALUE ? '' : v)}
+              >
+                <SelectTrigger id="template-diagnosis" aria-invalid={!!fieldErrors['patientId']}>
+                  <SelectValue placeholder={t('Choose...')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {templateId && (
+                    <SelectItem value={ALL_DIAGNOSES_VALUE}>{t('All diagnoses')}</SelectItem>
+                  )}
+                  {diagnoses.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {fieldErrors['patientId'] && <FieldError>{fieldErrors['patientId']}</FieldError>}
+            </Field>
 
-          <div className="text-muted">
-            {validRange
-              ? t('{{count}} session(s): Days S,S+K,…≤N at ~{{time}}', {
-                  count: occurrencesCount,
-                  time: startTime,
-                })
-              : t('Invalid range.')}
-          </div>
-        </Form>
+            {/* Start / End / Interval */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+              <Field className="md:col-span-4">
+                <FieldLabel htmlFor="template-start-day">{t('Start day (S)')}</FieldLabel>
+                <Input
+                  id="template-start-day"
+                  type="number"
+                  value={startDay}
+                  min={1}
+                  onChange={(e) => setStartDay(parseInt(e.target.value || '1', 10))}
+                  aria-invalid={!!fieldErrors['interventions[0].start_day']}
+                />
+                {fieldErrors['interventions[0].start_day'] && (
+                  <FieldError>{fieldErrors['interventions[0].start_day']}</FieldError>
+                )}
+              </Field>
+
+              <Field className="md:col-span-4">
+                <FieldLabel htmlFor="template-last-day">{t('Last day (N)')}</FieldLabel>
+                <Input
+                  id="template-last-day"
+                  type="number"
+                  value={lastDay}
+                  min={startDay}
+                  onChange={(e) => setLastDay(parseInt(e.target.value || '1', 10))}
+                  aria-invalid={!!fieldErrors['interventions[0].end.count']}
+                />
+                {fieldErrors['interventions[0].end.count'] && (
+                  <FieldError>{fieldErrors['interventions[0].end.count']}</FieldError>
+                )}
+              </Field>
+
+              <Field className="md:col-span-4">
+                <FieldLabel htmlFor="template-every-k">{t('Every K days')}</FieldLabel>
+                <Input
+                  id="template-every-k"
+                  type="number"
+                  value={everyK}
+                  min={1}
+                  onChange={(e) => setEveryK(parseInt(e.target.value || '1', 10))}
+                  aria-invalid={!!fieldErrors['interventions[0].interval']}
+                />
+                {fieldErrors['interventions[0].interval'] && (
+                  <FieldError>{fieldErrors['interventions[0].interval']}</FieldError>
+                )}
+              </Field>
+            </div>
+
+            {/* Suggested execution time */}
+            <Field>
+              <FieldLabel htmlFor="template-start-time">{t('Suggested execution time')}</FieldLabel>
+              <Input
+                id="template-start-time"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              />
+              <small className="text-muted">
+                {t('Shown when applying the template to a patient')}
+              </small>
+            </Field>
+
+            {mode === 'modify' && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="template-keep-previous"
+                  checked={keepPrevious}
+                  onCheckedChange={(checked) => setKeepPrevious(!!checked)}
+                />
+                <Label htmlFor="template-keep-previous" className="cursor-pointer">
+                  {t('Modify from day S onward — keep earlier days unchanged')}
+                </Label>
+              </div>
+            )}
+
+            <Alert variant="info">
+              {t(
+                'These are relative template days. Actual calendar dates are set when applying to a patient.'
+              )}
+            </Alert>
+
+            {diagnosis && (
+              <Field>
+                <FieldLabel htmlFor="template-auto-apply-scope">
+                  {t('Diagnosis auto-apply mode')}
+                </FieldLabel>
+                <Select
+                  value={autoApplyScope}
+                  onValueChange={(v) => setAutoApplyScope(v as AutoApplyScope)}
+                >
+                  <SelectTrigger id="template-auto-apply-scope">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templateId && (
+                      <SelectItem value="off">
+                        {t('Only keep in template (no automatic assignment)')}
+                      </SelectItem>
+                    )}
+                    <SelectItem value="future">
+                      {t('Automatically assign to new matching patients')}
+                    </SelectItem>
+                    <SelectItem value="all_past_and_future">
+                      {t('Assign now to all existing matching patients and future ones')}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {autoApplyScope === 'all_past_and_future' && (
+                  <Field className="mt-2">
+                    <FieldLabel htmlFor="template-auto-apply-starting-from">
+                      {t('Start assigning from date')}
+                    </FieldLabel>
+                    <Input
+                      id="template-auto-apply-starting-from"
+                      type="date"
+                      value={autoApplyStartingFrom}
+                      onChange={(e) => setAutoApplyStartingFrom(e.target.value)}
+                    />
+                    <small className="text-muted">
+                      {t(
+                        'Defaults to today. Existing patients receive sessions from this date onward.'
+                      )}
+                    </small>
+                  </Field>
+                )}
+                <small className="text-muted">
+                  {t('New matching patients means future registrations with this diagnosis.')}
+                </small>
+                <br />
+                <small className="text-muted">
+                  {t('Matching patients are limited to your own clinic/project access.')}
+                </small>
+              </Field>
+            )}
+
+            <div className="text-muted">
+              {validRange
+                ? t('{{count}} session(s): Days S,S+K,…≤N at ~{{time}}', {
+                    count: occurrencesCount,
+                    time: startTime,
+                  })
+                : t('Invalid range.')}
+            </div>
+          </FieldGroup>
+        </form>
 
         <DialogFooter>
           <Button

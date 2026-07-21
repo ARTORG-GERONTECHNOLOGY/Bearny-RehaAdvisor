@@ -30,7 +30,6 @@
  */
 
 import { useState } from 'react';
-import { Form } from 'react-bootstrap';
 import { zipSync, strToU8 } from 'fflate';
 import { toISODateUTC, formatLocaleDateTime } from '@/utils/dateFormat';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
@@ -38,6 +37,8 @@ import axios from 'axios';
 import apiClient from '../api/client';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableHeader,
@@ -212,24 +213,26 @@ export default function DownloadsPage() {
         <h3 className="mb-4">ICF Monitor — Secure Access</h3>
         {step === 'password' ? (
           <>
-            <Form.Group className="mb-3">
-              <Form.Label>Email address (to receive code)</Form.Label>
-              <Form.Control
+            <Field className="mb-3">
+              <FieldLabel htmlFor="hls-auth-email">Email address (to receive code)</FieldLabel>
+              <Input
+                id="hls-auth-email"
                 type="email"
                 value={authEmail}
                 onChange={(e) => setAuthEmail(e.target.value)}
                 placeholder="researcher@example.com"
               />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Download password</Form.Label>
-              <Form.Control
+            </Field>
+            <Field className="mb-3">
+              <FieldLabel htmlFor="hls-auth-password">Download password</FieldLabel>
+              <Input
+                id="hls-auth-password"
                 type="password"
                 value={authPassword}
                 onChange={(e) => setAuthPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && submitPassword()}
               />
-            </Form.Group>
+            </Field>
             {authError && <p className="text-danger mb-3">{authError}</p>}
             <Button size="dashboard" onClick={submitPassword} disabled={authLoading}>
               {authLoading ? <Spinner /> : 'Send code'}
@@ -240,9 +243,10 @@ export default function DownloadsPage() {
             <p className="text-muted">
               A 6-digit code was sent to <strong>{authEmail}</strong>. Check your inbox.
             </p>
-            <Form.Group className="mb-3">
-              <Form.Label>Verification code</Form.Label>
-              <Form.Control
+            <Field className="mb-3">
+              <FieldLabel htmlFor="hls-auth-code">Verification code</FieldLabel>
+              <Input
+                id="hls-auth-code"
                 type="text"
                 value={authCode}
                 onChange={(e) => setAuthCode(e.target.value)}
@@ -251,7 +255,7 @@ export default function DownloadsPage() {
                 style={{ letterSpacing: '0.3em', fontSize: '1.4rem', textAlign: 'center' }}
                 autoFocus
               />
-            </Form.Group>
+            </Field>
             {authError && <p className="text-danger mb-3">{authError}</p>}
             <Button size="dashboard" onClick={submitCode} disabled={authLoading} className="me-2">
               {authLoading ? <Spinner /> : 'Verify'}
@@ -278,14 +282,17 @@ export default function DownloadsPage() {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end mb-4">
         <div className="md:col-span-4">
-          <Form.Group>
-            <Form.Label className="fw-bold">Patient ID (Format: Pxx)</Form.Label>
-            <Form.Control
+          <Field>
+            <FieldLabel htmlFor="hls-participant-id" className="fw-bold">
+              Patient ID (Format: Pxx)
+            </FieldLabel>
+            <Input
+              id="hls-participant-id"
               value={participantId}
               onChange={(e) => setParticipantId(e.target.value)}
               placeholder="e.g. P01"
             />
-          </Form.Group>
+          </Field>
         </div>
         <div className="md:col-span-8">
           <Button size="dashboard" onClick={fetchItems} className="me-2">

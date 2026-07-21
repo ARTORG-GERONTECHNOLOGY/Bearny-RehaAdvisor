@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import InterventionRepeatModal from '@/components/RehaTablePage/InterventionRepeatModal';
 import apiClient from '@/api/client';
@@ -14,6 +15,29 @@ jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: { id: 'therapist-1', specialisations: ['Cardiology'] },
 }));
+
+// Radix RadioGroup (via @radix-ui/react-use-size) needs ResizeObserver, which jsdom
+// doesn't implement.
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
+// Radix Select (used for the repeat "unit" dropdown) relies on pointer capture /
+// scrollIntoView APIs that jsdom doesn't implement.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
+
+const selectUnit = async (unitLabel: string) => {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('combobox'));
+  await user.click(await screen.findByRole('option', { name: unitLabel }));
+};
 
 const defaultProps = {
   show: true,
@@ -63,11 +87,11 @@ describe('InterventionRepeatModal', () => {
       expect(screen.getByText(/Keep current schedule/i)).toBeInTheDocument();
     });
 
-    it('shows the weekday buttons only when unit is week', () => {
+    it('shows the weekday buttons only when unit is week', async () => {
       render(<InterventionRepeatModal {...defaultProps} />);
       expect(screen.queryByRole('button', { name: 'Mon' })).not.toBeInTheDocument();
 
-      fireEvent.change(screen.getByDisplayValue('Day'), { target: { value: 'week' } });
+      await selectUnit('Week');
       expect(screen.getByRole('button', { name: 'Mon' })).toBeInTheDocument();
     });
 
@@ -75,9 +99,7 @@ describe('InterventionRepeatModal', () => {
       render(<InterventionRepeatModal {...defaultProps} mode="modify" />);
       expect(screen.getByText('Repeat every')).toBeInTheDocument();
 
-      // react-bootstrap renders the Modal in a portal, so query from document,
-      // and Form.Check has no controlId here, so labels aren't associated to inputs.
-      fireEvent.click(document.querySelector('input[type="checkbox"]')!);
+      fireEvent.click(screen.getByRole('checkbox', { name: /Keep current schedule/i }));
       expect(screen.queryByText('Repeat every')).not.toBeInTheDocument();
     });
   });
@@ -91,15 +113,15 @@ describe('InterventionRepeatModal', () => {
       expect(screen.getByRole('button', { name: /^Save$/i })).not.toBeDisabled();
     });
 
-    it('is disabled when unit is week and no weekday is selected', () => {
+    it('is disabled when unit is week and no weekday is selected', async () => {
       render(<InterventionRepeatModal {...defaultProps} />);
-      fireEvent.change(screen.getByDisplayValue('Day'), { target: { value: 'week' } });
+      await selectUnit('Week');
       expect(screen.getByRole('button', { name: /^Save$/i })).toBeDisabled();
     });
 
-    it('is enabled once a weekday is selected', () => {
+    it('is enabled once a weekday is selected', async () => {
       render(<InterventionRepeatModal {...defaultProps} />);
-      fireEvent.change(screen.getByDisplayValue('Day'), { target: { value: 'week' } });
+      await selectUnit('Week');
       fireEvent.click(screen.getByRole('button', { name: 'Mon' }));
       expect(screen.getByRole('button', { name: /^Save$/i })).not.toBeDisabled();
     });
@@ -173,7 +195,7 @@ describe('InterventionRepeatModal', () => {
 
       // Pick "On date" without ever choosing a date so validate() rejects it,
       // while canSubmit (which doesn't check endDate) stays true.
-      const radios = document.querySelectorAll('input[type="radio"]');
+      const radios = screen.getAllByRole('radio');
       fireEvent.click(radios[1]);
 
       fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
@@ -209,7 +231,7 @@ describe('InterventionRepeatModal', () => {
 
     it('toggles the video feedback checkbox', () => {
       render(<InterventionRepeatModal {...defaultProps} />);
-      const checkbox = document.querySelector('input[type="checkbox"]')!;
+      const checkbox = screen.getByRole('checkbox', { name: /Ask video feedback/i });
       expect(checkbox).not.toBeChecked();
       fireEvent.click(checkbox);
       expect(checkbox).toBeChecked();
@@ -217,7 +239,7 @@ describe('InterventionRepeatModal', () => {
 
     it('shows the end-date picker when "On date" is selected', () => {
       render(<InterventionRepeatModal {...defaultProps} />);
-      const radios = document.querySelectorAll('input[type="radio"]');
+      const radios = screen.getAllByRole('radio');
       fireEvent.click(radios[1]); // "On date"
       // Two date pickers now: start date + end date
       expect(document.querySelectorAll('input.form-control').length).toBeGreaterThanOrEqual(2);
@@ -225,7 +247,7 @@ describe('InterventionRepeatModal', () => {
 
     it('shows the occurrence count field when "After N times" is selected and updates it', () => {
       render(<InterventionRepeatModal {...defaultProps} />);
-      const radios = document.querySelectorAll('input[type="radio"]');
+      const radios = screen.getAllByRole('radio');
       fireEvent.click(radios[2]); // "After N times"
       const countInput = screen.getByDisplayValue('10');
       fireEvent.change(countInput, { target: { value: '5' } });
@@ -234,7 +256,7 @@ describe('InterventionRepeatModal', () => {
 
     it('switches back to "Never" after choosing another end option', () => {
       render(<InterventionRepeatModal {...defaultProps} />);
-      const radios = document.querySelectorAll('input[type="radio"]');
+      const radios = screen.getAllByRole('radio');
       fireEvent.click(radios[2]); // "After N times"
       expect(screen.getByDisplayValue('10')).toBeInTheDocument();
 

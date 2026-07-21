@@ -1,11 +1,22 @@
 // src/components/TherapistPatientPage/PatientFilters.tsx
 import React from 'react';
-import { Card, Form } from 'react-bootstrap';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
 
 import { TherapistPatientsStore, SortKey } from '@/stores/therapistPatientsStore';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
+import { FaUndo } from 'react-icons/fa';
 
 type Props = {
   store: TherapistPatientsStore;
@@ -13,15 +24,18 @@ type Props = {
   durationOptions: string[];
 };
 
+// Sentinel for the "clear filter" Select item — Radix forbids an empty-string item value.
+const CLEAR_FILTER_VALUE = '__clear__';
+
 const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationOptions }) => {
   const { t } = useTranslation();
 
   return (
     <Card className="mb-3">
-      <Card.Body>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div>
-            <Form.Control
+      <CardContent className="p-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="md:col-span-2">
+            <Input
               type="text"
               placeholder={String(t('Search by name, ID or username'))}
               value={store.searchTerm}
@@ -29,89 +43,108 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
             />
           </div>
 
-          <div>
-            <Form.Control
-              type="date"
-              value={store.birthdateFilter}
-              onChange={(e) => store.setBirthdateFilter(e.target.value)}
-              aria-label={String(t('Filter by Birth Date'))}
-            />
-          </div>
+          <Input
+            type="date"
+            value={store.birthdateFilter}
+            onChange={(e) => store.setBirthdateFilter(e.target.value)}
+            aria-label={String(t('Filter by Birth Date'))}
+          />
 
-          <div>
-            <Form.Select
-              value={store.sexFilter}
-              onChange={(e) => store.setSexFilter(e.target.value)}
-            >
-              <option value="">{String(t('Filter by Sex'))}</option>
+          <Select
+            value={store.sexFilter || CLEAR_FILTER_VALUE}
+            onValueChange={(value) => store.setSexFilter(value === CLEAR_FILTER_VALUE ? '' : value)}
+          >
+            <SelectTrigger aria-label={String(t('Filter by Sex'))}>
+              <SelectValue placeholder={String(t('Filter by Sex'))} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={CLEAR_FILTER_VALUE}>{String(t('Filter by Sex'))}</SelectItem>
               {sexOptions.map((sex) => (
-                <option key={sex} value={sex}>
+                <SelectItem key={sex} value={sex}>
                   {String(t(sex))}
-                </option>
+                </SelectItem>
               ))}
-            </Form.Select>
-          </div>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={store.durationFilter || CLEAR_FILTER_VALUE}
+            onValueChange={(value) =>
+              store.setDurationFilter(value === CLEAR_FILTER_VALUE ? '' : value)
+            }
+          >
+            <SelectTrigger aria-label={String(t('Filter by Duration'))}>
+              <SelectValue placeholder={String(t('Filter by Duration'))} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={CLEAR_FILTER_VALUE}>{String(t('Filter by Duration'))}</SelectItem>
+              {durationOptions.map((duration) => (
+                <SelectItem key={duration} value={duration}>
+                  {String(t(duration))}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={store.diseaseFilter || CLEAR_FILTER_VALUE}
+            onValueChange={(value) =>
+              store.setDiseaseFilter(value === CLEAR_FILTER_VALUE ? '' : value)
+            }
+          >
+            <SelectTrigger aria-label={String(t('Filter by Disease'))}>
+              <SelectValue placeholder={String(t('Filter by Disease'))} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={CLEAR_FILTER_VALUE}>{String(t('Filter by Disease'))}</SelectItem>
+              {store.diseaseOptions.map((d) => (
+                <SelectItem key={d} value={d}>
+                  {String(t(d))}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           <div>
-            <Form.Select
-              value={store.durationFilter}
-              onChange={(e) => store.setDurationFilter(e.target.value)}
-            >
-              <option value="">{String(t('Filter by Duration'))}</option>
-              {durationOptions.map((duration) => (
-                <option key={duration} value={duration}>
-                  {String(t(duration))}
-                </option>
-              ))}
-            </Form.Select>
-          </div>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <div className="w-full md:w-1/4">
-            <Form.Select
-              value={store.diseaseFilter}
-              onChange={(e) => store.setDiseaseFilter(e.target.value)}
-            >
-              <option value="">{String(t('Filter by Disease'))}</option>
-              {store.diseaseOptions.map((d) => (
-                <option key={d} value={d}>
-                  {String(t(d))}
-                </option>
-              ))}
-            </Form.Select>
-          </div>
-
-          <div className="w-full md:w-5/12">
-            <Form.Label className="me-2">{String(t('Sort by'))}</Form.Label>
-            <Form.Select
-              aria-label="Sort by"
+            <Label htmlFor="sort-by-select" className="me-2">
+              {String(t('Sort by'))}
+            </Label>
+            <Select
               value={store.sortBy}
-              onChange={(e) => store.setSortBy(e.target.value as SortKey)}
-              style={{ maxWidth: 320, display: 'inline-block' }}
+              onValueChange={(value) => store.setSortBy(value as SortKey)}
             >
-              <option value="ampel">{String(t('Performance'))}</option>
-              <option value="created">{String(t('Newest created'))}</option>
-            </Form.Select>
+              <SelectTrigger id="sort-by-select" aria-label="Sort by">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ampel">{String(t('Performance'))}</SelectItem>
+                <SelectItem value="created">{String(t('Newest created'))}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="flex flex-wrap gap-3 justify-end md:flex-1">
-            <Button size="dashboard" variant="secondary" onClick={store.resetFilters}>
-              {String(t('Reset filters'))}
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap gap-3 justify-end md:flex-1">
-            <Form.Check
-              type="switch"
+          <div className="flex flex-wrap gap-2 items-center md:pt-6">
+            <Switch
               id="toggle-completed"
-              label={String(t('Show completed'))}
               checked={store.showCompleted}
-              onChange={(e) => store.setShowCompleted(e.currentTarget.checked)}
+              onCheckedChange={(checked) => store.setShowCompleted(checked)}
             />
+            <Label htmlFor="toggle-completed" className="cursor-pointer">
+              {String(t('Show completed'))}
+            </Label>
           </div>
+
+          <Button
+            size="dashboard"
+            variant="secondary"
+            onClick={store.resetFilters}
+            className="self-end"
+          >
+            <FaUndo />
+            {String(t('Reset filters'))}
+          </Button>
         </div>
-      </Card.Body>
+      </CardContent>
     </Card>
   );
 });

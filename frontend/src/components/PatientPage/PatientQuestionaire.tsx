@@ -1,6 +1,6 @@
 // src/components/patient/PatientQuestionaire.tsx
 import React, { useState } from 'react';
-import { Form, Modal } from 'react-bootstrap';
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useTranslation } from 'react-i18next';
 import Select from 'react-select';
 import apiClient from '@/api/client';
@@ -9,6 +9,17 @@ import { PatientType } from '@/types/index';
 import ErrorAlert from '../common/ErrorAlert';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select as UiSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface PatientPopupProps {
   patient_id: PatientType;
@@ -59,7 +70,8 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
       ...base,
       height: CONTROL_HEIGHT,
     }),
-    menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
+    // Radix Dialog sets pointerEvents:'none' on body; re-enable for react-select's portalled menu.
+    menuPortal: (base: any) => ({ ...base, zIndex: 9999, pointerEvents: 'auto' }),
   };
 
   const handleChange = (
@@ -150,14 +162,32 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
     if (field.type === 'dropdown') {
       return (
         <>
-          <Form.Select {...commonProps} style={{ height: CONTROL_HEIGHT }}>
-            <option value="">{t('Select an option')}</option>
-            {field.options?.map((opt: string) => (
-              <option key={opt} value={opt}>
-                {t(opt)}
-              </option>
-            ))}
-          </Form.Select>
+          <UiSelect
+            value={fieldValue || undefined}
+            onValueChange={(value) =>
+              handleChange({
+                target: { id: field.be_name, value },
+              } as unknown as React.ChangeEvent<HTMLSelectElement>)
+            }
+            required={field.required}
+            name={field.be_name}
+          >
+            <SelectTrigger
+              id={field.be_name}
+              aria-label={t(field.label)}
+              aria-invalid={!!errors?.length}
+              style={{ height: CONTROL_HEIGHT }}
+            >
+              <SelectValue placeholder={t('Select an option')} />
+            </SelectTrigger>
+            <SelectContent>
+              {field.options?.map((opt: string) => (
+                <SelectItem key={opt} value={opt}>
+                  {t(opt)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </UiSelect>
           {errors?.length > 0 && <div className="invalid-feedback d-block">{errors.join(' ')}</div>}
         </>
       );
@@ -166,7 +196,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
     if (field.type === 'date') {
       return (
         <>
-          <Form.Control type="date" {...commonProps} style={{ height: CONTROL_HEIGHT }} />
+          <Input type="date" {...commonProps} style={{ height: CONTROL_HEIGHT }} />
           {errors?.length > 0 && <div className="invalid-feedback d-block">{errors.join(' ')}</div>}
         </>
       );
@@ -175,8 +205,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
     if (field.type === 'textarea' || field.type === 'text-long') {
       return (
         <>
-          <Form.Control
-            as="textarea"
+          <Textarea
             placeholder={t(field.placeholder || '')}
             {...commonProps}
             style={{ minHeight: TEXTAREA_MIN_HEIGHT, resize: 'vertical' }}
@@ -188,7 +217,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
 
     return (
       <>
-        <Form.Control
+        <Input
           type={field.type || 'text'}
           placeholder={t(field.placeholder || '')}
           {...commonProps}
@@ -209,78 +238,57 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
   }
 
   return (
-    <Modal
-      show={show}
-      onHide={handleClose}
-      centered
-      size="lg"
-      backdrop="static"
-      keyboard={false}
-      dialogClassName="pq-modal"
-    >
-      <Modal.Header closeButton>
-        <Modal.Title>{t('Initial Questionnaire')}</Modal.Title>
-      </Modal.Header>
+    <Sheet open={show} onOpenChange={(isOpen) => !isOpen && handleClose()}>
+      <SheetContent side="bottom" className="flex flex-col max-h-[90vh]">
+        <SheetHeader>
+          <SheetTitle>{t('Initial Questionnaire')}</SheetTitle>
+        </SheetHeader>
 
-      <Modal.Body>
-        {/* TOP ERROR BANNER */}
-        {error && (
-          <ErrorAlert message={error} onClose={() => setError('')}>
-            {nonFieldErrors.length > 0 && (
-              <ul className="mt-2 mb-0">
-                {nonFieldErrors.map((e, idx) => (
-                  <li key={idx}>{e}</li>
-                ))}
-              </ul>
-            )}
+        <div className="flex-1 overflow-y-auto py-2">
+          {/* TOP ERROR BANNER */}
+          {error && (
+            <ErrorAlert message={error} onClose={() => setError('')}>
+              {nonFieldErrors.length > 0 && (
+                <ul className="mt-2 mb-0">
+                  {nonFieldErrors.map((e, idx) => (
+                    <li key={idx}>{e}</li>
+                  ))}
+                </ul>
+              )}
 
-            {details && <pre className="bg-light p-2 mt-2 small border rounded">{details}</pre>}
-          </ErrorAlert>
-        )}
+              {details && <pre className="bg-light p-2 mt-2 small border rounded">{details}</pre>}
+            </ErrorAlert>
+          )}
 
-        <div className="pq-container mx-auto">
           {config.PatientInitialQuestionaire.map((section, idx) => (
-            <div key={idx} className="pq-section mb-4">
-              <h5 className="mb-3">{t(section.title)}</h5>
+            <Card key={idx} className="mb-4">
+              <CardContent className="p-3">
+                <h5 className="mb-3">{t(section.title)}</h5>
 
-              {section.fields
-                .filter((f: any) => !['password', 'repeatPassword'].includes(f.type))
-                .map((field: any, fieldIdx: number) => (
-                  <div
-                    key={field.be_name || `${field.label}-${fieldIdx}`}
-                    className="pq-field mb-3"
-                  >
-                    <Form.Group>
-                      <Form.Label className="pq-label">{t(field.label)}</Form.Label>
-                      {renderField(field)}
-                      {field.help && <Form.Text className="text-muted">{t(field.help)}</Form.Text>}
-                    </Form.Group>
-                  </div>
-                ))}
-            </div>
+                {section.fields
+                  .filter((f: any) => !['password', 'repeatPassword'].includes(f.type))
+                  .map((field: any, fieldIdx: number) => (
+                    <div
+                      key={field.be_name || `${field.label}-${fieldIdx}`}
+                      className="pq-field mb-3"
+                    >
+                      <Field>
+                        <FieldLabel htmlFor={field.be_name}>{t(field.label)}</FieldLabel>
+                        {renderField(field)}
+                        {field.help && <FieldDescription>{t(field.help)}</FieldDescription>}
+                      </Field>
+                    </div>
+                  ))}
+              </CardContent>
+            </Card>
           ))}
         </div>
-      </Modal.Body>
 
-      <Modal.Footer>
-        <Button onClick={handleSave}>{t('Submit')}</Button>
-      </Modal.Footer>
-
-      <style>{`
-        .pq-modal .modal-body {
-          max-height: 70vh;
-          overflow: auto;
-        }
-        .pq-container { max-width: 720px; }
-        .pq-section {
-          padding: 12px 14px;
-          border-radius: 10px;
-          background: #fafafa;
-          border: 1px solid #eee;
-        }
-        .pq-label { font-weight: 600; }
-      `}</style>
-    </Modal>
+        <SheetFooter>
+          <Button onClick={handleSave}>{t('Submit')}</Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 };
 

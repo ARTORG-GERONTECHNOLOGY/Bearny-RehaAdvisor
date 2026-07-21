@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { ListGroup, Badge, Alert, Form } from 'react-bootstrap';
+import { ListGroup, Badge, Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/dialog';
 import StarRating, { getRatingFromDateEntry } from './StarRating';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 type AnyObj = Record<string, any>;
 
@@ -131,13 +133,16 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                 {t('answeredFeedbackSummary', { answered: answeredCount, total: totalScheduled })}.
               </div>
 
-              <Form.Check
-                type="switch"
-                id="onlyWithFeedbackSwitch"
-                label={safeT(t, 'Show only dates with feedback')}
-                checked={onlyWithFeedback}
-                onChange={(e) => setOnlyWithFeedback(e.target.checked)}
-              />
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="onlyWithFeedbackSwitch"
+                  checked={onlyWithFeedback}
+                  onCheckedChange={(checked) => setOnlyWithFeedback(checked)}
+                />
+                <Label htmlFor="onlyWithFeedbackSwitch" className="cursor-pointer">
+                  {safeT(t, 'Show only dates with feedback')}
+                </Label>
+              </div>
             </div>
 
             {!visibleDates.length ? (

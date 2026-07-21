@@ -1,10 +1,23 @@
 // components/TherapistInterventionPage/FilterBar.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Dropdown, Form } from 'react-bootstrap';
+import { Dropdown } from 'react-bootstrap';
 import Select from 'react-select';
 import interventionsConfig from '../../config/interventions.json';
 import { FaFilter } from 'react-icons/fa';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import {
+  Select as UiSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useDismissableDropdown } from '@/hooks/useDismissableDropdown';
+
+// Sentinel for the "clear filter" Select item — Radix forbids an empty-string item value.
+const ALL_CONTENT_TYPES = '__all__';
 
 interface Props {
   searchTerm: string;
@@ -82,6 +95,8 @@ const FilterBar: React.FC<Props> = ({
 
   // dropdown open state (controlled so it won't “flash close”)
   const [open, setOpen] = useState(false);
+  const { containerRef: dropdownRef, onToggle: handleDropdownToggle } =
+    useDismissableDropdown(setOpen);
 
   useEffect(() => {
     const el = rootRef.current;
@@ -118,9 +133,12 @@ const FilterBar: React.FC<Props> = ({
 
   const FiltersGrid = (
     <div className="filterbar-grid" onClick={(e) => e.stopPropagation()}>
-      <Form.Group controlId="filterDiagnosis">
-        <Form.Label visuallyHidden>{t('Filter by Primary Diagnosis')}</Form.Label>
+      <Field>
+        <FieldLabel htmlFor="filterDiagnosis" className="sr-only">
+          {t('Filter by Primary Diagnosis')}
+        </FieldLabel>
         <Select
+          inputId="filterDiagnosis"
           isMulti
           placeholder={t('Filter by Primary Diagnosis')}
           options={diagnosisOptions.map((d: string) => ({ value: d, label: t(d) }))}
@@ -129,12 +147,15 @@ const FilterBar: React.FC<Props> = ({
           styles={selectStyles}
           menuPortalTarget={document.body}
         />
-      </Form.Group>
+      </Field>
 
       {setLanguageFilter && (
-        <Form.Group controlId="filterLanguage">
-          <Form.Label visuallyHidden>{t('Filter by Language')}</Form.Label>
+        <Field>
+          <FieldLabel htmlFor="filterLanguage" className="sr-only">
+            {t('Filter by Language')}
+          </FieldLabel>
           <Select
+            inputId="filterLanguage"
             isMulti
             placeholder={t('Filter by Language')}
             options={languageOptions}
@@ -143,27 +164,39 @@ const FilterBar: React.FC<Props> = ({
             styles={selectStyles}
             menuPortalTarget={document.body}
           />
-        </Form.Group>
+        </Field>
       )}
 
-      <Form.Group controlId="filterContentType">
-        <Form.Label visuallyHidden>{t('Filter by Content Type')}</Form.Label>
-        <Form.Select
-          value={contentTypeFilter}
-          onChange={(e) => setContentTypeFilter(e.target.value)}
+      <Field>
+        <FieldLabel htmlFor="filterContentType" className="sr-only">
+          {t('Filter by Content Type')}
+        </FieldLabel>
+        <UiSelect
+          value={contentTypeFilter || ALL_CONTENT_TYPES}
+          onValueChange={(value) => setContentTypeFilter(value === ALL_CONTENT_TYPES ? '' : value)}
         >
-          <option value="">{t('All Content Types')}</option>
-          {contentTypes.map((type: string) => (
-            <option key={type} value={type}>
-              {t(type)}
-            </option>
-          ))}
-        </Form.Select>
-      </Form.Group>
+          <SelectTrigger id="filterContentType">
+            <SelectValue placeholder={t('All Content Types')} />
+          </SelectTrigger>
+          {/* Bootstrap's .dropdown-menu sits at z-index 1000, above
+                    this portaled content's default z-50. */}
+          <SelectContent className="z-[9999]">
+            <SelectItem value={ALL_CONTENT_TYPES}>{t('All Content Types')}</SelectItem>
+            {contentTypes.map((type: string) => (
+              <SelectItem key={type} value={type}>
+                {t(type)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </UiSelect>
+      </Field>
 
-      <Form.Group controlId="filterTags">
-        <Form.Label visuallyHidden>{t('Filter by Tags')}</Form.Label>
+      <Field>
+        <FieldLabel htmlFor="filterTags" className="sr-only">
+          {t('Filter by Tags')}
+        </FieldLabel>
         <Select
+          inputId="filterTags"
           isMulti
           placeholder={t('Filter by Tags')}
           options={tagOptions}
@@ -172,7 +205,7 @@ const FilterBar: React.FC<Props> = ({
           styles={selectStyles}
           menuPortalTarget={document.body}
         />
-      </Form.Group>
+      </Field>
 
       {onReset ? (
         <div className="d-flex justify-content-end">
@@ -195,49 +228,46 @@ const FilterBar: React.FC<Props> = ({
     <div ref={rootRef as any} aria-label={t('Filter Interventions')}>
       {/* top row */}
       <div className="filterbar-top">
-        <Form.Group className="flex-grow-1" controlId="searchInput">
-          <Form.Label visuallyHidden>{t('Search Interventions')}</Form.Label>
-          <Form.Control
+        <Field className="flex-grow-1">
+          <FieldLabel htmlFor="searchInput" className="sr-only">
+            {t('Search Interventions')}
+          </FieldLabel>
+          <Input
+            id="searchInput"
             type="text"
             placeholder={t('Search Interventions')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-        </Form.Group>
+        </Field>
 
         {/* narrow: dropdown toggle */}
         {isNarrow ? (
-          <Dropdown
-            show={open}
-            onToggle={(next) => {
-              // ignore rootClose if click happens inside menu
-              // (Dropdown already handles this well; this is extra safety)
-              setOpen(next);
-            }}
-            align="end"
-          >
-            <Dropdown.Toggle
-              as={Button}
-              // TODO: type cast needed until Bootstrap Dropdown is removed in a future bootstrap removal task
-              size={'dashboard' as 'sm' | 'lg'}
-              variant="secondary"
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen((v) => !v);
-              }}
-            >
-              <FaFilter className="me-2" />
-              {t('Filters')}
-              {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
-            </Dropdown.Toggle>
+          <div ref={dropdownRef as React.RefObject<HTMLDivElement>} style={{ display: 'contents' }}>
+            <Dropdown show={open} onToggle={handleDropdownToggle} align="end">
+              <Dropdown.Toggle
+                as={Button}
+                // TODO: type cast needed until Bootstrap Dropdown is removed in a future bootstrap removal task
+                size={'dashboard' as 'sm' | 'lg'}
+                variant="secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen((v) => !v);
+                }}
+              >
+                <FaFilter className="me-2" />
+                {t('Filters')}
+                {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
+              </Dropdown.Toggle>
 
-            <Dropdown.Menu
-              className="filterbar-menu"
-              onClick={(e) => e.stopPropagation()} // ✅ keep it open while interacting
-            >
-              {FiltersGrid}
-            </Dropdown.Menu>
-          </Dropdown>
+              <Dropdown.Menu
+                className="filterbar-menu"
+                onClick={(e) => e.stopPropagation()} // ✅ keep it open while interacting
+              >
+                {FiltersGrid}
+              </Dropdown.Menu>
+            </Dropdown>
+          </div>
         ) : null}
       </div>
 

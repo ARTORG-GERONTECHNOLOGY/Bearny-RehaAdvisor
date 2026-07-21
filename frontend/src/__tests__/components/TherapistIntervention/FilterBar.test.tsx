@@ -1,6 +1,16 @@
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import FilterBar from '@/components/TherapistInterventionPage/FilterBar';
 import '@testing-library/jest-dom';
+
+// Radix Select (used by the content-type filter) relies on pointer capture /
+// scrollIntoView APIs that jsdom doesn't implement.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 // Mock ResizeObserver, capturing the callback so tests can simulate a resize.
 let roCallback: ((entries: any[]) => void) | null = null;
@@ -121,11 +131,13 @@ describe('FilterBar component', () => {
     expect(mockSetDiagnosisFilter).toHaveBeenCalledWith(['At Home']);
   });
 
-  test('calls setContentTypeFilter when content type is selected', () => {
+  test('calls setContentTypeFilter when content type is selected', async () => {
+    const user = userEvent.setup();
     renderComponent();
 
     const select = screen.getByRole('combobox', { name: 'Filter by Content Type' });
-    fireEvent.change(select, { target: { value: 'video' } });
+    await user.click(select);
+    await user.click(await screen.findByRole('option', { name: 'video' }));
 
     expect(mockSetContentTypeFilter).toHaveBeenCalledWith('video');
   });

@@ -1,10 +1,40 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import TherapistInterventions from '@/pages/TherapistInterventions';
 import apiClient from '@/api/client';
 import templateStore from '@/stores/templateStore';
 import '@testing-library/jest-dom';
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
+
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
+
+// Clicks the first combobox (named-template selector) and selects the matching option.
+const selectNamedTemplate = async (optionName: string | RegExp) => {
+  const user = userEvent.setup();
+  const [templateCombobox] = screen.getAllByRole('combobox');
+  await user.click(templateCombobox);
+  await user.click(await screen.findByRole('option', { name: optionName }));
+};
+
+// Opens the named-template selector and asserts the option is present.
+// Radix Select only renders options in the DOM while the listbox is open.
+const expectTemplateOptionToBeOffered = async (optionName: string | RegExp) => {
+  const user = userEvent.setup();
+  const [templateCombobox] = screen.getAllByRole('combobox');
+  await user.click(templateCombobox);
+  expect(await screen.findByRole('option', { name: optionName })).toBeInTheDocument();
+};
+
+// Waits for templateStore.templates to be populated (option text is only in
+// the DOM while the Radix Select is open, so we poll the store directly).
+const waitForTemplatesLoaded = () =>
+  waitFor(() => expect(templateStore.templates.length).toBeGreaterThan(0));
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 jest.mock('../../config/config.json', () => ({
@@ -570,7 +600,7 @@ describe('TherapistInterventions — Templates tab', () => {
         expect.stringContaining('therapists/therapist-123/template-plan')
       );
     });
-    expect(await screen.findByText('My Template')).toBeInTheDocument();
+    await expectTemplateOptionToBeOffered('My Template');
   });
 
   it('shows an unseen-updates badge for a public template not created by me', async () => {
@@ -585,10 +615,9 @@ describe('TherapistInterventions — Templates tab', () => {
   it('selects a named template via the dropdown and fetches its calendar', async () => {
     mockApiGet([makeDoc({ id: 'tpl-2', name: 'Second Template' })]);
     await goToTemplatesTab();
-    await screen.findByText(/Second Template/);
+    await waitForTemplatesLoaded();
 
-    const select = screen.getByDisplayValue('Implicit therapist template');
-    fireEvent.change(select, { target: { value: 'tpl-2' } });
+    await selectNamedTemplate('Second Template');
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith(
@@ -603,7 +632,7 @@ describe('TherapistInterventions — Templates tab', () => {
       makeDoc({ id: 'tpl-3', name: 'Ortho Plan' }),
     ]);
     await goToTemplatesTab();
-    await screen.findByText(/Cardio Plan/);
+    await waitForTemplatesLoaded();
 
     const searchInput = screen.getByPlaceholderText('Search templates...');
     fireEvent.change(searchInput, { target: { value: 'Cardio' } });
@@ -631,7 +660,7 @@ describe('TherapistInterventions — Templates tab', () => {
   it('shows "No data available" when the search has no matches', async () => {
     mockApiGet([makeDoc({ name: 'Cardio Plan' })]);
     await goToTemplatesTab();
-    await screen.findByText(/Cardio Plan/);
+    await waitForTemplatesLoaded();
 
     fireEvent.change(screen.getByPlaceholderText('Search templates...'), {
       target: { value: 'zzz-no-match' },
@@ -674,10 +703,8 @@ describe('TherapistInterventions — Templates tab', () => {
   it('copies the active template', async () => {
     mockApiGet([makeDoc({ id: 'tpl-2', name: 'Original', description: 'Desc' })]);
     await goToTemplatesTab();
-    await screen.findByText('Original');
-    fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-      target: { value: 'tpl-2' },
-    });
+    await waitForTemplatesLoaded();
+    await selectNamedTemplate('Original');
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /^Apply$/i })).toBeInTheDocument()
     );
@@ -701,10 +728,8 @@ describe('TherapistInterventions — Templates tab', () => {
   it('edits the active template metadata when I own it', async () => {
     mockApiGet([makeDoc({ id: 'tpl-2', name: 'Mine', created_by: 'therapist-123' })]);
     await goToTemplatesTab();
-    await screen.findByText('Mine');
-    fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-      target: { value: 'tpl-2' },
-    });
+    await waitForTemplatesLoaded();
+    await selectNamedTemplate('Mine');
     await waitFor(() => expect(screen.getByTitle('Edit name / description')).toBeInTheDocument());
 
     fireEvent.click(screen.getByTitle('Edit name / description'));
@@ -730,10 +755,8 @@ describe('TherapistInterventions — Templates tab', () => {
     mockApiGet([makeDoc({ id: 'tpl-2', name: 'Theirs', created_by: 'other-therapist' })]);
     await goToTemplatesTab();
     // The option text is "Theirs — Me" (name + creator suffix in one element).
-    await screen.findByText(/Theirs/);
-    fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-      target: { value: 'tpl-2' },
-    });
+    await waitForTemplatesLoaded();
+    await selectNamedTemplate(/Theirs/);
     await waitFor(() => expect(screen.getByTitle('Copy template')).toBeInTheDocument());
     // Edit remains available for non-owners (e.g. to fork name/description),
     // but the destructive Delete action stays owner/admin-only.
@@ -744,10 +767,8 @@ describe('TherapistInterventions — Templates tab', () => {
   it('deletes the active template after confirmation', async () => {
     mockApiGet([makeDoc({ id: 'tpl-2', name: 'ToDelete', created_by: 'therapist-123' })]);
     await goToTemplatesTab();
-    await screen.findByText('ToDelete');
-    fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-      target: { value: 'tpl-2' },
-    });
+    await waitForTemplatesLoaded();
+    await selectNamedTemplate('ToDelete');
     await waitFor(() => expect(screen.getByTitle('Delete template')).toBeInTheDocument());
 
     (apiClient.delete as jest.Mock).mockResolvedValueOnce({});
@@ -763,10 +784,8 @@ describe('TherapistInterventions — Templates tab', () => {
     window.confirm = jest.fn(() => false);
     mockApiGet([makeDoc({ id: 'tpl-2', name: 'Keep', created_by: 'therapist-123' })]);
     await goToTemplatesTab();
-    await screen.findByText('Keep');
-    fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-      target: { value: 'tpl-2' },
-    });
+    await waitForTemplatesLoaded();
+    await selectNamedTemplate('Keep');
     await waitFor(() => expect(screen.getByTitle('Delete template')).toBeInTheDocument());
 
     fireEvent.click(screen.getByTitle('Delete template'));
@@ -777,10 +796,12 @@ describe('TherapistInterventions — Templates tab', () => {
     await goToTemplatesTab();
     (apiClient.get as jest.Mock).mockClear();
 
-    const diagSelect = screen
-      .getAllByRole('combobox')
-      .find((el) => within(el as HTMLElement).queryByText('All')) as HTMLSelectElement;
-    fireEvent.change(diagSelect, { target: { value: 'Coronary Artery Disease' } });
+    const user = userEvent.setup();
+    // The diagnosis filter is the second combobox on the page (after the
+    // named-template selector).
+    const [, diagCombobox] = screen.getAllByRole('combobox');
+    await user.click(diagCombobox);
+    await user.click(await screen.findByRole('option', { name: 'Coronary Artery Disease' }));
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith(expect.stringContaining('diagnosis=Coronary'));
@@ -801,10 +822,8 @@ describe('TherapistInterventions — Templates tab', () => {
   it('applies a template successfully and shows a summary alert, closing the modal', async () => {
     mockApiGet([makeDoc({ id: 'tpl-2', name: 'Applyable' })]);
     await goToTemplatesTab();
-    await screen.findByText('Applyable');
-    fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-      target: { value: 'tpl-2' },
-    });
+    await waitForTemplatesLoaded();
+    await selectNamedTemplate('Applyable');
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /^Apply$/i })).toBeInTheDocument()
     );
@@ -823,10 +842,8 @@ describe('TherapistInterventions — Templates tab', () => {
   it('keeps the apply modal open and appends the warning when there are partial errors', async () => {
     mockApiGet([makeDoc({ id: 'tpl-2', name: 'Applyable' })]);
     await goToTemplatesTab();
-    await screen.findByText('Applyable');
-    fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-      target: { value: 'tpl-2' },
-    });
+    await waitForTemplatesLoaded();
+    await selectNamedTemplate('Applyable');
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /^Apply$/i })).toBeInTheDocument()
     );
@@ -844,7 +861,7 @@ describe('TherapistInterventions — Templates tab', () => {
     localStorage.setItem('templateSeenMap', 'not-json{{{');
     mockApiGet([makeDoc()]);
     await goToTemplatesTab();
-    expect(await screen.findByText('My Template')).toBeInTheDocument();
+    await expectTemplateOptionToBeOffered('My Template');
     localStorage.removeItem('templateSeenMap');
   });
 
@@ -860,9 +877,7 @@ describe('TherapistInterventions — Templates tab', () => {
     };
     mockApiGet([makeDoc({ id: 'tpl-2', name: 'Cardio Plan' })], [planItem]);
     await goToTemplatesTab();
-    fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-      target: { value: 'tpl-2' },
-    });
+    await selectNamedTemplate('Cardio Plan');
 
     await waitFor(() => expect(translateText).toHaveBeenCalled());
     expect(await screen.findByTestId('segment-summary')).toBeInTheDocument();
@@ -876,9 +891,7 @@ describe('TherapistInterventions — Templates tab', () => {
       return Promise.resolve({ data: {} });
     });
 
-    fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-      target: { value: 'tpl-2' },
-    });
+    await selectNamedTemplate('Errs');
 
     await waitFor(() => expect(screen.queryByTestId('segment-summary')).not.toBeInTheDocument());
   });
@@ -911,9 +924,7 @@ describe('TherapistInterventions — Templates tab', () => {
     it('opens the ProductPopup when the clicked template item exists in the library', async () => {
       mockApiGet([makeDoc({ id: 'tpl-2', name: 'HasItems' })], [planItem]);
       await goToTemplatesTab();
-      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-        target: { value: 'tpl-2' },
-      });
+      await selectNamedTemplate('HasItems');
 
       fireEvent.click(await screen.findByText('click-item'));
       expect(screen.getByText('Product Popup')).toBeInTheDocument();
@@ -926,9 +937,7 @@ describe('TherapistInterventions — Templates tab', () => {
       };
       mockApiGet([makeDoc({ id: 'tpl-2', name: 'HasItems' })], [missingItem]);
       await goToTemplatesTab();
-      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-        target: { value: 'tpl-2' },
-      });
+      await selectNamedTemplate('HasItems');
 
       fireEvent.click(await screen.findByText('click-item'));
       expect(
@@ -939,9 +948,7 @@ describe('TherapistInterventions — Templates tab', () => {
     it('opens the assign modal in modify mode via onModifyTemplate', async () => {
       mockApiGet([makeDoc({ id: 'tpl-2', name: 'HasItems' })], [planItem]);
       await goToTemplatesTab();
-      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-        target: { value: 'tpl-2' },
-      });
+      await selectNamedTemplate('HasItems');
 
       fireEvent.click(await screen.findByText('modify-item'));
       const modal = await screen.findByTestId('assign-modal');
@@ -961,9 +968,7 @@ describe('TherapistInterventions — Templates tab', () => {
     it('removes a template item and refetches the plan', async () => {
       mockApiGet([makeDoc({ id: 'tpl-2', name: 'HasItems' })], [planItem]);
       await goToTemplatesTab();
-      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-        target: { value: 'tpl-2' },
-      });
+      await selectNamedTemplate('HasItems');
       await screen.findByText('remove-item');
 
       (apiClient.delete as jest.Mock).mockResolvedValueOnce({});
@@ -979,9 +984,7 @@ describe('TherapistInterventions — Templates tab', () => {
     it('shows a field-error message when removing a template item fails', async () => {
       mockApiGet([makeDoc({ id: 'tpl-2', name: 'HasItems' })], [planItem]);
       await goToTemplatesTab();
-      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-        target: { value: 'tpl-2' },
-      });
+      await selectNamedTemplate('HasItems');
       await screen.findByText('remove-item');
 
       (apiClient.delete as jest.Mock).mockRejectedValueOnce({
@@ -1016,9 +1019,7 @@ describe('TherapistInterventions — Templates tab', () => {
     it('opens the ProductPopup for a browse-all item click', async () => {
       mockApiGet([makeDoc({ id: 'tpl-2', name: 'HasItems' })], [planItem]);
       await goToTemplatesTab();
-      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-        target: { value: 'tpl-2' },
-      });
+      await selectNamedTemplate('HasItems');
 
       fireEvent.click(await screen.findByText('browse-click'));
       expect(screen.getByText('Product Popup')).toBeInTheDocument();
@@ -1068,9 +1069,7 @@ describe('TherapistInterventions — Templates tab', () => {
       );
 
       await goToTemplatesTab();
-      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-        target: { value: 'tpl-2' },
-      });
+      await selectNamedTemplate(/Shared/);
 
       // Wait for the template-plan calendar fetch (and the resulting full diff
       // merge, which fills in `modified`) to settle before opening the banner —
@@ -1133,9 +1132,7 @@ describe('TherapistInterventions — Templates tab', () => {
       );
 
       await goToTemplatesTab();
-      fireEvent.change(screen.getByDisplayValue('Implicit therapist template'), {
-        target: { value: 'tpl-3' },
-      });
+      await selectNamedTemplate(/Shared/);
 
       await waitFor(() => {
         expect(apiClient.get).toHaveBeenCalledWith(
