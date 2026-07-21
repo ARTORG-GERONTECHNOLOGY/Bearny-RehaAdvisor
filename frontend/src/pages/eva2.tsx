@@ -247,18 +247,6 @@ export default function HealthSlider() {
   const successfulSrcRef = useRef<Record<string, string>>({});
   const [audioError, setAudioError] = useState<string>('');
 
-  // ✅ responsive breakpoints
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth <= 520 : false
-  );
-  useEffect(() => {
-    const onResize = () => {
-      setIsMobile(window.innerWidth <= 520);
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-
   const total = REAL_QUESTIONS.length;
 
   /** --- wire <audio> into the shared AudioContext with 2× gain boost + headphone routing --- */
