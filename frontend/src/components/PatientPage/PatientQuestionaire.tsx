@@ -239,7 +239,12 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
 
   return (
     <Sheet open={show} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-      <SheetContent side="bottom" className="flex flex-col max-h-[90vh]">
+      <SheetContent
+        side="bottom"
+        className="flex flex-col max-h-[90vh]"
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <SheetHeader>
           <SheetTitle>{t('Initial Questionnaire')}</SheetTitle>
         </SheetHeader>

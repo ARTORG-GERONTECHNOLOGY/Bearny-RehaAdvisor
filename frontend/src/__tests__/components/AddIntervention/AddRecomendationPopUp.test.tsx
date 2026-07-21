@@ -284,7 +284,7 @@ describe('AddRecomendationPopUp', () => {
       await screen.findByRole('option', { name: ORIGINAL_CONTENT_TYPES[0] });
 
       const options = screen.getAllByRole('option');
-      expect(options.map((o) => o.textContent)).toEqual(ORIGINAL_CONTENT_TYPES);
+      expect(options.map((o) => o.textContent)).toEqual(['Select', ...ORIGINAL_CONTENT_TYPES]);
     });
 
     it('shows each original label as option text', async () => {

@@ -23,6 +23,9 @@ interface FormData {
   [key: string]: string | number | string[] | boolean;
 }
 
+// Sentinel for the "clear selection" Select item — Radix forbids an empty-string item value.
+const UNSET_OPTION = '__unset__';
+
 interface RegisterFormProps {
   therapist: string;
 }
@@ -493,7 +496,10 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
           }
 
           return (
-            <Field key={field.name}>
+            <Field
+              key={field.name}
+              orientation={field.type === 'checkbox' ? 'horizontal' : 'vertical'}
+            >
               <FieldLabel htmlFor={field.name} className="d-flex align-items-center gap-1">
                 <span>
                   {t(field.label)}
@@ -540,10 +546,10 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
                 />
               ) : isDropdown ? (
                 <UiSelect
-                  value={(formData[field.name] as string) || ''}
+                  value={(formData[field.name] as string) || UNSET_OPTION}
                   onValueChange={(value) =>
                     handleChange({
-                      target: { id: field.name, value },
+                      target: { id: field.name, value: value === UNSET_OPTION ? '' : value },
                     } as unknown as React.ChangeEvent<HTMLSelectElement>)
                   }
                   required={required}
@@ -552,6 +558,9 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
                     <SelectValue placeholder={`${t('Select')} ${t(field.label)}`} />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={UNSET_OPTION}>
+                      {`${t('Select')} ${t(field.label)}`}
+                    </SelectItem>
                     {fieldOptions.map((option: string) => (
                       <SelectItem key={option} value={option}>
                         {t(option)}

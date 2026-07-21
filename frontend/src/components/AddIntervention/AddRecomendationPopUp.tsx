@@ -27,6 +27,9 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 
+// Sentinel for the "clear selection" Select item — Radix forbids an empty-string item value.
+const UNSET_OPTION = '__unset__';
+
 const CONTENT_TYPE_TO_BACKEND: Record<string, string> = {
   brochure: 'pdf',
   video: 'video',
@@ -660,10 +663,14 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Field>
                     <FieldLabel htmlFor="contentType">{t('Content type')}</FieldLabel>
                     <UiSelect
-                      value={formData.contentType || undefined}
+                      value={formData.contentType || UNSET_OPTION}
                       onValueChange={(value) =>
                         handleChange({
-                          target: { id: 'contentType', value, type: 'text' },
+                          target: {
+                            id: 'contentType',
+                            value: value === UNSET_OPTION ? '' : value,
+                            type: 'text',
+                          },
                         } as any)
                       }
                     >
@@ -671,6 +678,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                         <SelectValue placeholder={t('Select')} />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value={UNSET_OPTION}>{t('Select')}</SelectItem>
                         {contentTypes.map((ct: string) => (
                           <SelectItem key={ct} value={ct}>
                             {t(ct)}
@@ -710,10 +718,14 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Field>
                     <FieldLabel htmlFor="originalLanguage">{t('Original language')}</FieldLabel>
                     <UiSelect
-                      value={formData.originalLanguage || undefined}
+                      value={formData.originalLanguage || UNSET_OPTION}
                       onValueChange={(value) =>
                         handleChange({
-                          target: { id: 'originalLanguage', value, type: 'text' },
+                          target: {
+                            id: 'originalLanguage',
+                            value: value === UNSET_OPTION ? '' : value,
+                            type: 'text',
+                          },
                         } as any)
                       }
                     >
@@ -721,6 +733,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                         <SelectValue placeholder={t('Select')} />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value={UNSET_OPTION}>{t('Select')}</SelectItem>
                         {originalLanguageOptions.map((x) => (
                           <SelectItem key={x} value={x}>
                             {x}
@@ -789,10 +802,14 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Field>
                     <FieldLabel htmlFor="cognitiveLevel">{t('Cognitive level')}</FieldLabel>
                     <UiSelect
-                      value={formData.cognitiveLevel || undefined}
+                      value={formData.cognitiveLevel || UNSET_OPTION}
                       onValueChange={(value) =>
                         handleChange({
-                          target: { id: 'cognitiveLevel', value, type: 'text' },
+                          target: {
+                            id: 'cognitiveLevel',
+                            value: value === UNSET_OPTION ? '' : value,
+                            type: 'text',
+                          },
                         } as any)
                       }
                     >
@@ -800,6 +817,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                         <SelectValue placeholder={t('Select')} />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value={UNSET_OPTION}>{t('Select')}</SelectItem>
                         {cognitiveLevelOptions.map((x) => (
                           <SelectItem key={x} value={x}>
                             {t(x)}
@@ -814,10 +832,14 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Field>
                     <FieldLabel htmlFor="physicalLevel">{t('Physical level')}</FieldLabel>
                     <UiSelect
-                      value={formData.physicalLevel || undefined}
+                      value={formData.physicalLevel || UNSET_OPTION}
                       onValueChange={(value) =>
                         handleChange({
-                          target: { id: 'physicalLevel', value, type: 'text' },
+                          target: {
+                            id: 'physicalLevel',
+                            value: value === UNSET_OPTION ? '' : value,
+                            type: 'text',
+                          },
                         } as any)
                       }
                     >
@@ -825,6 +847,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                         <SelectValue placeholder={t('Select')} />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value={UNSET_OPTION}>{t('Select')}</SelectItem>
                         {physicalLevelOptions.map((x) => (
                           <SelectItem key={x} value={x}>
                             {t(x)}
@@ -839,10 +862,14 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Field>
                     <FieldLabel htmlFor="durationBucket">{t('Duration bucket')}</FieldLabel>
                     <UiSelect
-                      value={formData.durationBucket || undefined}
+                      value={formData.durationBucket || UNSET_OPTION}
                       onValueChange={(value) =>
                         handleChange({
-                          target: { id: 'durationBucket', value, type: 'text' },
+                          target: {
+                            id: 'durationBucket',
+                            value: value === UNSET_OPTION ? '' : value,
+                            type: 'text',
+                          },
                         } as any)
                       }
                     >
@@ -850,6 +877,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                         <SelectValue placeholder={t('Select')} />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value={UNSET_OPTION}>{t('Select')}</SelectItem>
                         {durationBucketOptions.map((x) => (
                           <SelectItem key={x} value={x}>
                             {x}
@@ -866,10 +894,14 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <Field>
                     <FieldLabel htmlFor="sexSpecific">{t('Sex specific')}</FieldLabel>
                     <UiSelect
-                      value={formData.sexSpecific || undefined}
+                      value={formData.sexSpecific || UNSET_OPTION}
                       onValueChange={(value) =>
                         handleChange({
-                          target: { id: 'sexSpecific', value, type: 'text' },
+                          target: {
+                            id: 'sexSpecific',
+                            value: value === UNSET_OPTION ? '' : value,
+                            type: 'text',
+                          },
                         } as any)
                       }
                     >
@@ -877,6 +909,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                         <SelectValue placeholder={t('Select')} />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value={UNSET_OPTION}>{t('Select')}</SelectItem>
                         {sexSpecificOptions.map((x) => (
                           <SelectItem key={x} value={x}>
                             {t(x)}

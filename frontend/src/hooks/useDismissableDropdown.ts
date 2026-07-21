@@ -27,6 +27,13 @@ interface ToggleMetadata {
  * suppressed) so onToggle can tell "this interaction started inside our own
  * menu/toggle" apart from a genuine outside click, however its target ends
  * up looking once Radix has done its thing.
+ *
+ * That fallback must only kick in for the specific "target resolved to
+ * <html>/<body>" case it exists for — not for every close request whose
+ * target happens to sit inside the container. A real toggle-button click or
+ * an Escape keypress also has a target inside the container (the toggle
+ * itself, or the last-focused element in the menu), and those targets
+ * resolve correctly, so they must be allowed to close normally.
  */
 export function useDismissableDropdown(setOpen: (next: boolean) => void) {
   const containerRef = useRef<HTMLElement | null>(null);
@@ -42,10 +49,15 @@ export function useDismissableDropdown(setOpen: (next: boolean) => void) {
 
   const onToggle = useCallback(
     (next: boolean, meta?: ToggleMetadata) => {
+      const pointerDownWasInside = pointerDownInsideRef.current;
+      pointerDownInsideRef.current = false;
+
       if (!next) {
         const target = meta?.originalEvent?.target as HTMLElement | null;
         const insideRadixPortal = !!target?.closest?.('[data-radix-popper-content-wrapper]');
-        if (insideRadixPortal || pointerDownInsideRef.current) {
+        const targetEscapedToRoot =
+          !target || target === document.body || target === document.documentElement;
+        if (insideRadixPortal || (targetEscapedToRoot && pointerDownWasInside)) {
           return;
         }
       }
