@@ -1,5 +1,5 @@
 // components/TherapistInterventionPage/TemplateAssignModal.tsx
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { Alert } from 'react-bootstrap';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
@@ -76,6 +76,14 @@ const TemplateAssignModal: React.FC<Props> = ({
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<ErrorMap>({});
   const [showErrorDetails, setShowErrorDetails] = useState(false);
+
+  // Cleared on unmount so the auto-close setTimeout can't fire onHide() after the component is gone.
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!show) return;
@@ -253,7 +261,7 @@ const TemplateAssignModal: React.FC<Props> = ({
         onSuccess?.();
 
         // Auto-close after showing success message briefly
-        setTimeout(() => {
+        closeTimeoutRef.current = setTimeout(() => {
           onHide();
         }, 1500);
       } else {
