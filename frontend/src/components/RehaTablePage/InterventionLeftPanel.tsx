@@ -366,7 +366,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" className="p-3 w-[min(420px,86vw)]">
+        <DropdownMenuContent align="start" className="p-3 w-[min(420px,86vw)]">
           <div className="grid grid-cols-2 gap-2.5">
             <Field>
               <UiSelect

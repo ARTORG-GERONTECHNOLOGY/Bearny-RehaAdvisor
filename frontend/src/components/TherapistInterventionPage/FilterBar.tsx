@@ -251,7 +251,7 @@ const FilterBar: React.FC<Props> = ({
               </Button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="p-3 w-[min(520px,86vw)]">
+            <DropdownMenuContent align="start" className="p-3 w-[min(520px,86vw)]">
               {FiltersGrid}
             </DropdownMenuContent>
           </DropdownMenu>
