@@ -58,6 +58,8 @@ import {
 } from '@/components/ui/select';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Separator } from '@/components/ui/separator';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { SearchIcon } from 'lucide-react';
 
 // ---------------- Template helpers (unchanged logic, moved out of render) ----------------
 const normalizeSegment = (segOrSchedule: any) => {
@@ -790,13 +792,18 @@ const TherapistRecomendations: React.FC = observer(() => {
                 <div className="d-flex align-items-center flex-wrap gap-2 mb-2">
                   {/* ── Template autocomplete search ── */}
                   <div className="position-relative" style={{ minWidth: 240 }}>
-                    <Input
-                      placeholder={t('Search templates...')}
-                      value={templateSearch}
-                      onChange={(e) => setTemplateSearch(e.target.value)}
-                      onFocus={() => templateSearch && setTemplateSearch(templateSearch)}
-                      autoComplete="off"
-                    />
+                    <InputGroup>
+                      <InputGroupInput
+                        placeholder={t('Search templates...')}
+                        value={templateSearch}
+                        onChange={(e) => setTemplateSearch(e.target.value)}
+                        onFocus={() => templateSearch && setTemplateSearch(templateSearch)}
+                        autoComplete="off"
+                      />
+                      <InputGroupAddon>
+                        <SearchIcon />
+                      </InputGroupAddon>
+                    </InputGroup>
                     {templateSearch.trim() && (
                       <div
                         className="position-absolute bg-white border rounded shadow-sm mt-1 w-100"

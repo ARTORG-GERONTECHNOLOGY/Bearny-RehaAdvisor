@@ -5,7 +5,6 @@ import { FaUndo } from 'react-icons/fa';
 import interventionsConfig from '../../config/interventions.json';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Select as UiSelect,
   SelectContent,
@@ -13,6 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { SearchIcon } from 'lucide-react';
 
 export type LibraryFiltersState = {
   searchTerm: string;
@@ -76,13 +77,18 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
     <Card className="mb-4">
       <CardContent className="p-3">
         <div className="mb-3">
-          <Input
-            id="searchInput"
-            type="text"
-            placeholder={t('Search Interventions')}
-            value={filters.searchTerm}
-            onChange={(e) => onChange({ ...filters, searchTerm: e.target.value })}
-          />
+          <InputGroup>
+            <InputGroupInput
+              id="searchInput"
+              type="text"
+              placeholder={t('Search Interventions')}
+              value={filters.searchTerm}
+              onChange={(e) => onChange({ ...filters, searchTerm: e.target.value })}
+            />
+            <InputGroupAddon>
+              <SearchIcon />
+            </InputGroupAddon>
+          </InputGroup>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">

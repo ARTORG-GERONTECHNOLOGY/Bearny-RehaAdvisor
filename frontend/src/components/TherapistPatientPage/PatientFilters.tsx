@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { FaUndo } from 'react-icons/fa';
+import { SearchIcon } from 'lucide-react';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 
 type Props = {
   store: TherapistPatientsStore;
@@ -35,12 +37,17 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
       <CardContent className="p-3">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="md:col-span-2">
-            <Input
-              type="text"
-              placeholder={String(t('Search by name, ID or username'))}
-              value={store.searchTerm}
-              onChange={(e) => store.setSearchTerm(e.target.value)}
-            />
+            <InputGroup>
+              <InputGroupInput
+                type="text"
+                placeholder={String(t('Search by name, ID or username'))}
+                value={store.searchTerm}
+                onChange={(e) => store.setSearchTerm(e.target.value)}
+              />
+              <InputGroupAddon>
+                <SearchIcon />
+              </InputGroupAddon>
+            </InputGroup>
           </div>
 
           <Input
