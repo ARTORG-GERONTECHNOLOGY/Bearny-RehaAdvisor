@@ -297,7 +297,7 @@ const TemplateAssignModal: React.FC<Props> = ({
         {/* ERROR BANNER */}
         {error && (
           <Alert variant="destructive" onClose={() => setError('')} closeLabel={t('Close alert')}>
-            <div className="d-flex justify-content-between">
+            <div className="flex justify-between">
               <span>{error}</span>
               <Button
                 size="dashboard"
@@ -309,7 +309,7 @@ const TemplateAssignModal: React.FC<Props> = ({
             </div>
 
             {showErrorDetails && Object.keys(fieldErrors).length > 0 && (
-              <ul className="mt-2 mb-0">
+              <ul className="list-disc pl-6 mt-2 mb-0">
                 {Object.entries(fieldErrors).map(([k, v]) => (
                   <li key={k}>
                     <strong>{k}:</strong> {v}
@@ -326,14 +326,14 @@ const TemplateAssignModal: React.FC<Props> = ({
             {interventionTitle && (
               <Field>
                 <FieldLabel>{t('Intervention')}</FieldLabel>
-                <div className="fw-semibold">{interventionTitle}</div>
+                <div className="font-semibold">{interventionTitle}</div>
               </Field>
             )}
             <Field>
               <FieldLabel htmlFor="template-diagnosis">
                 {t('Diagnosis_patient_list')}
                 {templateId && (
-                  <span className="text-muted ms-1 small">
+                  <span className="text-muted-foreground ms-1 text-sm">
                     ({t('optional — leave blank for all')})
                   </span>
                 )}
@@ -418,7 +418,7 @@ const TemplateAssignModal: React.FC<Props> = ({
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
               />
-              <small className="text-muted">
+              <small className="text-sm text-muted-foreground">
                 {t('Shown when applying the template to a patient')}
               </small>
             </Field>
@@ -479,24 +479,24 @@ const TemplateAssignModal: React.FC<Props> = ({
                       value={autoApplyStartingFrom}
                       onChange={(e) => setAutoApplyStartingFrom(e.target.value)}
                     />
-                    <small className="text-muted">
+                    <small className="text-sm text-muted-foreground">
                       {t(
                         'Defaults to today. Existing patients receive sessions from this date onward.'
                       )}
                     </small>
                   </Field>
                 )}
-                <small className="text-muted">
+                <small className="text-sm text-muted-foreground">
                   {t('New matching patients means future registrations with this diagnosis.')}
                 </small>
                 <br />
-                <small className="text-muted">
+                <small className="text-sm text-muted-foreground">
                   {t('Matching patients are limited to your own clinic/project access.')}
                 </small>
               </Field>
             )}
 
-            <div className="text-muted">
+            <div className="text-muted-foreground">
               {validRange
                 ? t('{{count}} session(s): Days S,S+K,…≤N at ~{{time}}', {
                     count: occurrencesCount,

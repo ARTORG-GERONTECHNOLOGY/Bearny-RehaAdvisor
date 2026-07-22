@@ -407,9 +407,9 @@ const AdminDashboard: React.FC = observer(() => {
   };
 
   const renderBadges = (items: string[], variant: string) => {
-    if (!items?.length) return <span className="text-muted">—</span>;
+    if (!items?.length) return <span className="text-muted-foreground">—</span>;
     return (
-      <div className="d-flex flex-wrap gap-1">
+      <div className="flex flex-wrap gap-1">
         {items.map((x) => (
           <Badge key={x} variant={variant as any}>
             {x}
@@ -464,7 +464,7 @@ const AdminDashboard: React.FC = observer(() => {
 
       setAccessLoading(true);
       try {
-        // ✅ new endpoint returning clinics+projects + config maps
+        // Endpoint returning clinics+projects + config maps
         // NOTE: keep your final endpoint path consistent with apiClient baseURL
         const res = await apiClient.get('/admin/therapist/access/', { params: { therapistId } });
 
@@ -557,13 +557,13 @@ const AdminDashboard: React.FC = observer(() => {
           <TabsTrigger value="pending">
             {t('Pending registrations')}
             {adminStore.pendingEntries.length > 0 && (
-              <Badge variant="dashboard-destructive">{adminStore.pendingEntries.length}</Badge>
+              <Badge variant="dashboard">{adminStore.pendingEntries.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="access-requests">
             {t('Access change requests')}
             {changeRequests.length > 0 && (
-              <Badge variant="dashboard-warning">{changeRequests.length}</Badge>
+              <Badge variant="dashboard">{changeRequests.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="interventions">{t('Interventions')}</TabsTrigger>
@@ -582,7 +582,7 @@ const AdminDashboard: React.FC = observer(() => {
               <div>{t('Loading')}...</div>
             </div>
           ) : adminStore.pendingEntries.length === 0 ? (
-            <p className="text-center text-muted">{t('No pending entries')}</p>
+            <p className="text-center text-muted-foreground">{t('No pending entries')}</p>
           ) : (
             <Table>
               <TableHeader>
@@ -610,17 +610,17 @@ const AdminDashboard: React.FC = observer(() => {
                         {isTherapist ? (
                           renderBadges(clinics, 'dashboard-info')
                         ) : (
-                          <span className="text-muted">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
                       <TableCell>
                         {isTherapist ? (
                           renderBadges(projects, 'dashboard')
                         ) : (
-                          <span className="text-muted">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </TableCell>
-                      <TableCell className="d-flex gap-2 flex-wrap">
+                      <TableCell className="flex gap-2 flex-wrap">
                         {isTherapist && (
                           <Button
                             size="dashboard"
@@ -667,7 +667,9 @@ const AdminDashboard: React.FC = observer(() => {
               <div>{t('Loading')}...</div>
             </div>
           ) : changeRequests.length === 0 ? (
-            <p className="text-center text-muted">{t('No pending access change requests')}</p>
+            <p className="text-center text-muted-foreground">
+              {t('No pending access change requests')}
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -694,9 +696,11 @@ const AdminDashboard: React.FC = observer(() => {
                       {renderBadges(req.requestedProjects, 'dashboard-warning')}
                     </TableCell>
                     <TableCell>
-                      <small>{req.createdAt ? formatLocaleDate(req.createdAt) : '—'}</small>
+                      <small className="text-sm">
+                        {req.createdAt ? formatLocaleDate(req.createdAt) : '—'}
+                      </small>
                     </TableCell>
-                    <TableCell className="d-flex gap-2 flex-wrap">
+                    <TableCell className="flex gap-2 flex-wrap">
                       <Button size="dashboard" onClick={() => approveRequest(req.id)}>
                         {t('Approve')}
                       </Button>
@@ -727,7 +731,7 @@ const AdminDashboard: React.FC = observer(() => {
             </Alert>
           )}
 
-          <div className="d-flex gap-2 mb-3">
+          <div className="flex gap-2 mb-3">
             <Input
               type="search"
               placeholder={t('Search by title or ID…')}
@@ -752,7 +756,7 @@ const AdminDashboard: React.FC = observer(() => {
               <div>{t('Loading')}...</div>
             </div>
           ) : filteredInterventions.length === 0 ? (
-            <p className="text-center text-muted">{t('No interventions found')}</p>
+            <p className="text-center text-muted-foreground">{t('No interventions found')}</p>
           ) : (
             <Table>
               <TableHeader>
@@ -811,7 +815,7 @@ const AdminDashboard: React.FC = observer(() => {
             </Alert>
           )}
 
-          <div className="d-flex gap-2 mb-3">
+          <div className="flex gap-2 mb-3">
             <Input
               type="search"
               placeholder={t('Search by title, key or tag…')}
@@ -836,7 +840,7 @@ const AdminDashboard: React.FC = observer(() => {
               <div>{t('Loading')}...</div>
             </div>
           ) : filteredQuestionnaires.length === 0 ? (
-            <p className="text-center text-muted">{t('No questionnaires found')}</p>
+            <p className="text-center text-muted-foreground">{t('No questionnaires found')}</p>
           ) : (
             <Table>
               <TableHeader>
@@ -864,7 +868,7 @@ const AdminDashboard: React.FC = observer(() => {
                     <TableCell>{qn.title}</TableCell>
                     <TableCell>
                       {qn.tags?.length ? (
-                        <div className="d-flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1">
                           {qn.tags.map((tag) => (
                             <Badge key={tag} variant="dashboard">
                               {tag}
@@ -872,7 +876,7 @@ const AdminDashboard: React.FC = observer(() => {
                           ))}
                         </div>
                       ) : (
-                        <span className="text-muted">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-center">{qn.question_count}</TableCell>
@@ -880,7 +884,7 @@ const AdminDashboard: React.FC = observer(() => {
                       {qn.usage_count > 0 ? (
                         <Badge variant="dashboard-warning">{qn.usage_count}</Badge>
                       ) : (
-                        <span className="text-muted">0</span>
+                        <span className="text-muted-foreground">0</span>
                       )}
                     </TableCell>
                     <TableCell
@@ -896,9 +900,9 @@ const AdminDashboard: React.FC = observer(() => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {qn.created_by_name || <span className="text-muted">—</span>}
+                      {qn.created_by_name || <span className="text-muted-foreground">—</span>}
                     </TableCell>
-                    <TableCell className="d-flex gap-1">
+                    <TableCell className="flex gap-1">
                       <Button
                         size="dashboard"
                         variant="secondary"
@@ -956,7 +960,9 @@ const AdminDashboard: React.FC = observer(() => {
             </div>
           ) : (
             <>
-              <p className="text-muted mb-1">{t('Select clinics to include in the export:')}</p>
+              <p className="text-muted-foreground mb-1">
+                {t('Select clinics to include in the export:')}
+              </p>
 
               {exportClinics.length === 0 ? (
                 <Alert variant="info">{t('No clinics found in the database.')}</Alert>
@@ -1001,7 +1007,7 @@ const AdminDashboard: React.FC = observer(() => {
                 </>
               )}
 
-              <p className="text-muted small mb-2">
+              <p className="text-muted-foreground text-sm mb-2">
                 {t('The export is a ZIP archive containing:')}{' '}
                 {t(
                   'patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.'
@@ -1043,7 +1049,7 @@ const AdminDashboard: React.FC = observer(() => {
             </div>
           ) : deviceAnalytics ? (
             <div className="my-4">
-              <h5 className="mb-3">{t('Login device types')}</h5>
+              <h5 className="text-base font-semibold mb-3">{t('Login device types')}</h5>
               <div className="flex flex-wrap gap-4 mb-6">
                 {['Mobile', 'Desktop', 'Tablet', 'Unknown'].map((device) => {
                   const count = deviceAnalytics.by_device[device] ?? 0;
@@ -1061,7 +1067,7 @@ const AdminDashboard: React.FC = observer(() => {
               </div>
               {Object.keys(deviceAnalytics.by_role).length > 0 && (
                 <div className="max-w-[480px]">
-                  <h6 className="mb-2">{t('By user role')}</h6>
+                  <h6 className="text-sm font-semibold mb-2">{t('By user role')}</h6>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1086,7 +1092,9 @@ const AdminDashboard: React.FC = observer(() => {
               )}
             </div>
           ) : (
-            <p className="mt-4 text-muted">{t('Click the Analytics tab to load data.')}</p>
+            <p className="mt-4 text-muted-foreground">
+              {t('Click the Analytics tab to load data.')}
+            </p>
           )}
         </TabsContent>
       </Tabs>

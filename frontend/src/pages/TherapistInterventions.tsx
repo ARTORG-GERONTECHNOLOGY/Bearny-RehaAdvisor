@@ -789,9 +789,9 @@ const TherapistRecomendations: React.FC = observer(() => {
             <Card className="my-3">
               <CardContent className="p-3">
                 {/* ── Search & Selector ── */}
-                <div className="d-flex align-items-center flex-wrap gap-2 mb-2">
+                <div className="flex items-center flex-wrap gap-2 mb-2">
                   {/* ── Template autocomplete search ── */}
-                  <div className="position-relative" style={{ minWidth: 240 }}>
+                  <div className="relative" style={{ minWidth: 240 }}>
                     <InputGroup>
                       <InputGroupInput
                         placeholder={t('Search templates...')}
@@ -806,11 +806,13 @@ const TherapistRecomendations: React.FC = observer(() => {
                     </InputGroup>
                     {templateSearch.trim() && (
                       <div
-                        className="position-absolute bg-white border rounded shadow-sm mt-1 w-100"
+                        className="absolute bg-white border rounded shadow-sm mt-1 w-full"
                         style={{ zIndex: 1050, maxHeight: 260, overflowY: 'auto' }}
                       >
                         {filteredTemplates.length === 0 ? (
-                          <div className="px-3 py-2 text-muted small">{t('No data available')}</div>
+                          <div className="px-3 py-2 text-muted-foreground text-sm">
+                            {t('No data available')}
+                          </div>
                         ) : (
                           filteredTemplates.map((tmpl) => {
                             const isUnseen = unseenTemplates.some((u) => u.id === tmpl.id);
@@ -821,7 +823,7 @@ const TherapistRecomendations: React.FC = observer(() => {
                               return (
                                 <>
                                   {text.slice(0, idx)}
-                                  <mark className="p-0 bg-warning bg-opacity-50">
+                                  <mark className="p-0 bg-yellow/50">
                                     {text.slice(idx, idx + q.length)}
                                   </mark>
                                   {text.slice(idx + q.length)}
@@ -831,7 +833,7 @@ const TherapistRecomendations: React.FC = observer(() => {
                             return (
                               <div
                                 key={tmpl.id}
-                                className={`px-3 py-2 border-bottom ${activeTemplateId === tmpl.id ? 'bg-primary bg-opacity-10' : ''}`}
+                                className={`px-3 py-2 border-b ${activeTemplateId === tmpl.id ? 'bg-primary/10' : ''}`}
                                 style={{ cursor: 'pointer' }}
                                 onMouseDown={(e) => {
                                   e.preventDefault(); // keep focus on input during click
@@ -839,30 +841,32 @@ const TherapistRecomendations: React.FC = observer(() => {
                                   setTemplateSearch('');
                                 }}
                               >
-                                <div className="d-flex align-items-center gap-1">
+                                <div className="flex items-center gap-1">
                                   {isUnseen && (
                                     <FaBell
-                                      className="text-warning"
+                                      className="text-yellow"
                                       style={{ fontSize: '0.7rem' }}
                                     />
                                   )}
-                                  <span className="fw-semibold small">{highlight(tmpl.name)}</span>
+                                  <span className="font-semibold text-sm">
+                                    {highlight(tmpl.name)}
+                                  </span>
                                   {tmpl.is_public && (
                                     <span
-                                      className="badge bg-secondary ms-1"
+                                      className="inline-block rounded px-1.5 py-0.5 font-semibold text-white bg-muted-foreground ms-1"
                                       style={{ fontSize: '0.65rem' }}
                                     >
                                       {t('public')}
                                     </span>
                                   )}
                                   {tmpl.created_by !== authStore.id && (
-                                    <span className="text-muted small ms-1">
+                                    <span className="text-muted-foreground text-sm ms-1">
                                       — {tmpl.created_by_name}
                                     </span>
                                   )}
                                 </div>
                                 {tmpl.description && (
-                                  <div className="text-muted small text-truncate">
+                                  <div className="text-muted-foreground text-sm truncate">
                                     {highlight(tmpl.description)}
                                   </div>
                                 )}
@@ -875,7 +879,7 @@ const TherapistRecomendations: React.FC = observer(() => {
                   </div>
 
                   {/* ── Full template selector (for browsing without search) ── */}
-                  <div className="position-relative">
+                  <div className="relative">
                     <Select
                       value={activeTemplateId || IMPLICIT_TEMPLATE_VALUE}
                       onValueChange={(value) =>
@@ -904,8 +908,7 @@ const TherapistRecomendations: React.FC = observer(() => {
                     </Select>
                     {unseenTemplates.length > 0 && (
                       <span
-                        className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark"
-                        style={{ fontSize: '0.65rem', cursor: 'default' }}
+                        className="absolute top-0 left-full -translate-x-1/2 -translate-y-1/2 inline-flex items-center rounded-full bg-yellow text-zinc-900 px-2 py-0.5 text-xs cursor-default"
                         title={t('{{count}} template(s) updated since last view', {
                           count: unseenTemplates.length,
                         })}
@@ -972,9 +975,11 @@ const TherapistRecomendations: React.FC = observer(() => {
                 )}
 
                 {/* ── View options ── */}
-                <div className="d-flex align-items-center flex-wrap gap-3">
+                <div className="flex items-center flex-wrap gap-3">
                   <div>
-                    <small className="text-muted">{t('Diagnosis_patient_list')}:</small>
+                    <small className="text-sm text-muted-foreground">
+                      {t('Diagnosis_patient_list')}:
+                    </small>
                     <Select
                       value={templateDiag || ALL_DIAGNOSES_VALUE}
                       onValueChange={(value) =>
@@ -995,7 +1000,7 @@ const TherapistRecomendations: React.FC = observer(() => {
                     </Select>
                   </div>
                   <div>
-                    <small className="text-muted">{t('Horizon (days)')}:</small>
+                    <small className="text-sm text-muted-foreground">{t('Horizon (days)')}:</small>
                     <Input
                       type="number"
                       min={14}
@@ -1013,9 +1018,11 @@ const TherapistRecomendations: React.FC = observer(() => {
                     if (!tmpl) return null;
                     const diff = sessionDiffs[activeTemplateId];
                     return (
-                      <div className="mt-3 d-flex flex-column" style={{ maxWidth: 480 }}>
+                      <div className="mt-3 flex flex-col" style={{ maxWidth: 480 }}>
                         {tmpl.description && (
-                          <small className="text-muted">{tmpl.description}</small>
+                          <small className="text-sm text-muted-foreground">
+                            {tmpl.description}
+                          </small>
                         )}
                         {diff &&
                           (() => {
@@ -1060,55 +1067,67 @@ const TherapistRecomendations: React.FC = observer(() => {
                             return (
                               <div className="mt-1">
                                 <button
-                                  className="btn btn-sm btn-warning d-flex align-items-center gap-1 py-0 px-2"
+                                  className="inline-flex items-center gap-1 rounded border border-yellow bg-yellow px-2 py-0 text-sm font-medium text-zinc-900 hover:opacity-90"
                                   onClick={() => setShowDiff((v) => !v)}
                                 >
                                   <FaBell />
-                                  <small>
+                                  <small className="text-sm">
                                     {t('Updated')}: {formatLocaleDate(diff.date)} ({totalChanges})
                                   </small>
-                                  <small>{showDiff ? '▲' : '▼'}</small>
+                                  <small className="text-sm">{showDiff ? '▲' : '▼'}</small>
                                 </button>
                                 {showDiff && (
-                                  <div className="mt-1 p-2 rounded border border-warning bg-warning bg-opacity-10">
+                                  <div className="mt-1 p-2 rounded border border-yellow bg-yellow/10">
                                     {diff.metaChanges.map((c) => (
-                                      <small key={c} className="text-muted d-block">
+                                      <small key={c} className="text-muted-foreground block">
                                         • {c}
                                       </small>
                                     ))}
                                     {diff.added.map((i) => (
                                       <small
                                         key={`${i.id}::${i.diagnosis}`}
-                                        className="text-success d-block"
+                                        className="text-brand block"
                                       >
                                         + {translatedTitles[i.id]?.title ?? i.title}
                                         {i.diagnosis && (
-                                          <span className="text-muted"> [{i.diagnosis}]</span>
+                                          <span className="text-muted-foreground">
+                                            {' '}
+                                            [{i.diagnosis}]
+                                          </span>
                                         )}
-                                        <span className="text-muted"> — {scheduleLabel(i)}</span>
+                                        <span className="text-muted-foreground">
+                                          {' '}
+                                          — {scheduleLabel(i)}
+                                        </span>
                                       </small>
                                     ))}
                                     {diff.removed.map((i) => (
                                       <small
                                         key={`${i.id}::${i.diagnosis}`}
-                                        className="text-danger d-block"
+                                        className="text-nok block"
                                       >
                                         − {translatedTitles[i.id]?.title ?? i.title}
                                         {i.diagnosis && (
-                                          <span className="text-muted"> [{i.diagnosis}]</span>
+                                          <span className="text-muted-foreground">
+                                            {' '}
+                                            [{i.diagnosis}]
+                                          </span>
                                         )}
                                       </small>
                                     ))}
                                     {diff.modified.map(({ prev, curr }) => (
                                       <small
                                         key={`${curr.id}::${curr.diagnosis}`}
-                                        className="text-warning-emphasis d-block"
+                                        className="text-amber-700 block"
                                       >
                                         ~ {translatedTitles[curr.id]?.title ?? curr.title}
                                         {curr.diagnosis && (
-                                          <span className="text-muted"> [{curr.diagnosis}]</span>
+                                          <span className="text-muted-foreground">
+                                            {' '}
+                                            [{curr.diagnosis}]
+                                          </span>
                                         )}
-                                        <span className="text-muted">
+                                        <span className="text-muted-foreground">
                                           {' '}
                                           — {scheduleChanges({ prev, curr })}
                                         </span>

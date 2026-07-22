@@ -1,10 +1,11 @@
 // src/components/TherapistPatientPage/PatientStatusBadges.tsx
-import React, { useState } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { PatientType } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import {
   Traffic,
   chipClass,
@@ -17,40 +18,6 @@ import {
 
 type Props = { patient: PatientType };
 
-type HoverTipProps = {
-  tip: string;
-  children: (hoverProps: {
-    onMouseOver: () => void;
-    onMouseOut: () => void;
-    onFocus: () => void;
-    onBlur: () => void;
-    tabIndex: number;
-  }) => React.ReactNode;
-};
-
-const HoverTip: React.FC<HoverTipProps> = ({ tip, children }) => {
-  const [hovered, setHovered] = useState(false);
-
-  const hoverProps = {
-    onMouseOver: () => setHovered(true),
-    onMouseOut: () => setHovered(false),
-    onFocus: () => setHovered(true),
-    onBlur: () => setHovered(false),
-    tabIndex: 0,
-  };
-
-  return (
-    <span className="relative inline-block">
-      {children(hoverProps)}
-      {hovered && tip && (
-        <div className="absolute z-50 bottom-full left-0 mb-1 w-max max-w-xs whitespace-pre-line rounded bg-zinc-900 px-2 py-1 text-xs text-white shadow-lg">
-          {tip}
-        </div>
-      )}
-    </span>
-  );
-};
-
 type StatusChipProps = {
   label: string;
   level: Traffic;
@@ -59,18 +26,19 @@ type StatusChipProps = {
 };
 
 const StatusChip: React.FC<StatusChipProps> = ({ label, level, tip, children }) => (
-  <HoverTip tip={tip}>
-    {(hoverProps) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
       <Badge
         variant="dashboard"
-        className={`text-nowrap ${chipClass(level)}`}
+        className={`whitespace-nowrap ${chipClass(level)}`}
         aria-label={`${label} ${level}`}
-        {...hoverProps}
+        tabIndex={0}
       >
         {children}
       </Badge>
-    )}
-  </HoverTip>
+    </TooltipTrigger>
+    <TooltipContent className="whitespace-pre-line">{tip}</TooltipContent>
+  </Tooltip>
 );
 
 export const LoginBadge: React.FC<Props> = ({ patient }) => {
@@ -117,13 +85,14 @@ export const AdherenceProgress: React.FC<Props> = ({ patient }) => {
         indicatorClassName={indicatorClassName}
         className="w-10 h-1"
       />
-      <HoverTip tip={tip}>
-        {(hoverProps) => (
-          <span className={`text-xs font-medium ${labelClassName}`} {...hoverProps}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className={`text-xs font-medium ${labelClassName}`} tabIndex={0}>
             {rate != null ? `${rate}%` : '—'}
           </span>
-        )}
-      </HoverTip>
+        </TooltipTrigger>
+        <TooltipContent>{tip}</TooltipContent>
+      </Tooltip>
     </div>
   );
 };

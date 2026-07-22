@@ -210,7 +210,7 @@ export default function DownloadsPage() {
         className="container mx-auto py-5"
         style={{ maxWidth: 480, fontFamily: 'Atkinson Hyperlegible, sans-serif' }}
       >
-        <h3 className="mb-4">ICF Monitor — Secure Access</h3>
+        <h3 className="text-xl font-semibold mb-4">ICF Monitor — Secure Access</h3>
         {step === 'password' ? (
           <>
             <Field className="mb-3">
@@ -233,14 +233,14 @@ export default function DownloadsPage() {
                 onKeyDown={(e) => e.key === 'Enter' && submitPassword()}
               />
             </Field>
-            {authError && <p className="text-danger mb-3">{authError}</p>}
+            {authError && <p className="text-nok mb-3">{authError}</p>}
             <Button size="dashboard" onClick={submitPassword} disabled={authLoading}>
               {authLoading ? <Spinner /> : 'Send code'}
             </Button>
           </>
         ) : (
           <>
-            <p className="text-muted">
+            <p className="text-muted-foreground">
               A 6-digit code was sent to <strong>{authEmail}</strong>. Check your inbox.
             </p>
             <Field className="mb-3">
@@ -256,7 +256,7 @@ export default function DownloadsPage() {
                 autoFocus
               />
             </Field>
-            {authError && <p className="text-danger mb-3">{authError}</p>}
+            {authError && <p className="text-nok mb-3">{authError}</p>}
             <Button size="dashboard" onClick={submitCode} disabled={authLoading} className="me-2">
               {authLoading ? <Spinner /> : 'Verify'}
             </Button>
@@ -274,8 +274,8 @@ export default function DownloadsPage() {
       className="container mx-auto py-5"
       style={{ fontFamily: 'Atkinson Hyperlegible, sans-serif' }}
     >
-      <div className="d-flex align-items-center justify-content-between mb-4">
-        <h3 className="mb-0">Admin Dashboard (V2.2)</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xl font-semibold mb-0">Admin Dashboard (V2.2)</h3>
         <Button size="dashboard" variant="secondary" onClick={logout}>
           Logout
         </Button>
@@ -283,7 +283,7 @@ export default function DownloadsPage() {
       <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end mb-4">
         <div className="md:col-span-4">
           <Field>
-            <FieldLabel htmlFor="hls-participant-id" className="fw-bold">
+            <FieldLabel htmlFor="hls-participant-id" className="font-bold">
               Patient ID (Format: Pxx)
             </FieldLabel>
             <Input
@@ -324,31 +324,38 @@ export default function DownloadsPage() {
         <TableBody>
           {items.map((it) => (
             <TableRow key={it.id}>
-              <TableCell className="text-center fw-bold">{it.questionIndex + 1}</TableCell>
+              <TableCell className="text-center font-bold">{it.questionIndex + 1}</TableCell>
               <TableCell>
-                <div className="fw-semibold">{it.questionText}</div>
-                <small className="text-muted">
+                <div className="font-semibold">{it.questionText}</div>
+                <small className="text-sm text-muted-foreground">
                   {it.answeredAt ? formatLocaleDateTime(it.answeredAt) : ''}
                 </small>
               </TableCell>
               <TableCell className="text-center">
                 {it.answerValue === -1 ? (
-                  <span className="badge bg-secondary">N/A</span>
+                  <span className="inline-block rounded px-1.5 py-0.5 text-xs font-semibold text-white bg-zinc-500">
+                    N/A
+                  </span>
                 ) : (
-                  <span className="badge bg-primary" style={{ fontSize: '1rem' }}>
+                  <span
+                    className="inline-block rounded px-1.5 py-0.5 font-semibold text-white bg-primary"
+                    style={{ fontSize: '1rem' }}
+                  >
                     {it.answerValue}
                   </span>
                 )}
               </TableCell>
-              <TableCell className="text-center text-muted small">{it.deviceType || '—'}</TableCell>
-              <TableCell className="text-center text-muted small">
+              <TableCell className="text-center text-muted-foreground text-sm">
+                {it.deviceType || '—'}
+              </TableCell>
+              <TableCell className="text-center text-muted-foreground text-sm">
                 {it.assistance === 'alone'
                   ? 'Alone'
                   : it.assistance === 'with_help'
                     ? 'With help'
                     : '—'}
               </TableCell>
-              <TableCell className="text-center text-muted small">
+              <TableCell className="text-center text-muted-foreground text-sm">
                 {it.hasAudio ? formatSize(it.audioSize) : '—'}
               </TableCell>
               <TableCell>
@@ -365,7 +372,7 @@ export default function DownloadsPage() {
                     </Button>
                   )
                 ) : (
-                  <span className="text-danger small">No recording available</span>
+                  <span className="text-nok text-sm">No recording available</span>
                 )}
               </TableCell>
             </TableRow>
@@ -373,7 +380,7 @@ export default function DownloadsPage() {
 
           {items.length === 0 && !loading && (
             <TableRow>
-              <TableCell colSpan={7} className="text-center py-5 text-muted">
+              <TableCell colSpan={7} className="text-center py-5 text-muted-foreground">
                 Enter a Patient ID and click Search to display results.
               </TableCell>
             </TableRow>

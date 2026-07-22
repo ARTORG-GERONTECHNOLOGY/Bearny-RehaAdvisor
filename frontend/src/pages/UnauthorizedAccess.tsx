@@ -13,7 +13,7 @@ const UnauthorizedAccess: React.FC = () => {
   return (
     <Layout>
       <Card className="bg-white max-w-lg mx-auto">
-        <h1 className="font-bold">{t('Unauthorized')}</h1>
+        <h1 className="text-xl font-bold">{t('Unauthorized')}</h1>
         <div>{t('You do not have permission to access this page.')}</div>
         <div className="mt-4 flex gap-1 flex-wrap">
           <Button onClick={() => navigate(-1)}>{t('Go back')}</Button>

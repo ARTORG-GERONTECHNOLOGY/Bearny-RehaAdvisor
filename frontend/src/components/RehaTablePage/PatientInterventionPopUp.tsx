@@ -419,7 +419,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
     return (
       <div key={`${idx}-${label}`} className="mb-3">
-        {!hideLabel && <div className="fw-semibold mb-1">{label}</div>}
+        {!hideLabel && <div className="font-semibold mb-1">{label}</div>}
 
         {m.media_type === 'pdf' ? (
           <>
@@ -436,7 +436,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
             </div>
             <a
               href={playable}
-              className="btn btn-outline-primary btn-sm mt-2"
+              className="inline-flex items-center justify-center rounded-md border border-primary px-2 py-1 text-sm text-primary hover:bg-primary hover:text-primary-foreground mt-2"
               target="_blank"
               rel="noreferrer"
             >
@@ -447,7 +447,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
           <img
             src={playable}
             alt={label}
-            className="img-fluid rounded"
+            className="max-w-full h-auto rounded"
             style={{ maxHeight: 420, objectFit: 'contain' }}
           />
         ) : (
@@ -495,7 +495,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
   const renderMediaContent = () => {
     if (!effectiveMediaList.length)
-      return <div className="text-muted">{t('No media available.')}</div>;
+      return <div className="text-muted-foreground">{t('No media available.')}</div>;
 
     if (effectiveMediaList.length === 1) {
       return <div>{renderOneMedia(effectiveMediaList[0], 0)}</div>;
@@ -513,7 +513,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
         {/* Navigation bar */}
         <div className="media-carousel__nav">
           <button
-            className="btn btn-sm btn-outline-secondary media-carousel__arrow"
+            className="inline-flex items-center justify-center rounded-md border border-secondary px-2 py-1 text-sm text-secondary hover:bg-secondary hover:text-secondary-foreground media-carousel__arrow"
             onClick={() => setActiveMediaIndex((i: number) => Math.max(0, i - 1))}
             disabled={clampedIndex === 0}
             aria-label={t('Previous media')}
@@ -545,7 +545,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
           </div>
 
           <button
-            className="btn btn-sm btn-outline-secondary media-carousel__arrow"
+            className="inline-flex items-center justify-center rounded-md border border-secondary px-2 py-1 text-sm text-secondary hover:bg-secondary hover:text-secondary-foreground media-carousel__arrow"
             onClick={() => setActiveMediaIndex((i: number) => Math.min(total - 1, i + 1))}
             disabled={clampedIndex === total - 1}
             aria-label={t('Next media')}
@@ -579,7 +579,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
               {effectiveIsPrivate && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="text-muted">
+                    <span className="text-muted-foreground">
                       <FaLock />
                     </span>
                   </TooltipTrigger>
@@ -607,8 +607,10 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
             {(loadingLangs || sortedLangOptions.length > 1) && (
               <div className="mb-3">
                 <div className="flex items-center justify-between mb-2">
-                  <h5 className="mb-0">{t('Languages')}</h5>
-                  {loadingLangs ? <small className="text-muted">{t('Loading…')}</small> : null}
+                  <h5 className="text-base font-semibold mb-0">{t('Languages')}</h5>
+                  {loadingLangs ? (
+                    <small className="text-sm text-muted-foreground">{t('Loading…')}</small>
+                  ) : null}
                 </div>
 
                 <ButtonGroup>
@@ -633,9 +635,9 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
               <div className="md:col-span-6">
-                <h5>{t('Description')}</h5>
+                <h5 className="text-base font-semibold mb-2">{t('Description')}</h5>
 
-                <p className="text-muted mb-2">
+                <p className="text-muted-foreground mb-2">
                   {detectedLang ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -670,7 +672,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
               <div className="md:col-span-6">
                 <div className="flex items-center justify-between">
-                  <h5 className="mb-0">{t('Media')}</h5>
+                  <h5 className="text-base font-semibold mb-0">{t('Media')}</h5>
                   <Badge variant={effectiveMediaBadge.variant as any}>
                     {t(effectiveMediaBadge.label)}
                   </Badge>

@@ -397,7 +397,7 @@ describe('Upload results display', () => {
 // ── Close behavior ─────────────────────────────────────────────────────────
 
 describe('Close behavior', () => {
-  // Bootstrap's modal header dismiss (X) button also has aria-label "Close";
+  // The dialog's header dismiss (X) button also has aria-label "Close";
   // the footer text button is the last one in DOM order.
   function getFooterCloseButton() {
     const buttons = screen.getAllByRole('button', { name: /^Close$/i });

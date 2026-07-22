@@ -424,8 +424,8 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
     if (!playable) {
       return (
         <div key={idx} className="mb-3">
-          <div className="fw-semibold mb-1">{label}</div>
-          <div className="text-muted small">
+          <div className="font-semibold mb-1">{label}</div>
+          <div className="text-muted-foreground text-sm">
             {t('No playable URL provided for this media item.')}
           </div>
         </div>
@@ -438,7 +438,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
       case 'streaming':
         return (
           <div key={idx} className="mb-3">
-            <div className="fw-semibold mb-1">{label}</div>
+            <div className="font-semibold mb-1">{label}</div>
             <PlayableMedia m={m} label={label} />
           </div>
         );
@@ -446,7 +446,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
       case 'pdf':
         return (
           <div key={idx} className="mb-3">
-            <div className="fw-semibold mb-2">{label}</div>
+            <div className="font-semibold mb-2">{label}</div>
             <div className="flex">
               {isHttpUrl(playable) && (
                 <iframe
@@ -460,7 +460,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
             </div>
             <a
               href={playable}
-              className="btn btn-outline-primary mt-2"
+              className="inline-flex items-center justify-center rounded-md border border-primary px-3 py-1.5 text-sm text-primary hover:bg-primary hover:text-primary-foreground mt-2"
               target="_blank"
               rel="noreferrer"
             >
@@ -472,12 +472,12 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
       case 'image':
         return (
           <div key={idx} className="mb-3">
-            <div className="fw-semibold mb-2">{label}</div>
+            <div className="font-semibold mb-2">{label}</div>
             <img
               src={playable}
               alt={label}
               loading="lazy"
-              className="img-fluid rounded"
+              className="max-w-full h-auto rounded"
               style={{ maxHeight: 420, objectFit: 'contain' }}
             />
           </div>
@@ -490,17 +490,17 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
         if (isHttpUrl(playable)) {
           return (
             <div key={idx} className="mb-3">
-              <div className="fw-semibold mb-2">{label}</div>
+              <div className="font-semibold mb-2">{label}</div>
               <Microlink url={playable} style={{ width: '100%' }} />
             </div>
           );
         }
         return (
           <div key={idx} className="mb-3">
-            <div className="fw-semibold mb-1">{label}</div>
+            <div className="font-semibold mb-1">{label}</div>
             <a
               href={playable}
-              className="btn btn-outline-secondary"
+              className="inline-flex items-center justify-center rounded-md border border-secondary px-3 py-1.5 text-sm text-secondary hover:bg-secondary hover:text-secondary-foreground"
               target="_blank"
               rel="noreferrer"
             >
@@ -513,7 +513,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
   const renderMediaContentEffective = () => {
     if (!effectiveMediaList.length)
-      return <div className="text-muted">{t('No media available.')}</div>;
+      return <div className="text-muted-foreground">{t('No media available.')}</div>;
     return <div>{effectiveMediaList.map((m, idx) => renderOneMedia(m, idx))}</div>;
   };
 
@@ -556,7 +556,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
               {effectiveIsPrivate && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="text-muted">
+                    <span className="text-muted-foreground">
                       <FaLock />
                     </span>
                   </TooltipTrigger>
@@ -583,9 +583,11 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
             {/* Language buttons INSIDE modal */}
             {sortedLangOptions.length > 1 && (
               <div className="mb-3">
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <h5 className="mb-0">{t('Languages')}</h5>
-                  {loadingLangs ? <small className="text-muted">{t('Loading…')}</small> : null}
+                <div className="flex items-center justify-between mb-2">
+                  <h5 className="text-base font-semibold mb-0">{t('Languages')}</h5>
+                  {loadingLangs ? (
+                    <small className="text-sm text-muted-foreground">{t('Loading…')}</small>
+                  ) : null}
                 </div>
 
                 <ButtonGroup>
@@ -610,8 +612,8 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
               <div>
-                <h5>{t('Description')}</h5>
-                <p className="text-muted mb-0">
+                <h5 className="text-base font-semibold mb-2">{t('Description')}</h5>
+                <p className="text-muted-foreground mb-0">
                   {detectedLang ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -624,7 +626,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                   )}
                 </p>
 
-                <div className="mt-3 d-flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {effectiveItem.external_id && (
                     <Badge variant="dashboard">external_id: {effectiveItem.external_id}</Badge>
                   )}
@@ -654,12 +656,12 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
                 {effectiveItem.preview_img && (
                   <div className="mt-3">
-                    <div className="fw-semibold mb-2">{t('Preview')}</div>
+                    <div className="font-semibold mb-2">{t('Preview')}</div>
                     <img
                       src={String(effectiveItem.preview_img)}
                       alt={t('Preview')}
                       loading="lazy"
-                      className="img-fluid rounded"
+                      className="max-w-full h-auto rounded"
                       style={{ maxHeight: 240, objectFit: 'cover' }}
                     />
                   </div>
@@ -667,8 +669,8 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
               </div>
 
               <div>
-                <div className="d-flex align-items-center justify-content-between">
-                  <h5 className="mb-0">{t('Media')}</h5>
+                <div className="flex items-center justify-between">
+                  <h5 className="text-base font-semibold mb-0">{t('Media')}</h5>
                   <Badge
                     variant={
                       ((effectiveMediaBadge as unknown as { variant?: unknown }).variant ||
@@ -687,7 +689,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
             </div>
 
             <div className="mb-3">
-              <h5>{t('Tags & Benefits')}</h5>
+              <h5 className="text-base font-semibold mb-2">{t('Tags & Benefits')}</h5>
 
               <div className="mb-2">
                 {effectiveTags.map((tag) => (
@@ -713,8 +715,8 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
               {!effectiveIsPrivate && effectivePatientTypes.length > 0 && (
                 <div className="mt-2">
-                  <div className="fw-semibold mb-1">{t('Recommended for')}</div>
-                  <div className="d-flex flex-wrap gap-2">
+                  <div className="font-semibold mb-1">{t('Recommended for')}</div>
+                  <div className="flex flex-wrap gap-2">
                     {effectivePatientTypes.map((pt, idx) => (
                       <Badge key={idx} variant="dashboard">
                         {t(norm(pt.type))} • {t(norm(pt.diagnosis))} • {t(norm(pt.frequency))}
@@ -728,8 +730,10 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
             {!effectiveIsPrivate ? (
               <>
                 <div className="mb-2 flex items-center justify-between">
-                  <h5 className="mb-0">{t('Add/modify in template by diagnosis')}</h5>
-                  <small className="text-muted">
+                  <h5 className="text-base font-semibold mb-0">
+                    {t('Add/modify in template by diagnosis')}
+                  </h5>
+                  <small className="text-sm text-muted-foreground">
                     {loadingAssignments ? t('Loading assignments…') : null}
                   </small>
                 </div>
@@ -755,9 +759,9 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                       const isAssigned = assignedDiagSet.has(d);
                       return (
                         <div key={d}>
-                          <div className="d-flex align-items-center justify-content-between border rounded px-2 py-2">
+                          <div className="flex items-center justify-between border rounded px-2 py-2">
                             <div className="me-2">
-                              <div className="fw-semibold">
+                              <div className="font-semibold">
                                 {t(d)}{' '}
                                 {isAssigned && (
                                   <Badge variant="dashboard-success" className="ms-1">
@@ -808,14 +812,16 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
                     {filteredDiagnoses.length === 0 && (
                       <div className="md:col-span-2">
-                        <div className="text-muted">{t('No diagnoses match your search.')}</div>
+                        <div className="text-muted-foreground">
+                          {t('No diagnoses match your search.')}
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
 
                 <div className="mt-3">
-                  <small className="text-muted">
+                  <small className="text-sm text-muted-foreground">
                     {t(
                       'This assigns a relative schedule (Day S → N) to the diagnosis template. Actual calendar dates are chosen when applying the template to a patient.'
                     )}

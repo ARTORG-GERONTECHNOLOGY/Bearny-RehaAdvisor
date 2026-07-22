@@ -36,6 +36,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   ampelComposite,
   daysSince,
@@ -180,12 +181,12 @@ const Therapist: React.FC = observer(() => {
 
       <div className="flex gap-2 flex-col mt-3">
         {store.error && (
-          <Alert variant="destructive" className="flex justify-content-between items-start">
+          <Alert variant="destructive" className="flex justify-between items-start">
             <div>
               <div>{store.error}</div>
               {store.showErrorDetails && store.errorDetails && (
                 <pre
-                  className="bg-light p-2 mt-2 border rounded small"
+                  className="bg-gray-50 p-2 mt-2 border rounded text-sm"
                   style={{ whiteSpace: 'pre-wrap' }}
                 >
                   {store.errorDetails}
@@ -244,115 +245,119 @@ const Therapist: React.FC = observer(() => {
 
         <PatientFilters store={store} sexOptions={sexOptions} durationOptions={durationOptions} />
 
-        <h5>
+        <h5 className="text-base font-semibold">
           {String(t('Active patients'))} ({activePatients.length})
         </h5>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>{t('Name')}</TableHead>
-              <TableHead>{t('Birth Date')}</TableHead>
-              <TableHead>{t('Sex')}</TableHead>
-              <TableHead>{t('Diagnosis_patient_list')}</TableHead>
-              <TableHead
-                onClick={() => handleColSort('last_login')}
-                className="cursor-pointer transition-colors hover:bg-muted/50"
-              >
-                <div className="flex gap-1 items-center">
-                  {t('Login')}
-                  {renderSortIcon('last_login')}
-                </div>
-              </TableHead>
-              <TableHead
-                onClick={() => handleColSort('adherence')}
-                className="cursor-pointer transition-colors hover:bg-muted/50"
-              >
-                <div className="flex gap-1 items-center">
-                  {t('Adherence')}
-                  {renderSortIcon('adherence')}
-                </div>
-              </TableHead>
-              <TableHead
-                onClick={() => handleColSort('feedback')}
-                className="cursor-pointer transition-colors hover:bg-muted/50"
-              >
-                <div className="flex gap-1 items-center">
-                  {t('Feedback')}
-                  {renderSortIcon('feedback')}
-                </div>
-              </TableHead>
-              <TableHead
-                onClick={() => handleColSort('wear')}
-                className="cursor-pointer transition-colors hover:bg-muted/50"
-              >
-                <div className="flex gap-1 items-center">
-                  {t('Wear')}
-                  {renderSortIcon('wear')}
-                </div>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {activePatients.map((p) => {
-              const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
-              const diagnosis = Array.isArray(p.diagnosis)
-                ? p.diagnosis.map((d) => String(t(d))).join(', ')
-                : String(t(p.diagnosis || ''));
-              const patientId = getPatientIdStr(p);
-              const mongoId = getPatientMongoId(p);
-
-              return (
-                <TableRow
-                  key={mongoId || patientId}
-                  role="link"
-                  tabIndex={0}
-                  onClick={() => handlePatientClick(mongoId)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handlePatientClick(mongoId);
-                    }
-                  }}
-                  className="cursor-pointer"
+        <TooltipProvider>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>{t('Name')}</TableHead>
+                <TableHead>{t('Birth Date')}</TableHead>
+                <TableHead>{t('Sex')}</TableHead>
+                <TableHead>{t('Diagnosis_patient_list')}</TableHead>
+                <TableHead
+                  onClick={() => handleColSort('last_login')}
+                  className="cursor-pointer transition-colors hover:bg-muted/50"
                 >
-                  <TableCell className="text-muted">{patientId}</TableCell>
-                  <TableCell>{fullName}</TableCell>
-                  <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
-                  <TableCell className="text-muted">{String(t(p.sex))}</TableCell>
-                  <TableCell className="text-muted">{diagnosis}</TableCell>
-                  <TableCell>
-                    <LoginBadge patient={p} />
-                  </TableCell>
-                  <TableCell>
-                    <AdherenceProgress patient={p} />
-                  </TableCell>
-                  <TableCell>
-                    <FeedbackBadge patient={p} />
-                  </TableCell>
-                  <TableCell>
-                    <WearBadge patient={p} />
+                  <div className="flex gap-1 items-center">
+                    {t('Login')}
+                    {renderSortIcon('last_login')}
+                  </div>
+                </TableHead>
+                <TableHead
+                  onClick={() => handleColSort('adherence')}
+                  className="cursor-pointer transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex gap-1 items-center">
+                    {t('Adherence')}
+                    {renderSortIcon('adherence')}
+                  </div>
+                </TableHead>
+                <TableHead
+                  onClick={() => handleColSort('feedback')}
+                  className="cursor-pointer transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex gap-1 items-center">
+                    {t('Feedback')}
+                    {renderSortIcon('feedback')}
+                  </div>
+                </TableHead>
+                <TableHead
+                  onClick={() => handleColSort('wear')}
+                  className="cursor-pointer transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex gap-1 items-center">
+                    {t('Wear')}
+                    {renderSortIcon('wear')}
+                  </div>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {activePatients.map((p) => {
+                const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
+                const diagnosis = Array.isArray(p.diagnosis)
+                  ? p.diagnosis.map((d) => String(t(d))).join(', ')
+                  : String(t(p.diagnosis || ''));
+                const patientId = getPatientIdStr(p);
+                const mongoId = getPatientMongoId(p);
+
+                return (
+                  <TableRow
+                    key={mongoId || patientId}
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => handlePatientClick(mongoId)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handlePatientClick(mongoId);
+                      }
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <TableCell className="text-muted-foreground">{patientId}</TableCell>
+                    <TableCell>{fullName}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {fmtDate(String(p.age || ''))}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{String(t(p.sex))}</TableCell>
+                    <TableCell className="text-muted-foreground">{diagnosis}</TableCell>
+                    <TableCell>
+                      <LoginBadge patient={p} />
+                    </TableCell>
+                    <TableCell>
+                      <AdherenceProgress patient={p} />
+                    </TableCell>
+                    <TableCell>
+                      <FeedbackBadge patient={p} />
+                    </TableCell>
+                    <TableCell>
+                      <WearBadge patient={p} />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+
+              {activePatients.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">
+                    {store.loading
+                      ? String(t('Loading patients...'))
+                      : String(t('No active patients'))}
                   </TableCell>
                 </TableRow>
-              );
-            })}
-
-            {activePatients.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted">
-                  {store.loading
-                    ? String(t('Loading patients...'))
-                    : String(t('No active patients'))}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              )}
+            </TableBody>
+          </Table>
+        </TooltipProvider>
 
         <Collapsible open={store.showCompleted}>
           <CollapsibleContent className="mt-4 flex flex-col gap-2">
-            <h5>
+            <h5 className="text-base font-semibold">
               {String(t('Completed'))} ({completedPatients.length})
             </h5>
 
@@ -393,17 +398,19 @@ const Therapist: React.FC = observer(() => {
                       }}
                       className="cursor-pointer completed-row opacity-75"
                     >
-                      <TableCell className="text-muted">{patientId}</TableCell>
+                      <TableCell className="text-muted-foreground">{patientId}</TableCell>
                       <TableCell>{fullName}</TableCell>
-                      <TableCell className="text-muted">{fmtDate(String(p.age || ''))}</TableCell>
-                      <TableCell className="text-muted">{String(t(p.sex))}</TableCell>
-                      <TableCell className="text-muted">{diagnosis}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {fmtDate(String(p.age || ''))}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{String(t(p.sex))}</TableCell>
+                      <TableCell className="text-muted-foreground">{diagnosis}</TableCell>
                       <TableCell>
                         <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
                           {String(t('Completed'))}
                         </Badge>
                         {endDate && (
-                          <div className="text-xs text-muted mt-1">
+                          <div className="text-xs text-muted-foreground mt-1">
                             {String(t('Discharged'))}: {fmtDate(endDate)}
                           </div>
                         )}
@@ -414,7 +421,7 @@ const Therapist: React.FC = observer(() => {
 
                 {completedPatients.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                       {String(t('No completed patients'))}
                     </TableCell>
                   </TableRow>

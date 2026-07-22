@@ -58,9 +58,5 @@ export default {
       },
     },
   },
-  corePlugins: {
-    // Disable Tailwind's base reset to avoid conflicts with Bootstrap
-    preflight: false,
-  },
   plugins: [require('tailwindcss-animate')],
 } satisfies Config;

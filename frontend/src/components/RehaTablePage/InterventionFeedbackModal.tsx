@@ -131,8 +131,8 @@ const InterventionFeedbackModal: React.FC<Props> = ({
           </Alert>
         ) : (
           <>
-            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-              <div className="text-muted">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div className="text-muted-foreground">
                 {t('answeredFeedbackSummary', { answered: answeredCount, total: totalScheduled })}.
               </div>
 
@@ -154,7 +154,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 {/* LEFT: dates list (scrollable) */}
                 <div className="md:col-span-5">
-                  <div className="fw-semibold mb-2">{safeT(t, 'Dates')}</div>
+                  <div className="font-semibold mb-2">{safeT(t, 'Dates')}</div>
 
                   <div className="flex flex-col gap-1">
                     {visibleDates.map((d: any, idx: number) => {
@@ -179,7 +179,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                             {formatDateTime(String(d?.datetime || ''))}
                           </span>
 
-                          <span className="d-flex gap-1 align-items-center">
+                          <span className="flex gap-1 items-center">
                             {st ? (
                               <Badge
                                 variant="dashboard"
@@ -207,21 +207,24 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                       {/* video */}
                       {selected?.video?.video_url ? (
                         <div className="mb-3">
-                          <div className="fw-semibold mb-2">{safeT(t, 'Video feedback')}</div>
+                          <div className="font-semibold mb-2">{safeT(t, 'Video feedback')}</div>
                           <video
                             src={selected.video.video_url}
                             controls
                             style={{ width: '100%', borderRadius: 8 }}
                           />
                           {selected.video.comment ? (
-                            <div className="text-muted mt-2" style={{ whiteSpace: 'pre-wrap' }}>
+                            <div
+                              className="text-muted-foreground mt-2"
+                              style={{ whiteSpace: 'pre-wrap' }}
+                            >
                               {selected.video.comment}
                             </div>
                           ) : null}
                         </div>
                       ) : null}
 
-                      <div className="fw-semibold mb-2">{safeT(t, 'Answers')}</div>
+                      <div className="font-semibold mb-2">{safeT(t, 'Answers')}</div>
 
                       {!feedback.length ? (
                         <Alert>{safeT(t, 'No feedback available')}</Alert>
@@ -239,7 +242,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
 
                             return (
                               <div key={i} className="px-3 py-2">
-                                <div className="fw-semibold">{qText || safeT(t, 'Question')}</div>
+                                <div className="font-semibold">{qText || safeT(t, 'Question')}</div>
 
                                 {(() => {
                                   const r = getRatingFromDateEntry({ feedback: [fb] });
@@ -254,7 +257,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
 
                                 {fb?.comment ? (
                                   <div
-                                    className="text-muted mt-2"
+                                    className="text-muted-foreground mt-2"
                                     style={{ whiteSpace: 'pre-wrap' }}
                                   >
                                     {fb.comment}

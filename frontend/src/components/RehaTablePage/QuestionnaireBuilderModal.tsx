@@ -156,7 +156,7 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
 
         {questions.map((q, idx) => (
           <div key={`question-${idx}`} className="border rounded-lg p-3">
-            <div className="d-flex justify-content-between align-items-center mb-2">
+            <div className="flex justify-between items-center mb-2">
               <strong>
                 {t('Question')} {idx + 1}
               </strong>

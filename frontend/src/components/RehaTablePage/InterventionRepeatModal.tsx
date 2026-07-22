@@ -111,7 +111,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
 
         {Object.keys(store.fieldErrors).length > 0 && (
           <Alert variant="destructive">
-            <ul className="mb-0">
+            <ul className="list-disc pl-6 mb-0">
               {Object.entries(store.fieldErrors).map(([key, msg]) => (
                 <li key={key}>{msg}</li>
               ))}
@@ -128,7 +128,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                   id="ir-effective-from"
                   selected={store.effectiveFrom}
                   onChange={(d) => (store.effectiveFrom = d as Date)}
-                  className="form-control"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   dateFormat="yyyy-MM-dd"
                 />
               </Field>
@@ -139,7 +139,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                   id="ir-start-date"
                   selected={store.startDateCreate}
                   onChange={(d) => (store.startDateCreate = d as Date)}
-                  className="form-control"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   dateFormat="yyyy-MM-dd"
                 />
               </Field>
@@ -207,7 +207,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                 </Field>
 
                 {store.unit === 'week' && (
-                  <div className="d-flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {store.weekdays.map((day) => (
                       <Button
                         key={day}
@@ -245,7 +245,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                       <DatePicker
                         selected={store.endDate}
                         onChange={(d) => (store.endDate = d as Date)}
-                        className="form-control"
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         dateFormat="yyyy-MM-dd"
                       />
                     )}

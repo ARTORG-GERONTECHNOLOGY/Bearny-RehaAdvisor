@@ -129,7 +129,7 @@ function fillStep1AndAdvance() {
     target: { value: 'Aa1!aaaa' },
   });
   fireEvent.change(screen.getByLabelText(/\[t\]Repeat/i), { target: { value: 'Aa1!aaaa' } });
-  // Find Next by text content — robust against prop-forwarding quirks in the Bootstrap mock
+  // Find Next by text content — robust against prop-forwarding quirks in mocked UI components
   const nextBtn = screen
     .getAllByRole('button')
     .find((btn) => btn.textContent?.trim() === '[t]Next');

@@ -68,15 +68,6 @@ jest.mock('@/components/forms/input/InputField', () => ({
   ),
 }));
 
-// Bootstrap mocks
-jest.mock('react-bootstrap', () => ({
-  Container: ({ children }: any) => <div data-testid="container">{children}</div>,
-  Row: ({ children }: any) => <div data-testid="row">{children}</div>,
-  Col: ({ children }: any) => <div data-testid="col">{children}</div>,
-  Alert: ({ children }: any) => <div role="alert">{children}</div>,
-  Spinner: ({ role }: any) => <div role={role || 'status'}>spinner</div>,
-}));
-
 /**
  * We mock ForgotPasswordStore so we can drive page states reliably (success/error/loading)
  * and also assert submit(t) was called on form submit.

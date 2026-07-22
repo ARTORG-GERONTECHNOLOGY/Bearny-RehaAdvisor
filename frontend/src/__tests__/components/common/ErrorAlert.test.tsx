@@ -23,4 +23,15 @@ describe('ErrorAlert component', () => {
     render(<ErrorAlert message={testMessage} />);
     expect(screen.getByRole('alert')).toHaveClass('text-nok');
   });
+
+  it('renders children alongside the message', () => {
+    render(
+      <ErrorAlert message={testMessage}>
+        <div>Extra detail</div>
+      </ErrorAlert>
+    );
+
+    expect(screen.getByText(testMessage)).toBeInTheDocument();
+    expect(screen.getByText('Extra detail')).toBeInTheDocument();
+  });
 });

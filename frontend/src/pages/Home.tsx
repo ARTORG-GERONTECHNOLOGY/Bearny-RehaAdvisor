@@ -36,10 +36,12 @@ const Home: React.FC = () => {
         <Container>
           {/* Text column */}
           <div className="w-full md:w-1/2 text-center flex flex-col items-center md:text-start md:items-start">
-            <h1 className="font-bold mb-0">{t('homeHeadline')}</h1>
-            <h2 className="text-lg text-muted mb-3">{t('homeSubheadline')}</h2>
+            <h1 className="text-3xl md:text-4xl font-bold mb-0">{t('homeHeadline')}</h1>
+            <h2 className="text-lg text-muted-foreground mb-3">{t('homeSubheadline')}</h2>
 
-            <p className="text-base text-muted mb-6 md:text-left">{t('homeDescription')}</p>
+            <p className="text-base text-muted-foreground mb-6 md:text-left">
+              {t('homeDescription')}
+            </p>
 
             <div className="flex flex-col items-center md:items-start w-full md:w-auto gap-2">
               <Button onClick={toggleLoginModal} className="w-full sm:w-auto">

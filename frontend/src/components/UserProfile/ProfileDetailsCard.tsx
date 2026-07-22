@@ -29,7 +29,7 @@ const ProfileDetailsCard: React.FC<ProfileDetailsCardProps> = ({ loading, userDa
   if (!userData) {
     return (
       <Card className="flex flex-col items-start gap-2">
-        <div className="text-center text-muted">{t('No user data found.')}</div>
+        <div className="text-center text-muted-foreground">{t('No user data found.')}</div>
       </Card>
     );
   }

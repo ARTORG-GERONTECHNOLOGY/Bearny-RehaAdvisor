@@ -48,8 +48,9 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
 
       <div className="flex gap-2 flex-wrap">
         <Card
+          tabIndex={0}
           role="button"
-          className="flex-1 flex flex-col gap-4 justify-between"
+          className="flex-1 flex flex-col gap-4 justify-between hover:bg-accent focus:bg-accent transition-colors cursor-pointer"
           onClick={onOpenWeightEntry}
         >
           <div className="flex justify-between">
@@ -72,8 +73,9 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
         </Card>
 
         <Card
+          tabIndex={0}
           role="button"
-          className="flex-1 flex flex-col gap-4 justify-between"
+          className="flex-1 flex flex-col gap-4 justify-between hover:bg-accent focus:bg-accent transition-colors cursor-pointer"
           onClick={onOpenBloodPressureEntry}
         >
           <div className="flex justify-between">

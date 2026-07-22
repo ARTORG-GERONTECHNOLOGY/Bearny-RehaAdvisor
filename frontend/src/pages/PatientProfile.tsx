@@ -126,8 +126,12 @@ const PatientProfile: React.FC = observer(() => {
       </div>
 
       <div className="flex flex-col gap-1 mt-16 text-sm text-zinc-500">
-        <Link to="/terms">{t('Terms & Conditions')}</Link>
-        <Link to="/privacypolicy">{t('Privacy Policy')}</Link>
+        <Link to="/terms" className="underline">
+          {t('Terms & Conditions')}
+        </Link>
+        <Link to="/privacypolicy" className="underline">
+          {t('Privacy Policy')}
+        </Link>
         <div>
           &copy; {new Date().getFullYear()} {t('YourCompanyName')}. {t('Allrightsreserved')}
         </div>

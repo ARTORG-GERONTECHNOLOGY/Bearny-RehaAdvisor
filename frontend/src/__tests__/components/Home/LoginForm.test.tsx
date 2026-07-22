@@ -11,33 +11,6 @@ jest.mock('react-router-dom', () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-// Simplify Bootstrap Modal: render children only when show=true
-jest.mock('react-bootstrap', () => {
-  const actual = jest.requireActual('react-bootstrap');
-  return {
-    ...actual,
-    Modal: Object.assign(
-      ({ show, children }: any) => (show ? <div data-testid="modal">{children}</div> : null),
-      {
-        Header: ({ children }: any) => <div>{children}</div>,
-        Title: ({ children }: any) => <h5>{children}</h5>,
-        Body: ({ children }: any) => <div>{children}</div>,
-      }
-    ),
-    Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
-    Form: ({ children, onSubmit }: any) => (
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit?.(e);
-        }}
-      >
-        {children}
-      </form>
-    ),
-  };
-});
-
 // Mock shadcn Sheet (replaces Bootstrap Modal in LoginForm)
 jest.mock('@/components/ui/sheet', () => {
   const React = jest.requireActual('react');

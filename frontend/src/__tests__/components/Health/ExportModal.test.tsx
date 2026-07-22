@@ -54,20 +54,20 @@ describe('ExportModal', () => {
     it('toggles a single badge on click', () => {
       render(<ExportModal {...defaultProps} />);
       const badge = screen.getByText('wearTime');
-      expect(badge.className).toContain('bg-light');
+      expect(badge.className).toContain('bg-white');
 
       fireEvent.click(badge);
-      expect(badge.className).toContain('bg-primary');
+      expect(badge.className).toContain('bg-pink');
 
       fireEvent.click(badge);
-      expect(badge.className).toContain('bg-light');
+      expect(badge.className).toContain('bg-white');
     });
 
     it('selects all plots when none are fully selected and Select All is clicked', () => {
       render(<ExportModal {...defaultProps} selections={{ adherence: false, wearTime: false }} />);
       fireEvent.click(screen.getByText('Select All'));
-      expect(screen.getByText('adherence').className).toContain('bg-primary');
-      expect(screen.getByText('wearTime').className).toContain('bg-primary');
+      expect(screen.getByText('adherence').className).toContain('bg-pink');
+      expect(screen.getByText('wearTime').className).toContain('bg-pink');
     });
 
     it('deselects all plots when all are already selected and Select All is clicked', () => {
@@ -88,7 +88,7 @@ describe('ExportModal', () => {
       };
       render(<ExportModal {...defaultProps} selections={allSelected} />);
       fireEvent.click(screen.getByText('Select All'));
-      expect(screen.getByText('adherence').className).toContain('bg-light');
+      expect(screen.getByText('adherence').className).toContain('bg-white');
     });
   });
 
@@ -100,12 +100,12 @@ describe('ExportModal', () => {
       const { rerender } = render(<ExportModal {...defaultProps} />);
 
       fireEvent.click(screen.getByText('adherence'));
-      expect(screen.getByText('adherence').className).toContain('bg-light');
+      expect(screen.getByText('adherence').className).toContain('bg-white');
 
       rerender(<ExportModal {...defaultProps} show={false} />);
       rerender(<ExportModal {...defaultProps} show={true} />);
 
-      expect(screen.getByText('adherence').className).toContain('bg-primary');
+      expect(screen.getByText('adherence').className).toContain('bg-pink');
     });
   });
 

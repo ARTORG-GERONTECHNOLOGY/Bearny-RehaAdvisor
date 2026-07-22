@@ -98,8 +98,8 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
           <DialogTitle>{t('Import patients from REDCap')}</DialogTitle>
         </DialogHeader>
 
-        <div className="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
-          <div className="d-flex align-items-center gap-2 flex-wrap">
+        <div className="flex justify-between items-center mb-3 gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button size="dashboard" onClick={onRefresh} disabled={loading || anyImporting}>
               {t('Refresh list')}
             </Button>
@@ -118,7 +118,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
             <div className="mt-2">{t('Loading candidates…')}</div>
           </div>
         ) : candidates.length === 0 ? (
-          <div className="text-muted">
+          <div className="text-muted-foreground">
             {t('No importable patients found for your clinic/projects.')}
           </div>
         ) : (

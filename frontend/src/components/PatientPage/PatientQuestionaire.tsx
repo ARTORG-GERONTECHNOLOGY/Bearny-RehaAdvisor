@@ -135,7 +135,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
       onChange: handleChange,
       required: field.required,
       'aria-label': t(field.label),
-      className: errors?.length ? 'is-invalid' : '',
+      'aria-invalid': !!errors?.length,
     };
 
     if (field.type === 'multi-select') {
@@ -152,9 +152,9 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
             onChange={(selected) => handleMultiSelectChange(selected, field.be_name)}
             styles={selectStyles as any}
             menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
-            className={errors?.length ? 'is-invalid' : ''}
+            aria-invalid={!!errors?.length}
           />
-          {errors?.length > 0 && <div className="invalid-feedback d-block">{errors.join(' ')}</div>}
+          {errors?.length > 0 && <div className="block text-sm text-nok">{errors.join(' ')}</div>}
         </>
       );
     }
@@ -188,7 +188,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
               ))}
             </SelectContent>
           </UiSelect>
-          {errors?.length > 0 && <div className="invalid-feedback d-block">{errors.join(' ')}</div>}
+          {errors?.length > 0 && <div className="block text-sm text-nok">{errors.join(' ')}</div>}
         </>
       );
     }
@@ -197,7 +197,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
       return (
         <>
           <Input type="date" {...commonProps} style={{ height: CONTROL_HEIGHT }} />
-          {errors?.length > 0 && <div className="invalid-feedback d-block">{errors.join(' ')}</div>}
+          {errors?.length > 0 && <div className="block text-sm text-nok">{errors.join(' ')}</div>}
         </>
       );
     }
@@ -210,7 +210,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
             {...commonProps}
             style={{ minHeight: TEXTAREA_MIN_HEIGHT, resize: 'vertical' }}
           />
-          {errors?.length > 0 && <div className="invalid-feedback d-block">{errors.join(' ')}</div>}
+          {errors?.length > 0 && <div className="block text-sm text-nok">{errors.join(' ')}</div>}
         </>
       );
     }
@@ -223,7 +223,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
           {...commonProps}
           style={{ height: CONTROL_HEIGHT }}
         />
-        {errors?.length > 0 && <div className="invalid-feedback d-block">{errors.join(' ')}</div>}
+        {errors?.length > 0 && <div className="block text-sm text-nok">{errors.join(' ')}</div>}
       </>
     );
   };
@@ -254,21 +254,23 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
           {error && (
             <ErrorAlert message={error} onClose={() => setError('')}>
               {nonFieldErrors.length > 0 && (
-                <ul className="mt-2 mb-0">
+                <ul className="list-disc pl-6 mt-2 mb-0">
                   {nonFieldErrors.map((e, idx) => (
                     <li key={idx}>{e}</li>
                   ))}
                 </ul>
               )}
 
-              {details && <pre className="bg-light p-2 mt-2 small border rounded">{details}</pre>}
+              {details && (
+                <pre className="bg-gray-50 p-2 mt-2 text-sm border rounded">{details}</pre>
+              )}
             </ErrorAlert>
           )}
 
           {config.PatientInitialQuestionaire.map((section, idx) => (
             <Card key={idx} className="mb-4">
               <CardContent className="p-3">
-                <h5 className="mb-3">{t(section.title)}</h5>
+                <h5 className="text-base font-semibold mb-3">{t(section.title)}</h5>
 
                 {section.fields
                   .filter((f: any) => !['password', 'repeatPassword'].includes(f.type))

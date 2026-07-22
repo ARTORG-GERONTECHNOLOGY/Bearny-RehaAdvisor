@@ -558,7 +558,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
         keyboard
         footer={footer}
       >
-        <div className="px-1 px-sm-2">
+        <div>
           <form onSubmit={handleSubmit} noValidate>
             <fieldset disabled={success || submitting}>
               {/* ---------- core fields ---------- */}
@@ -693,7 +693,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
               {/* ---------- taxonomy fields ---------- */}
               <Separator className="my-6" />
-              <h5 className="mb-3">{t('Taxonomy')}</h5>
+              <h5 className="text-base font-semibold mb-3">{t('Taxonomy')}</h5>
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
                 <div className="md:col-span-6">
@@ -955,8 +955,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
               {/* ---------- media ---------- */}
               <hr className="my-4" />
-              <div className="d-flex align-items-center justify-content-between mb-2">
-                <h5 className="mb-0">{t('Media')}</h5>
+              <div className="flex items-center justify-between mb-2">
+                <h5 className="text-base font-semibold mb-0">{t('Media')}</h5>
                 <Button size="dashboard" onClick={addMediaRow}>
                   <FaPlus /> {t('Add media')}
                 </Button>
@@ -967,7 +967,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
               </Alert>
 
               {(formData.media || []).length === 0 && (
-                <div className="text-muted mb-3">
+                <div className="text-muted-foreground mb-3">
                   {t('No media added yet. You can add links or upload files.')}
                 </div>
               )}
@@ -976,8 +976,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                 const baseKey = `media.${idx}`;
                 return (
                   <div key={idx} className="border rounded p-3 mb-3">
-                    <div className="d-flex justify-content-between align-items-start gap-2">
-                      <div className="fw-semibold mb-3">
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="font-semibold mb-3">
                         {t('Media item')} #{idx + 1}
                       </div>
                       <Button
@@ -1114,8 +1114,8 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                   <FieldLabel htmlFor="patientId">{t('Assign to Patient')}</FieldLabel>
 
                   {!patientsLoaded && privateCheckedOnce && (
-                    <div className="d-flex align-items-center justify-content-between mb-2">
-                      <div className="text-muted small">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-muted-foreground text-sm">
                         {patientsLoading ? t('Loading patients...') : t('Patients not loaded yet')}
                       </div>
                       <Button
@@ -1153,9 +1153,9 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
             </fieldset>
 
             {!success && (
-              <Button size="dashboard" type="submit" className="mt-4 w-100" disabled={submitting}>
+              <Button size="dashboard" type="submit" className="mt-4 w-full" disabled={submitting}>
                 {submitting ? (
-                  <span className="d-inline-flex align-items-center gap-2">
+                  <span className="inline-flex items-center gap-2">
                     <Spinner /> {t('Submitting...')}
                   </span>
                 ) : (
@@ -1166,7 +1166,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
             {(error || patientsLoadError) && (
               <Alert variant="destructive" className="mt-3 mb-0" aria-live="assertive">
-                <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <div className="flex justify-between items-center gap-2 flex-wrap">
                   <span>{patientsLoadError || error}</span>
                   {Object.keys(errors).length > 0 && (
                     <Button
@@ -1182,7 +1182,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
                 {showErrorDetails && Object.keys(errors).length > 0 && (
                   <div className="mt-3">
-                    <ul className="mb-0">
+                    <ul className="list-disc pl-6 mb-0">
                       {Object.entries(errors).map(([field, msg]) => (
                         <li key={field}>
                           <strong>{field}</strong>: {msg}

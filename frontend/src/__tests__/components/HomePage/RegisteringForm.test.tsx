@@ -517,7 +517,7 @@ describe('RegisteringForm', () => {
     expect(screen.getAllByText('This field is required.').length).toBeGreaterThan(0);
 
     fireEvent.blur(document.getElementById('userType')!);
-    expect(screen.getByLabelText(/User Type/)).not.toHaveClass('is-invalid');
+    expect(screen.getByLabelText(/User Type/)).not.toHaveClass('border-nok');
   });
 
   it('flags an invalid email on blur', () => {
@@ -576,6 +576,6 @@ describe('RegisteringForm', () => {
 
     fireEvent.change(document.getElementById('email')!, { target: { value: 'jane@example.com' } });
     fireEvent.blur(document.getElementById('email')!);
-    expect(screen.getByLabelText(/Email/)).not.toHaveClass('is-invalid');
+    expect(screen.getByLabelText(/Email/)).not.toHaveClass('border-nok');
   });
 });

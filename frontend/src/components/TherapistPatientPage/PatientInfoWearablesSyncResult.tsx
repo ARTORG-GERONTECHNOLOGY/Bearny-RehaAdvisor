@@ -26,12 +26,12 @@ const PatientInfoWearablesSyncResult: React.FC<PatientInfoWearablesSyncResultPro
         closeLabel={t('Close alert')}
       >
         <strong>{t('Wearables synced to REDCap')}</strong>
-        <ul>
+        <ul className="list-disc pl-6">
           {Object.entries(store.wearablesSyncResult).map(([period, status]) => (
             <li key={period}>
               {t(period)}: <code>{status}</code>
               {store.wearablesSyncPayloads?.[period]?.reason && (
-                <span className="ms-2 text-muted">
+                <span className="ms-2 text-muted-foreground">
                   ({store.wearablesSyncPayloads[period].reason})
                 </span>
               )}
@@ -46,7 +46,7 @@ const PatientInfoWearablesSyncResult: React.FC<PatientInfoWearablesSyncResultPro
               const record = details.record || {};
               return (
                 <div key={period} className="mb-1 p-2 bg-back border rounded">
-                  <div className="fw-semibold mb-1">{t(period)}</div>
+                  <div className="font-semibold mb-1">{t(period)}</div>
                   <Table>
                     <TableBody>
                       <TableRow>
