@@ -1,10 +1,26 @@
 // components/TherapistInterventionPage/FilterBar.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Dropdown, Form } from 'react-bootstrap';
 import Select from 'react-select';
 import interventionsConfig from '../../config/interventions.json';
 import { FaFilter } from 'react-icons/fa';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import {
+  Select as UiSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+// Sentinel for the "clear filter" Select item — Radix forbids an empty-string item value.
+const ALL_CONTENT_TYPES = '__all__';
 
 interface Props {
   searchTerm: string;
@@ -117,10 +133,13 @@ const FilterBar: React.FC<Props> = ({
     (tagFilter?.length ? 1 : 0);
 
   const FiltersGrid = (
-    <div className="filterbar-grid" onClick={(e) => e.stopPropagation()}>
-      <Form.Group controlId="filterDiagnosis">
-        <Form.Label visuallyHidden>{t('Filter by Primary Diagnosis')}</Form.Label>
+    <div className="grid grid-cols-2 gap-3">
+      <Field>
+        <FieldLabel htmlFor="filterDiagnosis" className="sr-only">
+          {t('Filter by Primary Diagnosis')}
+        </FieldLabel>
         <Select
+          inputId="filterDiagnosis"
           isMulti
           placeholder={t('Filter by Primary Diagnosis')}
           options={diagnosisOptions.map((d: string) => ({ value: d, label: t(d) }))}
@@ -129,12 +148,15 @@ const FilterBar: React.FC<Props> = ({
           styles={selectStyles}
           menuPortalTarget={document.body}
         />
-      </Form.Group>
+      </Field>
 
       {setLanguageFilter && (
-        <Form.Group controlId="filterLanguage">
-          <Form.Label visuallyHidden>{t('Filter by Language')}</Form.Label>
+        <Field>
+          <FieldLabel htmlFor="filterLanguage" className="sr-only">
+            {t('Filter by Language')}
+          </FieldLabel>
           <Select
+            inputId="filterLanguage"
             isMulti
             placeholder={t('Filter by Language')}
             options={languageOptions}
@@ -143,27 +165,37 @@ const FilterBar: React.FC<Props> = ({
             styles={selectStyles}
             menuPortalTarget={document.body}
           />
-        </Form.Group>
+        </Field>
       )}
 
-      <Form.Group controlId="filterContentType">
-        <Form.Label visuallyHidden>{t('Filter by Content Type')}</Form.Label>
-        <Form.Select
-          value={contentTypeFilter}
-          onChange={(e) => setContentTypeFilter(e.target.value)}
+      <Field>
+        <FieldLabel htmlFor="filterContentType" className="sr-only">
+          {t('Filter by Content Type')}
+        </FieldLabel>
+        <UiSelect
+          value={contentTypeFilter || ALL_CONTENT_TYPES}
+          onValueChange={(value) => setContentTypeFilter(value === ALL_CONTENT_TYPES ? '' : value)}
         >
-          <option value="">{t('All Content Types')}</option>
-          {contentTypes.map((type: string) => (
-            <option key={type} value={type}>
-              {t(type)}
-            </option>
-          ))}
-        </Form.Select>
-      </Form.Group>
+          <SelectTrigger id="filterContentType">
+            <SelectValue placeholder={t('All Content Types')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL_CONTENT_TYPES}>{t('All Content Types')}</SelectItem>
+            {contentTypes.map((type: string) => (
+              <SelectItem key={type} value={type}>
+                {t(type)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </UiSelect>
+      </Field>
 
-      <Form.Group controlId="filterTags">
-        <Form.Label visuallyHidden>{t('Filter by Tags')}</Form.Label>
+      <Field>
+        <FieldLabel htmlFor="filterTags" className="sr-only">
+          {t('Filter by Tags')}
+        </FieldLabel>
         <Select
+          inputId="filterTags"
           isMulti
           placeholder={t('Filter by Tags')}
           options={tagOptions}
@@ -172,10 +204,10 @@ const FilterBar: React.FC<Props> = ({
           styles={selectStyles}
           menuPortalTarget={document.body}
         />
-      </Form.Group>
+      </Field>
 
       {onReset ? (
-        <div className="d-flex justify-content-end">
+        <div className="col-span-2 flex justify-end">
           <Button
             size="dashboard"
             variant="secondary"
@@ -194,56 +226,41 @@ const FilterBar: React.FC<Props> = ({
   return (
     <div ref={rootRef as any} aria-label={t('Filter Interventions')}>
       {/* top row */}
-      <div className="filterbar-top">
-        <Form.Group className="flex-grow-1" controlId="searchInput">
-          <Form.Label visuallyHidden>{t('Search Interventions')}</Form.Label>
-          <Form.Control
+      <div className="flex items-center gap-2">
+        <Field className="grow">
+          <FieldLabel htmlFor="searchInput" className="sr-only">
+            {t('Search Interventions')}
+          </FieldLabel>
+          <Input
+            id="searchInput"
             type="text"
             placeholder={t('Search Interventions')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-        </Form.Group>
+        </Field>
 
         {/* narrow: dropdown toggle */}
         {isNarrow ? (
-          <Dropdown
-            show={open}
-            onToggle={(next) => {
-              // ignore rootClose if click happens inside menu
-              // (Dropdown already handles this well; this is extra safety)
-              setOpen(next);
-            }}
-            align="end"
-          >
-            <Dropdown.Toggle
-              as={Button}
-              // TODO: type cast needed until Bootstrap Dropdown is removed in a future bootstrap removal task
-              size={'dashboard' as 'sm' | 'lg'}
-              variant="secondary"
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen((v) => !v);
-              }}
-            >
-              <FaFilter className="me-2" />
-              {t('Filters')}
-              {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
-            </Dropdown.Toggle>
+          <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button size="dashboard" variant="secondary">
+                <FaFilter />
+                {t('Filters')}
+                {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
+              </Button>
+            </DropdownMenuTrigger>
 
-            <Dropdown.Menu
-              className="filterbar-menu"
-              onClick={(e) => e.stopPropagation()} // ✅ keep it open while interacting
-            >
+            <DropdownMenuContent align="start" className="p-3 w-[min(520px,86vw)]">
               {FiltersGrid}
-            </Dropdown.Menu>
-          </Dropdown>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </div>
 
       {/* meta row */}
       {typeof resultCount === 'number' || loading || (!isNarrow && onReset) ? (
-        <div className="filterbar-meta">
+        <div className="flex items-center justify-between gap-2 mt-2.5">
           <div className="text-muted small">
             {loading
               ? `${t('Loading')}...`
@@ -263,33 +280,6 @@ const FilterBar: React.FC<Props> = ({
 
       {/* non-narrow: always visible grid */}
       {!isNarrow ? <div className="mt-3">{FiltersGrid}</div> : null}
-
-      <style>{`
-        .filterbar-top {
-          display: flex;
-          gap: 12px;
-          align-items: center;
-        }
-        .filterbar-meta {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: 10px;
-          gap: 12px;
-        }
-        .filterbar-menu {
-          padding: 12px;
-          width: min(520px, 86vw);
-        }
-        .filterbar-grid {
-          display: grid;
-          gap: 12px;
-          grid-template-columns: 1fr;
-        }
-        @media (min-width: 520px) {
-          .filterbar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
-      `}</style>
     </div>
   );
 };

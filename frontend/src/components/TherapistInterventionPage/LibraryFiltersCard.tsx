@@ -1,11 +1,19 @@
 import React, { useMemo } from 'react';
-import { Form } from 'react-bootstrap';
 import Select from 'react-select';
 import { FaUndo } from 'react-icons/fa';
 
 import interventionsConfig from '../../config/interventions.json';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  Select as UiSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { SearchIcon } from 'lucide-react';
 
 export type LibraryFiltersState = {
   searchTerm: string;
@@ -28,6 +36,8 @@ type Props = {
 };
 
 const uniq = (arr: any[]) => Array.from(new Set((arr || []).map((x) => String(x)).filter(Boolean)));
+
+const ALL_CONTENT_TYPES = '__all__';
 
 const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) => {
   const tx = (interventionsConfig as any)?.interventionsTaxonomy || {};
@@ -65,16 +75,20 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
 
   return (
     <Card className="mb-4">
-      <CardContent className="p-4">
+      <CardContent className="p-3">
         <div className="mb-3">
-          <Form.Group controlId="searchInput">
-            <Form.Control
+          <InputGroup>
+            <InputGroupInput
+              id="searchInput"
               type="text"
               placeholder={t('Search Interventions')}
               value={filters.searchTerm}
               onChange={(e) => onChange({ ...filters, searchTerm: e.target.value })}
             />
-          </Form.Group>
+            <InputGroupAddon>
+              <SearchIcon />
+            </InputGroupAddon>
+          </InputGroup>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
@@ -106,17 +120,27 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
           </div>
 
           <div>
-            <Form.Select
-              value={filters.contentTypeFilter}
-              onChange={(e) => onChange({ ...filters, contentTypeFilter: e.target.value })}
+            <UiSelect
+              value={filters.contentTypeFilter || ALL_CONTENT_TYPES}
+              onValueChange={(value) =>
+                onChange({
+                  ...filters,
+                  contentTypeFilter: value === ALL_CONTENT_TYPES ? '' : value,
+                })
+              }
             >
-              <option value="">{t('Filter by Content Type')}</option>
-              {contentTypes.map((type: string) => (
-                <option key={type} value={type}>
-                  {t(type)}
-                </option>
-              ))}
-            </Form.Select>
+              <SelectTrigger>
+                <SelectValue placeholder={t('Filter by Content Type')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_CONTENT_TYPES}>{t('All Content Types')}</SelectItem>
+                {contentTypes.map((type: string) => (
+                  <SelectItem key={type} value={type}>
+                    {t(type)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </UiSelect>
           </div>
         </div>
 

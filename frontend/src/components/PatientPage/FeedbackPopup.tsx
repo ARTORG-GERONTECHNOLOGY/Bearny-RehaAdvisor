@@ -1,6 +1,6 @@
 // src/components/patient/FeedbackPopup.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Form, Alert } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 import {
   Sheet,
   SheetContent,
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { FaMicrophone, FaKeyboard, FaStop, FaTrash, FaUpload } from 'react-icons/fa';
 import ReactPlayer from 'react-player';
 import apiClient from '@/api/client';
@@ -619,7 +620,8 @@ const FeedbackPopup: React.FC<Props> = ({
                           ref={previewRef}
                           autoPlay
                           muted
-                          style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+                          style={{ width: '100%', height: '100%' }}
+                          className="bg-zinc-500 rounded-lg"
                         />
                         {countdown !== null ? (
                           <div className="text-center text-lg font-medium text-zinc-800">
@@ -643,18 +645,13 @@ const FeedbackPopup: React.FC<Props> = ({
                               </Button>
                             )}
                             <div>{t('or')}</div>
-                            <Form.Label className="btn btn-outline-secondary mb-0 !rounded-full">
+                            <label className="flex items-center justify-center gap-2 h-14 py-4 pl-5 pr-5 text-zinc-500 border border-zinc-500 rounded-full">
                               <FaUpload /> {t('Upload')}
-                              <Form.Control
-                                type="file"
-                                accept="video/*"
-                                hidden
-                                onChange={handleUpload}
-                              />
-                            </Form.Label>
+                              <Input type="file" accept="video/*" hidden onChange={handleUpload} />
+                            </label>
                           </div>
                         )}
-                        <p className="text-sm text-center text-zinc-500">
+                        <p className="w-full text-sm text-center text-zinc-500">
                           {t('privacy_note_recordings')}
                         </p>
                       </div>

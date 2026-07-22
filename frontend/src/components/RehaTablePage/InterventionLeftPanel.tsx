@@ -1,6 +1,6 @@
 // src/components/RehaTablePage/InterventionLeftPanel.tsx
-import React, { useMemo, useRef } from 'react';
-import { Form, Button, ButtonGroup, Dropdown, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import React, { useMemo, useRef, useState } from 'react';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import Select, { StylesConfig } from 'react-select';
 import { TFunction } from 'i18next';
 import { FaPlus, FaMinus, FaChartBar, FaEdit, FaUndo, FaGlobe, FaFilter } from 'react-icons/fa';
@@ -17,6 +17,25 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Field } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import {
+  Select as UiSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+// Sentinel for the "clear filter" Select item — Radix forbids an empty-string item value.
+const ALL_FILTER_VALUE = '__all__';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 type TypeMap = Record<string, string>;
@@ -123,6 +142,8 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
     handleAddIntervention,
   } = actions;
 
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const listScrollRef = useRef<HTMLDivElement | null>(null);
 
   const scrollListToTop = () => {
@@ -202,27 +223,31 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
         </CardHeader>
         <CardContent className="p-3 pt-0">
           <div onClick={(e) => e.stopPropagation()} className="text-right">
-            <ButtonGroup size="sm">
+            <ButtonGroup>
               {/* Stats/Feedback only when assigned */}
               {assigned && (
                 <>
                   <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
                     <Button
-                      variant="outline-primary"
+                      size="dashboard"
+                      variant="secondary"
                       onClick={() => showStats(intervention)}
                       aria-label={t('Statistics')}
+                      className="px-3"
                     >
-                      <FaChartBar />
+                      <FaChartBar className="text-pink" />
                     </Button>
                   </OverlayTrigger>
 
                   <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
                     <Button
-                      variant="outline-primary"
+                      size="dashboard"
+                      variant="secondary"
                       onClick={() => openFeedbackBrowser(intervention)}
                       aria-label={t('Feedback')}
+                      className="px-3"
                     >
-                      <StarIcon className="w-4 h-4 text-yellow" />
+                      <StarIcon className="text-yellow" />
                     </Button>
                   </OverlayTrigger>
                 </>
@@ -232,9 +257,11 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
               {assigned && hasFuture && (
                 <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
                   <Button
-                    variant="outline-secondary"
+                    size="dashboard"
+                    variant="secondary"
                     onClick={() => handleModifyIntervention(intervention)}
                     aria-label={t('Modify')}
+                    className="px-3"
                   >
                     <FaEdit />
                   </Button>
@@ -245,11 +272,13 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
               {opts.showScheduleAgain ? (
                 <OverlayTrigger placement="left" overlay={<Tooltip>{t('Schedule again')}</Tooltip>}>
                   <Button
-                    variant="outline-success"
+                    size="dashboard"
+                    variant="secondary"
                     onClick={() => handleAddIntervention(intervention)}
                     aria-label={t('Schedule again')}
+                    className="px-3"
                   >
-                    <FaPlus />
+                    <FaPlus className="text-ok" />
                   </Button>
                 </OverlayTrigger>
               ) : null}
@@ -259,21 +288,25 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                 assigned ? (
                   <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
                     <Button
-                      variant="outline-danger"
+                      size="dashboard"
+                      variant="secondary"
                       onClick={() => handleDeleteExercise(intervention._id)}
                       aria-label={t('Remove')}
+                      className="px-3"
                     >
-                      <FaMinus />
+                      <FaMinus className="text-nok" />
                     </Button>
                   </OverlayTrigger>
                 ) : (
                   <OverlayTrigger placement="left" overlay={<Tooltip>{t('Add')}</Tooltip>}>
                     <Button
-                      variant="outline-success"
+                      size="dashboard"
+                      variant="secondary"
                       onClick={() => handleAddIntervention(intervention)}
                       aria-label={t('Add')}
+                      className="px-3"
                     >
-                      <FaPlus />
+                      <FaPlus className="text-ok" />
                     </Button>
                   </OverlayTrigger>
                 )
@@ -283,11 +316,13 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
               {!opts.inAllTab && !opts.showScheduleAgain && hasFuture ? (
                 <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
                   <Button
-                    variant="outline-danger"
+                    size="dashboard"
+                    variant="secondary"
                     onClick={() => handleDeleteExercise(intervention._id)}
                     aria-label={t('Remove')}
+                    className="px-3"
                   >
-                    <FaMinus />
+                    <FaMinus className="text-nok" />
                   </Button>
                 </OverlayTrigger>
               ) : null}
@@ -307,57 +342,75 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
 
   const selectStyles: StylesConfig<{ value: string; label: string }, true> = {
     container: (base) => ({ ...base, width: '100%', minWidth: 0 }),
+    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
   };
 
   const renderFiltersBar = () => (
     <div className="flex items-center gap-2">
-      <Form.Group controlId="searchInput" className="flex-grow-1">
-        <Form.Control
+      <Field className="flex-grow-1">
+        <Input
+          id="searchInput"
           type="text"
           placeholder={t('Search Interventions')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-      </Form.Group>
+      </Field>
 
-      <Dropdown align="end">
-        <Dropdown.Toggle as={Button} variant="outline-secondary" size="sm">
-          <FaFilter className="me-2" />
-          {t('Filters')}
-          {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
-        </Dropdown.Toggle>
+      <DropdownMenu open={filtersOpen} onOpenChange={setFiltersOpen} modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="secondary" size="dashboard">
+            <FaFilter />
+            {t('Filters')}
+            {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
+          </Button>
+        </DropdownMenuTrigger>
 
-        <Dropdown.Menu className="p-3 w-[min(420px,86vw)]" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuContent align="start" className="p-3 w-[min(420px,86vw)]">
           <div className="grid grid-cols-2 gap-2.5">
-            <Form.Group controlId="patientTypeFilter">
-              <Form.Select
-                value={patientTypeFilter}
-                onChange={(e) => setPatientTypeFilter(e.target.value)}
+            <Field>
+              <UiSelect
+                value={patientTypeFilter || ALL_FILTER_VALUE}
+                onValueChange={(value) =>
+                  setPatientTypeFilter(value === ALL_FILTER_VALUE ? '' : value)
+                }
               >
-                <option value="">{t('Filter by Patient Type')}</option>
-                {diagnoses.map((type: string) => (
-                  <option key={type} value={type}>
-                    {t(type)}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+                <SelectTrigger id="patientTypeFilter">
+                  <SelectValue placeholder={t('Filter by Patient Type')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_FILTER_VALUE}>{t('All Patient Types')}</SelectItem>
+                  {diagnoses.map((type: string) => (
+                    <SelectItem key={type} value={type}>
+                      {t(type)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </UiSelect>
+            </Field>
 
-            <Form.Group controlId="contentTypeFilter">
-              <Form.Select
-                value={contentTypeFilter}
-                onChange={(e) => setContentTypeFilter(e.target.value)}
+            <Field>
+              <UiSelect
+                value={contentTypeFilter || ALL_FILTER_VALUE}
+                onValueChange={(value) =>
+                  setContentTypeFilter(value === ALL_FILTER_VALUE ? '' : value)
+                }
               >
-                <option value="">{t('Filter by Content Type')}</option>
-                {config.RecomendationInfo.types.map((type) => (
-                  <option key={type} value={type}>
-                    {t(type)}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+                <SelectTrigger id="contentTypeFilter">
+                  <SelectValue placeholder={t('Filter by Content Type')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_FILTER_VALUE}>{t('All Content Types')}</SelectItem>
+                  {config.RecomendationInfo.types.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {t(type)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </UiSelect>
+            </Field>
 
-            <Form.Group controlId="tagFilter">
+            <Field>
               <Select
                 classNamePrefix="select"
                 isMulti
@@ -369,10 +422,11 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                 onChange={(opts) => setTagFilter((opts || []).map((opt: any) => opt.value))}
                 placeholder={t('Filter by Tags')}
                 styles={selectStyles}
+                menuPortalTarget={document.body}
               />
-            </Form.Group>
+            </Field>
 
-            <Form.Group controlId="benefitForFilter">
+            <Field>
               <Select
                 classNamePrefix="select"
                 isMulti
@@ -384,10 +438,11 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                 onChange={(opts) => setBenefitForFilter((opts || []).map((opt: any) => opt.value))}
                 placeholder={t('Filter by Benefit')}
                 styles={selectStyles}
+                menuPortalTarget={document.body}
               />
-            </Form.Group>
+            </Field>
 
-            <Form.Group controlId="languageFilter" className="col-span-2">
+            <Field className="col-span-2">
               <Select
                 classNamePrefix="select"
                 isMulti
@@ -396,17 +451,18 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                 onChange={(opts) => setLanguageFilter((opts || []).map((opt: any) => opt.value))}
                 placeholder={t('Filter by Language')}
                 styles={selectStyles}
+                menuPortalTarget={document.body}
               />
-            </Form.Group>
+            </Field>
 
-            <div className="col-span-2 d-flex justify-content-between">
-              <Button variant="outline-secondary" size="sm" onClick={handleReset}>
-                <FaUndo className="me-2" /> {t('Reset filters')}
+            <div className="col-span-2 flex justify-between">
+              <Button variant="secondary" size="dashboard" onClick={handleReset}>
+                <FaUndo /> {t('Reset filters')}
               </Button>
 
               <Button
-                variant="outline-light"
-                size="sm"
+                variant="secondary"
+                size="dashboard"
                 onClick={scrollListToTop}
                 aria-label={t('Scroll to top')}
                 title={t('Scroll to top')}
@@ -415,13 +471,13 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
               </Button>
             </div>
           </div>
-        </Dropdown.Menu>
-      </Dropdown>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 
   return (
-    <div className="flex flex-column gap-2">
+    <div className="flex flex-col gap-2">
       <Card>
         <CardHeader>
           <CardTitle>{t('Active interventions')}</CardTitle>

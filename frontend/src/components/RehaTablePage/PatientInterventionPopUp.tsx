@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, OverlayTrigger, Tooltip, ButtonGroup } from 'react-bootstrap';
+import { Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import { FaLock } from 'react-icons/fa';
 
@@ -24,6 +24,7 @@ import {
 import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
 import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
 
 // ---------- types ----------
 type Props = {
@@ -625,7 +626,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
                 {loadingLangs ? <small className="text-muted">{t('Loading…')}</small> : null}
               </div>
 
-              <ButtonGroup className="flex-wrap gap-2">
+              <ButtonGroup>
                 {sortedLangOptions.map((opt) => {
                   const optLang = String(opt.language || '').toLowerCase();
                   const active = optLang === currentLang;

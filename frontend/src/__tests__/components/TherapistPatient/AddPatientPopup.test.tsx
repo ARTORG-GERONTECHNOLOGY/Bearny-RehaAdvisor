@@ -22,6 +22,22 @@ import '@testing-library/jest-dom';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+  // Radix Checkbox (rendered inside the wrapped RegisterPatientForm) measures
+  // its own size via ResizeObserver, which jsdom doesn't implement.
+  (global as any).ResizeObserver =
+    (global as any).ResizeObserver ||
+    class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+});
+
 describe('AddPatientPopup Component', () => {
   const handleClose = jest.fn();
 

@@ -82,13 +82,23 @@ async function getTherapistUserId(request: APIRequestContext): Promise<string> {
 
 /** Create a minimal template and return its id. */
 async function createTemplate(request: APIRequestContext, token: string): Promise<string> {
+  const { id } = await createTemplateWithName(request, token);
+  return id;
+}
+
+/** Like createTemplate but also returns the name, needed to locate the template in the Radix Select by visible text. */
+async function createTemplateWithName(
+  request: APIRequestContext,
+  token: string
+): Promise<{ id: string; name: string }> {
+  const name = `E2E Regression ${Date.now()}`;
   const res = await request.post(`${API_BASE}/templates/`, {
     headers: { Authorization: `Bearer ${token}` },
-    data: { name: `E2E Regression ${Date.now()}` },
+    data: { name },
   });
   expect(res.ok(), `Create template failed: ${await res.text()}`).toBeTruthy();
   const body = await res.json();
-  return body.template._id as string;
+  return { id: body.template._id as string, name };
 }
 
 /** Return the _id of the first intervention returned by /interventions/all/. */
@@ -518,8 +528,9 @@ test.describe('Template assign/apply — UI level', () => {
     // 3. Select the template in the UI and click Apply
     await page.reload();
     await openTemplatesTab(page);
+    await page.getByRole('combobox').first().click();
     await page.getByRole('option', { name: uniqueName }).waitFor({ timeout: 5000 });
-    await page.getByRole('combobox').first().selectOption({ label: uniqueName });
+    await page.getByRole('option', { name: uniqueName }).click();
 
     const applyModal = page.locator('[role="dialog"][data-state="open"]');
     await page.getByRole('button', { name: /^apply$/i }).click();
@@ -574,21 +585,19 @@ test.describe('Template assign/apply — UI level', () => {
     test.skip(!interventionId, 'No interventions available in the DB — skipping');
 
     // Create template + assign via API (fast path)
-    const templateId = await createTemplate(request, token);
+    const { id: templateId, name: templateName } = await createTemplateWithName(request, token);
     await assignIntervention(request, token, templateId, interventionId as string, 7);
 
     try {
       await openTemplatesTab(page);
 
-      // Wait for the new template to appear in the selector
+      // Wait for the new template to appear in the selector, then pick it —
+      // Radix Select only mounts options while open, and exposes them by
+      // visible text rather than the underlying id/value.
       const selector = page.getByRole('combobox').first();
-      await page.waitForFunction(
-        (id) =>
-          [...document.querySelectorAll('option')].some((o) => o.getAttribute('value') === id),
-        templateId,
-        { timeout: 8000 }
-      );
-      await selector.selectOption(templateId);
+      await selector.click();
+      await page.getByRole('option', { name: templateName }).waitFor({ timeout: 8000 });
+      await page.getByRole('option', { name: templateName }).click();
 
       const applyResponse = page.waitForResponse(
         (res) =>

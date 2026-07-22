@@ -1,6 +1,16 @@
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import FilterBar from '@/components/TherapistInterventionPage/FilterBar';
 import '@testing-library/jest-dom';
+
+// Radix Select (used by the content-type filter) relies on pointer capture /
+// scrollIntoView APIs that jsdom doesn't implement.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 // Mock ResizeObserver, capturing the callback so tests can simulate a resize.
 let roCallback: ((entries: any[]) => void) | null = null;
@@ -121,11 +131,13 @@ describe('FilterBar component', () => {
     expect(mockSetDiagnosisFilter).toHaveBeenCalledWith(['At Home']);
   });
 
-  test('calls setContentTypeFilter when content type is selected', () => {
+  test('calls setContentTypeFilter when content type is selected', async () => {
+    const user = userEvent.setup();
     renderComponent();
 
     const select = screen.getByRole('combobox', { name: 'Filter by Content Type' });
-    fireEvent.change(select, { target: { value: 'video' } });
+    await user.click(select);
+    await user.click(await screen.findByRole('option', { name: 'video' }));
 
     expect(mockSetContentTypeFilter).toHaveBeenCalledWith('video');
   });
@@ -328,19 +340,21 @@ describe('FilterBar component', () => {
       expect(screen.getByRole('button', { name: /Filters \(3\)/i })).toBeInTheDocument();
     });
 
-    it('opens the dropdown menu and closes it again on toggle click', () => {
+    it('opens the dropdown menu and closes it again on toggle click', async () => {
+      const user = userEvent.setup();
       renderComponent();
       triggerResize(400);
 
       const toggle = screen.getByRole('button', { name: /Filters/i });
-      fireEvent.click(toggle);
-      fireEvent.click(toggle);
+      await user.click(toggle);
+      expect(screen.queryByRole('menu')).toBeInTheDocument();
 
-      // No crash and the toggle remains present after opening/closing twice
-      expect(screen.getByRole('button', { name: /Filters/i })).toBeInTheDocument();
+      await user.click(toggle);
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
 
-    it('closes the dropdown and calls onReset when resetting from within the narrow grid', () => {
+    it('closes the dropdown and calls onReset when resetting from within the narrow grid', async () => {
+      const user = userEvent.setup();
       const onReset = jest.fn();
       render(
         <FilterBar
@@ -359,19 +373,40 @@ describe('FilterBar component', () => {
       triggerResize(400);
 
       const toggle = screen.getByRole('button', { name: /Filters/i });
-      fireEvent.click(toggle);
+      await user.click(toggle);
 
       const resetButtons = screen.getAllByRole('button', { name: 'Reset filters' });
       fireEvent.click(resetButtons[resetButtons.length - 1]);
       expect(onReset).toHaveBeenCalled();
     });
 
-    it('closes the dropdown via Escape (react-bootstrap onToggle)', () => {
+    it('keeps the Filters dropdown open after selecting a nested Select option', async () => {
+      const user = userEvent.setup();
+      renderComponent();
+      triggerResize(400);
+
+      await user.click(screen.getByRole('button', { name: /Filters/i }));
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+
+      const select = screen.getByRole('combobox', { name: 'Filter by Content Type' });
+      await user.click(select);
+      await user.click(await screen.findByRole('option', { name: 'video' }));
+
+      // The nested Radix Select closing must not also close the outer
+      // DropdownMenu — both are Radix now, so they should coordinate
+      // correctly instead of the Select's portal click being mistaken
+      // for an "outside" click on the dropdown.
+      expect(screen.getByRole('menu')).toBeInTheDocument();
+    });
+
+    it('closes the dropdown via Escape', async () => {
+      const user = userEvent.setup();
       renderComponent();
       triggerResize(400);
 
       const toggle = screen.getByRole('button', { name: /Filters/i });
-      fireEvent.click(toggle);
+      await user.click(toggle);
+      expect(screen.queryByRole('menu')).toBeInTheDocument();
 
       fireEvent.keyDown(document.activeElement || document.body, {
         key: 'Escape',
@@ -380,22 +415,24 @@ describe('FilterBar component', () => {
         which: 27,
       });
 
-      expect(screen.getByRole('button', { name: /Filters/i })).toBeInTheDocument();
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
 
-    it('stops click propagation when clicking directly on the dropdown menu', () => {
-      const { container } = renderComponent();
+    it('stays open when clicking directly on the dropdown menu', async () => {
+      const user = userEvent.setup();
+      renderComponent();
       triggerResize(400);
 
       const toggle = screen.getByRole('button', { name: /Filters/i });
-      fireEvent.click(toggle);
+      await user.click(toggle);
 
-      const menu = container.querySelector('.filterbar-menu');
-      expect(menu).toBeInTheDocument();
-      fireEvent.click(menu!);
+      // Radix portals the menu content to document.body, outside the RTL container.
+      const menu = screen.getByRole('menu');
+      fireEvent.click(menu);
 
-      // Still open — the click did not bubble up and close the dropdown.
-      expect(screen.getByRole('button', { name: /Filters/i })).toBeInTheDocument();
+      // Still open — Radix's dismissable-layer only closes on genuine
+      // outside interactions, not clicks inside the menu's own content.
+      expect(screen.queryByRole('menu')).toBeInTheDocument();
     });
 
     it('switches back to the wide layout on a subsequent wide resize', () => {

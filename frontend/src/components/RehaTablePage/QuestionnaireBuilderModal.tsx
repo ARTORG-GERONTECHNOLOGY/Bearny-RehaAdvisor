@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Form } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 
 import apiClient from '@/api/client';
@@ -14,6 +14,17 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { Field, FieldLabel, FieldGroup } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { FaPlus, FaTrash } from 'react-icons/fa';
 
 type BuilderType = 'open-answer' | 'one-choice' | 'multiple-choice';
 
@@ -126,23 +137,25 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
 
         {error ? <Alert variant="danger">{error}</Alert> : null}
 
-        <Form.Group className="mb-3" controlId="q-builder-title">
-          <Form.Label>{t('Title')}</Form.Label>
-          <Form.Control value={title} onChange={(e) => setTitle(e.target.value)} />
-        </Form.Group>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="q-builder-title">{t('Title')}</FieldLabel>
+            <Input id="q-builder-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          </Field>
 
-        <Form.Group className="mb-3" controlId="q-builder-description">
-          <Form.Label>{t('Description')}</Form.Label>
-          <Form.Control
-            as="textarea"
-            rows={2}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </Form.Group>
+          <Field>
+            <FieldLabel htmlFor="q-builder-description">{t('Description')}</FieldLabel>
+            <Textarea
+              id="q-builder-description"
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </Field>
+        </FieldGroup>
 
         {questions.map((q, idx) => (
-          <div key={`question-${idx}`} className="border rounded p-3 mb-3">
+          <div key={`question-${idx}`} className="border rounded-lg p-3">
             <div className="d-flex justify-content-between align-items-center mb-2">
               <strong>
                 {t('Question')} {idx + 1}
@@ -150,54 +163,65 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
               {questions.length > 1 ? (
                 <Button
                   size="dashboard"
-                  className="bg-nok hover:bg-nok/90"
+                  variant="secondary"
+                  className="text-nok"
                   onClick={() => removeQuestion(idx)}
                 >
-                  {t('Remove')}
+                  <FaTrash />
+                  {t('Delete')}
                 </Button>
               ) : null}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
               <div className="md:col-span-8">
-                <Form.Group controlId={`q-builder-text-${idx}`}>
-                  <Form.Label>{t('Question text')}</Form.Label>
-                  <Form.Control
+                <Field>
+                  <FieldLabel htmlFor={`q-builder-text-${idx}`}>{t('Question text')}</FieldLabel>
+                  <Input
+                    id={`q-builder-text-${idx}`}
                     value={q.text}
                     onChange={(e) => updateQuestion(idx, { text: e.target.value })}
                   />
-                </Form.Group>
+                </Field>
               </div>
               <div className="md:col-span-4">
-                <Form.Group controlId={`q-builder-type-${idx}`}>
-                  <Form.Label>{t('Answer type')}</Form.Label>
-                  <Form.Select
+                <Field>
+                  <FieldLabel htmlFor={`q-builder-type-${idx}`}>{t('Answer type')}</FieldLabel>
+                  <Select
                     value={q.type}
-                    onChange={(e) => updateQuestion(idx, { type: e.target.value as BuilderType })}
+                    onValueChange={(value) => updateQuestion(idx, { type: value as BuilderType })}
                   >
-                    <option value="open-answer">{t('Open answer')}</option>
-                    <option value="one-choice">{t('One choice')}</option>
-                    <option value="multiple-choice">{t('Multiple choice')}</option>
-                  </Form.Select>
-                </Form.Group>
+                    <SelectTrigger id={`q-builder-type-${idx}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open-answer">{t('Open answer')}</SelectItem>
+                      <SelectItem value="one-choice">{t('One choice')}</SelectItem>
+                      <SelectItem value="multiple-choice">{t('Multiple choice')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
               </div>
             </div>
 
             {q.type === 'one-choice' || q.type === 'multiple-choice' ? (
-              <Form.Group className="mt-2" controlId={`q-builder-options-${idx}`}>
-                <Form.Label>{t('Options (comma or new line separated)')}</Form.Label>
-                <Form.Control
-                  as="textarea"
+              <Field className="mt-2">
+                <FieldLabel htmlFor={`q-builder-options-${idx}`}>
+                  {t('Options (comma or new line separated)')}
+                </FieldLabel>
+                <Textarea
+                  id={`q-builder-options-${idx}`}
                   rows={2}
                   value={q.optionsText}
                   onChange={(e) => updateQuestion(idx, { optionsText: e.target.value })}
                 />
-              </Form.Group>
+              </Field>
             ) : null}
           </div>
         ))}
 
         <Button size="dashboard" onClick={addQuestion}>
+          <FaPlus />
           {t('Add question')}
         </Button>
 

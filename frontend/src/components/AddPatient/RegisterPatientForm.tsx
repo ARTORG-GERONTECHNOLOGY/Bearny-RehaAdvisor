@@ -1,6 +1,5 @@
 // src/components/HomePage/RegisterPatient.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { Form } from 'react-bootstrap';
 import Select from 'react-select';
 import { Link } from 'react-router-dom';
 import apiClient from '@/api/client';
@@ -9,10 +8,23 @@ import { useTranslation } from 'react-i18next';
 import InfoBubble from '../common/InfoBubble';
 import { isValidEmail, isValidPhone } from '@/utils/validation';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel, FieldGroup, FieldError } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select as UiSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface FormData {
   [key: string]: string | number | string[] | boolean;
 }
+
+// Sentinel for the "clear selection" Select item — Radix forbids an empty-string item value.
+const UNSET_OPTION = '__unset__';
 
 interface RegisterFormProps {
   therapist: string;
@@ -444,7 +456,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   }, [apiFieldErrors, errors]);
 
   return (
-    <Form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit}>
       <div className="d-flex justify-content-between align-items-end mb-2">
         <h4 className="mb-0">{t(formSteps[step]?.title)}</h4>
         <small className="text-muted">
@@ -459,130 +471,138 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
         </div>
       )}
 
-      {currentFields.map((field) => {
-        const isMulti = field.type === 'multi-select';
-        const isDropdown = field.type === 'dropdown';
-        const required = !!field.required;
+      <FieldGroup>
+        {currentFields.map((field) => {
+          const isMulti = field.type === 'multi-select';
+          const isDropdown = field.type === 'dropdown';
+          const required = !!field.required;
 
-        // Force birth date to use a date picker
-        const inputType = field.name === 'age' ? 'date' : field.type;
+          // Force birth date to use a date picker
+          const inputType = field.name === 'age' ? 'date' : field.type;
 
-        const fieldErrMsg = mergedFieldError[field.name];
-        const invalid = !!fieldErrMsg;
+          const fieldErrMsg = mergedFieldError[field.name];
+          const invalid = !!fieldErrMsg;
 
-        // Resolve dynamic options for clinic and project fields
-        let fieldOptions: string[] = field.options || [];
-        if (field.name === 'clinic') {
-          fieldOptions = therapistClinics;
-        } else if (field.name === 'project') {
-          const allowedByClinic = clinicProjectsMap[formData.clinic as string] || [];
-          // Use therapist's assigned projects when available; fall back to the
-          // full config list for the selected clinic so the dropdown is never empty.
-          const pool = therapistProjects.length ? therapistProjects : allowedByClinic;
-          fieldOptions = pool.filter((p) => allowedByClinic.includes(p));
-        }
+          // Resolve dynamic options for clinic and project fields
+          let fieldOptions: string[] = field.options || [];
+          if (field.name === 'clinic') {
+            fieldOptions = therapistClinics;
+          } else if (field.name === 'project') {
+            const allowedByClinic = clinicProjectsMap[formData.clinic as string] || [];
+            // Use therapist's assigned projects when available; fall back to the
+            // full config list for the selected clinic so the dropdown is never empty.
+            const pool = therapistProjects.length ? therapistProjects : allowedByClinic;
+            fieldOptions = pool.filter((p) => allowedByClinic.includes(p));
+          }
 
-        return (
-          <Form.Group controlId={field.name} className="mb-3" key={field.name}>
-            <Form.Label className="d-flex align-items-center gap-1">
-              <span>
-                {t(field.label)}
-                {required && (
-                  <>
-                    <span className="text-danger" aria-hidden="true">
-                      {' '}
-                      *
-                    </span>
-                    <span className="visually-hidden"> {t('required')}</span>
-                  </>
-                )}
-              </span>
-              {field.tooltip && <InfoBubble tooltip={t(field.tooltip)} />}
-            </Form.Label>
+          return (
+            <Field
+              key={field.name}
+              orientation={field.type === 'checkbox' ? 'horizontal' : 'vertical'}
+            >
+              <FieldLabel htmlFor={field.name} className="d-flex align-items-center gap-1">
+                <span>
+                  {t(field.label)}
+                  {required && (
+                    <>
+                      <span className="text-danger" aria-hidden="true">
+                        {' '}
+                        *
+                      </span>
+                      <span className="visually-hidden"> {t('required')}</span>
+                    </>
+                  )}
+                </span>
+                {field.tooltip && <InfoBubble tooltip={t(field.tooltip)} />}
+              </FieldLabel>
 
-            {isMulti ? (
-              <Select
-                inputId={field.name}
-                isMulti
-                aria-required={required}
-                aria-invalid={invalid}
-                options={
-                  field.name === 'diagnosis' &&
-                  Array.isArray(formData.function) &&
-                  (formData.function as string[]).length > 0
-                    ? (formData.function as string[]).flatMap((spec: string) =>
-                        (specialityDiagnosisMap[spec] || []).map((diag) => ({
-                          value: diag,
-                          label: t(diag),
+              {isMulti ? (
+                <Select
+                  inputId={field.name}
+                  isMulti
+                  aria-required={required}
+                  aria-invalid={invalid}
+                  options={
+                    field.name === 'diagnosis' &&
+                    Array.isArray(formData.function) &&
+                    (formData.function as string[]).length > 0
+                      ? (formData.function as string[]).flatMap((spec: string) =>
+                          (specialityDiagnosisMap[spec] || []).map((diag) => ({
+                            value: diag,
+                            label: t(diag),
+                          }))
+                        )
+                      : (field.options || []).map((option: string) => ({
+                          value: option,
+                          label: t(option),
                         }))
-                      )
-                    : (field.options || []).map((option: string) => ({
-                        value: option,
-                        label: t(option),
-                      }))
-                }
-                value={((formData[field.name] as string[]) || []).map((v) => ({
-                  value: v,
-                  label: t(v),
-                }))}
-                onChange={(options) => handleMultiSelectChange(options, field.name)}
-                placeholder={t('Select...')}
-              />
-            ) : isDropdown ? (
-              <Form.Control
-                as="select"
-                value={String(formData[field.name] || '')}
-                onChange={handleChange}
-                isInvalid={invalid}
-                required={required}
-                aria-required={required}
-                aria-invalid={invalid}
-              >
-                <option value="">
-                  {t('Select')} {t(field.label)}
-                </option>
-                {fieldOptions.map((option: string) => (
-                  <option key={option} value={option}>
-                    {t(option)}
-                  </option>
-                ))}
-              </Form.Control>
-            ) : field.type === 'checkbox' ? (
-              <Form.Check
-                type="checkbox"
-                id={field.name}
-                label=""
-                checked={!!formData[field.name]}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, [field.name]: e.target.checked }))
-                }
-              />
-            ) : (
-              <Form.Control
-                type={inputType}
-                value={String(formData[field.name] ?? '')}
-                onChange={handleChange}
-                isInvalid={invalid}
-                required={required}
-                aria-required={required}
-                aria-invalid={invalid}
-                placeholder={field.type === 'date' ? 'YYYY-MM-DD' : undefined}
-                onBlur={
-                  field.name === 'age'
-                    ? (e) => validateAge(e.currentTarget.value)
-                    : field.name === 'rehaEndDate'
-                      ? (e) => validateRehaEndDate(e.currentTarget.value)
-                      : field.name === 'studyEndDate'
-                        ? (e) => validateStudyEndDate(e.currentTarget.value)
-                        : undefined
-                }
-              />
-            )}
+                  }
+                  value={((formData[field.name] as string[]) || []).map((v) => ({
+                    value: v,
+                    label: t(v),
+                  }))}
+                  onChange={(options) => handleMultiSelectChange(options, field.name)}
+                  placeholder={t('Select...')}
+                />
+              ) : isDropdown ? (
+                <UiSelect
+                  value={(formData[field.name] as string) || UNSET_OPTION}
+                  onValueChange={(value) =>
+                    handleChange({
+                      target: { id: field.name, value: value === UNSET_OPTION ? '' : value },
+                    } as unknown as React.ChangeEvent<HTMLSelectElement>)
+                  }
+                  required={required}
+                >
+                  <SelectTrigger id={field.name} aria-required={required} aria-invalid={invalid}>
+                    <SelectValue placeholder={`${t('Select')} ${t(field.label)}`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UNSET_OPTION}>
+                      {`${t('Select')} ${t(field.label)}`}
+                    </SelectItem>
+                    {fieldOptions.map((option: string) => (
+                      <SelectItem key={option} value={option}>
+                        {t(option)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </UiSelect>
+              ) : field.type === 'checkbox' ? (
+                <Checkbox
+                  id={field.name}
+                  checked={!!formData[field.name]}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, [field.name]: !!checked }))
+                  }
+                />
+              ) : (
+                <Input
+                  id={field.name}
+                  type={inputType}
+                  value={String(formData[field.name] ?? '')}
+                  onChange={handleChange}
+                  required={required}
+                  aria-required={required}
+                  aria-invalid={invalid}
+                  placeholder={field.type === 'date' ? 'YYYY-MM-DD' : undefined}
+                  onBlur={
+                    field.name === 'age'
+                      ? (e) => validateAge(e.currentTarget.value)
+                      : field.name === 'rehaEndDate'
+                        ? (e) => validateRehaEndDate(e.currentTarget.value)
+                        : field.name === 'studyEndDate'
+                          ? (e) => validateStudyEndDate(e.currentTarget.value)
+                          : undefined
+                  }
+                />
+              )}
 
-            {fieldErrMsg && <Form.Text className="text-danger">{fieldErrMsg}</Form.Text>}
-          </Form.Group>
-        );
-      })}
+              {fieldErrMsg && <FieldError>{fieldErrMsg}</FieldError>}
+            </Field>
+          );
+        })}
+      </FieldGroup>
 
       {registered ? (
         <div className="alert alert-success mt-4">
@@ -616,7 +636,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
           )}
         </div>
       )}
-    </Form>
+    </form>
   );
 };
 

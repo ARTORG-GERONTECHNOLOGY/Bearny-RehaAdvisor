@@ -66,37 +66,35 @@ test.describe('Recommendation content type — dropdown labels', () => {
     skipUnlessSeeded(test);
     await openAddRecommendationPopup(page);
 
-    const select = page.locator('#contentType');
-    await expect(select).toBeVisible();
+    const trigger = page.locator('#contentType');
+    await expect(trigger).toBeVisible();
+    await trigger.click();
 
-    const optionValues = await select
-      .locator('option')
-      .evaluateAll((opts) => opts.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
+    const optionLabels = await page.getByRole('option').allTextContents();
 
-    expect(optionValues).toContain('brochure');
-    expect(optionValues).toContain('graphics');
-    expect(optionValues).toContain('video');
-    expect(optionValues).toContain('audio');
-    expect(optionValues).toContain('app');
-    expect(optionValues).toContain('website');
+    expect(optionLabels).toContain('Brochure');
+    expect(optionLabels).toContain('Graphics');
+    expect(optionLabels).toContain('Video');
+    expect(optionLabels).toContain('Audio');
+    expect(optionLabels).toContain('App');
+    expect(optionLabels).toContain('Website');
   });
 
   test('content type dropdown does NOT expose raw backend type names', async ({ page }) => {
     skipUnlessSeeded(test);
     await openAddRecommendationPopup(page);
 
-    const select = page.locator('#contentType');
-    await expect(select).toBeVisible();
+    const trigger = page.locator('#contentType');
+    await expect(trigger).toBeVisible();
+    await trigger.click();
 
-    const optionValues = await select
-      .locator('option')
-      .evaluateAll((opts) => opts.map((o) => (o as HTMLOptionElement).value).filter(Boolean));
+    const optionLabels = await page.getByRole('option').allTextContents();
 
-    // Backend type names should not appear as option values; they are implementation details
-    expect(optionValues).not.toContain('Image');
-    expect(optionValues).not.toContain('PDF');
-    expect(optionValues).not.toContain('Streaming');
-    expect(optionValues).not.toContain('Text');
+    // Backend type names should not appear as option labels; they are implementation details
+    expect(optionLabels).not.toContain('Image');
+    expect(optionLabels).not.toContain('PDF');
+    expect(optionLabels).not.toContain('Streaming');
+    expect(optionLabels).not.toContain('Text');
   });
 });
 
@@ -105,12 +103,12 @@ test.describe('Recommendation content type — dropdown labels', () => {
 // ---------------------------------------------------------------------------
 
 const CONTENT_TYPE_MAPPING = [
-  { label: 'graphics', backendValue: 'image' },
-  { label: 'brochure', backendValue: 'pdf' },
-  { label: 'video', backendValue: 'video' },
-  { label: 'audio', backendValue: 'audio' },
-  { label: 'app', backendValue: 'app' },
-  { label: 'website', backendValue: 'website' },
+  { label: 'graphics', optionText: 'Graphics', backendValue: 'image' },
+  { label: 'brochure', optionText: 'Brochure', backendValue: 'pdf' },
+  { label: 'video', optionText: 'Video', backendValue: 'video' },
+  { label: 'audio', optionText: 'Audio', backendValue: 'audio' },
+  { label: 'app', optionText: 'App', backendValue: 'app' },
+  { label: 'website', optionText: 'Website', backendValue: 'website' },
 ] as const;
 
 test.describe('Recommendation content type — submit mapping', () => {
@@ -119,7 +117,7 @@ test.describe('Recommendation content type — submit mapping', () => {
     await loginAsTherapist(page);
   });
 
-  for (const { label, backendValue } of CONTENT_TYPE_MAPPING) {
+  for (const { label, optionText, backendValue } of CONTENT_TYPE_MAPPING) {
     test(`"${label}" is sent as "${backendValue}" to the backend`, async ({ page }) => {
       skipUnlessSeeded(test);
       await openAddRecommendationPopup(page);
@@ -130,7 +128,8 @@ test.describe('Recommendation content type — submit mapping', () => {
       await modal.locator('#title').fill('E2E content-type test');
       await modal.locator('#description').fill('Automated test for content type mapping');
       await modal.locator('#duration').fill('10');
-      await modal.locator('#contentType').selectOption(label);
+      await modal.locator('#contentType').click();
+      await page.getByRole('option', { name: optionText, exact: true }).click();
 
       // Intercept the multipart POST before submitting
       const postRequest = page.waitForRequest(

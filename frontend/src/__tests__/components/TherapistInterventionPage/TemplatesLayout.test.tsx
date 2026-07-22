@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TemplatesLayout from '@/components/TherapistInterventionPage/TemplatesLayout';
 
@@ -8,6 +9,15 @@ global.ResizeObserver = class ResizeObserver {
   unobserve() {}
   disconnect() {}
 };
+
+// The content-type filter (embedded FilterBar) is now a Radix Select, which relies on
+// pointer capture / scrollIntoView APIs that jsdom doesn't implement.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 // Mock react-select: expose a distinct testid per instance via placeholder text,
 // with a button that triggers onChange so wiring can be asserted without
@@ -296,9 +306,11 @@ describe('TemplatesLayout', () => {
       expect(onFilters).toHaveBeenCalledWith(expect.objectContaining({ tTagFilter: ['picked'] }));
     });
 
-    it('updates tContentTypeFilter via the embedded FilterBar', () => {
+    it('updates tContentTypeFilter via the embedded FilterBar', async () => {
+      const user = userEvent.setup();
       const { onFilters } = renderLayout();
-      fireEvent.change(screen.getByRole('combobox'), { target: { value: 'video' } });
+      await user.click(screen.getByRole('combobox'));
+      await user.click(await screen.findByRole('option', { name: 'video' }));
       expect(onFilters).toHaveBeenCalledWith(
         expect.objectContaining({ tContentTypeFilter: 'video' })
       );

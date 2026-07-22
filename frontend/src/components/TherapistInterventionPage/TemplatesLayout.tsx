@@ -1,6 +1,6 @@
 // src/components/TherapistInterventionPage/TemplatesLayout.tsx
 import React from 'react';
-import { Button, ButtonGroup, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { FaPlus, FaMinus, FaEdit } from 'react-icons/fa';
 import { getTagColor } from '@/utils/interventions';
 import FilterBar from '@/components/TherapistInterventionPage/FilterBar';
@@ -9,6 +9,8 @@ import type { TemplateItem } from '@/types/templates';
 import type { InterventionTypeTh } from '@/types';
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { Button } from '@/components/ui/button';
 
 export type TemplatesFiltersState = {
   tSearchTerm: string;
@@ -81,28 +83,27 @@ const TemplatesLayout: React.FC<Props> = ({
               <div className="text-zinc-500">{t('No template items')}</div>
             )}
             {templateItems.map((it, idx) => (
-              <div
+              <Card
                 key={`${it.intervention._id}-${it.diagnosis}-${idx}`}
-                className="d-flex justify-content-between align-items-start mb-2 p-2 border rounded"
-                style={{ cursor: 'pointer' }}
+                className="flex justify-between align-items-start p-3 cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => onTemplateItemClick(it)}
                 title={t('Click to view details')}
               >
-                <div className="me-2">
-                  <div className="fw-semibold">
+                <div>
+                  <div className="fw-semibold text-sm">
                     {translatedTitles[it.intervention._id]?.title || it.intervention.title}
                     {translatedTitles[it.intervention._id]?.lang && (
-                      <span className="text-muted ms-2 small">
+                      <span className="text-muted ms-2 text-xs">
                         ({t('Translated from')}: {translatedTitles[it.intervention._id]?.lang})
                       </span>
                     )}
                   </div>
 
-                  <div className="small text-muted">
+                  <div className="text-xs text-muted">
                     {t('For')}: {it.diagnosis}
                   </div>
 
-                  <div className="small text-muted mt-1">
+                  <div className="text-xs text-muted mt-1">
                     {getSegments(it).map((seg, i) => (
                       <div key={i}>{segmentSummary(seg, it)}</div>
                     ))}
@@ -110,24 +111,31 @@ const TemplatesLayout: React.FC<Props> = ({
                 </div>
 
                 <div onClick={(e) => e.stopPropagation()}>
-                  <ButtonGroup size="sm" vertical>
+                  <ButtonGroup orientation="vertical">
                     <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
-                      <Button variant="outline-secondary" onClick={() => onModifyTemplate(it)}>
+                      <Button
+                        size="dashboard"
+                        variant="secondary"
+                        onClick={() => onModifyTemplate(it)}
+                        className="px-2"
+                      >
                         <FaEdit />
                       </Button>
                     </OverlayTrigger>
 
                     <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
                       <Button
-                        variant="outline-danger"
+                        size="dashboard"
+                        variant="secondary"
                         onClick={() => onRemoveTemplateItem(it.diagnosis, it.intervention._id)}
+                        className="px-2"
                       >
-                        <FaMinus />
+                        <FaMinus className="text-nok" />
                       </Button>
                     </OverlayTrigger>
                   </ButtonGroup>
                 </div>
-              </div>
+              </Card>
             ))}
           </CardContent>
         </Card>
@@ -167,15 +175,14 @@ const TemplatesLayout: React.FC<Props> = ({
                 const inTemplate = !!entry;
 
                 return (
-                  <div
+                  <Card
                     key={intervention._id}
-                    className="d-flex justify-content-between align-items-start mb-2 p-2 rounded border"
-                    style={{ cursor: 'pointer' }}
+                    className="flex justify-between align-items-start p-3 cursor-pointer hover:shadow-md transition-shadow"
                     title={t('Click to view details')}
                     onClick={() => onBrowseItemClick(intervention)}
                   >
-                    <div className="me-2">
-                      <div className="fw-semibold">{displayTitle}</div>
+                    <div>
+                      <div className="fw-semibold text-sm">{displayTitle}</div>
 
                       {(intervention.tags || []).length > 0 && (
                         <div className="mt-2 d-flex flex-wrap gap-1" aria-label={t('Tags')}>
@@ -202,24 +209,27 @@ const TemplatesLayout: React.FC<Props> = ({
                           overlay={<Tooltip>{t('Add this intervention to your template')}</Tooltip>}
                         >
                           <Button
-                            size="sm"
-                            variant="outline-success"
+                            size="dashboard"
+                            variant="secondary"
                             onClick={() => onOpenAssign(intervention._id, displayTitle, 'create')}
+                            className="px-2"
                           >
-                            <FaPlus className="me-1" />
+                            <FaPlus className="text-ok" />
                           </Button>
                         </OverlayTrigger>
                       ) : (
-                        <ButtonGroup size="sm" vertical>
+                        <ButtonGroup orientation="vertical">
                           <OverlayTrigger
                             placement="left"
                             overlay={<Tooltip>{t('Modify')}</Tooltip>}
                           >
                             <Button
-                              variant="outline-secondary"
+                              size="dashboard"
+                              variant="secondary"
                               onClick={() =>
                                 onOpenAssign(entry!.intervention._id, displayTitle, 'modify')
                               }
+                              className="px-2"
                             >
                               <FaEdit />
                             </Button>
@@ -230,18 +240,20 @@ const TemplatesLayout: React.FC<Props> = ({
                             overlay={<Tooltip>{t('Remove')}</Tooltip>}
                           >
                             <Button
-                              variant="outline-danger"
+                              size="dashboard"
+                              variant="secondary"
                               onClick={() =>
                                 onRemoveTemplateItem(entry!.diagnosis, intervention._id)
                               }
+                              className="px-2"
                             >
-                              <FaMinus />
+                              <FaMinus className="text-nok" />
                             </Button>
                           </OverlayTrigger>
                         </ButtonGroup>
                       )}
                     </div>
-                  </div>
+                  </Card>
                 );
               })}
             </div>

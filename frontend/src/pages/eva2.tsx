@@ -46,7 +46,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { PlayFill, BellFill, BellSlashFill, InfoLg } from 'react-bootstrap-icons';
+import { FaPlay, FaBell, FaBellSlash, FaInfo } from 'react-icons/fa';
 import AssistanceScreen, { type AssistanceMode } from '@/components/icf/AssistanceScreen';
 import DeviceScreen, { type DeviceChoice } from '@/components/icf/DeviceScreen';
 import EndScreen from '@/components/icf/EndScreen';
@@ -246,18 +246,6 @@ export default function HealthSlider() {
   const blobPlaybackUrlRef = useRef<string | null>(null);
   const successfulSrcRef = useRef<Record<string, string>>({});
   const [audioError, setAudioError] = useState<string>('');
-
-  // ✅ responsive breakpoints
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth <= 520 : false
-  );
-  useEffect(() => {
-    const onResize = () => {
-      setIsMobile(window.innerWidth <= 520);
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
 
   const total = REAL_QUESTIONS.length;
 
@@ -974,7 +962,7 @@ export default function HealthSlider() {
             aria-label="Information"
             title="Information"
           >
-            <InfoLg size={isMobile ? 30 : 36} />
+            <FaInfo size={30} />
           </button>
 
           <button
@@ -988,11 +976,7 @@ export default function HealthSlider() {
             aria-label={dingActive ? 'Ton an' : 'Ton aus'}
             title={dingActive ? 'Ton an' : 'Ton aus'}
           >
-            {dingActive ? (
-              <BellFill size={isMobile ? 30 : 36} />
-            ) : (
-              <BellSlashFill size={isMobile ? 30 : 36} />
-            )}
+            {dingActive ? <FaBell size={30} /> : <FaBellSlash size={30} />}
           </button>
 
           <button
@@ -1002,7 +986,7 @@ export default function HealthSlider() {
             aria-label="Frage abspielen"
             title="Frage abspielen"
           >
-            <PlayFill size={isMobile ? 30 : 36} />
+            <FaPlay size={26} className="ml-1" />
           </button>
         </div>
       </div>
