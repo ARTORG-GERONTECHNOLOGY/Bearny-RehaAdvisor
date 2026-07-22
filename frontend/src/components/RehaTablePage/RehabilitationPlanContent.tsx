@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 
 import authStore from '@/stores/authStore';
 import { RehabTableStore } from '@/stores/rehabTableStore';
@@ -63,7 +63,12 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
     return (
       <div>
         {store.error && (
-          <Alert variant="danger" onClose={() => store.setError(null)} dismissible className="mb-2">
+          <Alert
+            variant="destructive"
+            onClose={() => store.setError(null)}
+            closeLabel={t('Close alert')}
+            className="mb-2"
+          >
             {store.error}
           </Alert>
         )}

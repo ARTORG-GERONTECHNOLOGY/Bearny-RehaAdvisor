@@ -1,10 +1,12 @@
 // components/TherapistInterventionPage/ProductPopup.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, OverlayTrigger, Tooltip, Alert } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import Microlink from '@microlink/react';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 import { FaPlus, FaEdit, FaTrash, FaSearch, FaLock } from 'react-icons/fa';
 import apiClient from '@/api/client';
@@ -539,7 +541,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
   if (!effectiveItem) return null;
 
   return (
-    <>
+    <TooltipProvider>
       <Dialog open={show} onOpenChange={(open) => !open && confirmClose()}>
         <DialogContent
           className="max-w-3xl"
@@ -552,17 +554,23 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               {effectiveIsPrivate && (
-                <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
-                  <span className="text-muted">
-                    <FaLock />
-                  </span>
-                </OverlayTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted">
+                      <FaLock />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('Private intervention')}</TooltipContent>
+                </Tooltip>
               )}
 
               {titleLang ? (
-                <OverlayTrigger overlay={<Tooltip>{String(effectiveItem.title || '')}</Tooltip>}>
-                  <span>{translatedTitle}</span>
-                </OverlayTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>{translatedTitle}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>{String(effectiveItem.title || '')}</TooltipContent>
+                </Tooltip>
               ) : (
                 String(effectiveItem.title || '')
               )}
@@ -605,11 +613,12 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 <h5>{t('Description')}</h5>
                 <p className="text-muted mb-0">
                   {detectedLang ? (
-                    <OverlayTrigger
-                      overlay={<Tooltip>{String(effectiveItem.description || '')}</Tooltip>}
-                    >
-                      <span>{translatedText}</span>
-                    </OverlayTrigger>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>{translatedText}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>{String(effectiveItem.description || '')}</TooltipContent>
+                    </Tooltip>
                   ) : (
                     String(effectiveItem.description || '')
                   )}
@@ -617,27 +626,27 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
                 <div className="mt-3 d-flex flex-wrap gap-2">
                   {effectiveItem.external_id && (
-                    <Badge bg="secondary">external_id: {effectiveItem.external_id}</Badge>
+                    <Badge variant="dashboard">external_id: {effectiveItem.external_id}</Badge>
                   )}
                   {effectiveItem.language && (
-                    <Badge bg="secondary">
+                    <Badge variant="dashboard">
                       lang: {String(effectiveItem.language).toUpperCase()}
                     </Badge>
                   )}
                   {effectiveItem.provider && (
-                    <Badge bg="secondary">provider: {String(effectiveItem.provider)}</Badge>
+                    <Badge variant="dashboard">provider: {String(effectiveItem.provider)}</Badge>
                   )}
-                  {effectiveIsPrivate && <Badge bg="dark">{t('Private')}</Badge>}
+                  {effectiveIsPrivate && <Badge variant="dashboard">{t('Private')}</Badge>}
                   {effectiveIsPrivate && effectivePrivatePatientId && (
-                    <Badge bg="dark">patient: {String(effectivePrivatePatientId)}</Badge>
+                    <Badge variant="dashboard">patient: {String(effectivePrivatePatientId)}</Badge>
                   )}
                   {typeof effectiveItem.duration !== 'undefined' && (
-                    <Badge bg="light" text="dark">
+                    <Badge variant="dashboard">
                       {t('Duration')}: {String(effectiveItem.duration)} {t('min')}
                     </Badge>
                   )}
                   {effectiveItem.content_type && (
-                    <Badge bg="light" text="dark">
+                    <Badge variant="dashboard">
                       {t('ContentType')}: {t(String(effectiveItem.content_type))}
                     </Badge>
                   )}
@@ -661,10 +670,10 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 <div className="d-flex align-items-center justify-content-between">
                   <h5 className="mb-0">{t('Media')}</h5>
                   <Badge
-                    bg={String(
-                      (effectiveMediaBadge as unknown as { variant?: unknown }).variant ||
-                        'secondary'
-                    )}
+                    variant={
+                      ((effectiveMediaBadge as unknown as { variant?: unknown }).variant ||
+                        'dashboard') as any
+                    }
                   >
                     {t(
                       String(
@@ -684,7 +693,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 {effectiveTags.map((tag) => (
                   <Badge
                     key={tag}
-                    className="me-2 mb-1"
+                    className="me-2 mb-1 px-2 py-1"
                     style={{
                       backgroundColor: getTagColor(tagColors, tag) || '#888',
                       color: '#fff',
@@ -696,7 +705,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 ))}
 
                 {effectiveBenefits.map((b) => (
-                  <Badge key={b} className="me-2 mb-1 bg-info text-dark">
+                  <Badge key={b} variant="dashboard-info" className="me-2 mb-1">
                     {t(b)}
                   </Badge>
                 ))}
@@ -707,7 +716,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                   <div className="fw-semibold mb-1">{t('Recommended for')}</div>
                   <div className="d-flex flex-wrap gap-2">
                     {effectivePatientTypes.map((pt, idx) => (
-                      <Badge key={idx} bg="secondary">
+                      <Badge key={idx} variant="dashboard">
                         {t(norm(pt.type))} • {t(norm(pt.diagnosis))} • {t(norm(pt.frequency))}
                       </Badge>
                     ))}
@@ -751,7 +760,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                               <div className="fw-semibold">
                                 {t(d)}{' '}
                                 {isAssigned && (
-                                  <Badge bg="success" className="ms-1">
+                                  <Badge variant="dashboard-success" className="ms-1">
                                     {t('Assigned')}
                                   </Badge>
                                 )}
@@ -759,38 +768,36 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                             </div>
                             <div>
                               <ButtonGroup>
-                                <OverlayTrigger
-                                  placement="top"
-                                  overlay={
-                                    <Tooltip>
-                                      {isAssigned ? t('Modify from day…') : t('Add (Day S → N)')}
-                                    </Tooltip>
-                                  }
-                                >
-                                  <Button
-                                    size="dashboard"
-                                    variant="secondary"
-                                    onClick={() => openAssign(d)}
-                                    className="px-3"
-                                  >
-                                    {isAssigned ? <FaEdit /> : <FaPlus className="text-ok" />}
-                                  </Button>
-                                </OverlayTrigger>
-
-                                {isAssigned && (
-                                  <OverlayTrigger
-                                    placement="top"
-                                    overlay={<Tooltip>{t('Delete from template')}</Tooltip>}
-                                  >
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
                                     <Button
                                       size="dashboard"
                                       variant="secondary"
-                                      onClick={() => void removeFromTemplate(d)}
+                                      onClick={() => openAssign(d)}
                                       className="px-3"
                                     >
-                                      <FaTrash className="text-nok" />
+                                      {isAssigned ? <FaEdit /> : <FaPlus className="text-ok" />}
                                     </Button>
-                                  </OverlayTrigger>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {isAssigned ? t('Modify from day…') : t('Add (Day S → N)')}
+                                  </TooltipContent>
+                                </Tooltip>
+
+                                {isAssigned && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="dashboard"
+                                        variant="secondary"
+                                        onClick={() => void removeFromTemplate(d)}
+                                        className="px-3"
+                                      >
+                                        <FaTrash className="text-nok" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{t('Delete from template')}</TooltipContent>
+                                  </Tooltip>
                                 )}
                               </ButtonGroup>
                             </div>
@@ -817,7 +824,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
               </>
             ) : (
               <div className="mt-2">
-                <Alert variant="secondary" className="mb-0">
+                <Alert className="mb-0">
                   {t(
                     'This is a private intervention. Template assignment by diagnosis is disabled.'
                   )}
@@ -854,7 +861,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
           .diag-scroll { max-height: 480px; }
         }
       `}</style>
-    </>
+    </TooltipProvider>
   );
 };
 

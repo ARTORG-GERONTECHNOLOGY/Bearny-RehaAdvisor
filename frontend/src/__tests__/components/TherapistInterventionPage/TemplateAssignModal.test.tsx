@@ -227,8 +227,8 @@ describe('TemplateAssignModal', () => {
       render(<TemplateAssignModal {...defaultProps} templateId="tpl-1" />);
       fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 
-      await screen.findByRole('button', { name: /Hide details/i });
-      const alert = document.querySelector('.alert-danger') as HTMLElement;
+      const detailsButton = await screen.findByRole('button', { name: /Hide details/i });
+      const alert = detailsButton.closest('[role="alert"]') as HTMLElement;
       expect(within(alert).getByText(/Must be positive/i)).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: /Hide details/i }));

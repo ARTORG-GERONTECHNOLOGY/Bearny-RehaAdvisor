@@ -91,7 +91,11 @@ const UserProfile: React.FC = observer(() => {
         </Section>
       </div>
 
-      <StatusBanner type="danger" message={errorBanner} onClose={userProfileStore.clearError} />
+      <StatusBanner
+        type="destructive"
+        message={errorBanner}
+        onClose={userProfileStore.clearError}
+      />
       <StatusBanner
         type="success"
         message={successBanner}

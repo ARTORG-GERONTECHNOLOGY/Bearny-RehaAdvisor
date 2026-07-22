@@ -19,9 +19,8 @@ describe('ErrorAlert component', () => {
     expect(onCloseMock).toHaveBeenCalledTimes(1);
   });
 
-  it('renders as a Bootstrap alert with "danger" variant', () => {
-    const { container } = render(<ErrorAlert message={testMessage} />);
-    const alertDiv = container.querySelector('.alert-danger');
-    expect(alertDiv).toBeInTheDocument();
+  it('renders with the destructive alert variant', () => {
+    render(<ErrorAlert message={testMessage} />);
+    expect(screen.getByRole('alert')).toHaveClass('text-nok');
   });
 });

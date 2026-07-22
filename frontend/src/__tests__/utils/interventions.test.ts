@@ -1,6 +1,4 @@
 import {
-  getBadgeVariantFromUrl,
-  getMediaTypeLabelFromUrl,
   generateTagColors,
   guessMediaTypeFromFilePath,
   guessMediaTypeFromUrl,
@@ -16,54 +14,6 @@ import {
   getContentTypeIcon,
 } from '@/utils/interventions';
 import type { InterventionMedia } from '@/utils/interventions';
-
-describe('getBadgeVariantFromUrl', () => {
-  it.each([
-    ['.mp4', '', 'danger'],
-    ['.mp3', '', 'warning'],
-    ['.pdf', '', 'info'],
-    ['.jpg', '', 'success'],
-    ['.jpeg', '', 'success'],
-    ['.png', '', 'success'],
-    ['.xyz', '', 'secondary'],
-  ])('returns correct badge for %s', (ext, link, expected) => {
-    expect(getBadgeVariantFromUrl(`file${ext}`, link)).toBe(expected);
-  });
-
-  it.each([
-    ['https://youtube.com/watch?v=abc', 'danger'],
-    ['https://youtu.be/xyz', 'danger'],
-    ['https://vimeo.com/abc', 'danger'],
-    ['https://unknown.com/page', 'secondary'],
-  ])('returns correct badge for iframe links: %s', (link, expected) => {
-    expect(getBadgeVariantFromUrl('', link)).toBe(expected);
-  });
-});
-
-describe('getMediaTypeLabelFromUrl', () => {
-  it.each([
-    ['.mp4', '', 'Video'],
-    ['.mp3', '', 'Audio'],
-    ['.pdf', '', 'PDF'],
-    ['.jpg', '', 'Image'],
-    ['.png', '', 'Image'],
-    ['.weird', '', 'Unknown'],
-  ])('returns correct label for %s', (ext, link, expected) => {
-    expect(getMediaTypeLabelFromUrl(`media${ext}`, link)).toBe(expected);
-  });
-
-  it.each([
-    ['https://youtube.com/watch?v=abc', 'Video'],
-    ['https://youtu.be/xyz', 'Video'],
-    ['https://vimeo.com/abc', 'Video'],
-    ['https://example.com/file.mp4', 'Video'],
-    ['https://example.com/file.mp3', 'Audio'],
-    ['https://example.com/file.pdf', 'PDF'],
-    ['https://example.com/file.txt', 'Link'],
-  ])('returns correct label for link-only: %s', (link, expected) => {
-    expect(getMediaTypeLabelFromUrl('', link)).toBe(expected);
-  });
-});
 
 describe('generateTagColors', () => {
   it('generates consistent HSL values for tags', () => {
@@ -328,7 +278,7 @@ describe('getPlayableUrl', () => {
 
 describe('getMediaBadge', () => {
   it('returns "No media" for empty array', () => {
-    expect(getMediaBadge([])).toEqual({ label: 'No media', variant: 'secondary' });
+    expect(getMediaBadge([])).toEqual({ label: 'No media', variant: 'dashboard' });
   });
 
   it('returns "Mixed" for multiple media types', () => {
@@ -336,18 +286,18 @@ describe('getMediaBadge', () => {
       { kind: 'external', media_type: 'video' },
       { kind: 'external', media_type: 'audio' },
     ];
-    expect(getMediaBadge(media)).toEqual({ label: 'Mixed', variant: 'primary' });
+    expect(getMediaBadge(media)).toEqual({ label: 'Mixed', variant: 'dashboard-info' });
   });
 
   it.each([
-    ['video', { label: 'Video', variant: 'danger' }],
-    ['audio', { label: 'Audio', variant: 'warning' }],
-    ['streaming', { label: 'Audio', variant: 'warning' }],
-    ['pdf', { label: 'PDF', variant: 'info' }],
-    ['image', { label: 'Image', variant: 'success' }],
-    ['app', { label: 'App', variant: 'dark' }],
-    ['website', { label: 'Link', variant: 'secondary' }],
-    ['text', { label: 'Link', variant: 'secondary' }],
+    ['video', { label: 'Video', variant: 'dashboard-destructive' }],
+    ['audio', { label: 'Audio', variant: 'dashboard-warning' }],
+    ['streaming', { label: 'Audio', variant: 'dashboard-warning' }],
+    ['pdf', { label: 'PDF', variant: 'dashboard-info' }],
+    ['image', { label: 'Image', variant: 'dashboard-success' }],
+    ['app', { label: 'App', variant: 'dashboard' }],
+    ['website', { label: 'Link', variant: 'dashboard' }],
+    ['text', { label: 'Link', variant: 'dashboard' }],
   ] as [InterventionMedia['media_type'], { label: string; variant: string }][])(
     'returns correct badge for single %s type',
     (media_type, expected) => {
@@ -384,19 +334,19 @@ describe('getMediaTypeLabelFromIntervention', () => {
 // ─── getBadgeVariantFromIntervention ─────────────────────────────────────────
 
 describe('getBadgeVariantFromIntervention', () => {
-  it('returns "secondary" when no media', () => {
-    expect(getBadgeVariantFromIntervention({})).toBe('secondary');
+  it('returns "dashboard" when no media', () => {
+    expect(getBadgeVariantFromIntervention({})).toBe('dashboard');
   });
 
   it.each([
-    ['video', 'danger'],
-    ['audio', 'warning'],
-    ['pdf', 'info'],
-    ['image', 'success'],
-    ['streaming', 'primary'],
-    ['app', 'dark'],
-    ['website', 'secondary'],
-    ['text', 'secondary'],
+    ['video', 'dashboard-destructive'],
+    ['audio', 'dashboard-warning'],
+    ['pdf', 'dashboard-info'],
+    ['image', 'dashboard-success'],
+    ['streaming', 'dashboard-info'],
+    ['app', 'dashboard'],
+    ['website', 'dashboard'],
+    ['text', 'dashboard'],
   ] as [InterventionMedia['media_type'], string][])(
     'returns "%s" variant for %s media type',
     (media_type, expected) => {

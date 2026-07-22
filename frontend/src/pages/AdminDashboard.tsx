@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Badge, Alert } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Alert } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -410,7 +411,7 @@ const AdminDashboard: React.FC = observer(() => {
     return (
       <div className="d-flex flex-wrap gap-1">
         {items.map((x) => (
-          <Badge key={x} bg={variant as any}>
+          <Badge key={x} variant={variant as any}>
             {x}
           </Badge>
         ))}
@@ -556,15 +557,13 @@ const AdminDashboard: React.FC = observer(() => {
           <TabsTrigger value="pending">
             {t('Pending registrations')}
             {adminStore.pendingEntries.length > 0 && (
-              <Badge bg="danger">{adminStore.pendingEntries.length}</Badge>
+              <Badge variant="dashboard-destructive">{adminStore.pendingEntries.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="access-requests">
             {t('Access change requests')}
             {changeRequests.length > 0 && (
-              <Badge bg="warning" text="dark">
-                {changeRequests.length}
-              </Badge>
+              <Badge variant="dashboard-warning">{changeRequests.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="interventions">{t('Interventions')}</TabsTrigger>
@@ -609,14 +608,14 @@ const AdminDashboard: React.FC = observer(() => {
                       <TableCell>{t(entry.role)}</TableCell>
                       <TableCell>
                         {isTherapist ? (
-                          renderBadges(clinics, 'info')
+                          renderBadges(clinics, 'dashboard-info')
                         ) : (
                           <span className="text-muted">—</span>
                         )}
                       </TableCell>
                       <TableCell>
                         {isTherapist ? (
-                          renderBadges(projects, 'secondary')
+                          renderBadges(projects, 'dashboard')
                         ) : (
                           <span className="text-muted">—</span>
                         )}
@@ -653,7 +652,11 @@ const AdminDashboard: React.FC = observer(() => {
         {/* ── Tab 2: access change requests ── */}
         <TabsContent value="access-requests">
           {changeReqError && (
-            <Alert variant="danger" dismissible onClose={() => setChangeReqError(null)}>
+            <Alert
+              variant="destructive"
+              onClose={() => setChangeReqError(null)}
+              closeLabel={t('Close alert')}
+            >
               {changeReqError}
             </Alert>
           )}
@@ -684,10 +687,12 @@ const AdminDashboard: React.FC = observer(() => {
                   <TableRow key={req.id}>
                     <TableCell>{req.therapistName || '—'}</TableCell>
                     <TableCell>{req.therapistEmail || '—'}</TableCell>
-                    <TableCell>{renderBadges(req.currentClinics, 'info')}</TableCell>
-                    <TableCell>{renderBadges(req.currentProjects, 'secondary')}</TableCell>
-                    <TableCell>{renderBadges(req.requestedClinics, 'primary')}</TableCell>
-                    <TableCell>{renderBadges(req.requestedProjects, 'dark')}</TableCell>
+                    <TableCell>{renderBadges(req.currentClinics, 'dashboard-info')}</TableCell>
+                    <TableCell>{renderBadges(req.currentProjects, 'dashboard')}</TableCell>
+                    <TableCell>{renderBadges(req.requestedClinics, 'dashboard-warning')}</TableCell>
+                    <TableCell>
+                      {renderBadges(req.requestedProjects, 'dashboard-warning')}
+                    </TableCell>
                     <TableCell>
                       <small>{req.createdAt ? formatLocaleDate(req.createdAt) : '—'}</small>
                     </TableCell>
@@ -713,7 +718,11 @@ const AdminDashboard: React.FC = observer(() => {
         {/* ── Tab 3: interventions ── */}
         <TabsContent value="interventions">
           {interventionError && (
-            <Alert variant="danger" dismissible onClose={() => setInterventionError(null)}>
+            <Alert
+              variant="destructive"
+              onClose={() => setInterventionError(null)}
+              closeLabel={t('Close alert')}
+            >
               {interventionError}
             </Alert>
           )}
@@ -764,16 +773,14 @@ const AdminDashboard: React.FC = observer(() => {
                     </TableCell>
                     <TableCell>{iv.title}</TableCell>
                     <TableCell>
-                      <Badge bg="secondary">{iv.language}</Badge>
+                      <Badge variant="dashboard">{iv.language}</Badge>
                     </TableCell>
                     <TableCell>{iv.content_type}</TableCell>
                     <TableCell>
                       {iv.is_private ? (
-                        <Badge bg="warning" text="dark">
-                          {t('Private')}
-                        </Badge>
+                        <Badge variant="dashboard-warning">{t('Private')}</Badge>
                       ) : (
-                        <Badge bg="success">{t('Public')}</Badge>
+                        <Badge variant="dashboard-success">{t('Public')}</Badge>
                       )}
                     </TableCell>
                     <TableCell>
@@ -795,7 +802,11 @@ const AdminDashboard: React.FC = observer(() => {
         {/* ── Tab 4: questionnaires ── */}
         <TabsContent value="questionnaires">
           {questionnaireError && (
-            <Alert variant="danger" dismissible onClose={() => setQuestionnaireError(null)}>
+            <Alert
+              variant="destructive"
+              onClose={() => setQuestionnaireError(null)}
+              closeLabel={t('Close alert')}
+            >
               {questionnaireError}
             </Alert>
           )}
@@ -855,7 +866,7 @@ const AdminDashboard: React.FC = observer(() => {
                       {qn.tags?.length ? (
                         <div className="d-flex flex-wrap gap-1">
                           {qn.tags.map((tag) => (
-                            <Badge key={tag} bg="secondary">
+                            <Badge key={tag} variant="dashboard">
                               {tag}
                             </Badge>
                           ))}
@@ -867,9 +878,7 @@ const AdminDashboard: React.FC = observer(() => {
                     <TableCell className="text-center">{qn.question_count}</TableCell>
                     <TableCell className="text-center">
                       {qn.usage_count > 0 ? (
-                        <Badge bg="warning" text="dark">
-                          {qn.usage_count}
-                        </Badge>
+                        <Badge variant="dashboard-warning">{qn.usage_count}</Badge>
                       ) : (
                         <span className="text-muted">0</span>
                       )}
@@ -882,7 +891,7 @@ const AdminDashboard: React.FC = observer(() => {
                           : t('Never edited')
                       }
                     >
-                      <Badge bg={qn.version > 1 ? 'info' : 'light'} text="dark">
+                      <Badge variant={qn.version > 1 ? 'dashboard-info' : 'dashboard'}>
                         v{qn.version ?? 1}
                       </Badge>
                     </TableCell>
@@ -922,12 +931,20 @@ const AdminDashboard: React.FC = observer(() => {
         {/* ── Tab 5: export ── */}
         <TabsContent value="export">
           {exportClinicsError && (
-            <Alert variant="danger" dismissible onClose={() => setExportClinicsError(null)}>
+            <Alert
+              variant="destructive"
+              onClose={() => setExportClinicsError(null)}
+              closeLabel={t('Close alert')}
+            >
               {exportClinicsError}
             </Alert>
           )}
           {exportError && (
-            <Alert variant="danger" dismissible onClose={() => setExportError(null)}>
+            <Alert
+              variant="destructive"
+              onClose={() => setExportError(null)}
+              closeLabel={t('Close alert')}
+            >
               {exportError}
             </Alert>
           )}

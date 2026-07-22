@@ -69,6 +69,77 @@ describe('Badge', () => {
     });
   });
 
+  describe('dashboard', () => {
+    it('applies compact padding, bg-white, text-zinc-800 and border-accent', () => {
+      const { container } = render(<Badge variant="dashboard">X</Badge>);
+      const el = container.firstChild;
+      expect(el).toHaveClass('rounded-lg');
+      expect(el).toHaveClass('py-0.5');
+      expect(el).toHaveClass('px-2');
+      expect(el).toHaveClass('border');
+      expect(el).toHaveClass('border-accent');
+      expect(el).toHaveClass('bg-white');
+      expect(el).toHaveClass('text-zinc-800');
+      expect(el).toHaveClass('capitalize');
+    });
+  });
+
+  describe('dashboard-success', () => {
+    it('applies compact padding, border-ok, bg-ok/5 and text-ok', () => {
+      const { container } = render(<Badge variant="dashboard-success">X</Badge>);
+      const el = container.firstChild;
+      expect(el).toHaveClass('rounded-lg');
+      expect(el).toHaveClass('py-0.5');
+      expect(el).toHaveClass('px-2');
+      expect(el).toHaveClass('border');
+      expect(el).toHaveClass('border-ok');
+      expect(el).toHaveClass('bg-ok/5');
+      expect(el).toHaveClass('text-ok');
+    });
+  });
+
+  describe('dashboard-warning', () => {
+    it('applies compact padding, border-yellow, bg-yellow/5 and text-yellow', () => {
+      const { container } = render(<Badge variant="dashboard-warning">X</Badge>);
+      const el = container.firstChild;
+      expect(el).toHaveClass('rounded-lg');
+      expect(el).toHaveClass('py-0.5');
+      expect(el).toHaveClass('px-2');
+      expect(el).toHaveClass('border');
+      expect(el).toHaveClass('border-yellow');
+      expect(el).toHaveClass('bg-yellow/5');
+      expect(el).toHaveClass('text-yellow');
+    });
+  });
+
+  describe('dashboard-info', () => {
+    it('applies compact padding, border-blue-800, bg-blue-50 and text-blue-800', () => {
+      const { container } = render(<Badge variant="dashboard-info">X</Badge>);
+      const el = container.firstChild;
+      expect(el).toHaveClass('rounded-lg');
+      expect(el).toHaveClass('py-0.5');
+      expect(el).toHaveClass('px-2');
+      expect(el).toHaveClass('border');
+      expect(el).toHaveClass('border-blue-800');
+      expect(el).toHaveClass('bg-blue-50');
+      expect(el).toHaveClass('text-blue-800');
+    });
+  });
+
+  describe('dashboard-destructive', () => {
+    it('applies compact padding, border-nok, bg-nok/5 and text-nok', () => {
+      const { container } = render(<Badge variant="dashboard-destructive">X</Badge>);
+      const el = container.firstChild;
+      expect(el).toHaveClass('rounded-lg');
+      expect(el).toHaveClass('py-0.5');
+      expect(el).toHaveClass('px-2');
+      expect(el).toHaveClass('border');
+      expect(el).toHaveClass('border-nok');
+      expect(el).toHaveClass('bg-nok/5');
+      expect(el).toHaveClass('text-nok');
+    });
+  });
+
   it('merges custom className', () => {
     const { container } = render(<Badge className="my-badge">X</Badge>);
     expect(container.firstChild).toHaveClass('my-badge');

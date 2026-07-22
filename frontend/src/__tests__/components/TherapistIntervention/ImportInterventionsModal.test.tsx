@@ -82,8 +82,8 @@ beforeEach(() => {
 describe('Tab rendering', () => {
   it('renders the modal with both tab links visible', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /Excel Import/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Upload Media/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Excel Import/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Upload Media/i })).toBeInTheDocument();
   });
 
   it('shows Excel content by default', () => {
@@ -94,29 +94,29 @@ describe('Tab rendering', () => {
 
   it('switches to Upload Media tab and shows upload UI', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
     expect(screen.getByText(/Drag & drop/i)).toBeInTheDocument();
     expect(screen.queryByText(/Excel file/i)).not.toBeInTheDocument();
   });
 
   it('switching back to Excel tab restores Excel UI', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Excel Import/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Excel Import/i }));
     expect(screen.getByText(/Excel file/i)).toBeInTheDocument();
     expect(screen.queryByText(/Drag & drop/i)).not.toBeInTheDocument();
   });
 
   it('shows the naming convention help text on the media tab', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
     expect(screen.getByText(/Naming convention/i)).toBeInTheDocument();
     expect(screen.getByText(/3500_web_de\.mp4/)).toBeInTheDocument();
   });
 
   it('shows valid extensions on the media tab', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
     // Target the <code> element specifically — the drop-zone div also matches the regex
     expect(screen.getByText(/mp4.*mp3.*wav.*pdf.*jpg/i, { selector: 'code' })).toBeInTheDocument();
   });
@@ -133,7 +133,7 @@ describe('Footer buttons', () => {
 
   it('shows Upload button on media tab', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
     expect(screen.getByRole('button', { name: /^Upload$/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Import$/i })).not.toBeInTheDocument();
   });
@@ -145,7 +145,7 @@ describe('Footer buttons', () => {
 
   it('Upload button is disabled when no files are selected', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
     expect(screen.getByRole('button', { name: /^Upload$/i })).toBeDisabled();
   });
 });
@@ -155,7 +155,7 @@ describe('Footer buttons', () => {
 describe('Media file validation', () => {
   function openMediaTab() {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
   }
 
   function addFile(file: File) {
@@ -367,7 +367,7 @@ describe('Upload results display', () => {
     ];
 
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
 
     expect(screen.getByText(/Upload results/i)).toBeInTheDocument();
     expect(screen.getByText(/Updated 1 intervention/i)).toBeInTheDocument();
@@ -386,7 +386,7 @@ describe('Upload results display', () => {
     ];
 
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
 
     // Exact matches avoid collisions with naming-convention example text
     expect(screen.getByText('fr')).toBeInTheDocument();
@@ -577,7 +577,7 @@ describe('Media drag & drop', () => {
 
   it('adds files dropped with an accepted extension', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
 
     const dropZone = screen.getByLabelText(/Drop zone for media files/i);
     fireEvent.drop(dropZone, makeDropEvent([new File(['x'], '3500_web_de.mp4')]));
@@ -587,7 +587,7 @@ describe('Media drag & drop', () => {
 
   it('filters out dropped files with an unsupported extension', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
 
     const dropZone = screen.getByLabelText(/Drop zone for media files/i);
     fireEvent.drop(dropZone, makeDropEvent([new File(['x'], 'clip.avi')]));
@@ -597,7 +597,7 @@ describe('Media drag & drop', () => {
 
   it('does not duplicate a dropped file that was already added', () => {
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
 
     const dropZone = screen.getByLabelText(/Drop zone for media files/i);
     const file = new File(['x'], '3500_web_de.mp4');
@@ -730,7 +730,7 @@ describe('Excel error alert rendering', () => {
   it('shows the media upload store error on the media tab', () => {
     mockVideoStore.error = 'Upload failed';
     render(<ImportInterventionsModal {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Upload Media/i }));
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /Upload Media/i }));
 
     expect(screen.getByText('Upload failed')).toBeInTheDocument();
   });

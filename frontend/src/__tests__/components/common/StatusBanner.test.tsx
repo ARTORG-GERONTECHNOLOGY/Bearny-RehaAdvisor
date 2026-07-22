@@ -13,8 +13,8 @@ describe('StatusBanner', () => {
     expect(screen.getByText('Saved successfully')).toBeInTheDocument();
   });
 
-  it('renders the message with danger styling', () => {
-    render(<StatusBanner type="danger" message="Something went wrong" onClose={jest.fn()} />);
+  it('renders the message with destructive styling', () => {
+    render(<StatusBanner type="destructive" message="Something went wrong" onClose={jest.fn()} />);
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
   });
 

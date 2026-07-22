@@ -1,6 +1,6 @@
 // src/components/TherapistInterventionPage/AddInterventionPopUp.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import { FaPlus, FaTrash } from 'react-icons/fa';
 import axios from 'axios';
 import Select from 'react-select';
@@ -1165,7 +1165,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
             )}
 
             {(error || patientsLoadError) && (
-              <Alert variant="danger" className="mt-3 mb-0" role="alert" aria-live="assertive">
+              <Alert variant="destructive" className="mt-3 mb-0" aria-live="assertive">
                 <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
                   <span>{patientsLoadError || error}</span>
                   {Object.keys(errors).length > 0 && (

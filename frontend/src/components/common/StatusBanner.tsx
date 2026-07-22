@@ -1,8 +1,8 @@
 import React from 'react';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 
 interface Props {
-  type: 'success' | 'danger';
+  type: 'success' | 'destructive';
   message: string;
   onClose: () => void;
 }
@@ -13,7 +13,6 @@ const StatusBanner: React.FC<Props> = ({ type, message, onClose }) => {
   return (
     <Alert
       variant={type}
-      dismissible
       onClose={onClose}
       className="text-center shadow-sm"
       style={{

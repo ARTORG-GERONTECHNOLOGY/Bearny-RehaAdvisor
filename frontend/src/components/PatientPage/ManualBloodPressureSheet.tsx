@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
@@ -126,7 +126,7 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
           </div>
         </div>
 
-        {error && <Alert variant="danger">{t(error)}</Alert>}
+        {error && <Alert variant="destructive">{t(error)}</Alert>}
 
         <SheetFooter>
           <Button onClick={handleSave} disabled={isSubmitting}>

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 describe('Alert', () => {
@@ -17,8 +17,9 @@ describe('Alert', () => {
   it('applies destructive variant classes', () => {
     render(<Alert variant="destructive">X</Alert>);
     const el = screen.getByRole('alert');
-    expect(el).toHaveClass('border-destructive/50');
-    expect(el).toHaveClass('text-destructive');
+    expect(el).toHaveClass('border-nok');
+    expect(el).toHaveClass('bg-nok/5');
+    expect(el).toHaveClass('text-nok');
   });
 
   it('merges custom className', () => {
@@ -35,6 +36,51 @@ describe('Alert', () => {
   it('forwards additional div props', () => {
     render(<Alert data-testid="my-alert">X</Alert>);
     expect(screen.getByTestId('my-alert')).toBeInTheDocument();
+  });
+
+  it('applies success variant classes', () => {
+    render(<Alert variant="success">X</Alert>);
+    const el = screen.getByRole('alert');
+    expect(el).toHaveClass('border-ok');
+    expect(el).toHaveClass('bg-ok/5');
+    expect(el).toHaveClass('text-ok');
+  });
+
+  it('applies warning variant classes', () => {
+    render(<Alert variant="warning">X</Alert>);
+    const el = screen.getByRole('alert');
+    expect(el).toHaveClass('border-yellow');
+    expect(el).toHaveClass('bg-yellow/5');
+    expect(el).toHaveClass('text-yellow');
+  });
+
+  it('applies info variant classes', () => {
+    render(<Alert variant="info">X</Alert>);
+    const el = screen.getByRole('alert');
+    expect(el).toHaveClass('border-blue-800');
+    expect(el).toHaveClass('bg-blue-50');
+    expect(el).toHaveClass('text-blue-800');
+  });
+
+  it('does not render a dismiss button by default', () => {
+    render(<Alert>X</Alert>);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('renders a dismiss button and calls onClose when clicked', () => {
+    const onClose = jest.fn();
+    render(<Alert onClose={onClose}>X</Alert>);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses a custom closeLabel for the dismiss button', () => {
+    render(
+      <Alert onClose={() => {}} closeLabel="Dismiss">
+        X
+      </Alert>
+    );
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeInTheDocument();
   });
 });
 

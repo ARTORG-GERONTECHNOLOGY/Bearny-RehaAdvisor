@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 import { PatientPopupStore } from '@/stores/patientPopupStore';
@@ -15,13 +15,13 @@ const PatientInfoSourceBadge: React.FC<PatientInfoSourceBadgeProps> = observer(
     const src = store.getValueSource(fieldKey);
     if (src === 'manual')
       return (
-        <Badge bg="success" className="self-start">
+        <Badge variant="dashboard-success" className="self-start">
           {t('Manual')}
         </Badge>
       );
     if (src === 'redcap')
       return (
-        <Badge bg="info" className="self-start">
+        <Badge variant="dashboard-info" className="self-start">
           {t('REDCap')}
         </Badge>
       );

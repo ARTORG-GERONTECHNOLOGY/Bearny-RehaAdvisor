@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
 import {
   ampelComposite,
   daysSince,
@@ -179,7 +180,7 @@ const Therapist: React.FC = observer(() => {
 
       <div className="flex gap-2 flex-col mt-3">
         {store.error && (
-          <div className="alert alert-danger flex justify-content-between items-start">
+          <Alert variant="destructive" className="flex justify-content-between items-start">
             <div>
               <div>{store.error}</div>
               {store.showErrorDetails && store.errorDetails && (
@@ -206,7 +207,7 @@ const Therapist: React.FC = observer(() => {
                 {store.loading ? String(t('Loading...')) : String(t('Retry'))}
               </Button>
             </div>
-          </div>
+          </Alert>
         )}
 
         <div className="flex gap-2 flex-wrap">
