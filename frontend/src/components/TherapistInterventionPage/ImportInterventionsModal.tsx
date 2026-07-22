@@ -1,7 +1,7 @@
 // src/components/TherapistInterventionPage/ImportInterventionsModal.tsx
 import React, { useMemo, useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Alert, Badge, Nav } from 'react-bootstrap';
+import { Alert, Badge } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import interventionsConfig from '../../config/interventions.json';
 import { interventionsImportStore } from '@/stores/interventionsImportStore';
@@ -208,21 +209,18 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
         </DialogHeader>
 
         {/* ── Tab switcher ── */}
-        <Nav
-          variant="tabs"
-          activeKey={activeTab}
-          onSelect={(k) => {
-            if (k === 'excel' || k === 'media') setActiveTab(k);
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            if (v === 'excel' || v === 'media') setActiveTab(v);
           }}
           className="mb-3"
         >
-          <Nav.Item>
-            <Nav.Link eventKey="excel">{t('Excel Import')}</Nav.Link>
-          </Nav.Item>
-          <Nav.Item>
-            <Nav.Link eventKey="media">{t('Upload Media')}</Nav.Link>
-          </Nav.Item>
-        </Nav>
+          <TabsList>
+            <TabsTrigger value="excel">{t('Excel Import')}</TabsTrigger>
+            <TabsTrigger value="media">{t('Upload Media')}</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {/* ══════════════════════════════════════════════════════════════════
             Excel Import tab
