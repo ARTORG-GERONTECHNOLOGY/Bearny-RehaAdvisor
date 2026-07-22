@@ -3,7 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 import PwaInstallSheet, { useIsStandalone } from '@/components/PwaInstallSheet';
 import { Download } from 'lucide-react';
-import { Dropdown } from 'react-bootstrap';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 import flagDe from '@/assets/flags/de.png';
 import flagFr from '@/assets/flags/fr.png';
@@ -77,19 +82,21 @@ const Footer: FunctionComponent = () => {
                   {t('pwa.title')}
                 </button>
               )}
-              <Dropdown>
-                <Dropdown.Toggle className="p-0" variant="light" size="sm">
-                  <img src={flagMap[lang]} className="h-5" />
-                </Dropdown.Toggle>
-                <Dropdown.Menu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="p-0 border-none bg-transparent" aria-label={t('Language')}>
+                    <img src={flagMap[lang]} className="h-5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
                   {languages.map((l) => (
-                    <Dropdown.Item key={l} onClick={() => handleLanguageChange(l)}>
-                      <img src={flagMap[l]} className="h-5 me-2" />
+                    <DropdownMenuItem key={l} onClick={() => handleLanguageChange(l)}>
+                      <img src={flagMap[l]} className="h-5" />
                       {l.toUpperCase()}
-                    </Dropdown.Item>
+                    </DropdownMenuItem>
                   ))}
-                </Dropdown.Menu>
-              </Dropdown>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </Container>
