@@ -27,7 +27,7 @@ class WearablesSyncError(ValueError):
 
 
 # ---------------------------------------------------------------------------
-# Window definitions (days relative to first Fitbit measurement date, 1-indexed)
+# Window definitions (days relative to first wearable measurement date, 1-indexed)
 # ---------------------------------------------------------------------------
 BASELINE_DAY_START = 8  # first 7 days are excluded (device calibration / habituation)
 BASELINE_DAY_END = 28
@@ -71,8 +71,8 @@ def _as_utc(dt: datetime) -> datetime:
     return dt.astimezone(dt_tz.utc)
 
 
-def _record_date(r: FitbitData):
-    """Return the date part of a FitbitData record as a datetime.date."""
+def _record_date(r):
+    """Return the date part of a wearable data record (FitbitData or GoogleHealthData) as a datetime.date."""
     d = r.date
     if d is None:
         return None
@@ -82,11 +82,20 @@ def _record_date(r: FitbitData):
 
 
 def _find_first_measurement_date(user) -> Optional[datetime.date]:
-    """Return the earliest calendar date that has any Fitbit data for *user*."""
-    first = FitbitData.objects(user=user).order_by("date").first()
-    if not first:
-        return None
-    return _record_date(first)
+    """Return the earliest calendar date with any wearable data for *user*.
+
+    Checks both GoogleHealthData and FitbitData so patients who migrated away
+    from Fitbit (and have no FitbitData) are not incorrectly rejected.
+    """
+    gh_first = GoogleHealthData.objects(user=user).order_by("date").first()
+    fb_first = FitbitData.objects(user=user).order_by("date").first()
+
+    gh_date = _record_date(gh_first) if gh_first else None
+    fb_date = _record_date(fb_first) if fb_first else None
+
+    if gh_date and fb_date:
+        return min(gh_date, fb_date)
+    return gh_date or fb_date
 
 
 def _is_valid_activity_day(r: FitbitData) -> bool:
@@ -282,7 +291,7 @@ def compute_wearables_summary(patient: Patient) -> Dict[str, Any]:
     first_date = _find_first_measurement_date(user)
     if not first_date:
         raise WearablesSyncError(
-            f"No Fitbit data found for patient {patient.patient_code}. "
+            f"No wearable data found for patient {patient.patient_code}. "
             "The device must be worn before wearables can be exported to REDCap.",
             code="wearables_no_fitbit_data",
         )

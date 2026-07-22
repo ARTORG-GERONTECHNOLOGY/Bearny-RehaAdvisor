@@ -826,7 +826,10 @@ def apply_named_template(request, template_id):
     except InterventionTemplate.DoesNotExist:
         return JsonResponse({"error": "Template not found."}, status=404)
 
-    is_owner = str(tmpl.created_by.id) == str(therapist.id)
+    try:
+        is_owner = str(tmpl.created_by.id) == str(therapist.id)
+    except Exception:
+        is_owner = False
     if not tmpl.is_public and not is_owner:
         return JsonResponse({"error": "Not found."}, status=404)
 
@@ -1001,7 +1004,10 @@ def template_calendar(request, template_id):
     except InterventionTemplate.DoesNotExist:
         return JsonResponse({"error": "Template not found."}, status=404)
 
-    is_owner = str(tmpl.created_by.id) == str(therapist.id)
+    try:
+        is_owner = str(tmpl.created_by.id) == str(therapist.id)
+    except Exception:
+        is_owner = False
     if not tmpl.is_public and not is_owner:
         return JsonResponse({"error": "Not found."}, status=404)
 
