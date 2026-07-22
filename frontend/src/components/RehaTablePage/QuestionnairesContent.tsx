@@ -184,7 +184,7 @@ const QuestionnairesContent: React.FC<QuestionnairesContentProps> = ({ patientId
         <Alert
           variant="destructive"
           onClose={() => setError(null)}
-          closeLabel="Close alert"
+          closeLabel={t('Close alert')}
           className="my-3"
         >
           {error}

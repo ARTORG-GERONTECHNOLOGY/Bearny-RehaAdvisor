@@ -66,7 +66,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
           <Alert
             variant="destructive"
             onClose={() => store.setError(null)}
-            closeLabel="Close alert"
+            closeLabel={t('Close alert')}
             className="mb-2"
           >
             {store.error}

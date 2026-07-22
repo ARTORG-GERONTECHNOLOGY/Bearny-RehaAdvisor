@@ -64,13 +64,13 @@ const TherapistAccessDialog: React.FC<Props> = ({
         </DialogHeader>
 
         {success && (
-          <Alert variant="success" onClose={onDismissSuccess} closeLabel="Close alert">
+          <Alert variant="success" onClose={onDismissSuccess} closeLabel={t('Close alert')}>
             {success}
           </Alert>
         )}
 
         {error && (
-          <Alert variant="destructive" onClose={onDismissError} closeLabel="Close alert">
+          <Alert variant="destructive" onClose={onDismissError} closeLabel={t('Close alert')}>
             {error}
           </Alert>
         )}

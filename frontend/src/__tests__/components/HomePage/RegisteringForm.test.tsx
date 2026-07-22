@@ -324,7 +324,7 @@ describe('RegisteringForm', () => {
 
     await screen.findByText(/You have been registered/);
     const successAlert = screen.getByRole('alert');
-    fireEvent.click(within(successAlert).getByLabelText('Close'));
+    fireEvent.click(within(successAlert).getByLabelText('Close alert'));
     expect(screen.queryByText(/You have been registered/)).not.toBeInTheDocument();
   });
 
@@ -357,7 +357,7 @@ describe('RegisteringForm', () => {
 
     await screen.findByText('Bad request');
     const errorAlert = screen.getByRole('alert');
-    fireEvent.click(within(errorAlert).getByLabelText('Close'));
+    fireEvent.click(within(errorAlert).getByLabelText('Close alert'));
     expect(screen.queryByText('Bad request')).not.toBeInTheDocument();
   });
 

@@ -51,7 +51,7 @@ const EditQuestionnaireDialog: React.FC<Props> = ({
           <DialogTitle>{t('Edit questionnaire')}</DialogTitle>
         </DialogHeader>
         {error && (
-          <Alert variant="destructive" onClose={onDismissError} closeLabel="Close alert">
+          <Alert variant="destructive" onClose={onDismissError} closeLabel={t('Close alert')}>
             {error}
           </Alert>
         )}

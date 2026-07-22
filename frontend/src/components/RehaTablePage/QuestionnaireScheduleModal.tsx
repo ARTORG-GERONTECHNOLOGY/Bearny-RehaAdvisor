@@ -337,7 +337,7 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
         footer={footer}
       >
         {error && (
-          <Alert variant="destructive" onClose={() => setError('')} closeLabel="Close alert">
+          <Alert variant="destructive" onClose={() => setError('')} closeLabel={t('Close alert')}>
             {error}
           </Alert>
         )}

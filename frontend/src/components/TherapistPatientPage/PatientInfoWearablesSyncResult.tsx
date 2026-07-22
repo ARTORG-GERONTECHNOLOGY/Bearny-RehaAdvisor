@@ -23,7 +23,7 @@ const PatientInfoWearablesSyncResult: React.FC<PatientInfoWearablesSyncResultPro
           store.wearablesSyncResult = null;
           store.wearablesSyncPayloads = null;
         }}
-        closeLabel={t('Close')}
+        closeLabel={t('Close alert')}
       >
         <strong>{t('Wearables synced to REDCap')}</strong>
         <ul>

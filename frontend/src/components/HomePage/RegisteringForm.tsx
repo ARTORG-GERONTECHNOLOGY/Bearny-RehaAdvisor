@@ -519,7 +519,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
           {formError && (
             <Alert
               variant="destructive"
-              closeLabel={t('Close')}
+              closeLabel={t('Close alert')}
               onClose={() => {
                 setFormError(null);
                 setServerDetail(null);
@@ -550,7 +550,11 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
           )}
 
           {successMsg && (
-            <Alert variant="success" closeLabel={t('Close')} onClose={() => setSuccessMsg(null)}>
+            <Alert
+              variant="success"
+              closeLabel={t('Close alert')}
+              onClose={() => setSuccessMsg(null)}
+            >
               {successMsg}
             </Alert>
           )}

@@ -655,7 +655,7 @@ const AdminDashboard: React.FC = observer(() => {
             <Alert
               variant="destructive"
               onClose={() => setChangeReqError(null)}
-              closeLabel="Close alert"
+              closeLabel={t('Close alert')}
             >
               {changeReqError}
             </Alert>
@@ -721,7 +721,7 @@ const AdminDashboard: React.FC = observer(() => {
             <Alert
               variant="destructive"
               onClose={() => setInterventionError(null)}
-              closeLabel="Close alert"
+              closeLabel={t('Close alert')}
             >
               {interventionError}
             </Alert>
@@ -805,7 +805,7 @@ const AdminDashboard: React.FC = observer(() => {
             <Alert
               variant="destructive"
               onClose={() => setQuestionnaireError(null)}
-              closeLabel="Close alert"
+              closeLabel={t('Close alert')}
             >
               {questionnaireError}
             </Alert>
@@ -934,7 +934,7 @@ const AdminDashboard: React.FC = observer(() => {
             <Alert
               variant="destructive"
               onClose={() => setExportClinicsError(null)}
-              closeLabel="Close alert"
+              closeLabel={t('Close alert')}
             >
               {exportClinicsError}
             </Alert>
@@ -943,7 +943,7 @@ const AdminDashboard: React.FC = observer(() => {
             <Alert
               variant="destructive"
               onClose={() => setExportError(null)}
-              closeLabel="Close alert"
+              closeLabel={t('Close alert')}
             >
               {exportError}
             </Alert>

@@ -349,50 +349,6 @@ export function getBadgeVariantFromIntervention(item?: unknown): string {
   }
 }
 
-/** -------- legacy helpers (still used in older components) -------- */
-
-export const getBadgeVariantFromUrl = (mediaUrl: string, link: string) => {
-  const u = lower(mediaUrl || '');
-  const l = lower(link || '');
-
-  // If no file URL -> treat as external link
-  if (!u) {
-    if (isYouTube(l) || isVimeo(l)) return 'dashboard-destructive'; // video-like
-    if (isSpotify(l) || isSoundCloud(l) || l.match(/\.(mp3|wav|m4a|ogg|webm)(\?|$)/))
-      return 'dashboard-warning';
-    if (l.match(/\.(pdf)(\?|$)/)) return 'dashboard-info';
-    if (l.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/)) return 'dashboard-success';
-    return 'dashboard';
-  }
-
-  // file URL
-  if (u.match(/\.(mp4|mov|m4v|webm)(\?|$)/)) return 'dashboard-destructive';
-  if (u.match(/\.(mp3|wav|m4a|ogg|webm)(\?|$)/)) return 'dashboard-warning';
-  if (u.match(/\.(pdf)(\?|$)/)) return 'dashboard-info';
-  if (u.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/)) return 'dashboard-success';
-  return 'dashboard';
-};
-
-export const getMediaTypeLabelFromUrl = (mediaUrl: string, link: string) => {
-  const u = lower(mediaUrl || '');
-  const l = lower(link || '');
-
-  if (!u) {
-    if (isYouTube(l) || isVimeo(l) || l.match(/\.(mp4|mov|m4v|webm)(\?|$)/)) return 'Video';
-    if (isSpotify(l) || isSoundCloud(l) || l.match(/\.(mp3|wav|m4a|ogg|webm)(\?|$)/))
-      return 'Audio';
-    if (l.match(/\.(pdf)(\?|$)/)) return 'PDF';
-    if (l.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/)) return 'Image';
-    return 'Link';
-  }
-
-  if (u.match(/\.(mp4|mov|m4v|webm)(\?|$)/)) return 'Video';
-  if (u.match(/\.(mp3|wav|m4a|ogg|webm)(\?|$)/)) return 'Audio';
-  if (u.match(/\.(pdf)(\?|$)/)) return 'PDF';
-  if (u.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/)) return 'Image';
-  return 'Unknown';
-};
-
 /** ---------------- Tag colors (taxonomy-driven) ---------------- */
 
 const TAG_ALIASES: Record<string, string> = {

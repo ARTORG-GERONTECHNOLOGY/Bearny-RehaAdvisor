@@ -51,7 +51,6 @@ jest.mock(
 jest.mock('@/utils/interventions', () => ({
   ...jest.requireActual('@/utils/interventions'),
   generateTagColors: () => ({}),
-  getMediaTypeLabelFromUrl: jest.fn(),
   getTaxonomyTags: jest.fn(() => []),
   getBadgeVariantFromIntervention: jest.fn(() => 'dashboard-info'),
   getMediaTypeLabelFromIntervention: jest.fn(() => 'Unknown'),
@@ -67,7 +66,6 @@ jest.mock('@/utils/translate', () => ({
   ),
 }));
 
-import { getMediaTypeLabelFromUrl } from '@/utils/interventions';
 import { translateText } from '@/utils/translate';
 import apiClient from '@/api/client';
 
@@ -115,7 +113,6 @@ describe('PatientInterventionPopUp Component', () => {
   });
 
   it('renders video player for Video type', () => {
-    (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('Video');
     const item = {
       ...defaultItem,
       media_url: 'https://example.com/video.mp4',
@@ -127,7 +124,6 @@ describe('PatientInterventionPopUp Component', () => {
   });
 
   it('renders audio player for Audio type', () => {
-    (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('Audio');
     const item = {
       ...defaultItem,
       media_url: 'https://example.com/audio.mp3',
@@ -139,7 +135,6 @@ describe('PatientInterventionPopUp Component', () => {
   });
 
   it('renders PDF preview for PDF type', () => {
-    (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('PDF');
     const item = {
       ...defaultItem,
       media_url: 'https://example.com/file.pdf',
@@ -159,14 +154,12 @@ describe('PatientInterventionPopUp Component', () => {
   });
 
   it('renders Microlink preview for Link type', () => {
-    (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('Link');
     const item = { ...defaultItem, link: 'https://example.com', content_type: 'Link' };
     render(<PatientInterventionPopUp show={true} item={item} handleClose={jest.fn()} />);
     expect(screen.getByTestId('video-player')).toBeInTheDocument();
   });
 
   it('renders image for Image type', () => {
-    (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('Image');
     const item = {
       ...defaultItem,
       media_url: 'https://example.com/image.jpg',
@@ -178,7 +171,6 @@ describe('PatientInterventionPopUp Component', () => {
   });
 
   it('renders fallback link button for unknown media types', () => {
-    (getMediaTypeLabelFromUrl as jest.Mock).mockReturnValue('Unknown');
     const fallbackItem = {
       ...defaultItem,
       media_url: 'https://example.com/unknown.xyz',

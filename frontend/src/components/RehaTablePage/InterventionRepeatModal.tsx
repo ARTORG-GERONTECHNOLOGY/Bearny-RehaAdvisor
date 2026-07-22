@@ -102,7 +102,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
           <Alert
             variant="destructive"
             onClose={() => (store.error = '')}
-            closeLabel="Close alert"
+            closeLabel={t('Close alert')}
             style={{ whiteSpace: 'pre-wrap' }}
           >
             {store.error}

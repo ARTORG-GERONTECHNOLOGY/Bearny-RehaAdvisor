@@ -267,7 +267,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
         </DialogHeader>
 
         {error && (
-          <Alert variant="destructive" onClose={() => setError('')} closeLabel="Close alert">
+          <Alert variant="destructive" onClose={() => setError('')} closeLabel={t('Close alert')}>
             <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
               <span>{error}</span>
               <Button

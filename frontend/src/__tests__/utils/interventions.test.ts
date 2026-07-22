@@ -1,6 +1,4 @@
 import {
-  getBadgeVariantFromUrl,
-  getMediaTypeLabelFromUrl,
   generateTagColors,
   guessMediaTypeFromFilePath,
   guessMediaTypeFromUrl,
@@ -16,54 +14,6 @@ import {
   getContentTypeIcon,
 } from '@/utils/interventions';
 import type { InterventionMedia } from '@/utils/interventions';
-
-describe('getBadgeVariantFromUrl', () => {
-  it.each([
-    ['.mp4', '', 'dashboard-destructive'],
-    ['.mp3', '', 'dashboard-warning'],
-    ['.pdf', '', 'dashboard-info'],
-    ['.jpg', '', 'dashboard-success'],
-    ['.jpeg', '', 'dashboard-success'],
-    ['.png', '', 'dashboard-success'],
-    ['.xyz', '', 'dashboard'],
-  ])('returns correct badge for %s', (ext, link, expected) => {
-    expect(getBadgeVariantFromUrl(`file${ext}`, link)).toBe(expected);
-  });
-
-  it.each([
-    ['https://youtube.com/watch?v=abc', 'dashboard-destructive'],
-    ['https://youtu.be/xyz', 'dashboard-destructive'],
-    ['https://vimeo.com/abc', 'dashboard-destructive'],
-    ['https://unknown.com/page', 'dashboard'],
-  ])('returns correct badge for iframe links: %s', (link, expected) => {
-    expect(getBadgeVariantFromUrl('', link)).toBe(expected);
-  });
-});
-
-describe('getMediaTypeLabelFromUrl', () => {
-  it.each([
-    ['.mp4', '', 'Video'],
-    ['.mp3', '', 'Audio'],
-    ['.pdf', '', 'PDF'],
-    ['.jpg', '', 'Image'],
-    ['.png', '', 'Image'],
-    ['.weird', '', 'Unknown'],
-  ])('returns correct label for %s', (ext, link, expected) => {
-    expect(getMediaTypeLabelFromUrl(`media${ext}`, link)).toBe(expected);
-  });
-
-  it.each([
-    ['https://youtube.com/watch?v=abc', 'Video'],
-    ['https://youtu.be/xyz', 'Video'],
-    ['https://vimeo.com/abc', 'Video'],
-    ['https://example.com/file.mp4', 'Video'],
-    ['https://example.com/file.mp3', 'Audio'],
-    ['https://example.com/file.pdf', 'PDF'],
-    ['https://example.com/file.txt', 'Link'],
-  ])('returns correct label for link-only: %s', (link, expected) => {
-    expect(getMediaTypeLabelFromUrl('', link)).toBe(expected);
-  });
-});
 
 describe('generateTagColors', () => {
   it('generates consistent HSL values for tags', () => {

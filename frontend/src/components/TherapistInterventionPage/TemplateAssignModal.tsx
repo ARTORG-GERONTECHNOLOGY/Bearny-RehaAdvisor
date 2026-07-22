@@ -296,7 +296,7 @@ const TemplateAssignModal: React.FC<Props> = ({
 
         {/* ERROR BANNER */}
         {error && (
-          <Alert variant="destructive" onClose={() => setError('')} closeLabel="Close alert">
+          <Alert variant="destructive" onClose={() => setError('')} closeLabel={t('Close alert')}>
             <div className="d-flex justify-content-between">
               <span>{error}</span>
               <Button
