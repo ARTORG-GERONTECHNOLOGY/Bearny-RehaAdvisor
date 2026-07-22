@@ -1,9 +1,17 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '../../../../i18n';
 import PatientFilters from '@/components/TherapistPatientPage/PatientFilters';
 import { TherapistPatientsStore } from '@/stores/therapistPatientsStore';
 import '@testing-library/jest-dom';
+
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 jest.mock('@/api/client', () => ({
   __esModule: true,
@@ -55,23 +63,36 @@ describe('PatientFilters', () => {
     expect(store.birthdateFilter).toBe('1990-01-01');
   });
 
-  it('updates the store when selecting a sex filter', () => {
+  it('updates the store when selecting a sex filter', async () => {
+    const user = userEvent.setup();
     renderComponent();
-    fireEvent.change(screen.getByDisplayValue('Filter by Sex'), { target: { value: 'Male' } });
+    await user.click(screen.getByRole('combobox', { name: 'Filter by Sex' }));
+    await user.click(await screen.findByRole('option', { name: 'Male' }));
     expect(store.sexFilter).toBe('Male');
   });
 
-  it('updates the store when selecting a duration filter', () => {
+  it('updates the store when selecting a duration filter', async () => {
+    const user = userEvent.setup();
     renderComponent();
-    fireEvent.change(screen.getByDisplayValue('Filter by Duration'), {
-      target: { value: '< 30 days' },
-    });
+    await user.click(screen.getByRole('combobox', { name: 'Filter by Duration' }));
+    await user.click(await screen.findByRole('option', { name: '< 30 days' }));
     expect(store.durationFilter).toBe('< 30 days');
   });
 
-  it('updates the store when changing the sort option', () => {
+  it('clears the sex filter when selecting the neutral option again', async () => {
+    const user = userEvent.setup();
+    store.setSexFilter('Male');
     renderComponent();
-    fireEvent.change(screen.getByLabelText('Sort by'), { target: { value: 'created' } });
+    await user.click(screen.getByRole('combobox', { name: 'Filter by Sex' }));
+    await user.click(await screen.findByRole('option', { name: 'Filter by Sex' }));
+    expect(store.sexFilter).toBe('');
+  });
+
+  it('updates the store when changing the sort option', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+    await user.click(screen.getByRole('combobox', { name: 'Sort by' }));
+    await user.click(await screen.findByRole('option', { name: 'Newest created' }));
     expect(store.sortBy).toBe('created');
   });
 

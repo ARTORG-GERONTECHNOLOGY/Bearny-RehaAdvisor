@@ -1,8 +1,18 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
+
+// Radix Select (used by the "Default language" dropdown) relies on pointer
+// capture / scrollIntoView APIs that jsdom doesn't implement.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 // Provide stable observable mocks so MobX observer() doesn't blow up
 const mockImportStore = {
@@ -421,19 +431,19 @@ describe('Close behavior', () => {
 // ── Excel file selection & submission ──────────────────────────────────────
 
 describe('Excel file selection & submission', () => {
-  // Form.Group here has no controlId, so labels aren't associated to their
-  // inputs via "for"/"id" — query by type/position instead of label text.
+  // Each Field now has a FieldLabel with a matching htmlFor/id, so the inputs
+  // (and the Radix Select trigger) are reachable via their label text.
   function getExcelInput() {
-    return document.querySelector('input[type="file"]') as HTMLInputElement;
+    return screen.getByLabelText(/Excel file/i) as HTMLInputElement;
   }
   function getSheetNameInput() {
-    return document.querySelectorAll('input.form-control')[1] as HTMLInputElement;
+    return screen.getByLabelText('Sheet name') as HTMLInputElement;
   }
-  function getLanguageSelect() {
-    return document.querySelector('select') as HTMLSelectElement;
+  function getLanguageSelectTrigger() {
+    return screen.getByLabelText('Default language');
   }
   function getLimitInput() {
-    return document.querySelectorAll('input.form-control')[2] as HTMLInputElement;
+    return screen.getByLabelText('Limit') as HTMLInputElement;
   }
 
   it('enables Import once a file is selected', () => {
@@ -504,14 +514,16 @@ describe('Excel file selection & submission', () => {
   });
 
   it('lowercases a custom sheet name and language selection', async () => {
+    const user = userEvent.setup();
     render(<ImportInterventionsModal {...defaultProps} />);
     fireEvent.change(getExcelInput(), {
       target: { files: [new File(['x'], 'sheet.xlsx')] },
     });
     fireEvent.change(getSheetNameInput(), { target: { value: 'MySheet' } });
-    // The <select> only has lowercase option values (jsdom won't apply an
-    // unmatched value), so 'de' both selects it and exercises the lowercasing.
-    fireEvent.change(getLanguageSelect(), { target: { value: 'de' } });
+    // The Select options are already lowercase (DE); picking one both selects
+    // it and exercises the lowercasing of defaultLang before submission.
+    await user.click(getLanguageSelectTrigger());
+    await user.click(await screen.findByRole('option', { name: 'DE' }));
     fireEvent.click(screen.getByRole('button', { name: /^Import$/i }));
 
     await waitFor(() => {

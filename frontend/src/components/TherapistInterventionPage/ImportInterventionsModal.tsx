@@ -1,7 +1,7 @@
 // src/components/TherapistInterventionPage/ImportInterventionsModal.tsx
 import React, { useMemo, useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Alert, Badge, Form, Nav } from 'react-bootstrap';
+import { Alert, Badge, Nav } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -11,14 +11,23 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
+import { Field, FieldLabel, FieldError } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 import interventionsConfig from '../../config/interventions.json';
-import { interventionsImportStore } from '../../stores/interventionsImportStore';
+import { interventionsImportStore } from '@/stores/interventionsImportStore';
 import {
   MAX_MEDIA_UPLOAD_BATCH_MB,
   interventionsMediaUploadStore,
   MediaUploadFileResult,
-} from '../../stores/interventionsMediaUploadStore';
+} from '@/stores/interventionsMediaUploadStore';
 import { Button } from '@/components/ui/button';
 
 type Props = {
@@ -241,12 +250,13 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
               </Alert>
             )}
 
-            <Form>
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-semibold">
+            <form>
+              <Field className="mb-3">
+                <FieldLabel htmlFor="excel-file-input" className="fw-semibold">
                   {t('Excel file (.xlsx / .xlsm / .csv)')}
-                </Form.Label>
-                <Form.Control
+                </FieldLabel>
+                <Input
+                  id="excel-file-input"
                   type="file"
                   accept=".xlsx,.xlsm,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12"
                   onChange={(e) => {
@@ -261,9 +271,8 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                     }
                   }}
                   disabled={interventionsImportStore.loading}
-                  isInvalid={!!excelSizeError}
                 />
-                {excelSizeError && <div className="text-danger small mt-1">{excelSizeError}</div>}
+                {excelSizeError && <FieldError>{excelSizeError}</FieldError>}
                 <div className="text-muted small mt-1">
                   {t('The file should contain the intervention sheet (default: Content).')}{' '}
                   <span className="text-muted">
@@ -282,41 +291,54 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                   </span>
                 </div>
                 <div className="text-muted small mt-1">{t('multiMediaExcelInfo')}</div>
-              </Form.Group>
+              </Field>
 
               <div className="border rounded p-3 mb-3">
                 <div className="fw-semibold mb-2">{t('Options')}</div>
 
                 <div className="d-flex flex-wrap gap-3">
-                  <Form.Group style={{ minWidth: 220 }}>
-                    <Form.Label className="fw-semibold">{t('Sheet name')}</Form.Label>
-                    <Form.Control
+                  <Field style={{ minWidth: 220 }}>
+                    <FieldLabel htmlFor="import-sheet-name" className="fw-semibold">
+                      {t('Sheet name')}
+                    </FieldLabel>
+                    <Input
+                      id="import-sheet-name"
                       value={sheetName}
                       onChange={(e) => setSheetName(e.target.value)}
                       disabled={interventionsImportStore.loading}
                       placeholder={defaultSheet}
                     />
-                  </Form.Group>
+                  </Field>
 
-                  <Form.Group style={{ minWidth: 160 }}>
-                    <Form.Label className="fw-semibold">{t('Default language')}</Form.Label>
-                    <Form.Select
+                  <Field style={{ minWidth: 160 }}>
+                    <FieldLabel htmlFor="import-default-lang" className="fw-semibold">
+                      {t('Default language')}
+                    </FieldLabel>
+                    <Select
                       value={defaultLang}
-                      onChange={(e) => setDefaultLang(e.target.value)}
+                      onValueChange={(value) => setDefaultLang(value)}
                       disabled={interventionsImportStore.loading}
                     >
-                      <option value="en">EN</option>
-                      <option value="de">DE</option>
-                      <option value="fr">FR</option>
-                      <option value="it">IT</option>
-                      <option value="pt">PT</option>
-                      <option value="nl">NL</option>
-                    </Form.Select>
-                  </Form.Group>
+                      <SelectTrigger id="import-default-lang">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="en">EN</SelectItem>
+                        <SelectItem value="de">DE</SelectItem>
+                        <SelectItem value="fr">FR</SelectItem>
+                        <SelectItem value="it">IT</SelectItem>
+                        <SelectItem value="pt">PT</SelectItem>
+                        <SelectItem value="nl">NL</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
 
-                  <Form.Group style={{ minWidth: 140 }}>
-                    <Form.Label className="fw-semibold">{t('Limit')}</Form.Label>
-                    <Form.Control
+                  <Field style={{ minWidth: 140 }}>
+                    <FieldLabel htmlFor="import-limit" className="fw-semibold">
+                      {t('Limit')}
+                    </FieldLabel>
+                    <Input
+                      id="import-limit"
                       value={limit}
                       onChange={(e) => setLimit(e.target.value)}
                       disabled={interventionsImportStore.loading}
@@ -324,7 +346,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                       inputMode="numeric"
                     />
                     <div className="text-muted small">{t('Import only first N rows')}</div>
-                  </Form.Group>
+                  </Field>
                 </div>
               </div>
 
@@ -415,7 +437,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                   )}
                 </div>
               )}
-            </Form>
+            </form>
           </>
         )}
 
@@ -475,7 +497,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
               <div className="text-muted" style={{ fontSize: '0.8em' }}>
                 mp4 · mp3 · m4a · wav · pdf · jpg · png
               </div>
-              <Form.Control
+              <Input
                 id="media-file-input"
                 type="file"
                 multiple

@@ -1,5 +1,4 @@
 import React, { ChangeEvent } from 'react';
-import { Form } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import Select from 'react-select';
 import { observer } from 'mobx-react-lite';
@@ -153,18 +152,18 @@ const PatientInfoFieldRenderer: React.FC<PatientInfoFieldRendererProps> = observ
 
     if (field.type === 'date') {
       return (
-        <Form.Group controlId={key}>
-          <Form.Label>
+        <Field>
+          <FieldLabel htmlFor={key}>
             {t(field.label)} <PatientInfoSourceBadge store={store} fieldKey={key} />
-          </Form.Label>
-          <Form.Control
+          </FieldLabel>
+          <Input
             id={key}
             type="date"
             value={toDateInput(manualValue)}
             onChange={handleChange}
             aria-label={t(field.label)}
           />
-        </Form.Group>
+        </Field>
       );
     }
 

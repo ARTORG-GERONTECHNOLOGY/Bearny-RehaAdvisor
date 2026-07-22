@@ -1,9 +1,34 @@
 // src/__tests__/components/TherapistPatient/RegisterPatientForm.test.tsx
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import FormRegisterPatient from '@/components/AddPatient/RegisterPatientForm';
 import apiClient from '@/api/client';
 import '@testing-library/jest-dom';
+
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+  // Radix Checkbox measures its own size via ResizeObserver, which jsdom
+  // doesn't implement.
+  (global as any).ResizeObserver =
+    (global as any).ResizeObserver ||
+    class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+});
+
+// Opens a shadcn Select combobox by its accessible (label) name and clicks
+// the option with the given visible text.
+const selectOption = async (comboboxName: string | RegExp, optionName: string) => {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('combobox', { name: comboboxName }));
+  await user.click(await screen.findByRole('option', { name: optionName }));
+};
 
 jest.mock('@/api/client', () => ({
   __esModule: true,
@@ -70,10 +95,10 @@ const goToStep1 = async () => {
 const goToStep2 = async () => {
   await goToStep1();
   fireEvent.change(screen.getByLabelText(/^Birth Date/i), { target: { value: '1990-01-01' } });
-  fireEvent.change(screen.getByLabelText(/^Gender/i), { target: { value: 'Male' } });
+  await selectOption(/^Gender/i, 'Male');
   fireEvent.change(screen.getByLabelText(/Patient Code/i), { target: { value: 'PAT-1' } });
-  fireEvent.change(screen.getByLabelText(/^Clinic/i), { target: { value: 'Inselspital' } });
-  fireEvent.change(screen.getByLabelText(/^Project/i), { target: { value: 'COPAIN' } });
+  await selectOption(/^Clinic/i, 'Inselspital');
+  await selectOption(/^Project/i, 'COPAIN');
   fireEvent.click(screen.getByText('Next'));
   await screen.findByTestId('select-function');
 };
@@ -143,10 +168,10 @@ describe('FormRegisterPatient Component', () => {
 
   it('toggles the initial questionnaire checkbox', () => {
     renderComponent();
-    const checkbox = document.getElementById('initialQuestionnaireEnabled') as HTMLInputElement;
-    expect(checkbox.checked).toBe(false);
+    const checkbox = document.getElementById('initialQuestionnaireEnabled') as HTMLElement;
+    expect(checkbox).not.toBeChecked();
     fireEvent.click(checkbox);
-    expect(checkbox.checked).toBe(true);
+    expect(checkbox).toBeChecked();
   });
 
   describe('Birth date validation (step 2)', () => {
@@ -231,35 +256,33 @@ describe('FormRegisterPatient Component', () => {
 
   describe('Clinic/Project dynamic dropdowns', () => {
     it('populates the clinic dropdown from the therapist profile response', async () => {
+      const user = userEvent.setup();
       renderComponent();
       await goToStep1();
-      const clinicSelect = screen.getByLabelText(/^Clinic/i) as HTMLSelectElement;
-      const optionLabels = Array.from(clinicSelect.options).map((o) => o.value);
+      await user.click(screen.getByRole('combobox', { name: /^Clinic/i }));
+      const optionLabels = (await screen.findAllByRole('option')).map((o) => o.textContent);
       expect(optionLabels).toEqual(expect.arrayContaining(['Inselspital', 'Berner Reha Centrum']));
     });
 
     it('resets the project field when the clinic changes', async () => {
       renderComponent();
       await goToStep1();
-      fireEvent.change(screen.getByLabelText(/^Clinic/i), { target: { value: 'Inselspital' } });
-      fireEvent.change(screen.getByLabelText(/^Project/i), { target: { value: 'COPAIN' } });
-      expect((screen.getByLabelText(/^Project/i) as HTMLSelectElement).value).toBe('COPAIN');
+      await selectOption(/^Clinic/i, 'Inselspital');
+      await selectOption(/^Project/i, 'COPAIN');
+      expect(screen.getByRole('combobox', { name: /^Project/i })).toHaveTextContent('COPAIN');
 
-      fireEvent.change(screen.getByLabelText(/^Clinic/i), {
-        target: { value: 'Berner Reha Centrum' },
-      });
-      expect((screen.getByLabelText(/^Project/i) as HTMLSelectElement).value).toBe('');
+      await selectOption(/^Clinic/i, 'Berner Reha Centrum');
+      expect(screen.getByRole('combobox', { name: /^Project/i })).not.toHaveTextContent('COPAIN');
     });
 
     it('only offers projects allowed for the selected clinic', async () => {
+      const user = userEvent.setup();
       renderComponent();
       await goToStep1();
-      fireEvent.change(screen.getByLabelText(/^Clinic/i), {
-        target: { value: 'Berner Reha Centrum' },
-      });
+      await selectOption(/^Clinic/i, 'Berner Reha Centrum');
 
-      const projectSelect = screen.getByLabelText(/^Project/i) as HTMLSelectElement;
-      const values = Array.from(projectSelect.options).map((o) => o.value);
+      await user.click(screen.getByRole('combobox', { name: /^Project/i }));
+      const values = (await screen.findAllByRole('option')).map((o) => o.textContent);
       expect(values).toContain('COPAIN');
       expect(values).not.toContain('COMPASS');
     });
@@ -435,7 +458,13 @@ describe('FormRegisterPatient Component', () => {
       await fillMinimalValidForm();
       fireEvent.click(screen.getByRole('button', { name: /^Submit$/i }));
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(/is already registered\./i);
+      // Two role="alert" nodes now exist (the top banner and the shadcn
+      // FieldError under the offending field), so disambiguate via the
+      // banner's aria-live attribute rather than role alone.
+      expect(await screen.findByText(/Email Address: is already registered\./i)).toHaveAttribute(
+        'aria-live',
+        'assertive'
+      );
       // Jumped back to step 0, which contains the "email" field
       expect(screen.getByRole('heading', { level: 4 })).toHaveTextContent(
         /Personal Information|Patient Information/i

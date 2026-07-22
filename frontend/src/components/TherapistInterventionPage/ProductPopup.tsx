@@ -1,15 +1,6 @@
 // components/TherapistInterventionPage/ProductPopup.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Badge,
-  Button,
-  Form,
-  OverlayTrigger,
-  Tooltip,
-  ButtonGroup,
-  InputGroup,
-  Alert,
-} from 'react-bootstrap';
+import { Badge, OverlayTrigger, Tooltip, Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import Microlink from '@microlink/react';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
@@ -31,6 +22,9 @@ import TemplateAssignModal from '@/components/TherapistInterventionPage/Template
 import { translateText } from '@/utils/translate';
 import { isHttpUrl } from '@/utils/urlUtils';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { Button } from '@/components/ui/button';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 
 type UnknownRecord = Record<string, unknown>;
 const isRecord = (v: unknown): v is UnknownRecord => typeof v === 'object' && v !== null;
@@ -586,16 +580,17 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                   {loadingLangs ? <small className="text-muted">{t('Loading…')}</small> : null}
                 </div>
 
-                <ButtonGroup className="flex-wrap gap-2">
+                <ButtonGroup>
                   {sortedLangOptions.map((opt) => {
                     const optLang = String(opt.language || '').toLowerCase();
                     const active = optLang === String(effectiveItem.language || '').toLowerCase();
                     return (
                       <Button
                         key={optLang}
-                        variant={active ? 'primary' : 'outline-primary'}
-                        size="sm"
+                        size="dashboard"
+                        variant={active ? undefined : 'secondary'}
                         onClick={() => switchVariantByLang(optLang)}
+                        aria-pressed={active}
                       >
                         {optLang.toUpperCase()}
                       </Button>
@@ -733,14 +728,14 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                   <div>
                     <InputGroup>
-                      <InputGroup.Text>
-                        <FaSearch />
-                      </InputGroup.Text>
-                      <Form.Control
+                      <InputGroupInput
                         placeholder={t('Search diagnoses')}
                         value={diagSearch}
                         onChange={(e) => setDiagSearch(e.target.value)}
                       />
+                      <InputGroupAddon align="inline-start">
+                        <FaSearch />
+                      </InputGroupAddon>
                     </InputGroup>
                   </div>
                 </div>
@@ -763,7 +758,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                               </div>
                             </div>
                             <div>
-                              <ButtonGroup size="sm">
+                              <ButtonGroup>
                                 <OverlayTrigger
                                   placement="top"
                                   overlay={
@@ -773,10 +768,12 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                                   }
                                 >
                                   <Button
-                                    variant={isAssigned ? 'outline-secondary' : 'outline-success'}
+                                    size="dashboard"
+                                    variant="secondary"
                                     onClick={() => openAssign(d)}
+                                    className="px-3"
                                   >
-                                    {isAssigned ? <FaEdit /> : <FaPlus />}
+                                    {isAssigned ? <FaEdit /> : <FaPlus className="text-ok" />}
                                   </Button>
                                 </OverlayTrigger>
 
@@ -786,10 +783,12 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                                     overlay={<Tooltip>{t('Delete from template')}</Tooltip>}
                                   >
                                     <Button
-                                      variant="outline-danger"
+                                      size="dashboard"
+                                      variant="secondary"
                                       onClick={() => void removeFromTemplate(d)}
+                                      className="px-3"
                                     >
-                                      <FaTrash />
+                                      <FaTrash className="text-nok" />
                                     </Button>
                                   </OverlayTrigger>
                                 )}

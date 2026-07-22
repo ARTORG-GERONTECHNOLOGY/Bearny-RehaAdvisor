@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Form } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +11,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 
 type Props = {
   show: boolean;
@@ -89,8 +89,8 @@ const ExportModal: React.FC<Props> = ({
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
-          <div>
-            <Form.Label className="fw-bold mr-2">{t('From')}</Form.Label>
+          <div className="flex flex-col gap-1">
+            <Label className="fw-bold mr-2">{t('From')}</Label>
             <DatePicker
               selected={from}
               onChange={(d) => setFrom(d)}
@@ -98,8 +98,8 @@ const ExportModal: React.FC<Props> = ({
               dateFormat="yyyy-MM-dd"
             />
           </div>
-          <div>
-            <Form.Label className="fw-bold mr-2">{t('To')}</Form.Label>
+          <div className="flex flex-col gap-1">
+            <Label className="fw-bold mr-2">{t('To')}</Label>
             <DatePicker
               selected={to}
               onChange={(d) => setTo(d)}
@@ -111,7 +111,7 @@ const ExportModal: React.FC<Props> = ({
 
         <hr className="my-4" />
 
-        <Form.Label className="fw-bold">{t('Select Plots to Export')}</Form.Label>
+        <Label className="fw-bold">{t('Select Plots to Export')}</Label>
         <div className="mb-2">
           <span
             className={`badge rounded-pill px-3 py-2 ${allSelected ? 'bg-brand text-white' : 'bg-light text-success border border-success'}`}

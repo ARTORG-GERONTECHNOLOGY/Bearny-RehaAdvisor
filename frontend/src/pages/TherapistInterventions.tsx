@@ -1,7 +1,6 @@
 // src/pages/TherapistInterventions.tsx
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Form, ButtonGroup } from 'react-bootstrap';
 import { FaPlus, FaTrash, FaCopy, FaUpload, FaEdit, FaBell } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
@@ -49,6 +48,18 @@ import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { Separator } from '@/components/ui/separator';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { SearchIcon } from 'lucide-react';
 
 // ---------------- Template helpers (unchanged logic, moved out of render) ----------------
 const normalizeSegment = (segOrSchedule: any) => {
@@ -86,6 +97,10 @@ const defaultLibraryFilters: LibraryFiltersState = {
   aimsFilter: [],
   tagFilter: [],
 };
+
+// Sentinel "no selection" values — Radix Select forbids empty-string item values.
+const IMPLICIT_TEMPLATE_VALUE = '__implicit_template__';
+const ALL_DIAGNOSES_VALUE = '__all_diagnoses__';
 
 const defaultTemplatesFilters: TemplatesFiltersState = {
   tSearchTerm: '',
@@ -738,12 +753,12 @@ const TherapistRecomendations: React.FC = observer(() => {
           />
         )}
 
-        <AddInterventionRow onAdd={handleOpenAdd} onImport={handleOpenImport} />
-
         <MainTabs mainTab={mainTab} onChange={setMainTab} />
 
         {mainTab === 'library' ? (
           <>
+            <AddInterventionRow onAdd={handleOpenAdd} onImport={handleOpenImport} />
+
             <LibraryFiltersCard
               t={t}
               filters={libraryFilters}
@@ -761,21 +776,34 @@ const TherapistRecomendations: React.FC = observer(() => {
           </>
         ) : (
           <>
+            <Button
+              size="dashboard"
+              onClick={() => setShowNewTemplateModal(true)}
+              className="self-start"
+            >
+              <FaPlus />
+              {t('Create new template')}
+            </Button>
+
             {/* ── Named template management bar ── */}
-            <Card className="mb-3">
-              <CardContent className="p-4">
-                {/* ── Row 1: search + selector + actions ── */}
+            <Card className="my-3">
+              <CardContent className="p-3">
+                {/* ── Search & Selector ── */}
                 <div className="d-flex align-items-center flex-wrap gap-2 mb-2">
                   {/* ── Template autocomplete search ── */}
                   <div className="position-relative" style={{ minWidth: 240 }}>
-                    <Form.Control
-                      size="sm"
-                      placeholder={t('Search templates...')}
-                      value={templateSearch}
-                      onChange={(e) => setTemplateSearch(e.target.value)}
-                      onFocus={() => templateSearch && setTemplateSearch(templateSearch)}
-                      autoComplete="off"
-                    />
+                    <InputGroup>
+                      <InputGroupInput
+                        placeholder={t('Search templates...')}
+                        value={templateSearch}
+                        onChange={(e) => setTemplateSearch(e.target.value)}
+                        onFocus={() => templateSearch && setTemplateSearch(templateSearch)}
+                        autoComplete="off"
+                      />
+                      <InputGroupAddon>
+                        <SearchIcon />
+                      </InputGroupAddon>
+                    </InputGroup>
                     {templateSearch.trim() && (
                       <div
                         className="position-absolute bg-white border rounded shadow-sm mt-1 w-100"
@@ -848,25 +876,32 @@ const TherapistRecomendations: React.FC = observer(() => {
 
                   {/* ── Full template selector (for browsing without search) ── */}
                   <div className="position-relative">
-                    <Form.Select
-                      size="sm"
-                      style={{ maxWidth: 280 }}
-                      value={activeTemplateId}
-                      onChange={(e) => handleTemplateSelect(e.target.value)}
+                    <Select
+                      value={activeTemplateId || IMPLICIT_TEMPLATE_VALUE}
+                      onValueChange={(value) =>
+                        handleTemplateSelect(value === IMPLICIT_TEMPLATE_VALUE ? '' : value)
+                      }
                     >
-                      <option value="">{t('Implicit therapist template')}</option>
-                      {templateStore.templates.map((tmpl) => {
-                        const isUnseen = unseenTemplates.some((u) => u.id === tmpl.id);
-                        return (
-                          <option key={tmpl.id} value={tmpl.id}>
-                            {isUnseen ? '● ' : ''}
-                            {tmpl.name}
-                            {tmpl.is_public ? ` (${t('public')})` : ''}
-                            {tmpl.created_by !== authStore.id ? ` — ${tmpl.created_by_name}` : ''}
-                          </option>
-                        );
-                      })}
-                    </Form.Select>
+                      <SelectTrigger style={{ maxWidth: 280 }}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={IMPLICIT_TEMPLATE_VALUE}>
+                          {t('Implicit therapist template')}
+                        </SelectItem>
+                        {templateStore.templates.map((tmpl) => {
+                          const isUnseen = unseenTemplates.some((u) => u.id === tmpl.id);
+                          return (
+                            <SelectItem key={tmpl.id} value={tmpl.id}>
+                              {isUnseen ? '● ' : ''}
+                              {tmpl.name}
+                              {tmpl.is_public ? ` (${t('public')})` : ''}
+                              {tmpl.created_by !== authStore.id ? ` — ${tmpl.created_by_name}` : ''}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                     {unseenTemplates.length > 0 && (
                       <span
                         className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark"
@@ -882,80 +917,86 @@ const TherapistRecomendations: React.FC = observer(() => {
                   </div>
 
                   {templateStore.loading && <Spinner />}
-
-                  <Button size="dashboard" onClick={() => setShowNewTemplateModal(true)}>
-                    <FaPlus />
-                    {t('New')}
-                  </Button>
-
-                  {activeTemplateId && (
-                    <ButtonGroup size="sm">
-                      <Button
-                        size="dashboard"
-                        variant="secondary"
-                        onClick={() => setShowApplyModal(true)}
-                        title={t('Apply to patient')}
-                      >
-                        <FaUpload />
-                        {t('Apply')}
-                      </Button>
-                      <Button
-                        size="dashboard"
-                        variant="secondary"
-                        onClick={handleOpenEditMeta}
-                        title={t('Edit name / description')}
-                      >
-                        <FaEdit />
-                        {t('Edit')}
-                      </Button>
-                      <Button
-                        size="dashboard"
-                        variant="secondary"
-                        onClick={handleCopyActiveTemplate}
-                        title={t('Copy template')}
-                      >
-                        <FaCopy />
-                        {t('Copy')}
-                      </Button>
-                      {(templateStore.templates.find((x) => x.id === activeTemplateId)
-                        ?.created_by === authStore.id ||
-                        authStore.userType === 'Admin') && (
-                        <Button
-                          size="dashboard"
-                          className="bg-nok hover:bg-nok/90"
-                          onClick={handleDeleteActiveTemplate}
-                          title={t('Delete template')}
-                        >
-                          <FaTrash />
-                          {t('Delete')}
-                        </Button>
-                      )}
-                    </ButtonGroup>
-                  )}
                 </div>
 
-                {/* ── Row 2: view options (diagnosis + horizon) ── */}
-                <div className="d-flex align-items-center flex-wrap gap-3">
-                  <div className="d-flex align-items-center gap-1">
-                    <small className="text-muted">{t('Diagnosis_patient_list')}:</small>
-                    <Form.Select
-                      size="sm"
-                      style={{ maxWidth: 200 }}
-                      value={templateDiag}
-                      onChange={(e) => setTemplateDiag(e.target.value)}
+                <Separator className="my-4" />
+
+                {/* ── Action Buttons ── */}
+                {activeTemplateId && (
+                  <ButtonGroup className="mb-3">
+                    <Button
+                      size="dashboard"
+                      variant="secondary"
+                      onClick={() => setShowApplyModal(true)}
+                      title={t('Apply to patient')}
+                      className="px-3"
                     >
-                      <option value="">{t('All')}</option>
-                      {diagnoses.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </Form.Select>
+                      <FaUpload />
+                      {t('Apply')}
+                    </Button>
+                    <Button
+                      size="dashboard"
+                      variant="secondary"
+                      onClick={handleOpenEditMeta}
+                      title={t('Edit name / description')}
+                      className="px-3"
+                    >
+                      <FaEdit />
+                      {t('Edit')}
+                    </Button>
+                    <Button
+                      size="dashboard"
+                      variant="secondary"
+                      onClick={handleCopyActiveTemplate}
+                      title={t('Copy template')}
+                      className="px-3"
+                    >
+                      <FaCopy />
+                      {t('Copy')}
+                    </Button>
+                    {(templateStore.templates.find((x) => x.id === activeTemplateId)?.created_by ===
+                      authStore.id ||
+                      authStore.userType === 'Admin') && (
+                      <Button
+                        size="dashboard"
+                        variant="secondary"
+                        className="text-nok px-3"
+                        onClick={handleDeleteActiveTemplate}
+                        title={t('Delete template')}
+                      >
+                        <FaTrash />
+                        {t('Delete')}
+                      </Button>
+                    )}
+                  </ButtonGroup>
+                )}
+
+                {/* ── View options ── */}
+                <div className="d-flex align-items-center flex-wrap gap-3">
+                  <div>
+                    <small className="text-muted">{t('Diagnosis_patient_list')}:</small>
+                    <Select
+                      value={templateDiag || ALL_DIAGNOSES_VALUE}
+                      onValueChange={(value) =>
+                        setTemplateDiag(value === ALL_DIAGNOSES_VALUE ? '' : value)
+                      }
+                    >
+                      <SelectTrigger style={{ maxWidth: 200 }}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={ALL_DIAGNOSES_VALUE}>{t('All')}</SelectItem>
+                        {diagnoses.map((d) => (
+                          <SelectItem key={d} value={d}>
+                            {d}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="d-flex align-items-center gap-1">
+                  <div>
                     <small className="text-muted">{t('Horizon (days)')}:</small>
-                    <Form.Control
-                      size="sm"
+                    <Input
                       type="number"
                       min={14}
                       max={180}
@@ -972,7 +1013,7 @@ const TherapistRecomendations: React.FC = observer(() => {
                     if (!tmpl) return null;
                     const diff = sessionDiffs[activeTemplateId];
                     return (
-                      <div className="d-flex flex-column ms-2" style={{ maxWidth: 480 }}>
+                      <div className="mt-3 d-flex flex-column" style={{ maxWidth: 480 }}>
                         {tmpl.description && (
                           <small className="text-muted">{tmpl.description}</small>
                         )}

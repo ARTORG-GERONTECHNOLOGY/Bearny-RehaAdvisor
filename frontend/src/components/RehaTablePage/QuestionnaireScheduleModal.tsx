@@ -1,6 +1,6 @@
 // src/components/RehaTablePage/QuestionnaireScheduleModal.tsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Alert, Form } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,17 @@ import StandardModal from '@/components/common/StandardModal';
 import { toISODateUTC } from '@/utils/dateFormat';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel, FieldGroup, FieldDescription } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 type Mode = 'create' | 'modify';
 
@@ -346,145 +357,150 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
           </Alert>
         )}
 
-        <div className="mb-2">
-          <strong>{questionnaire?.title || t('Questionnaire')}</strong>
-        </div>
+        <strong>{questionnaire?.title || t('Questionnaire')}</strong>
 
-        <Form>
-          {isModify ? (
-            <Form.Group className="mb-3" controlId="q-effective-from">
-              <Form.Label>{t('Effective from')}</Form.Label>
-              <DatePicker
-                selected={effectiveFrom}
-                onChange={(d) => setEffectiveFrom(d as Date)}
-                className="form-control"
-                dateFormat="yyyy-MM-dd"
-              />
-              <Form.Text className="text-muted">
-                {t('Only sessions on or after this date will change. Past sessions stay as-is.')}
-              </Form.Text>
-            </Form.Group>
-          ) : (
-            <Form.Group className="mb-3" controlId="q-start-date">
-              <Form.Label>{t('Start Date')}</Form.Label>
-              <DatePicker
-                selected={startDateCreate}
-                onChange={(d) => setStartDateCreate(d as Date)}
-                className="form-control"
-                dateFormat="yyyy-MM-dd"
-              />
-              <Form.Text className="text-muted">
-                {t('If unsure, start tomorrow at 08:00.')}
-              </Form.Text>
-            </Form.Group>
-          )}
-
-          <Form.Group
-            className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center mb-3"
-            controlId="q-start-time"
-          >
-            <Form.Label className="sm:col-span-4 mb-0">{t('Start Time')}</Form.Label>
-            <div className="sm:col-span-8">
-              <Form.Control
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
-            </div>
-          </Form.Group>
-
-          <Form.Group
-            className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center mb-3"
-            controlId="q-repeat-every"
-          >
-            <Form.Label className="sm:col-span-4 mb-0">{t('Repeat every')}</Form.Label>
-            <div className="sm:col-span-4">
-              <Form.Control
-                type="number"
-                min={1}
-                value={interval}
-                onChange={(e) => setInterval(parseInt(e.target.value || '1', 10))}
-              />
-            </div>
-            <div className="sm:col-span-4">
-              <Form.Select value={unit} onChange={(e) => setUnit(e.target.value as any)}>
-                <option value="day">{t('Day')}</option>
-                <option value="week">{t('Week')}</option>
-                <option value="month">{t('Month')}</option>
-              </Form.Select>
-            </div>
-            <div className="sm:col-span-12">
-              <Form.Text className="text-muted">{summary}</Form.Text>
-            </div>
-          </Form.Group>
-
-          {unit === 'week' && (
-            <Form.Group className="mb-3" role="group" aria-label={t('Select days of the week')}>
-              <div className="d-flex flex-wrap gap-2">
-                {weekdays.map((day) => (
-                  <Button
-                    key={day}
-                    type="button"
-                    size="dashboard"
-                    variant={selectedDays.includes(day) ? undefined : 'secondary'}
-                    onClick={() => toggleDay(day)}
-                    aria-pressed={selectedDays.includes(day)}
-                    disabled={submitting}
-                  >
-                    {t(day)}
-                  </Button>
-                ))}
-              </div>
-            </Form.Group>
-          )}
-
-          <Form.Group className="mb-3" role="radiogroup" aria-label={t('End options')}>
-            <Form.Label>{t('Ends')}</Form.Label>
-            <div className="d-flex flex-column gap-2">
-              <Form.Check
-                type="radio"
-                id="q-end-never"
-                label={t('Never')}
-                checked={endOption === 'never'}
-                onChange={() => setEndOption('never')}
-                disabled={submitting}
-              />
-              <Form.Check
-                type="radio"
-                id="q-end-date"
-                label={t('On date')}
-                checked={endOption === 'date'}
-                onChange={() => setEndOption('date')}
-                disabled={submitting}
-              />
-              {endOption === 'date' && (
+        <form>
+          <FieldGroup>
+            {isModify ? (
+              <Field>
+                <FieldLabel htmlFor="q-effective-from">{t('Effective from')}</FieldLabel>
                 <DatePicker
-                  selected={endDate}
-                  onChange={(d) => setEndDate(d as Date)}
+                  id="q-effective-from"
+                  selected={effectiveFrom}
+                  onChange={(d) => setEffectiveFrom(d as Date)}
                   className="form-control"
                   dateFormat="yyyy-MM-dd"
                 />
-              )}
+                <FieldDescription>
+                  {t('Only sessions on or after this date will change. Past sessions stay as-is.')}
+                </FieldDescription>
+              </Field>
+            ) : (
+              <Field>
+                <FieldLabel htmlFor="q-start-date">{t('Start Date')}</FieldLabel>
+                <DatePicker
+                  id="q-start-date"
+                  selected={startDateCreate}
+                  onChange={(d) => setStartDateCreate(d as Date)}
+                  className="form-control"
+                  dateFormat="yyyy-MM-dd"
+                />
+                <FieldDescription>{t('If unsure, start tomorrow at 08:00.')}</FieldDescription>
+              </Field>
+            )}
 
-              <Form.Check
-                type="radio"
-                id="q-end-count"
-                label={t('After N times')}
-                checked={endOption === 'count'}
-                onChange={() => setEndOption('count')}
-                disabled={submitting}
-              />
-              {endOption === 'count' && (
-                <Form.Control
+            <Field className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+              <FieldLabel htmlFor="q-start-time" className="sm:col-span-4 mb-0">
+                {t('Start Time')}
+              </FieldLabel>
+              <div className="sm:col-span-8">
+                <Input
+                  id="q-start-time"
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                />
+              </div>
+            </Field>
+
+            <Field className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+              <FieldLabel htmlFor="q-repeat-every" className="sm:col-span-4 mb-0">
+                {t('Repeat every')}
+              </FieldLabel>
+              <div className="sm:col-span-4">
+                <Input
+                  id="q-repeat-every"
                   type="number"
                   min={1}
-                  value={occurrenceCount}
-                  onChange={(e) => setOccurrenceCount(parseInt(e.target.value || '1', 10))}
+                  value={interval}
+                  onChange={(e) => setInterval(parseInt(e.target.value || '1', 10))}
                 />
-              )}
-            </div>
-          </Form.Group>
-        </Form>
+              </div>
+              <div className="sm:col-span-4">
+                <Select value={unit} onValueChange={(v) => setUnit(v as any)}>
+                  <SelectTrigger id="q-repeat-unit">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="day">{t('Day')}</SelectItem>
+                    <SelectItem value="week">{t('Week')}</SelectItem>
+                    <SelectItem value="month">{t('Month')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="sm:col-span-12">
+                <FieldDescription>{summary}</FieldDescription>
+              </div>
+            </Field>
+
+            {unit === 'week' && (
+              <div role="group" aria-label={t('Select days of the week')}>
+                <div className="d-flex flex-wrap gap-2">
+                  {weekdays.map((day) => (
+                    <Button
+                      key={day}
+                      type="button"
+                      size="dashboard"
+                      variant={selectedDays.includes(day) ? undefined : 'secondary'}
+                      onClick={() => toggleDay(day)}
+                      aria-pressed={selectedDays.includes(day)}
+                      disabled={submitting}
+                    >
+                      {t(day)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Field>
+              <FieldLabel>{t('Ends')}</FieldLabel>
+              <RadioGroup
+                value={endOption}
+                onValueChange={(v) => setEndOption(v as any)}
+                disabled={submitting}
+                aria-label={t('End options')}
+                className="flex flex-col gap-2"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="never" id="q-end-never" />
+                  <Label htmlFor="q-end-never" className="cursor-pointer">
+                    {t('Never')}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="date" id="q-end-date" />
+                  <Label htmlFor="q-end-date" className="cursor-pointer">
+                    {t('On date')}
+                  </Label>
+                </div>
+                {endOption === 'date' && (
+                  <DatePicker
+                    selected={endDate}
+                    onChange={(d) => setEndDate(d as Date)}
+                    className="form-control"
+                    dateFormat="yyyy-MM-dd"
+                  />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="count" id="q-end-count" />
+                  <Label htmlFor="q-end-count" className="cursor-pointer">
+                    {t('After N times')}
+                  </Label>
+                </div>
+                {endOption === 'count' && (
+                  <Input
+                    type="number"
+                    min={1}
+                    value={occurrenceCount}
+                    onChange={(e) => setOccurrenceCount(parseInt(e.target.value || '1', 10))}
+                  />
+                )}
+              </RadioGroup>
+            </Field>
+          </FieldGroup>
+        </form>
       </StandardModal>
     );
   }

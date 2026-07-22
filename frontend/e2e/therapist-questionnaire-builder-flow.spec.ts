@@ -56,7 +56,8 @@ test.describe('Therapist questionnaire builder full flow', () => {
     await modal.getByRole('button', { name: /add question/i }).click();
 
     await modal.locator('#q-builder-text-1').fill('Did you complete your exercises?');
-    await modal.locator('#q-builder-type-1').selectOption('one-choice');
+    await modal.locator('#q-builder-type-1').click();
+    await page.getByRole('option', { name: 'One choice' }).click();
     await modal.locator('#q-builder-options-1').fill('Yes\nNo');
 
     const createDone = page.waitForResponse(
@@ -83,7 +84,8 @@ test.describe('Therapist questionnaire builder full flow', () => {
     await expect(scheduleModal.getByText(/assign questionnaire/i)).toBeVisible();
 
     // Week mode requires selected weekdays; switching to month avoids optional day-selection flakiness.
-    await scheduleModal.locator('select').last().selectOption('month');
+    await scheduleModal.locator('#q-repeat-unit').click();
+    await page.getByRole('option', { name: 'Month' }).click();
 
     const assignDone = page.waitForResponse(
       (res) => res.url().includes('/questionnaires/assign/') && res.request().method() === 'POST'

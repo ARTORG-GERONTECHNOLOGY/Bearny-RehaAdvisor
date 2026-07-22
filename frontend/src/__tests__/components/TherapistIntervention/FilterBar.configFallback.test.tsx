@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import FilterBar from '@/components/TherapistInterventionPage/FilterBar';
 import '@testing-library/jest-dom';
 
@@ -7,6 +8,15 @@ global.ResizeObserver = class ResizeObserver {
   unobserve() {}
   disconnect() {}
 } as any;
+
+// Radix Select (used by the content-type filter) relies on pointer capture /
+// scrollIntoView APIs that jsdom doesn't implement.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 // Overrides the shared canonical interventions.json mock (see LibraryFiltersCard.configFallback.test.tsx
 // and interventionsTaxonomyStore.configFallback.test.ts) with a genuinely empty config, to exercise
@@ -26,7 +36,8 @@ jest.mock('react-select', () => ({
 describe('FilterBar config fallback', () => {
   const mockT = (key: string) => key;
 
-  it('falls back to empty option lists when interventions.json has no taxonomy data', () => {
+  it('falls back to empty option lists when interventions.json has no taxonomy data', async () => {
+    const user = userEvent.setup();
     render(
       <FilterBar
         searchTerm=""
@@ -47,7 +58,12 @@ describe('FilterBar config fallback', () => {
     expect(screen.getByTestId('options-Filter-by-Language')).toHaveTextContent('0');
     expect(screen.getByTestId('options-Filter-by-Tags')).toHaveTextContent('0');
 
+    // Only the "All Content Types" clear option is shown; no content type options exist.
+    expect(screen.getByText('All Content Types')).toBeInTheDocument();
     const contentTypeSelect = screen.getByRole('combobox', { name: 'Filter by Content Type' });
-    expect(contentTypeSelect.querySelectorAll('option').length).toBe(1); // just "All Content Types"
+    await user.click(contentTypeSelect);
+    const options = screen.queryAllByRole('option');
+    expect(options.length).toBe(1);
+    expect(options[0]).toHaveTextContent('All Content Types');
   });
 });

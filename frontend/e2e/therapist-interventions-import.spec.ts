@@ -409,7 +409,8 @@ test.describe('COPAIN MSK file import — UI level', () => {
     await sheetField.fill(COPAIN_SHEET);
 
     // Set the default language to German (the file IDs end in _de)
-    await modal.getByRole('combobox').selectOption('de');
+    await modal.getByRole('combobox').click();
+    await page.getByRole('option', { name: 'DE', exact: true }).click();
 
     // Attach the real file
     const fileInput = modal.locator('input[type="file"]').first();

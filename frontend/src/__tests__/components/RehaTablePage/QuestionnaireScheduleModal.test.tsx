@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import QuestionnaireScheduleModal from '@/components/RehaTablePage/QuestionnaireScheduleModal';
 import apiClient from '@/api/client';
@@ -10,6 +11,29 @@ jest.mock('@/stores/authStore', () => ({
   __esModule: true,
   default: { id: 'therapist-1' },
 }));
+
+// Radix RadioGroup (via @radix-ui/react-use-size) needs ResizeObserver, which jsdom
+// doesn't implement.
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
+// Radix Select (used for the repeat "unit" dropdown) relies on pointer capture /
+// scrollIntoView APIs that jsdom doesn't implement.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
+
+const selectUnit = async (unitLabel: string) => {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('combobox'));
+  await user.click(await screen.findByRole('option', { name: unitLabel }));
+};
 
 const questionnaire = { _id: 'q-1', key: 'health-q', title: 'Health Check-in' };
 
@@ -72,9 +96,9 @@ describe('QuestionnaireScheduleModal', () => {
       expect(screen.getByRole('button', { name: 'Mon' })).toBeInTheDocument();
     });
 
-    it('hides weekday buttons when the unit is day', () => {
+    it('hides weekday buttons when the unit is day', async () => {
       render(<QuestionnaireScheduleModal {...defaultProps} />);
-      fireEvent.change(screen.getByDisplayValue('Week'), { target: { value: 'day' } });
+      await selectUnit('Day');
       expect(screen.queryByRole('button', { name: 'Mon' })).not.toBeInTheDocument();
     });
   });
@@ -348,9 +372,9 @@ describe('QuestionnaireScheduleModal', () => {
       expect(timeInput).toHaveValue('09:15');
     });
 
-    it('shows the monthly summary text when unit is month', () => {
+    it('shows the monthly summary text when unit is month', async () => {
       render(<QuestionnaireScheduleModal {...defaultProps} />);
-      fireEvent.change(screen.getByDisplayValue('Week'), { target: { value: 'month' } });
+      await selectUnit('Month');
       expect(screen.getByText('Occurs monthly on the same date.')).toBeInTheDocument();
 
       fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '2' } });
@@ -366,22 +390,22 @@ describe('QuestionnaireScheduleModal', () => {
       expect(screen.queryByDisplayValue('8')).not.toBeInTheDocument();
     });
 
-    it('shows the singular daily summary text when unit is day and interval is 1', () => {
+    it('shows the singular daily summary text when unit is day and interval is 1', async () => {
       render(<QuestionnaireScheduleModal {...defaultProps} />);
-      fireEvent.change(screen.getByDisplayValue('Week'), { target: { value: 'day' } });
+      await selectUnit('Day');
       expect(screen.getByText('Occurs every day.')).toBeInTheDocument();
     });
 
-    it('shows the ordinal daily summary text and falls back to the "th" suffix for interval 5', () => {
+    it('shows the ordinal daily summary text and falls back to the "th" suffix for interval 5', async () => {
       render(<QuestionnaireScheduleModal {...defaultProps} />);
-      fireEvent.change(screen.getByDisplayValue('Week'), { target: { value: 'day' } });
+      await selectUnit('Day');
       fireEvent.change(screen.getByDisplayValue('1'), { target: { value: '5' } });
       expect(screen.getByText(/Occurs every 5th day\./i)).toBeInTheDocument();
     });
 
-    it('shows the singular monthly summary text when interval is 1', () => {
+    it('shows the singular monthly summary text when interval is 1', async () => {
       render(<QuestionnaireScheduleModal {...defaultProps} />);
-      fireEvent.change(screen.getByDisplayValue('Week'), { target: { value: 'month' } });
+      await selectUnit('Month');
       expect(screen.getByText('Occurs monthly on the same date.')).toBeInTheDocument();
     });
 

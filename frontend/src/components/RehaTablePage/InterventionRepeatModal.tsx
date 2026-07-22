@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Form, Alert } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,19 @@ import authStore from '@/stores/authStore';
 import config from '@/config/config.json';
 import { InterventionRepeatModalStore } from '@/stores/interventionRepeatModalStore';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel, FieldGroup, FieldDescription } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 type Mode = 'create' | 'modify';
 
@@ -106,82 +119,94 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
           </Alert>
         )}
 
-        <Form>
-          {store.isModify ? (
-            <Form.Group className="mb-3">
-              <Form.Label>{t('Effective from')}</Form.Label>
-              <DatePicker
-                selected={store.effectiveFrom}
-                onChange={(d) => (store.effectiveFrom = d as Date)}
-                className="form-control"
-                dateFormat="yyyy-MM-dd"
-              />
-            </Form.Group>
-          ) : (
-            <Form.Group className="mb-3">
-              <Form.Label>{t('Start Date')}</Form.Label>
-              <DatePicker
-                selected={store.startDateCreate}
-                onChange={(d) => (store.startDateCreate = d as Date)}
-                className="form-control"
-                dateFormat="yyyy-MM-dd"
-              />
-            </Form.Group>
-          )}
-
-          {store.isModify && (
-            <Form.Group className="mb-3">
-              <Form.Check
-                type="checkbox"
-                label={t('Keep current schedule (only update flags)')}
-                checked={store.keepCurrent}
-                onChange={(e) => (store.keepCurrent = e.target.checked)}
-              />
-            </Form.Group>
-          )}
-
-          {(!store.isModify || !store.keepCurrent) && (
-            <Form.Group className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center mb-3">
-              <Form.Label className="sm:col-span-4">{t('Start Time')}</Form.Label>
-              <div className="sm:col-span-8">
-                <Form.Control
-                  type="time"
-                  value={store.startTime}
-                  onChange={(e) => (store.startTime = e.target.value)}
+        <form>
+          <FieldGroup>
+            {store.isModify ? (
+              <Field>
+                <FieldLabel htmlFor="ir-effective-from">{t('Effective from')}</FieldLabel>
+                <DatePicker
+                  id="ir-effective-from"
+                  selected={store.effectiveFrom}
+                  onChange={(d) => (store.effectiveFrom = d as Date)}
+                  className="form-control"
+                  dateFormat="yyyy-MM-dd"
                 />
-              </div>
-            </Form.Group>
-          )}
+              </Field>
+            ) : (
+              <Field>
+                <FieldLabel htmlFor="ir-start-date">{t('Start Date')}</FieldLabel>
+                <DatePicker
+                  id="ir-start-date"
+                  selected={store.startDateCreate}
+                  onChange={(d) => (store.startDateCreate = d as Date)}
+                  className="form-control"
+                  dateFormat="yyyy-MM-dd"
+                />
+              </Field>
+            )}
 
-          {(!store.isModify || !store.keepCurrent) && (
-            <>
-              <Form.Group className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center mb-3">
-                <Form.Label className="sm:col-span-4">{t('Repeat every')}</Form.Label>
-                <div className="sm:col-span-4">
-                  <Form.Control
-                    type="number"
-                    min="1"
-                    value={store.interval}
-                    onChange={(e) => (store.interval = Number(e.target.value))}
+            {store.isModify && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="ir-keep-current"
+                  checked={store.keepCurrent}
+                  onCheckedChange={(checked) => (store.keepCurrent = !!checked)}
+                />
+                <Label htmlFor="ir-keep-current" className="cursor-pointer">
+                  {t('Keep current schedule (only update flags)')}
+                </Label>
+              </div>
+            )}
+
+            {(!store.isModify || !store.keepCurrent) && (
+              <Field className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                <FieldLabel htmlFor="ir-start-time" className="sm:col-span-4">
+                  {t('Start Time')}
+                </FieldLabel>
+                <div className="sm:col-span-8">
+                  <Input
+                    id="ir-start-time"
+                    type="time"
+                    value={store.startTime}
+                    onChange={(e) => (store.startTime = e.target.value)}
                   />
                 </div>
-                <div className="sm:col-span-4">
-                  <Form.Select
-                    value={store.unit}
-                    onChange={(e) => (store.unit = e.target.value as any)}
-                  >
-                    <option value="day">{t('Day')}</option>
-                    <option value="week">{t('Week')}</option>
-                    <option value="month">{t('Month')}</option>
-                  </Form.Select>
-                </div>
-                <div className="sm:col-span-12">
-                  <Form.Text muted>{store.summary}</Form.Text>
-                </div>
-              </Form.Group>
+              </Field>
+            )}
 
-              {store.unit === 'week' && (
-                <Form.Group className="mb-3">
+            {(!store.isModify || !store.keepCurrent) && (
+              <>
+                <Field className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                  <FieldLabel htmlFor="ir-repeat-every" className="sm:col-span-4">
+                    {t('Repeat every')}
+                  </FieldLabel>
+                  <div className="sm:col-span-4">
+                    <Input
+                      id="ir-repeat-every"
+                      type="number"
+                      min="1"
+                      value={store.interval}
+                      onChange={(e) => (store.interval = Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="sm:col-span-4">
+                    <Select value={store.unit} onValueChange={(v) => (store.unit = v as any)}>
+                      <SelectTrigger id="ir-repeat-unit">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="day">{t('Day')}</SelectItem>
+                        <SelectItem value="week">{t('Week')}</SelectItem>
+                        <SelectItem value="month">{t('Month')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="sm:col-span-12">
+                    <FieldDescription>{store.summary}</FieldDescription>
+                  </div>
+                </Field>
+
+                {store.unit === 'week' && (
                   <div className="d-flex flex-wrap gap-2">
                     {store.weekdays.map((day) => (
                       <Button
@@ -195,72 +220,80 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                       </Button>
                     ))}
                   </div>
-                </Form.Group>
-              )}
+                )}
 
-              <Form.Group className="mb-3">
-                <Form.Label>{t('Ends')}</Form.Label>
-                <div className="d-flex flex-column gap-2">
-                  <Form.Check
-                    type="radio"
-                    label={t('Never')}
-                    checked={store.endOption === 'never'}
-                    onChange={() => (store.endOption = 'never')}
-                  />
-                  <Form.Check
-                    type="radio"
-                    label={t('On date')}
-                    checked={store.endOption === 'date'}
-                    onChange={() => (store.endOption = 'date')}
-                  />
-                  {store.endOption === 'date' && (
-                    <DatePicker
-                      selected={store.endDate}
-                      onChange={(d) => (store.endDate = d as Date)}
-                      className="form-control"
-                      dateFormat="yyyy-MM-dd"
-                    />
-                  )}
-                  <Form.Check
-                    type="radio"
-                    label={t('After N times')}
-                    checked={store.endOption === 'count'}
-                    onChange={() => (store.endOption = 'count')}
-                  />
-                  {store.endOption === 'count' && (
-                    <Form.Control
-                      type="number"
-                      value={store.occurrenceCount}
-                      onChange={(e) => (store.occurrenceCount = Number(e.target.value))}
-                    />
-                  )}
-                </div>
-              </Form.Group>
-            </>
-          )}
+                <Field>
+                  <FieldLabel>{t('Ends')}</FieldLabel>
+                  <RadioGroup
+                    value={store.endOption}
+                    onValueChange={(v) => (store.endOption = v as any)}
+                    className="flex flex-col gap-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="never" id="ir-end-never" />
+                      <Label htmlFor="ir-end-never" className="cursor-pointer">
+                        {t('Never')}
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="date" id="ir-end-date" />
+                      <Label htmlFor="ir-end-date" className="cursor-pointer">
+                        {t('On date')}
+                      </Label>
+                    </div>
+                    {store.endOption === 'date' && (
+                      <DatePicker
+                        selected={store.endDate}
+                        onChange={(d) => (store.endDate = d as Date)}
+                        className="form-control"
+                        dateFormat="yyyy-MM-dd"
+                      />
+                    )}
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="count" id="ir-end-count" />
+                      <Label htmlFor="ir-end-count" className="cursor-pointer">
+                        {t('After N times')}
+                      </Label>
+                    </div>
+                    {store.endOption === 'count' && (
+                      <Input
+                        type="number"
+                        value={store.occurrenceCount}
+                        onChange={(e) => (store.occurrenceCount = Number(e.target.value))}
+                      />
+                    )}
+                  </RadioGroup>
+                </Field>
+              </>
+            )}
 
-          <Form.Group className="mb-3">
-            <Form.Label>{t('Personal instructions for the patient')}</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              value={store.personalNote}
-              onChange={(e) => (store.personalNote = e.target.value)}
-              placeholder={t(
-                'e.g., Keep shoulders relaxed; perform slowly and stop if pain > 4/10.'
-              )}
-            />
-          </Form.Group>
+            <Field>
+              <FieldLabel htmlFor="ir-personal-note">
+                {t('Personal instructions for the patient')}
+              </FieldLabel>
+              <Textarea
+                id="ir-personal-note"
+                rows={3}
+                value={store.personalNote}
+                onChange={(e) => (store.personalNote = e.target.value)}
+                placeholder={t(
+                  'e.g., Keep shoulders relaxed; perform slowly and stop if pain > 4/10.'
+                )}
+              />
+            </Field>
 
-          <Form.Group className="mb-3">
-            <Form.Check
-              type="checkbox"
-              label={t('Ask video feedback from patient')}
-              checked={store.requireVideoFeedback}
-              onChange={() => (store.requireVideoFeedback = !store.requireVideoFeedback)}
-            />
-          </Form.Group>
-        </Form>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="ir-video-feedback"
+                checked={store.requireVideoFeedback}
+                onCheckedChange={() => (store.requireVideoFeedback = !store.requireVideoFeedback)}
+              />
+              <Label htmlFor="ir-video-feedback" className="cursor-pointer">
+                {t('Ask video feedback from patient')}
+              </Label>
+            </div>
+          </FieldGroup>
+        </form>
 
         <DialogFooter>
           <Button

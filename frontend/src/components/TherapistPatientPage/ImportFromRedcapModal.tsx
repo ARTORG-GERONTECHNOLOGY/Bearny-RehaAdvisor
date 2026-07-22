@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Badge, Alert } from 'react-bootstrap';
+import { Badge, Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableHeader,
@@ -166,7 +167,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
                     </TableCell>
 
                     <TableCell>
-                      <Form.Control
+                      <Input
                         type="text"
                         value={rowPasswords[key] ?? ''} // ✅ controlled by store map
                         placeholder="TempPass123!"
@@ -174,11 +175,11 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
                         autoComplete="off"
                         onChange={(e) => setRowPassword(key, e.currentTarget.value)} // ✅ this must update the map
                       />
-                      <Form.Text className="text-muted">
+                      <p className="text-muted-foreground text-sm">
                         {hasPat
                           ? t('Password for this patient.')
                           : t('Password for this record-only patient.')}
-                      </Form.Text>
+                      </p>
                     </TableCell>
 
                     <TableCell className="text-end">

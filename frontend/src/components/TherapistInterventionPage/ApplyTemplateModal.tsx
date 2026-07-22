@@ -1,6 +1,6 @@
 // src/components/TherapistInterventionPage/ApplyTemplateModal.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Form, Alert, Badge } from 'react-bootstrap';
+import { Alert, Badge } from 'react-bootstrap';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,18 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Field, FieldLabel, FieldDescription, FieldError } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type PatientOption = {
   _id: string;
@@ -278,7 +290,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
           </Alert>
         )}
 
-        <Form>
+        <form>
           {/* Mode toggle */}
           <Tabs value={mode} onValueChange={(v) => setMode(v as 'patient' | 'diagnosis')}>
             <TabsList>
@@ -287,16 +299,16 @@ const ApplyTemplateModal: React.FC<Props> = ({
             </TabsList>
 
             {/* ── Patient multi-select ── */}
-            <TabsContent value="patient">
-              <Form.Group className="mb-3">
-                <Form.Label>
+            <TabsContent value="patient" className="mt-3">
+              <Field className="mb-3">
+                <FieldLabel>
                   {t('Patients')}{' '}
                   {selectedIds.size > 0 && (
                     <Badge bg="primary" className="ms-1">
                       {selectedIds.size} {t('selected')}
                     </Badge>
                   )}
-                </Form.Label>
+                </FieldLabel>
 
                 {loadingPatients ? (
                   <div className="text-center py-3">
@@ -304,8 +316,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
                   </div>
                 ) : (
                   <>
-                    <Form.Control
-                      size="sm"
+                    <Input
                       placeholder={t('Search')}
                       value={patientSearch}
                       onChange={(e) => setPatientSearch(e.target.value)}
@@ -319,127 +330,131 @@ const ApplyTemplateModal: React.FC<Props> = ({
                       ) : (
                         <>
                           {/* Select all row */}
-                          <div
-                            className="d-flex align-items-center px-3 py-2 border-bottom bg-light"
-                            style={{ cursor: 'pointer' }}
-                            onClick={toggleAll}
-                          >
-                            <Form.Check
-                              type="checkbox"
-                              readOnly
+                          <div className="d-flex align-items-center px-3 py-2 border-bottom bg-light">
+                            <Checkbox
+                              id="select-all-patients"
                               checked={
                                 filteredPatients.length > 0 &&
                                 selectedIds.size === filteredPatients.length
                               }
-                              className="me-2 pointer-events-none"
+                              onCheckedChange={toggleAll}
+                              className="me-2"
                             />
-                            <span className="small fw-semibold">{t('Select All')}</span>
+                            <label
+                              htmlFor="select-all-patients"
+                              className="small fw-semibold"
+                              style={{ cursor: 'pointer' }}
+                            >
+                              {t('Select All')}
+                            </label>
                           </div>
 
                           {filteredPatients.map((p) => (
                             <div
                               key={p._id}
                               className={`d-flex align-items-center px-3 py-2 border-bottom ${selectedIds.has(p._id) ? 'bg-primary bg-opacity-10' : ''}`}
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => togglePatient(p._id)}
                             >
-                              <Form.Check
-                                type="checkbox"
-                                readOnly
+                              <Checkbox
+                                id={`patient-${p._id}`}
                                 checked={selectedIds.has(p._id)}
-                                className="me-2 pointer-events-none"
+                                onCheckedChange={() => togglePatient(p._id)}
+                                className="me-2"
                               />
-                              <span className="small">
+                              <label
+                                htmlFor={`patient-${p._id}`}
+                                className="small"
+                                style={{ cursor: 'pointer' }}
+                              >
                                 <strong>
                                   {p.first_name} {p.name}
                                 </strong>
                                 <span className="text-muted ms-2">({p.patient_code})</span>
-                              </span>
+                              </label>
                             </div>
                           ))}
                         </>
                       )}
                     </div>
-                    {fieldErrors.patientIds && (
-                      <div className="text-danger small mt-1">{fieldErrors.patientIds}</div>
-                    )}
+                    {fieldErrors.patientIds && <FieldError>{fieldErrors.patientIds}</FieldError>}
                   </>
                 )}
-              </Form.Group>
+              </Field>
             </TabsContent>
 
             {/* ── Diagnosis bulk mode ── */}
             <TabsContent value="diagnosis">
-              <Form.Group className="mb-3">
-                <Form.Label>{t('Diagnosis_patient_list')}</Form.Label>
-                <Form.Select
-                  value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
-                  isInvalid={!!fieldErrors.diagnosis}
-                >
-                  <option value="">{t('Choose...')}</option>
-                  {diagnoses.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </Form.Select>
-                <Form.Text className="text-muted">
+              <Field className="mb-3">
+                <FieldLabel htmlFor="apply-template-diagnosis">
+                  {t('Diagnosis_patient_list')}
+                </FieldLabel>
+                <Select value={diagnosis || undefined} onValueChange={setDiagnosis}>
+                  <SelectTrigger id="apply-template-diagnosis">
+                    <SelectValue placeholder={t('Choose...')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {diagnoses.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldDescription>
                   {t('Applies to all clinic patients with this diagnosis.')}
-                </Form.Text>
-                <Form.Control.Feedback type="invalid">
-                  {fieldErrors.diagnosis}
-                </Form.Control.Feedback>
-              </Form.Group>
+                </FieldDescription>
+                {fieldErrors.diagnosis && <FieldError>{fieldErrors.diagnosis}</FieldError>}
+              </Field>
             </TabsContent>
           </Tabs>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
             <div className="md:col-span-6">
-              <Form.Group>
-                <Form.Label>{t('Effective from')}</Form.Label>
-                <Form.Control
+              <Field>
+                <FieldLabel htmlFor="effective-from">{t('Effective from')}</FieldLabel>
+                <Input
+                  id="effective-from"
                   type="date"
                   value={effectiveFrom}
                   onChange={(e) => setEffectiveFrom(e.target.value)}
-                  isInvalid={!!fieldErrors.effectiveFrom}
                 />
-                <Form.Control.Feedback type="invalid">
-                  {fieldErrors.effectiveFrom}
-                </Form.Control.Feedback>
-              </Form.Group>
+                {fieldErrors.effectiveFrom && <FieldError>{fieldErrors.effectiveFrom}</FieldError>}
+              </Field>
             </div>
             <div className="md:col-span-6 flex items-end">
-              <Form.Check
-                type="checkbox"
-                id="overwrite"
-                label={t('Overwrite future sessions')}
-                checked={overwrite}
-                onChange={(e) => setOverwrite(e.currentTarget.checked)}
-              />
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="overwrite"
+                  checked={overwrite}
+                  onCheckedChange={(checked) => setOverwrite(checked === true)}
+                />
+                <Label htmlFor="overwrite" className="cursor-pointer">
+                  {t('Overwrite future sessions')}
+                </Label>
+              </div>
             </div>
           </div>
 
-          <Form.Group className="mb-3">
-            <Form.Check
-              type="checkbox"
+          <div className="mb-3 flex items-center gap-2">
+            <Checkbox
               id="force-video"
-              label={t('Ask video feedback for all')}
               checked={forceVideo}
-              onChange={(e) => setForceVideo(e.currentTarget.checked)}
+              onCheckedChange={(checked) => setForceVideo(checked === true)}
             />
-          </Form.Group>
+            <Label htmlFor="force-video" className="cursor-pointer">
+              {t('Ask video feedback for all')}
+            </Label>
+          </div>
 
-          <Form.Group>
-            <Form.Label>{t('Notes (optional)')}</Form.Label>
-            <Form.Control
-              as="textarea"
+          <Field>
+            <FieldLabel htmlFor="apply-template-notes">{t('Notes (optional)')}</FieldLabel>
+            <Textarea
+              id="apply-template-notes"
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
-          </Form.Group>
-        </Form>
+          </Field>
+        </form>
 
         <DialogFooter>
           <Button size="dashboard" variant="secondary" onClick={confirmClose} disabled={submitting}>

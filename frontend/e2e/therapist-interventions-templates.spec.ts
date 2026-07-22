@@ -8,7 +8,7 @@
  * All tests skip gracefully when credentials are absent so CI stays green
  * without a seeded database.
  */
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page, type Locator } from '@playwright/test';
 
 import { loginAsTherapist } from './helpers/auth';
 
@@ -32,11 +32,30 @@ function skipUnlessSeeded(t: typeof test) {
 }
 
 /** Navigate to /interventions and click the Templates tab. */
-async function openTemplatesTab(page: Parameters<Parameters<typeof test>[1]>[0]) {
+async function openTemplatesTab(page: Page) {
   await page.goto('/interventions');
   const templatesTab = page.getByRole('tab', { name: /templates/i });
   await expect(templatesTab).toBeVisible();
   await templatesTab.click();
+}
+
+/** Opens the Radix template selector, clicks the first named template, and returns its label (or undefined if none exist). */
+async function selectFirstNamedTemplate(
+  page: Page,
+  selector: Locator
+): Promise<string | undefined> {
+  await selector.click();
+  const options = page.getByRole('option');
+  const count = await options.count();
+  if (count <= 1) {
+    // Only the "Implicit therapist template" option exists.
+    await page.keyboard.press('Escape');
+    return undefined;
+  }
+  const target = options.nth(1);
+  const label = (await target.textContent())?.trim();
+  await target.click();
+  return label;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,6 +124,8 @@ test.describe('Therapist Interventions — Templates tab', () => {
     await expect(modal).not.toBeVisible({ timeout: 5000 });
 
     // The new template should appear in the selector
+    const selector = page.getByRole('combobox').first();
+    await selector.click();
     await expect(page.getByRole('option', { name: uniqueName })).toBeVisible();
   });
 
@@ -116,21 +137,8 @@ test.describe('Therapist Interventions — Templates tab', () => {
 
     // Only valid if at least one named template exists in the seeded DB
     const selector = page.getByRole('combobox').first();
-    const options = await selector.locator('option').all();
-
-    // Find first non-empty (non-implicit) template option
-    let namedOptionValue: string | undefined;
-    for (const opt of options) {
-      const val = await opt.getAttribute('value');
-      if (val && val !== '' && val !== 'implicit') {
-        namedOptionValue = val;
-        break;
-      }
-    }
-
-    test.skip(!namedOptionValue, 'No named templates found in seeded DB — skipping');
-
-    await selector.selectOption(namedOptionValue as string);
+    const label = await selectFirstNamedTemplate(page, selector);
+    test.skip(!label, 'No named templates found in seeded DB — skipping');
 
     await expect(page.getByRole('button', { name: /apply/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /copy/i })).toBeVisible();
@@ -147,19 +155,8 @@ test.describe('Therapist Interventions — Templates tab', () => {
     await openTemplatesTab(page);
 
     const selector = page.getByRole('combobox').first();
-    const options = await selector.locator('option').all();
-
-    let namedOptionValue: string | undefined;
-    for (const opt of options) {
-      const val = await opt.getAttribute('value');
-      if (val && val !== '' && val !== 'implicit') {
-        namedOptionValue = val;
-        break;
-      }
-    }
-    test.skip(!namedOptionValue, 'No named templates found in seeded DB — skipping');
-
-    await selector.selectOption(namedOptionValue as string);
+    const label = await selectFirstNamedTemplate(page, selector);
+    test.skip(!label, 'No named templates found in seeded DB — skipping');
 
     // Edit button should always be visible (fix for issue #360)
     const editBtn = page.getByTitle(/edit name/i);
@@ -175,32 +172,23 @@ test.describe('Therapist Interventions — Templates tab', () => {
 
   // ---- Apply template modal -----------------------------------------------
 
-  test('Apply button opens ApplyTemplateModal with correct templateId', async ({ page }) => {
+  test('Apply button opens ApplyTemplateModal', async ({ page }) => {
     skipUnlessSeeded(test);
     await openTemplatesTab(page);
 
     const selector = page.getByRole('combobox').first();
-    const options = await selector.locator('option').all();
+    const label = await selectFirstNamedTemplate(page, selector);
+    test.skip(!label, 'No named templates found — skipping');
 
-    let namedOptionValue: string | undefined;
-    for (const opt of options) {
-      const val = await opt.getAttribute('value');
-      if (val && val !== '' && val !== 'implicit') {
-        namedOptionValue = val;
-        break;
-      }
-    }
-    test.skip(!namedOptionValue, 'No named templates found — skipping');
-
-    await selector.selectOption(namedOptionValue as string);
     await page.getByRole('button', { name: /^apply$/i }).click();
 
     const modal = page.locator('[role="dialog"][data-state="open"]');
     await expect(modal).toBeVisible();
     await expect(modal.getByText(/Apply template to patient/i)).toBeVisible();
 
-    // Diagnosis should be optional (show "All diagnoses" option)
-    await expect(modal.getByRole('option', { name: /all diagnoses/i })).toBeVisible();
+    // Diagnosis mode is optional (a separate tab from the default patient-select mode)
+    await modal.getByRole('tab', { name: /by diagnosis/i }).click();
+    await expect(modal.locator('#apply-template-diagnosis')).toBeVisible();
   });
 
   // ---- Copy template -------------------------------------------------------
@@ -210,23 +198,11 @@ test.describe('Therapist Interventions — Templates tab', () => {
     await openTemplatesTab(page);
 
     const selector = page.getByRole('combobox').first();
-    const options = await selector.locator('option').all();
-
-    let namedOptionValue: string | undefined;
-    for (const opt of options) {
-      const val = await opt.getAttribute('value');
-      if (val && val !== '' && val !== 'implicit') {
-        namedOptionValue = val;
-        break;
-      }
-    }
-    test.skip(!namedOptionValue, 'No named templates found — skipping');
-
-    await selector.selectOption(namedOptionValue as string);
+    const label = await selectFirstNamedTemplate(page, selector);
+    test.skip(!label, 'No named templates found — skipping');
 
     const copyRequest = page.waitForRequest(
-      (req) =>
-        req.url().includes(`/api/templates/${namedOptionValue}/copy/`) && req.method() === 'POST'
+      (req) => /\/api\/templates\/[^/]+\/copy\//.test(req.url()) && req.method() === 'POST'
     );
 
     await page.getByRole('button', { name: /copy/i }).click();
@@ -234,6 +210,7 @@ test.describe('Therapist Interventions — Templates tab', () => {
     await copyRequest;
 
     // A copy should appear in the selector
+    await selector.click();
     const copyOption = page.getByRole('option', { name: /Copy of/i });
     await expect(copyOption).toBeVisible({ timeout: 5000 });
   });
@@ -258,9 +235,9 @@ test.describe('Therapist Interventions — Templates tab', () => {
     await expect(modal).not.toBeVisible({ timeout: 5000 });
 
     // Select the newly created template
-    await page.getByRole('option', { name: uniqueName }).waitFor({ timeout: 5000 });
     const selector = page.getByRole('combobox').first();
-    await selector.selectOption({ label: uniqueName });
+    await selector.click();
+    await page.getByRole('option', { name: uniqueName }).click();
 
     // Handle the window.confirm dialog
     page.once('dialog', (dialog) => dialog.accept());
@@ -273,6 +250,7 @@ test.describe('Therapist Interventions — Templates tab', () => {
     await deleteRequest;
 
     // Template should no longer appear in selector
+    await selector.click();
     await expect(page.getByRole('option', { name: uniqueName })).not.toBeVisible({
       timeout: 5000,
     });
@@ -287,24 +265,16 @@ test.describe('Therapist Interventions — Templates tab', () => {
     await openTemplatesTab(page);
 
     const selector = page.getByRole('combobox').first();
-    const options = await selector.locator('option').all();
-
-    let namedOptionValue: string | undefined;
-    for (const opt of options) {
-      const val = await opt.getAttribute('value');
-      if (val && val !== '' && val !== 'implicit') {
-        namedOptionValue = val;
-        break;
-      }
-    }
-    test.skip(!namedOptionValue, 'No named templates found — skipping');
+    await selector.click();
+    const options = page.getByRole('option');
+    const count = await options.count();
+    test.skip(count <= 1, 'No named templates found — skipping');
 
     const calendarRequest = page.waitForRequest(
-      (req) =>
-        req.url().includes(`/api/templates/${namedOptionValue}/calendar/`) && req.method() === 'GET'
+      (req) => /\/api\/templates\/[^/]+\/calendar\//.test(req.url()) && req.method() === 'GET'
     );
 
-    await selector.selectOption(namedOptionValue as string);
+    await options.nth(1).click();
 
     await calendarRequest;
   });

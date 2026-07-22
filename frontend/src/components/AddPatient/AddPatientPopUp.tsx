@@ -63,7 +63,7 @@ const AddPatientPopup: React.FC<AddPatientPopupProps> = observer(({ show, handle
       footer={footer}
     >
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-3">
           {authStore.id ? (
             <FormRegisterPatient therapist={authStore.id} />
           ) : (
