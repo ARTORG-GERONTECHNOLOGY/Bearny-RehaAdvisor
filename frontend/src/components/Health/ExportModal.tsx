@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 type Props = {
   show: boolean;
@@ -114,27 +115,25 @@ const ExportModal: React.FC<Props> = ({
 
         <Label className="font-bold">{t('Select Plots to Export')}</Label>
         <div className="mb-1">
-          <span
-            className={`inline-block rounded-full px-3 py-2 text-xs font-bold ${allSelected ? 'bg-brand text-white' : 'border border-brand bg-white text-brand'}`}
-            style={{ cursor: 'pointer' }}
+          <Badge
+            className={`cursor-pointer ${allSelected ? 'bg-brand text-white' : 'border border-brand bg-white text-brand'}`}
             onClick={toggleAll}
           >
             {t('Select All')}
-          </span>
+          </Badge>
         </div>
 
         <div className="flex flex-wrap gap-2 mb-2">
           {ids.map((id) => (
-            <span
+            <Badge
               key={id}
-              className={`inline-block rounded-full px-3 py-2 text-xs font-bold ${
+              className={`cursor-pointer ${
                 chosen[id] ? 'bg-pink text-white' : 'border border-pink bg-white text-pink'
               }`}
-              style={{ cursor: 'pointer' }}
               onClick={() => setChosen((p) => ({ ...p, [id]: !p[id] }))}
             >
               {t(id)}
-            </span>
+            </Badge>
           ))}
         </div>
 

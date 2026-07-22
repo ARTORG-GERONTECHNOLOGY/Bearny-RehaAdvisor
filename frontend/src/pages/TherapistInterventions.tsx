@@ -48,6 +48,7 @@ import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -852,12 +853,9 @@ const TherapistRecomendations: React.FC = observer(() => {
                                     {highlight(tmpl.name)}
                                   </span>
                                   {tmpl.is_public && (
-                                    <span
-                                      className="inline-block rounded px-1.5 py-0.5 font-semibold text-white bg-muted-foreground ms-1"
-                                      style={{ fontSize: '0.65rem' }}
-                                    >
+                                    <Badge variant="dashboard" className="text-xs">
                                       {t('public')}
-                                    </span>
+                                    </Badge>
                                   )}
                                   {tmpl.created_by !== authStore.id && (
                                     <span className="text-muted-foreground text-sm ms-1">
@@ -907,15 +905,16 @@ const TherapistRecomendations: React.FC = observer(() => {
                       </SelectContent>
                     </Select>
                     {unseenTemplates.length > 0 && (
-                      <span
-                        className="absolute top-0 left-full -translate-x-1/2 -translate-y-1/2 inline-flex items-center rounded-full bg-yellow text-zinc-900 px-2 py-0.5 text-xs cursor-default"
+                      <Badge
+                        variant="dashboard-warning"
+                        className="absolute top-0 left-full -translate-x-1/2 -translate-y-1/2 bg-white"
                         title={t('{{count}} template(s) updated since last view', {
                           count: unseenTemplates.length,
                         })}
                       >
-                        <FaBell className="me-1" />
+                        <FaBell />
                         {unseenTemplates.length}
-                      </span>
+                      </Badge>
                     )}
                   </div>
 

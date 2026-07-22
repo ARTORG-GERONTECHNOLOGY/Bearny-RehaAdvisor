@@ -39,6 +39,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableHeader,
@@ -333,16 +334,9 @@ export default function DownloadsPage() {
               </TableCell>
               <TableCell className="text-center">
                 {it.answerValue === -1 ? (
-                  <span className="inline-block rounded px-1.5 py-0.5 text-xs font-semibold text-white bg-zinc-500">
-                    N/A
-                  </span>
+                  <span className="text-muted-foreground text-sm">N/A</span>
                 ) : (
-                  <span
-                    className="inline-block rounded px-1.5 py-0.5 font-semibold text-white bg-primary"
-                    style={{ fontSize: '1rem' }}
-                  >
-                    {it.answerValue}
-                  </span>
+                  <Badge variant="dashboard">{it.answerValue}</Badge>
                 )}
               </TableCell>
               <TableCell className="text-center text-muted-foreground text-sm">
