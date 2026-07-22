@@ -334,7 +334,7 @@ describe('getMediaTypeLabelFromIntervention', () => {
 // ─── getBadgeVariantFromIntervention ─────────────────────────────────────────
 
 describe('getBadgeVariantFromIntervention', () => {
-  it('returns "section" when no media', () => {
+  it('returns "dashboard" when no media', () => {
     expect(getBadgeVariantFromIntervention({})).toBe('dashboard');
   });
 

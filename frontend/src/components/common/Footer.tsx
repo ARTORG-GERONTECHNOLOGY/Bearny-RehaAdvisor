@@ -85,13 +85,13 @@ const Footer: FunctionComponent = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="p-0 border-none bg-transparent" aria-label={t('Language')}>
-                    <img src={flagMap[lang]} className="h-5" />
+                    <img src={flagMap[lang]} className="h-5" alt="" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {languages.map((l) => (
                     <DropdownMenuItem key={l} onClick={() => handleLanguageChange(l)}>
-                      <img src={flagMap[l]} className="h-5" />
+                      <img src={flagMap[l]} className="h-5" alt="" />
                       {l.toUpperCase()}
                     </DropdownMenuItem>
                   ))}
