@@ -573,7 +573,7 @@ describe('AdminDashboard', () => {
 
       await userEvent.click(screen.getByText('Interventions'));
       await waitFor(() =>
-        expect(screen.getByText('Private', { selector: 'span.badge' })).toBeInTheDocument()
+        expect(screen.getByText('Private', { selector: 'div' })).toBeInTheDocument()
       );
     });
 

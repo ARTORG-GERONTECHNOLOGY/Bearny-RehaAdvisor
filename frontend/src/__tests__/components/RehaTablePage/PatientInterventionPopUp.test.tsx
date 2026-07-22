@@ -49,10 +49,11 @@ jest.mock(
 );
 
 jest.mock('@/utils/interventions', () => ({
+  ...jest.requireActual('@/utils/interventions'),
   generateTagColors: () => ({}),
   getMediaTypeLabelFromUrl: jest.fn(),
   getTaxonomyTags: jest.fn(() => []),
-  getBadgeVariantFromIntervention: jest.fn(() => 'primary'),
+  getBadgeVariantFromIntervention: jest.fn(() => 'dashboard-info'),
   getMediaTypeLabelFromIntervention: jest.fn(() => 'Unknown'),
   getTagColor: jest.fn(() => '#6f2dbd'),
 }));

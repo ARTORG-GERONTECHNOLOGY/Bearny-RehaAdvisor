@@ -11,6 +11,7 @@ import StarRating from './StarRating';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { getInterventionDateStatusClass } from '@/utils/interventions';
 
 type AnyObj = Record<string, any>;
 
@@ -98,16 +99,16 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
           <Badge variant="dashboard">
             {safeT(t, 'Total')}: {stats.total}
           </Badge>
-          <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
+          <Badge variant="dashboard" className={getInterventionDateStatusClass('completed')}>
             {safeT(t, 'Completed')}: {stats.completed}
           </Badge>
-          <Badge variant="dashboard" className="bg-pink/5 border-pink text-pink">
+          <Badge variant="dashboard" className={getInterventionDateStatusClass('missed')}>
             {safeT(t, 'Missed')}: {stats.missed}
           </Badge>
-          <Badge variant="dashboard" className="bg-yellow/5 border-yellow text-yellow">
+          <Badge variant="dashboard" className={getInterventionDateStatusClass('today')}>
             {safeT(t, 'Today')}: {stats.today}
           </Badge>
-          <Badge variant="dashboard" className="bg-chartMuted/5 border-chartMuted text-zinc-500">
+          <Badge variant="dashboard" className={getInterventionDateStatusClass('upcoming')}>
             {safeT(t, 'Upcoming')}: {stats.upcoming}
           </Badge>
         </div>

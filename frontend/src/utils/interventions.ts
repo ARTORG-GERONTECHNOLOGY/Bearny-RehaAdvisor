@@ -258,28 +258,42 @@ export const getPlayableUrl = (m?: InterventionMedia | null): string => {
 };
 
 export const getMediaBadge = (media: InterventionMedia[]) => {
-  if (!media.length) return { label: 'No media', variant: 'secondary' as const };
+  if (!media.length) return { label: 'No media', variant: 'dashboard' as const };
 
   const types = new Set(media.map((m) => m.media_type));
-  if (types.size > 1) return { label: 'Mixed', variant: 'primary' as const };
+  if (types.size > 1) return { label: 'Mixed', variant: 'dashboard-info' as const };
 
   const only = [...types][0];
   switch (only) {
     case 'video':
-      return { label: 'Video', variant: 'danger' as const };
+      return { label: 'Video', variant: 'dashboard-destructive' as const };
     case 'audio':
     case 'streaming':
-      return { label: 'Audio', variant: 'warning' as const };
+      return { label: 'Audio', variant: 'dashboard-warning' as const };
     case 'pdf':
-      return { label: 'PDF', variant: 'info' as const };
+      return { label: 'PDF', variant: 'dashboard-info' as const };
     case 'image':
-      return { label: 'Image', variant: 'success' as const };
+      return { label: 'Image', variant: 'dashboard-success' as const };
     case 'app':
-      return { label: 'App', variant: 'dark' as const };
+      return { label: 'App', variant: 'dashboard' as const };
     case 'website':
     case 'text':
     default:
-      return { label: 'Link', variant: 'secondary' as const };
+      return { label: 'Link', variant: 'dashboard' as const };
+  }
+};
+
+/** Tailwind classes for an intervention date's status badge (completed/missed/today/upcoming). */
+export const getInterventionDateStatusClass = (status: string): string => {
+  switch (String(status || '').toLowerCase()) {
+    case 'completed':
+      return 'border border-ok bg-ok/5 text-ok';
+    case 'missed':
+      return 'border border-pink bg-pink/5 text-pink';
+    case 'today':
+      return 'border border-yellow bg-yellow/5 text-yellow';
+    default:
+      return 'border border-chartMuted bg-chartMuted/5 text-zinc-500';
   }
 };
 
@@ -313,25 +327,25 @@ export function getMediaTypeLabelFromIntervention(item?: unknown): string {
 /** Badge variant derived from PRIMARY media item. */
 export function getBadgeVariantFromIntervention(item?: unknown): string {
   const m = getPrimaryMedia(item);
-  if (!m) return 'secondary';
+  if (!m) return 'dashboard';
 
   switch (m.media_type) {
     case 'video':
-      return 'danger';
+      return 'dashboard-destructive';
     case 'audio':
-      return 'warning';
+      return 'dashboard-warning';
     case 'pdf':
-      return 'info';
+      return 'dashboard-info';
     case 'image':
-      return 'success';
+      return 'dashboard-success';
     case 'streaming':
-      return 'primary';
+      return 'dashboard-info';
     case 'app':
-      return 'dark';
+      return 'dashboard';
     case 'website':
     case 'text':
     default:
-      return 'secondary';
+      return 'dashboard';
   }
 }
 
@@ -343,20 +357,20 @@ export const getBadgeVariantFromUrl = (mediaUrl: string, link: string) => {
 
   // If no file URL -> treat as external link
   if (!u) {
-    if (isYouTube(l) || isVimeo(l)) return 'danger'; // video-like
+    if (isYouTube(l) || isVimeo(l)) return 'dashboard-destructive'; // video-like
     if (isSpotify(l) || isSoundCloud(l) || l.match(/\.(mp3|wav|m4a|ogg|webm)(\?|$)/))
-      return 'warning';
-    if (l.match(/\.(pdf)(\?|$)/)) return 'info';
-    if (l.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/)) return 'success';
-    return 'secondary';
+      return 'dashboard-warning';
+    if (l.match(/\.(pdf)(\?|$)/)) return 'dashboard-info';
+    if (l.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/)) return 'dashboard-success';
+    return 'dashboard';
   }
 
   // file URL
-  if (u.match(/\.(mp4|mov|m4v|webm)(\?|$)/)) return 'danger';
-  if (u.match(/\.(mp3|wav|m4a|ogg|webm)(\?|$)/)) return 'warning';
-  if (u.match(/\.(pdf)(\?|$)/)) return 'info';
-  if (u.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/)) return 'success';
-  return 'secondary';
+  if (u.match(/\.(mp4|mov|m4v|webm)(\?|$)/)) return 'dashboard-destructive';
+  if (u.match(/\.(mp3|wav|m4a|ogg|webm)(\?|$)/)) return 'dashboard-warning';
+  if (u.match(/\.(pdf)(\?|$)/)) return 'dashboard-info';
+  if (u.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/)) return 'dashboard-success';
+  return 'dashboard';
 };
 
 export const getMediaTypeLabelFromUrl = (mediaUrl: string, link: string) => {

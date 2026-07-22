@@ -1,6 +1,6 @@
 // components/TherapistInterventionPage/ProductPopup.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import Microlink from '@microlink/react';
@@ -626,27 +626,27 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
                 <div className="mt-3 d-flex flex-wrap gap-2">
                   {effectiveItem.external_id && (
-                    <Badge bg="secondary">external_id: {effectiveItem.external_id}</Badge>
+                    <Badge variant="dashboard">external_id: {effectiveItem.external_id}</Badge>
                   )}
                   {effectiveItem.language && (
-                    <Badge bg="secondary">
+                    <Badge variant="dashboard">
                       lang: {String(effectiveItem.language).toUpperCase()}
                     </Badge>
                   )}
                   {effectiveItem.provider && (
-                    <Badge bg="secondary">provider: {String(effectiveItem.provider)}</Badge>
+                    <Badge variant="dashboard">provider: {String(effectiveItem.provider)}</Badge>
                   )}
-                  {effectiveIsPrivate && <Badge bg="dark">{t('Private')}</Badge>}
+                  {effectiveIsPrivate && <Badge variant="dashboard">{t('Private')}</Badge>}
                   {effectiveIsPrivate && effectivePrivatePatientId && (
-                    <Badge bg="dark">patient: {String(effectivePrivatePatientId)}</Badge>
+                    <Badge variant="dashboard">patient: {String(effectivePrivatePatientId)}</Badge>
                   )}
                   {typeof effectiveItem.duration !== 'undefined' && (
-                    <Badge bg="light" text="dark">
+                    <Badge variant="dashboard">
                       {t('Duration')}: {String(effectiveItem.duration)} {t('min')}
                     </Badge>
                   )}
                   {effectiveItem.content_type && (
-                    <Badge bg="light" text="dark">
+                    <Badge variant="dashboard">
                       {t('ContentType')}: {t(String(effectiveItem.content_type))}
                     </Badge>
                   )}
@@ -670,10 +670,10 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 <div className="d-flex align-items-center justify-content-between">
                   <h5 className="mb-0">{t('Media')}</h5>
                   <Badge
-                    bg={String(
-                      (effectiveMediaBadge as unknown as { variant?: unknown }).variant ||
-                        'secondary'
-                    )}
+                    variant={
+                      ((effectiveMediaBadge as unknown as { variant?: unknown }).variant ||
+                        'dashboard') as any
+                    }
                   >
                     {t(
                       String(
@@ -693,7 +693,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 {effectiveTags.map((tag) => (
                   <Badge
                     key={tag}
-                    className="me-2 mb-1"
+                    className="me-2 mb-1 px-2 py-1"
                     style={{
                       backgroundColor: getTagColor(tagColors, tag) || '#888',
                       color: '#fff',
@@ -705,7 +705,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 ))}
 
                 {effectiveBenefits.map((b) => (
-                  <Badge key={b} className="me-2 mb-1 bg-info text-dark">
+                  <Badge key={b} variant="dashboard-info" className="me-2 mb-1">
                     {t(b)}
                   </Badge>
                 ))}
@@ -716,7 +716,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                   <div className="fw-semibold mb-1">{t('Recommended for')}</div>
                   <div className="d-flex flex-wrap gap-2">
                     {effectivePatientTypes.map((pt, idx) => (
-                      <Badge key={idx} bg="secondary">
+                      <Badge key={idx} variant="dashboard">
                         {t(norm(pt.type))} • {t(norm(pt.diagnosis))} • {t(norm(pt.frequency))}
                       </Badge>
                     ))}
@@ -760,7 +760,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                               <div className="fw-semibold">
                                 {t(d)}{' '}
                                 {isAssigned && (
-                                  <Badge bg="success" className="ms-1">
+                                  <Badge variant="dashboard-success" className="ms-1">
                                     {t('Assigned')}
                                   </Badge>
                                 )}

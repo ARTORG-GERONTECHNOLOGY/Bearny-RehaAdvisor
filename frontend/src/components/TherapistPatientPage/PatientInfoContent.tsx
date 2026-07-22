@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
@@ -62,35 +62,35 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
             <div>
               {t('Data mode')}:{' '}
               {store.hasManualInfo ? (
-                <Badge bg="success">{t('Manual preferred')}</Badge>
+                <Badge variant="dashboard-success">{t('Manual preferred')}</Badge>
               ) : (
-                <Badge bg="info">{t('REDCap fallback')}</Badge>
+                <Badge variant="dashboard-info">{t('REDCap fallback')}</Badge>
               )}
             </div>
 
             {store.redcapProject && (
               <div>
-                {t('REDCap Project')}: <Badge bg="info">{store.redcapProject}</Badge>
+                {t('REDCap Project')}: <Badge variant="dashboard-info">{store.redcapProject}</Badge>
               </div>
             )}
             {store.redcapIdentifier && (
               <span>
-                {t('Identifier')}: <Badge bg="secondary">{store.redcapIdentifier}</Badge>
+                {t('Identifier')}: <Badge variant="dashboard">{store.redcapIdentifier}</Badge>
               </span>
             )}
             {store.redcapRecordId && (
               <span>
-                {t('Record ID')}: <Badge bg="secondary">{store.redcapRecordId}</Badge>
+                {t('Record ID')}: <Badge variant="dashboard">{store.redcapRecordId}</Badge>
               </span>
             )}
             {store.redcapPatId && (
               <span>
-                {t('pat_id')}: <Badge bg="secondary">{store.redcapPatId}</Badge>
+                {t('pat_id')}: <Badge variant="dashboard">{store.redcapPatId}</Badge>
               </span>
             )}
             {store.redcapDag && (
               <span>
-                {t('DAG')}: <Badge bg="secondary">{store.redcapDag}</Badge>
+                {t('DAG')}: <Badge variant="dashboard">{store.redcapDag}</Badge>
               </span>
             )}
           </div>

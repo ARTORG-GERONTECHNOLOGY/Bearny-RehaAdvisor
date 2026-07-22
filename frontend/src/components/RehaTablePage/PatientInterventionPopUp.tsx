@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
 import { FaLock } from 'react-icons/fa';
 
@@ -19,6 +19,7 @@ import { PlayableMedia } from '@/components/common/PlayableMedia';
 import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
 import {
   getBadgeVariantFromIntervention,
+  getMediaBadge,
   getMediaTypeLabelFromIntervention,
   getTagColor,
 } from '@/utils/interventions';
@@ -185,30 +186,6 @@ const getPlayableUrl = (m: InterventionMedia): string => {
   if (m.kind === 'external') return norm(m.url || '');
   if (m.kind === 'file') return norm(m.file_url || m.file_path || '');
   return '';
-};
-
-// Keep this for "Media" section label only
-const getMediaBadge = (media: InterventionMedia[]) => {
-  if (!media.length) return { label: 'No media', variant: 'secondary' as const };
-  const types = new Set(media.map((m) => m.media_type));
-  if (types.size > 1) return { label: 'Mixed', variant: 'primary' as const };
-
-  const only = [...types][0];
-  switch (only) {
-    case 'video':
-      return { label: 'Video', variant: 'danger' as const };
-    case 'audio':
-    case 'streaming':
-      return { label: 'Audio', variant: 'warning' as const };
-    case 'pdf':
-      return { label: 'PDF', variant: 'info' as const };
-    case 'image':
-      return { label: 'Image', variant: 'success' as const };
-    case 'app':
-      return { label: 'App', variant: 'dark' as const };
-    default:
-      return { label: 'Link', variant: 'secondary' as const };
-  }
 };
 
 // ✅ “library-style” tags under description
@@ -675,18 +652,18 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {/* content type badge should match therapist colors */}
-                  <Badge bg={mediaVariant as any} aria-label={t('Media type')}>
+                  <Badge variant={mediaVariant as any} aria-label={t('Media type')}>
                     {t(mediaLabel, { defaultValue: mediaLabel })}
                   </Badge>
 
                   {effectiveItem?.language ? (
-                    <Badge bg="secondary">{String(effectiveItem.language).toUpperCase()}</Badge>
+                    <Badge variant="dashboard">
+                      {String(effectiveItem.language).toUpperCase()}
+                    </Badge>
                   ) : null}
 
                   {effectiveItem?.provider ? (
-                    <Badge bg="light" text="dark">
-                      {String(effectiveItem.provider)}
-                    </Badge>
+                    <Badge variant="dashboard">{String(effectiveItem.provider)}</Badge>
                   ) : null}
                 </div>
               </div>
@@ -694,7 +671,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
               <div className="md:col-span-6">
                 <div className="flex items-center justify-between">
                   <h5 className="mb-0">{t('Media')}</h5>
-                  <Badge bg={effectiveMediaBadge.variant as any}>
+                  <Badge variant={effectiveMediaBadge.variant as any}>
                     {t(effectiveMediaBadge.label)}
                   </Badge>
                 </div>

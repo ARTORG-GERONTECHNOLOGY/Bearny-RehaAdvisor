@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import {
@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { getInterventionDateStatusClass } from '@/utils/interventions';
 
 type AnyObj = Record<string, any>;
 
@@ -152,7 +153,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 {/* LEFT: dates list (scrollable) */}
-                <div className="md:col-span-4">
+                <div className="md:col-span-5">
                   <div className="fw-semibold mb-2">{safeT(t, 'Dates')}</div>
 
                   <div className="flex flex-col gap-1">
@@ -181,26 +182,15 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                           <span className="d-flex gap-1 align-items-center">
                             {st ? (
                               <Badge
-                                bg={
-                                  st === 'completed'
-                                    ? 'success'
-                                    : st === 'missed'
-                                      ? 'danger'
-                                      : st === 'today'
-                                        ? 'primary'
-                                        : 'secondary'
-                                }
+                                variant="dashboard"
+                                className={getInterventionDateStatusClass(st)}
                               >
                                 {safeT(t, st)}
                               </Badge>
                             ) : null}
 
-                            {fbCount > 0 ? <Badge bg="info">Q:{fbCount}</Badge> : null}
-                            {hasVid ? (
-                              <Badge bg="warning" text="dark">
-                                V
-                              </Badge>
-                            ) : null}
+                            {fbCount > 0 ? <Badge variant="dashboard">Q:{fbCount}</Badge> : null}
+                            {hasVid ? <Badge variant="dashboard-warning">V</Badge> : null}
                           </span>
                         </button>
                       );
@@ -209,7 +199,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                 </div>
 
                 {/* RIGHT: feedback detail (scrollable if long) */}
-                <div className="md:col-span-8">
+                <div className="md:col-span-7">
                   {!selected ? (
                     <Alert variant="info">{safeT(t, 'Select a date')}</Alert>
                   ) : (
