@@ -458,14 +458,11 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 </iframe>
               )}
             </div>
-            <a
-              href={playable}
-              className="inline-flex items-center justify-center rounded-md border border-primary px-3 py-1.5 text-sm text-primary hover:bg-primary hover:text-primary-foreground mt-2"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {t('Open PDF')}
-            </a>
+            <Button asChild size="dashboard" variant="secondary">
+              <a href={playable} target="_blank" rel="noreferrer">
+                {t('Open PDF')}
+              </a>
+            </Button>
           </div>
         );
 
@@ -498,14 +495,11 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
         return (
           <div key={idx} className="mb-3">
             <div className="font-semibold mb-1">{label}</div>
-            <a
-              href={playable}
-              className="inline-flex items-center justify-center rounded-md border border-secondary px-3 py-1.5 text-sm text-secondary hover:bg-secondary hover:text-secondary-foreground"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {t('Open Resource')}
-            </a>
+            <Button asChild size="dashboard" variant="secondary">
+              <a href={playable} target="_blank" rel="noreferrer">
+                {t('Open Resource')}
+              </a>
+            </Button>
           </div>
         );
     }

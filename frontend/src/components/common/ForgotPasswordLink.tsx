@@ -1,23 +1,16 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 interface ForgotPasswordLinkProps {
-  onClick: () => void;
-  text?: string; // Optional override for link text
+  to: string;
+  text: string;
 }
 
-const ForgotPasswordLink: React.FC<ForgotPasswordLinkProps> = ({
-  onClick,
-  text = 'Forgot Password?',
-}) => (
+const ForgotPasswordLink: React.FC<ForgotPasswordLinkProps> = ({ to, text }) => (
   <div className="mt-3 text-center">
-    <button
-      type="button"
-      className="text-sm underline px-0 !text-brand"
-      onClick={onClick}
-      aria-label={text}
-    >
+    <Link to={to} className="text-sm underline text-brand">
       {text}
-    </button>
+    </Link>
   </div>
 );
 

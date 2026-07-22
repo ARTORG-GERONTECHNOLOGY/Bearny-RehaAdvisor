@@ -114,7 +114,7 @@ jest.mock('@/components/common/ForgotPasswordLink', () => {
   const React = jest.requireActual('react');
   return {
     __esModule: true,
-    default: ({ onClick, text }: any) => <button onClick={onClick}>{text}</button>,
+    default: ({ to, text }: any) => <a href={to}>{text}</a>,
   };
 });
 
@@ -552,10 +552,12 @@ describe('LoginForm', () => {
     });
   });
 
-  it('navigates to /forgottenpwd when the forgot-password link is clicked', () => {
+  it('links to /forgottenpwd for the forgot-password link', () => {
     openModal();
-    fireEvent.click(screen.getByText('Need help recovering your account?'));
-    expect(mockNavigate).toHaveBeenCalledWith('/forgottenpwd');
+    expect(screen.getByText('Need help recovering your account?')).toHaveAttribute(
+      'href',
+      '/forgottenpwd'
+    );
   });
 
   it('closes and resets the form when the sheet is dismissed', async () => {

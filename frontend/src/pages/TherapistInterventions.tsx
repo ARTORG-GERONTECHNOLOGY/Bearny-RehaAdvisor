@@ -1065,16 +1065,18 @@ const TherapistRecomendations: React.FC = observer(() => {
                               diff.modified.length;
                             return (
                               <div className="mt-1">
-                                <button
-                                  className="inline-flex items-center gap-1 rounded border border-yellow bg-yellow px-2 py-0 text-sm font-medium text-zinc-900 hover:opacity-90"
+                                <Button
+                                  type="button"
+                                  size="dashboard"
+                                  className="bg-yellow hover:bg-yellow/90"
                                   onClick={() => setShowDiff((v) => !v)}
                                 >
                                   <FaBell />
-                                  <small className="text-sm">
+                                  <span>
                                     {t('Updated')}: {formatLocaleDate(diff.date)} ({totalChanges})
-                                  </small>
-                                  <small className="text-sm">{showDiff ? '▲' : '▼'}</small>
-                                </button>
+                                  </span>
+                                  <span>{showDiff ? '▲' : '▼'}</span>
+                                </Button>
                                 {showDiff && (
                                   <div className="mt-1 p-2 rounded border border-yellow bg-yellow/10">
                                     {diff.metaChanges.map((c) => (
@@ -1117,7 +1119,7 @@ const TherapistRecomendations: React.FC = observer(() => {
                                     {diff.modified.map(({ prev, curr }) => (
                                       <small
                                         key={`${curr.id}::${curr.diagnosis}`}
-                                        className="text-amber-700 block"
+                                        className="text-yellow block"
                                       >
                                         ~ {translatedTitles[curr.id]?.title ?? curr.title}
                                         {curr.diagnosis && (

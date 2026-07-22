@@ -434,14 +434,11 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
                 </iframe>
               )}
             </div>
-            <a
-              href={playable}
-              className="inline-flex items-center justify-center rounded-md border border-primary px-2 py-1 text-sm text-primary hover:bg-primary hover:text-primary-foreground mt-2"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {t('Open PDF')}
-            </a>
+            <Button asChild size="dashboard" variant="secondary">
+              <a href={playable} target="_blank" rel="noreferrer">
+                {t('Open PDF')}
+              </a>
+            </Button>
           </>
         ) : m.media_type === 'image' ? (
           <img
@@ -512,15 +509,17 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
         {/* Navigation bar */}
         <div className="media-carousel__nav">
-          <button
-            className="inline-flex items-center justify-center rounded-md border border-secondary px-2 py-1 text-sm text-secondary hover:bg-secondary hover:text-secondary-foreground media-carousel__arrow"
+          <Button
+            type="button"
+            size="dashboard"
+            variant="secondary"
             onClick={() => setActiveMediaIndex((i: number) => Math.max(0, i - 1))}
             disabled={clampedIndex === 0}
             aria-label={t('Previous media')}
             data-testid="media-prev"
           >
             <ArrowLeftIcon aria-hidden="true" />
-          </button>
+          </Button>
 
           <div className="media-carousel__center">
             {/* Dot indicators — only when ≤7 items to keep UI clean */}
@@ -544,15 +543,17 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
             </div>
           </div>
 
-          <button
-            className="inline-flex items-center justify-center rounded-md border border-secondary px-2 py-1 text-sm text-secondary hover:bg-secondary hover:text-secondary-foreground media-carousel__arrow"
+          <Button
+            type="button"
+            size="dashboard"
+            variant="secondary"
             onClick={() => setActiveMediaIndex((i: number) => Math.min(total - 1, i + 1))}
             disabled={clampedIndex === total - 1}
             aria-label={t('Next media')}
             data-testid="media-next"
           >
             <ArrowRightIcon aria-hidden="true" />
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -711,19 +712,6 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
             justify-content: space-between;
             margin-top: 12px;
             gap: 8px;
-          }
-          .media-carousel__arrow {
-            flex-shrink: 0;
-            width: 36px;
-            height: 36px;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .media-carousel__arrow svg {
-            width: 16px;
-            height: 16px;
           }
           .media-carousel__center {
             flex: 1;
