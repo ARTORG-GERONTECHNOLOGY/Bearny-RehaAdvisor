@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { format } from 'date-fns';
 import ManualWeightSheet from '@/components/PatientPage/ManualWeightSheet';
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
@@ -47,7 +48,7 @@ describe('ManualWeightSheet', () => {
   it('renders a date picker defaulting to today and capped at today', () => {
     render(<ManualWeightSheet {...baseProps} />);
     const dateInput = screen.getByLabelText('Date') as HTMLInputElement;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = format(new Date(), 'yyyy-MM-dd');
     expect(dateInput).toBeInTheDocument();
     expect(dateInput.value).toBe(today);
     expect(dateInput.max).toBe(today);
