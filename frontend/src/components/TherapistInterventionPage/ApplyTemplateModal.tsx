@@ -1,6 +1,6 @@
 // src/components/TherapistInterventionPage/ApplyTemplateModal.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Badge } from 'react-bootstrap';
+import { Alert } from 'react-bootstrap';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 
 type PatientOption = {
   _id: string;
@@ -304,7 +305,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
                 <FieldLabel>
                   {t('Patients')}{' '}
                   {selectedIds.size > 0 && (
-                    <Badge bg="primary" className="ms-1">
+                    <Badge variant="dashboard">
                       {selectedIds.size} {t('selected')}
                     </Badge>
                   )}

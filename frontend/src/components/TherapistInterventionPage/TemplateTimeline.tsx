@@ -1,9 +1,10 @@
 // components/TherapistInterventionPage/TemplateTimeline.tsx
 import React, { useMemo, useState } from 'react';
-import { Card, Badge } from 'react-bootstrap';
 import { TemplateItem } from '@/types/templates';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -111,16 +112,16 @@ const TemplateTimeline: React.FC<Props> = ({ items, horizonDays = 84, translated
 
         {days.map((d) => (
           <Card key={d} className="template-day" onClick={() => setOpenDay(d)} role="button">
-            <Card.Header className="py-1 px-2">
-              <strong>
+            <CardHeader className="p-2 bg-back">
+              <CardTitle>
                 {t('Day')} {d}
-              </strong>
-            </Card.Header>
-            <Card.Body className="py-2 px-2">
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-2">
               <div className="template-list">
                 {(byDay[d] || []).map((ev, i) => (
                   <div key={i} className="small mb-1">
-                    <Badge bg="secondary" className="me-1">
+                    <Badge variant="dashboard" className="px-1 py-0 me-1">
                       {ev.time || '—'}
                     </Badge>
                     {displayTitle(ev.id, ev.rawTitle)}
@@ -133,7 +134,7 @@ const TemplateTimeline: React.FC<Props> = ({ items, horizonDays = 84, translated
                 ))}
                 {(!byDay[d] || byDay[d].length === 0) && <div className="text-muted small">—</div>}
               </div>
-            </Card.Body>
+            </CardContent>
           </Card>
         ))}
       </div>

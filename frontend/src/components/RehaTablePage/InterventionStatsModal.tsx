@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { Badge } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -11,6 +10,7 @@ import {
 import StarRating from './StarRating';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableRow, TableCell } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 type AnyObj = Record<string, any>;
 
@@ -95,19 +95,19 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
         </DialogHeader>
 
         <div className="d-flex flex-wrap gap-2 mb-3">
-          <Badge bg="secondary">
+          <Badge variant="dashboard">
             {safeT(t, 'Total')}: {stats.total}
           </Badge>
-          <Badge bg="success">
+          <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
             {safeT(t, 'Completed')}: {stats.completed}
           </Badge>
-          <Badge bg="danger">
+          <Badge variant="dashboard" className="bg-pink/5 border-pink text-pink">
             {safeT(t, 'Missed')}: {stats.missed}
           </Badge>
-          <Badge bg="primary">
+          <Badge variant="dashboard" className="bg-yellow/5 border-yellow text-yellow">
             {safeT(t, 'Today')}: {stats.today}
           </Badge>
-          <Badge bg="warning" text="dark">
+          <Badge variant="dashboard" className="bg-chartMuted/5 border-chartMuted text-zinc-500">
             {safeT(t, 'Upcoming')}: {stats.upcoming}
           </Badge>
         </div>
