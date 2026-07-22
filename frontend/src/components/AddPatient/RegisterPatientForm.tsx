@@ -432,7 +432,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
       if (Object.keys(fieldErrs).length > 0) {
         setApiFieldErrors(fieldErrs);
 
-        // also set client errors so Bootstrap highlights fields consistently
+        // also set client errors so fields are highlighted consistently
         setErrors((prev) => ({ ...prev, ...fieldErrs }));
 
         // Navigate to the first step that contains one of the errored fields
