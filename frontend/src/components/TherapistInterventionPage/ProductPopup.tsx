@@ -1,10 +1,11 @@
 // components/TherapistInterventionPage/ProductPopup.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, OverlayTrigger, Tooltip, Alert } from 'react-bootstrap';
+import { Badge, Alert } from 'react-bootstrap';
 import { useTranslation } from 'react-i18next';
 import Microlink from '@microlink/react';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 import { FaPlus, FaEdit, FaTrash, FaSearch, FaLock } from 'react-icons/fa';
 import apiClient from '@/api/client';
@@ -539,7 +540,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
   if (!effectiveItem) return null;
 
   return (
-    <>
+    <TooltipProvider>
       <Dialog open={show} onOpenChange={(open) => !open && confirmClose()}>
         <DialogContent
           className="max-w-3xl"
@@ -552,17 +553,23 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               {effectiveIsPrivate && (
-                <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
-                  <span className="text-muted">
-                    <FaLock />
-                  </span>
-                </OverlayTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted">
+                      <FaLock />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('Private intervention')}</TooltipContent>
+                </Tooltip>
               )}
 
               {titleLang ? (
-                <OverlayTrigger overlay={<Tooltip>{String(effectiveItem.title || '')}</Tooltip>}>
-                  <span>{translatedTitle}</span>
-                </OverlayTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>{translatedTitle}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>{String(effectiveItem.title || '')}</TooltipContent>
+                </Tooltip>
               ) : (
                 String(effectiveItem.title || '')
               )}
@@ -605,11 +612,12 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                 <h5>{t('Description')}</h5>
                 <p className="text-muted mb-0">
                   {detectedLang ? (
-                    <OverlayTrigger
-                      overlay={<Tooltip>{String(effectiveItem.description || '')}</Tooltip>}
-                    >
-                      <span>{translatedText}</span>
-                    </OverlayTrigger>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>{translatedText}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>{String(effectiveItem.description || '')}</TooltipContent>
+                    </Tooltip>
                   ) : (
                     String(effectiveItem.description || '')
                   )}
@@ -759,38 +767,36 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
                             </div>
                             <div>
                               <ButtonGroup>
-                                <OverlayTrigger
-                                  placement="top"
-                                  overlay={
-                                    <Tooltip>
-                                      {isAssigned ? t('Modify from day…') : t('Add (Day S → N)')}
-                                    </Tooltip>
-                                  }
-                                >
-                                  <Button
-                                    size="dashboard"
-                                    variant="secondary"
-                                    onClick={() => openAssign(d)}
-                                    className="px-3"
-                                  >
-                                    {isAssigned ? <FaEdit /> : <FaPlus className="text-ok" />}
-                                  </Button>
-                                </OverlayTrigger>
-
-                                {isAssigned && (
-                                  <OverlayTrigger
-                                    placement="top"
-                                    overlay={<Tooltip>{t('Delete from template')}</Tooltip>}
-                                  >
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
                                     <Button
                                       size="dashboard"
                                       variant="secondary"
-                                      onClick={() => void removeFromTemplate(d)}
+                                      onClick={() => openAssign(d)}
                                       className="px-3"
                                     >
-                                      <FaTrash className="text-nok" />
+                                      {isAssigned ? <FaEdit /> : <FaPlus className="text-ok" />}
                                     </Button>
-                                  </OverlayTrigger>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {isAssigned ? t('Modify from day…') : t('Add (Day S → N)')}
+                                  </TooltipContent>
+                                </Tooltip>
+
+                                {isAssigned && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="dashboard"
+                                        variant="secondary"
+                                        onClick={() => void removeFromTemplate(d)}
+                                        className="px-3"
+                                      >
+                                        <FaTrash className="text-nok" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{t('Delete from template')}</TooltipContent>
+                                  </Tooltip>
                                 )}
                               </ButtonGroup>
                             </div>
@@ -854,7 +860,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
           .diag-scroll { max-height: 480px; }
         }
       `}</style>
-    </>
+    </TooltipProvider>
   );
 };
 

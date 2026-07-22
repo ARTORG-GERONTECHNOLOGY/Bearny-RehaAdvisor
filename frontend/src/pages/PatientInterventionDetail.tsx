@@ -2,10 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Nav, OverlayTrigger, Tab, Tooltip } from 'react-bootstrap';
+import { Nav, Tab } from 'react-bootstrap';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { FaLock } from 'react-icons/fa';
 
 import Layout from '@/components/Layout';
@@ -318,7 +319,6 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const patientId = authStore.getStoredUserId();
   const viewOpenedAt = useRef<number>(Date.now());
   const mediaRef = useRef<HTMLDivElement>(null);
-  const tooltipContainerRef = useRef<HTMLDivElement>(null);
 
   const { isAllowed } = useRoleAuthGate('Patient');
 
@@ -644,173 +644,180 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
   return (
     <Layout>
-      <div ref={tooltipContainerRef} className="flex flex-col gap-2">
-        <div className="flex justify-between align-items-end">
-          <Button size="icon" variant="secondary" onClick={() => navigate(-1)} className="bg-white">
-            <ArrowLeftIcon />
-            <span className="sr-only">{t('Back')}</span>
-          </Button>
+      <TooltipProvider>
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between align-items-end">
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={() => navigate(-1)}
+              className="bg-white"
+            >
+              <ArrowLeftIcon />
+              <span className="sr-only">{t('Back')}</span>
+            </Button>
 
-          {targetDate && (
-            <div className="flex flex-wrap gap-2 justify-end">
-              {!completed && (
-                <Button
-                  variant="secondary"
-                  className="bg-white text-zinc-400"
-                  onClick={() => setShowRescheduleSheet(true)}
-                >
-                  {t('Reschedule')}
-                  <CalendarIcon />
-                </Button>
-              )}
-
-              <Button
-                disabled={isBusy}
-                aria-pressed={completed}
-                onClick={handleToggleCompleted}
-                variant={completed ? 'default' : 'secondary'}
-                className={!completed && 'bg-white text-zinc-400'}
-              >
-                {(() => {
-                  const isBehaviorChange =
-                    effectiveItem?.intervention?.aim?.toLowerCase() === 'behavior change';
-                  if (isBusy) return <Skeleton className="w-20 h-6 rounded-full" />;
-                  if (completed) return isBehaviorChange ? t('Viewed') : t('Done');
-                  return isBehaviorChange ? t('Mark as viewed') : t('Mark as done');
-                })()}
-                {completed ? <CircleCheckFillIcon /> : <CircleHalfCheckIcon />}
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {error ? <ErrorAlert message={error} onClose={() => setError('')} /> : null}
-
-        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 lg:items-start">
-          <Section>
-            <Card className="flex flex-col items-start gap-3">
-              <Badge variant="card">
-                {lower(effectiveItem.intervention.aim) === 'exercise' ? (
-                  <ExerciseIcon className="flex-none w-8 h-8" />
-                ) : (
-                  <EducationIcon className="flex-none w-8 h-8" />
-                )}
-                <span
-                  className={`text-xl ${lower(effectiveItem.intervention.aim) === 'exercise' ? 'text-pink' : 'text-yellow'}`}
-                >
-                  {effectiveItem.intervention.aim ? t(effectiveItem.intervention.aim) : null}
-                </span>
-              </Badge>
-              {effectiveIsPrivate && (
-                <OverlayTrigger
-                  container={tooltipContainerRef}
-                  overlay={<Tooltip>{t('Private intervention')}</Tooltip>}
-                >
-                  <span className="text-zinc-800 -mb-4">
-                    <FaLock />
-                  </span>
-                </OverlayTrigger>
-              )}
-              <div className="font-bold text-2xl leading-7 text-zinc-800">
-                {titleLang ? (
-                  <OverlayTrigger
-                    container={tooltipContainerRef}
-                    overlay={<Tooltip>{titleRaw}</Tooltip>}
+            {targetDate && (
+              <div className="flex flex-wrap gap-2 justify-end">
+                {!completed && (
+                  <Button
+                    variant="secondary"
+                    className="bg-white text-zinc-400"
+                    onClick={() => setShowRescheduleSheet(true)}
                   >
-                    <span>{translatedTitle}</span>
-                  </OverlayTrigger>
-                ) : (
-                  titleRaw
+                    {t('Reschedule')}
+                    <CalendarIcon />
+                  </Button>
                 )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {effectiveItem.intervention.duration && (
-                  <Badge variant="card">
-                    <ClockIcon className="w-6 h-6" />
-                    <span className="text-xl">{`${effectiveItem.intervention.duration}min`}</span>
-                  </Badge>
-                )}
-                <Badge
-                  variant="card"
-                  role={effectiveMediaList.length > 0 ? 'button' : undefined}
-                  tabIndex={effectiveMediaList.length > 0 ? 0 : undefined}
-                  onClick={
-                    effectiveMediaList.length > 0
-                      ? () => mediaRef.current?.scrollIntoView({ behavior: 'smooth' })
-                      : undefined
-                  }
-                  onKeyDown={
-                    effectiveMediaList.length > 0
-                      ? (e) =>
-                          e.key === 'Enter' &&
-                          mediaRef.current?.scrollIntoView({ behavior: 'smooth' })
-                      : undefined
-                  }
-                  className={
-                    effectiveMediaList.length > 0
-                      ? 'cursor-pointer lg:cursor-default lg:pointer-events-none'
-                      : ''
-                  }
+
+                <Button
+                  disabled={isBusy}
+                  aria-pressed={completed}
+                  onClick={handleToggleCompleted}
+                  variant={completed ? 'default' : 'secondary'}
+                  className={!completed && 'bg-white text-zinc-400'}
                 >
-                  {effectiveMediaBadge.icon === 'media' && <MediaIcon className="w-6 h-6" />}
-                  {effectiveMediaBadge.icon === 'reader' && <ReaderIcon className="w-6 h-6" />}
-                  <span className="text-xl">{t(effectiveMediaBadge.label)}</span>
-                </Badge>
+                  {(() => {
+                    const isBehaviorChange =
+                      effectiveItem?.intervention?.aim?.toLowerCase() === 'behavior change';
+                    if (isBusy) return <Skeleton className="w-20 h-6 rounded-full" />;
+                    if (completed) return isBehaviorChange ? t('Viewed') : t('Done');
+                    return isBehaviorChange ? t('Mark as viewed') : t('Mark as done');
+                  })()}
+                  {completed ? <CircleCheckFillIcon /> : <CircleHalfCheckIcon />}
+                </Button>
               </div>
-            </Card>
-          </Section>
+            )}
+          </div>
 
-          <div ref={mediaRef}>
+          {error ? <ErrorAlert message={error} onClose={() => setError('')} /> : null}
+
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 lg:items-start">
             <Section>
-              <MediaContent mediaList={effectiveMediaList} />
-
-              {!!mediaLinks.length && (
-                <div className="py-2 flex flex-col gap-2">
-                  {mediaLinks.map((link, idx) => (
-                    <a
-                      key={`${link.href}-${idx}`}
-                      href={link.href}
-                      className="no-underline"
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label={`${link.text}: ${link.label}`}
-                    >
-                      <Button className="w-full">
-                        {link.text}
-                        <OpenExternalIcon aria-hidden="true" />
-                      </Button>
-                    </a>
-                  ))}
-                  {effectiveItem?.provider && (
-                    <span className="text-zinc-500 text-center">
-                      {String(effectiveItem.provider)}
-                    </span>
+              <Card className="flex flex-col items-start gap-3">
+                <Badge variant="card">
+                  {lower(effectiveItem.intervention.aim) === 'exercise' ? (
+                    <ExerciseIcon className="flex-none w-8 h-8" />
+                  ) : (
+                    <EducationIcon className="flex-none w-8 h-8" />
+                  )}
+                  <span
+                    className={`text-xl ${lower(effectiveItem.intervention.aim) === 'exercise' ? 'text-pink' : 'text-yellow'}`}
+                  >
+                    {effectiveItem.intervention.aim ? t(effectiveItem.intervention.aim) : null}
+                  </span>
+                </Badge>
+                {effectiveIsPrivate && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-zinc-800 -mb-4">
+                        <FaLock />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>{t('Private intervention')}</TooltipContent>
+                  </Tooltip>
+                )}
+                <div className="font-bold text-2xl leading-7 text-zinc-800">
+                  {titleLang ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>{translatedTitle}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>{titleRaw}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    titleRaw
                   )}
                 </div>
-              )}
-
-              <Card className="text-lg text-zinc-500">
-                {detectedLang ? (
-                  <OverlayTrigger
-                    container={tooltipContainerRef}
-                    overlay={<Tooltip>{effectiveItem?.description || ''}</Tooltip>}
+                <div className="flex flex-wrap gap-2">
+                  {effectiveItem.intervention.duration && (
+                    <Badge variant="card">
+                      <ClockIcon className="w-6 h-6" />
+                      <span className="text-xl">{`${effectiveItem.intervention.duration}min`}</span>
+                    </Badge>
+                  )}
+                  <Badge
+                    variant="card"
+                    role={effectiveMediaList.length > 0 ? 'button' : undefined}
+                    tabIndex={effectiveMediaList.length > 0 ? 0 : undefined}
+                    onClick={
+                      effectiveMediaList.length > 0
+                        ? () => mediaRef.current?.scrollIntoView({ behavior: 'smooth' })
+                        : undefined
+                    }
+                    onKeyDown={
+                      effectiveMediaList.length > 0
+                        ? (e) =>
+                            e.key === 'Enter' &&
+                            mediaRef.current?.scrollIntoView({ behavior: 'smooth' })
+                        : undefined
+                    }
+                    className={
+                      effectiveMediaList.length > 0
+                        ? 'cursor-pointer lg:cursor-default lg:pointer-events-none'
+                        : ''
+                    }
                   >
-                    <span>{translatedText}</span>
-                  </OverlayTrigger>
-                ) : (
-                  effectiveItem?.description || ''
-                )}
+                    {effectiveMediaBadge.icon === 'media' && <MediaIcon className="w-6 h-6" />}
+                    {effectiveMediaBadge.icon === 'reader' && <ReaderIcon className="w-6 h-6" />}
+                    <span className="text-xl">{t(effectiveMediaBadge.label)}</span>
+                  </Badge>
+                </div>
               </Card>
-
-              {effectiveItem?.notes && (
-                <Card className="text-lg text-zinc-500">
-                  {t('Notes')}: {effectiveItem.notes}
-                </Card>
-              )}
             </Section>
+
+            <div ref={mediaRef}>
+              <Section>
+                <MediaContent mediaList={effectiveMediaList} />
+
+                {!!mediaLinks.length && (
+                  <div className="py-2 flex flex-col gap-2">
+                    {mediaLinks.map((link, idx) => (
+                      <a
+                        key={`${link.href}-${idx}`}
+                        href={link.href}
+                        className="no-underline"
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`${link.text}: ${link.label}`}
+                      >
+                        <Button className="w-full">
+                          {link.text}
+                          <OpenExternalIcon aria-hidden="true" />
+                        </Button>
+                      </a>
+                    ))}
+                    {effectiveItem?.provider && (
+                      <span className="text-zinc-500 text-center">
+                        {String(effectiveItem.provider)}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <Card className="text-lg text-zinc-500">
+                  {detectedLang ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>{translatedText}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>{effectiveItem?.description || ''}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    effectiveItem?.description || ''
+                  )}
+                </Card>
+
+                {effectiveItem?.notes && (
+                  <Card className="text-lg text-zinc-500">
+                    {t('Notes')}: {effectiveItem.notes}
+                  </Card>
+                )}
+              </Section>
+            </div>
           </div>
         </div>
-      </div>
+      </TooltipProvider>
 
       {/* Intervention Feedback Popup */}
       {patientQuestionnairesStore.showFeedbackPopup && (

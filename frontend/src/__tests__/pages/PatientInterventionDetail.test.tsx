@@ -22,12 +22,6 @@ jest.mock('react-bootstrap', () => ({
   Alert: function Alert({ children }: any) {
     return <div role="alert">{children}</div>;
   },
-  OverlayTrigger: function OverlayTrigger({ children }: any) {
-    return <>{children}</>;
-  },
-  Tooltip: function Tooltip({ children }: any) {
-    return <span>{children}</span>;
-  },
   Tab: Object.assign(
     function Tab({ children }: any) {
       return <>{children}</>;
