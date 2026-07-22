@@ -10,11 +10,13 @@ Coverage
 --------
   - 405 for non-POST methods
   - 404 when patient_id is unknown
-  - 400 when patient has no Fitbit data (WearablesSyncError from service)
+  - 400 when patient has no wearable data (WearablesSyncError from service)
   - 400 when patient has no project set (ValueError from service)
   - 502 when REDCap API returns an error (RedcapError from service)
-  - 200 with results + summary on success
+  - 200 with {ok, patient_code, first_measurement_date, periods} on success
   - Optional JSON body passes event names through to the service
+  - force=true is forwarded as skip_if_populated=False
+  - Skipped periods carry clear skip_reason + detail fields
 """
 
 import json
@@ -35,8 +37,38 @@ client = Client()
 
 
 # ---------------------------------------------------------------------------
-# Fixtures
+# Fixtures / helpers
 # ---------------------------------------------------------------------------
+
+_FAKE_META = {
+    "first_date": "2024-01-01",
+    "baseline_window": {"start": "2024-01-08", "end": "2024-01-28"},
+    "followup_window": {"start": "2024-05-29", "end": "2024-06-28"},
+    "user": None,
+}
+
+_FAKE_SUMMARY_SKIPPED = {
+    "baseline": None,
+    "followup": None,
+    "_meta": _FAKE_META,
+}
+
+_FAKE_SUMMARY_OK = {
+    "baseline": {
+        "monitoring_start": "2024-01-08",
+        "monitoring_end": "2024-01-28",
+        "fitbit_steps": 5000,
+        "fitbit_pa": 30,
+        "fitbit_inactivity": 300,
+        "sleep_duration": "7",
+        "valid_week_days": 1,
+        "valid_weekend_days": 0,
+        "valid_week_nights": 1,
+        "valid_weekend_nights": 0,
+    },
+    "followup": None,
+    "_meta": _FAKE_META,
+}
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -88,7 +120,7 @@ URL = "/api/wearables/sync-to-redcap/{}/".format
 
 
 # ---------------------------------------------------------------------------
-# Tests
+# Basic routing
 # ---------------------------------------------------------------------------
 
 
@@ -104,27 +136,38 @@ def test_patient_not_found():
     assert resp.json()["error"] == "Patient not found"
 
 
-def test_no_fitbit_data_returns_400():
-    # Patient exists but has never worn the device — no FitbitData records
+# ---------------------------------------------------------------------------
+# Error paths
+# ---------------------------------------------------------------------------
+
+
+def test_no_wearable_data_returns_400():
+    """Patient exists but has never worn the device — no wearable records."""
     patient = _make_patient(reha_end_date=None)
-    resp = client.post(URL(patient.id), **AUTH)
+
+    with patch(
+        "core.views.wearables_redcap_view.compute_wearables_summary",
+        side_effect=WearablesSyncError(
+            "No wearable data found for patient P-X. The device must be worn before wearables can be exported to REDCap.",
+            code="wearables_no_fitbit_data",
+        ),
+    ):
+        resp = client.post(URL(patient.id), **AUTH)
+
     assert resp.status_code == 400
     body = resp.json()
-    assert "No Fitbit data" in body["error"]
+    assert "No wearable data" in body["error"]
     assert body["code"] == "wearables_no_fitbit_data"
 
 
 def test_missing_project_returns_400():
-    # Create with valid project, then blank it out (Therapist model validates project choices)
     patient = _make_patient(project="COMPASS", reha_end_date=datetime(2024, 1, 1, tzinfo=dt_tz.utc))
     patient.project = ""
     patient.save()
 
-    # compute_wearables_summary will succeed (project is only needed by export),
-    # so we patch the whole service pair to isolate the error path
     with patch(
         "core.views.wearables_redcap_view.compute_wearables_summary",
-        return_value={"baseline": None, "followup": None},
+        return_value=_FAKE_SUMMARY_SKIPPED,
     ):
         with patch(
             "core.views.wearables_redcap_view.export_wearables_to_redcap",
@@ -133,12 +176,10 @@ def test_missing_project_returns_400():
             resp = client.post(URL(patient.id), **AUTH)
 
     assert resp.status_code == 400
-    body = resp.json()
-    assert "project" in body["error"]
+    assert "project" in resp.json()["error"]
 
 
 def test_wearables_sync_error_returns_code():
-    """WearablesSyncError should include the translatable code in the response."""
     patient = _make_patient(reha_end_date=None)
 
     with patch(
@@ -153,7 +194,7 @@ def test_wearables_sync_error_returns_code():
     assert resp.status_code == 400
     body = resp.json()
     assert body["code"] == "wearables_no_fitbit_data"
-    assert "No Fitbit data" in body["error"]
+    assert "Fitbit data" in body["error"]
 
 
 def test_redcap_error_returns_502():
@@ -161,7 +202,7 @@ def test_redcap_error_returns_502():
 
     with patch(
         "core.views.wearables_redcap_view.compute_wearables_summary",
-        return_value={"baseline": None, "followup": None},
+        return_value=_FAKE_SUMMARY_SKIPPED,
     ):
         with patch(
             "core.views.wearables_redcap_view.export_wearables_to_redcap",
@@ -175,49 +216,165 @@ def test_redcap_error_returns_502():
     assert body["detail"] == {"status": 400}
 
 
-def test_success_returns_results_and_summary():
+# ---------------------------------------------------------------------------
+# Success path — new response format
+# ---------------------------------------------------------------------------
+
+
+def test_success_returns_periods_with_detail():
     patient = _make_patient(reha_end_date=datetime(2024, 1, 1, tzinfo=dt_tz.utc))
 
-    fake_summary = {
-        "baseline": {
-            "monitoring_start": "03-01-2024",
-            "monitoring_end": "09-01-2024",
-            "monitoring_days": 7,
-            "fitbit_steps": 5000,
-        },
-        "followup": None,
-    }
-    fake_results = {"baseline": "ok", "followup": "skipped"}
+    fake_results = {"baseline": "sent", "followup": "skipped"}
     fake_payloads = {
-        "baseline": {"status": "sent", "record": {"record_id": "1"}},
-        "followup": {"status": "skipped", "reason": "no_fitbit_data_in_period"},
+        "baseline": {
+            "status": "sent",
+            "record": {
+                "record_id": "1",
+                "redcap_event_name": "visit_baseline_arm_1",
+                "fitbit_steps": 5000,
+            },
+        },
+        "followup": {
+            "status": "skipped",
+            "skip_reason": "future_window",
+            "window_start": "2024-05-29",
+            "window_end": "2024-06-28",
+        },
     }
 
     with patch(
         "core.views.wearables_redcap_view.compute_wearables_summary",
-        return_value=fake_summary,
+        return_value=_FAKE_SUMMARY_OK,
     ):
         with patch(
             "core.views.wearables_redcap_view.export_wearables_to_redcap",
             return_value=(fake_results, fake_payloads),
-        ) as mock_export:
+        ):
             resp = client.post(URL(patient.id), **AUTH)
 
     assert resp.status_code == 200
     body = resp.json()
     assert body["ok"] is True
-    assert body["results"] == fake_results
-    assert body["summary"]["baseline"]["fitbit_steps"] == 5000
-    assert body["sent_payloads"] == fake_payloads
+    assert "patient_code" in body
+    assert body["first_measurement_date"] == "2024-01-01"
+    assert "periods" in body
 
-    # export was called without explicit event names (body was empty)
-    args, kwargs = mock_export.call_args
-    event_b = args[1] if len(args) > 1 else kwargs.get("event_baseline")
-    event_f = args[2] if len(args) > 2 else kwargs.get("event_followup")
-    return_payloads = args[3] if len(args) > 3 else kwargs.get("return_payloads")
-    assert event_b is None
-    assert event_f is None
-    assert return_payloads is True
+    bl = body["periods"]["baseline"]
+    assert bl["status"] == "sent"
+    assert bl["redcap_event"] == "visit_baseline_arm_1"
+
+    fu = body["periods"]["followup"]
+    assert fu["status"] == "skipped"
+    assert fu["skip_reason"] == "future_window"
+    assert "not yet reached" in fu["detail"]
+
+
+def test_success_does_not_include_legacy_results_key():
+    """Old {results, summary, sent_payloads} keys must not appear."""
+    patient = _make_patient(reha_end_date=datetime(2024, 1, 1, tzinfo=dt_tz.utc))
+
+    with patch(
+        "core.views.wearables_redcap_view.compute_wearables_summary",
+        return_value=_FAKE_SUMMARY_OK,
+    ):
+        with patch(
+            "core.views.wearables_redcap_view.export_wearables_to_redcap",
+            return_value=(
+                {"baseline": "sent", "followup": "skipped"},
+                {
+                    "baseline": {"status": "sent", "record": {}},
+                    "followup": {"status": "skipped", "skip_reason": "future_window",
+                                 "window_start": "2024-05-29", "window_end": "2024-06-28"},
+                },
+            ),
+        ):
+            resp = client.post(URL(patient.id), **AUTH)
+
+    body = resp.json()
+    assert "results" not in body
+    assert "summary" not in body
+    assert "sent_payloads" not in body
+
+
+def test_skipped_no_valid_days_includes_record_count():
+    patient = _make_patient(reha_end_date=datetime(2024, 1, 1, tzinfo=dt_tz.utc))
+
+    fake_payloads = {
+        "baseline": {
+            "status": "skipped",
+            "skip_reason": "no_valid_days",
+            "window_start": "2024-01-08",
+            "window_end": "2024-01-28",
+            "total_records": 21,
+            "valid_activity_days": 0,
+            "valid_sleep_nights": 0,
+            "wear_threshold_minutes": 600,
+        },
+        "followup": {
+            "status": "skipped",
+            "skip_reason": "future_window",
+            "window_start": "2024-05-29",
+            "window_end": "2024-06-28",
+        },
+    }
+
+    with patch(
+        "core.views.wearables_redcap_view.compute_wearables_summary",
+        return_value=_FAKE_SUMMARY_SKIPPED,
+    ):
+        with patch(
+            "core.views.wearables_redcap_view.export_wearables_to_redcap",
+            return_value=({"baseline": "skipped", "followup": "skipped"}, fake_payloads),
+        ):
+            resp = client.post(URL(patient.id), **AUTH)
+
+    assert resp.status_code == 200
+    body = resp.json()
+    bl = body["periods"]["baseline"]
+    assert bl["skip_reason"] == "no_valid_days"
+    assert bl["total_records_in_window"] == 21
+    assert bl["valid_activity_days"] == 0
+    assert "10h/day" in bl["detail"]
+
+
+def test_skipped_already_populated_includes_existing_start():
+    patient = _make_patient(reha_end_date=datetime(2024, 1, 1, tzinfo=dt_tz.utc))
+
+    fake_payloads = {
+        "baseline": {
+            "status": "skipped",
+            "skip_reason": "already_populated",
+            "existing_start": "2024-01-08",
+            "redcap_event": "visit_baseline_arm_1",
+        },
+        "followup": {
+            "status": "skipped",
+            "skip_reason": "future_window",
+            "window_start": "2024-05-29",
+            "window_end": "2024-06-28",
+        },
+    }
+
+    with patch(
+        "core.views.wearables_redcap_view.compute_wearables_summary",
+        return_value=_FAKE_SUMMARY_SKIPPED,
+    ):
+        with patch(
+            "core.views.wearables_redcap_view.export_wearables_to_redcap",
+            return_value=({"baseline": "skipped", "followup": "skipped"}, fake_payloads),
+        ):
+            resp = client.post(URL(patient.id), **AUTH)
+
+    body = resp.json()
+    bl = body["periods"]["baseline"]
+    assert bl["skip_reason"] == "already_populated"
+    assert bl["existing_start"] == "2024-01-08"
+    assert "force=true" in bl["detail"]
+
+
+# ---------------------------------------------------------------------------
+# Body / parameter forwarding
+# ---------------------------------------------------------------------------
 
 
 def test_event_names_from_body_passed_to_service():
@@ -225,15 +382,17 @@ def test_event_names_from_body_passed_to_service():
 
     with patch(
         "core.views.wearables_redcap_view.compute_wearables_summary",
-        return_value={"baseline": None, "followup": None},
+        return_value=_FAKE_SUMMARY_SKIPPED,
     ):
         with patch(
             "core.views.wearables_redcap_view.export_wearables_to_redcap",
             return_value=(
                 {"baseline": "skipped", "followup": "skipped"},
                 {
-                    "baseline": {"status": "skipped", "reason": "no_fitbit_data_in_period"},
-                    "followup": {"status": "skipped", "reason": "no_fitbit_data_in_period"},
+                    "baseline": {"status": "skipped", "skip_reason": "future_window",
+                                 "window_start": "2024-01-08", "window_end": "2024-01-28"},
+                    "followup": {"status": "skipped", "skip_reason": "future_window",
+                                 "window_start": "2024-05-29", "window_end": "2024-06-28"},
                 },
             ),
         ) as mock_export:
@@ -250,14 +409,73 @@ def test_event_names_from_body_passed_to_service():
             )
 
     assert resp.status_code == 200
-    # view calls export_wearables_to_redcap(patient, event_baseline, event_followup)
     args, kwargs = mock_export.call_args
     assert args[1] == "custom_bl_arm_1" or kwargs.get("event_baseline") == "custom_bl_arm_1"
     assert args[2] == "custom_fu_arm_1" or kwargs.get("event_followup") == "custom_fu_arm_1"
-    return_payloads = (
-        kwargs.get("return_payloads") if "return_payloads" in kwargs else (args[3] if len(args) > 3 else None)
-    )
+    return_payloads = kwargs.get("return_payloads") if "return_payloads" in kwargs else (args[3] if len(args) > 3 else None)
     assert return_payloads is True
+
+
+def test_force_true_sets_skip_if_populated_false():
+    patient = _make_patient(reha_end_date=datetime(2024, 1, 1, tzinfo=dt_tz.utc))
+
+    with patch(
+        "core.views.wearables_redcap_view.compute_wearables_summary",
+        return_value=_FAKE_SUMMARY_SKIPPED,
+    ):
+        with patch(
+            "core.views.wearables_redcap_view.export_wearables_to_redcap",
+            return_value=(
+                {"baseline": "skipped", "followup": "skipped"},
+                {
+                    "baseline": {"status": "skipped", "skip_reason": "future_window",
+                                 "window_start": "2024-01-08", "window_end": "2024-01-28"},
+                    "followup": {"status": "skipped", "skip_reason": "future_window",
+                                 "window_start": "2024-05-29", "window_end": "2024-06-28"},
+                },
+            ),
+        ) as mock_export:
+            resp = client.post(
+                URL(patient.id),
+                data=json.dumps({"force": True}),
+                content_type="application/json",
+                **AUTH,
+            )
+
+    assert resp.status_code == 200
+    _, kwargs = mock_export.call_args
+    assert kwargs.get("skip_if_populated") is False
+
+
+def test_force_false_sets_skip_if_populated_true():
+    patient = _make_patient(reha_end_date=datetime(2024, 1, 1, tzinfo=dt_tz.utc))
+
+    with patch(
+        "core.views.wearables_redcap_view.compute_wearables_summary",
+        return_value=_FAKE_SUMMARY_SKIPPED,
+    ):
+        with patch(
+            "core.views.wearables_redcap_view.export_wearables_to_redcap",
+            return_value=(
+                {"baseline": "skipped", "followup": "skipped"},
+                {
+                    "baseline": {"status": "skipped", "skip_reason": "future_window",
+                                 "window_start": "2024-01-08", "window_end": "2024-01-28"},
+                    "followup": {"status": "skipped", "skip_reason": "future_window",
+                                 "window_start": "2024-05-29", "window_end": "2024-06-28"},
+                },
+            ),
+        ) as mock_export:
+            resp = client.post(
+                URL(patient.id),
+                data=json.dumps({"force": False}),
+                content_type="application/json",
+                **AUTH,
+            )
+
+    assert resp.status_code == 200
+    _, kwargs = mock_export.call_args
+    assert kwargs.get("skip_if_populated") is True
 
 
 def test_invalid_json_body_treated_as_empty():
@@ -265,15 +483,17 @@ def test_invalid_json_body_treated_as_empty():
 
     with patch(
         "core.views.wearables_redcap_view.compute_wearables_summary",
-        return_value={"baseline": None, "followup": None},
+        return_value=_FAKE_SUMMARY_SKIPPED,
     ):
         with patch(
             "core.views.wearables_redcap_view.export_wearables_to_redcap",
             return_value=(
                 {"baseline": "skipped", "followup": "skipped"},
                 {
-                    "baseline": {"status": "skipped", "reason": "no_fitbit_data_in_period"},
-                    "followup": {"status": "skipped", "reason": "no_fitbit_data_in_period"},
+                    "baseline": {"status": "skipped", "skip_reason": "future_window",
+                                 "window_start": "2024-01-08", "window_end": "2024-01-28"},
+                    "followup": {"status": "skipped", "skip_reason": "future_window",
+                                 "window_start": "2024-05-29", "window_end": "2024-06-28"},
                 },
             ),
         ):
@@ -285,3 +505,31 @@ def test_invalid_json_body_treated_as_empty():
             )
 
     assert resp.status_code == 200
+
+
+def test_precomputed_summary_passed_to_export():
+    """View must pass its summary to export to avoid double-querying."""
+    patient = _make_patient(reha_end_date=datetime(2024, 1, 1, tzinfo=dt_tz.utc))
+    fake_summary = dict(_FAKE_SUMMARY_OK)
+
+    with patch(
+        "core.views.wearables_redcap_view.compute_wearables_summary",
+        return_value=fake_summary,
+    ):
+        with patch(
+            "core.views.wearables_redcap_view.export_wearables_to_redcap",
+            return_value=(
+                {"baseline": "skipped", "followup": "skipped"},
+                {
+                    "baseline": {"status": "skipped", "skip_reason": "no_records",
+                                 "window_start": "2024-01-08", "window_end": "2024-01-28"},
+                    "followup": {"status": "skipped", "skip_reason": "future_window",
+                                 "window_start": "2024-05-29", "window_end": "2024-06-28"},
+                },
+            ),
+        ) as mock_export:
+            resp = client.post(URL(patient.id), **AUTH)
+
+    assert resp.status_code == 200
+    _, kwargs = mock_export.call_args
+    assert kwargs.get("precomputed_summary") is fake_summary
