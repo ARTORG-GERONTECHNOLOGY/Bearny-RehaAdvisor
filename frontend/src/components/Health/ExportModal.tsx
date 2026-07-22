@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { datePickerInputClassName } from '@/components/ui/input';
 
 type Props = {
   show: boolean;
@@ -93,20 +94,24 @@ const ExportModal: React.FC<Props> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
           <div className="flex flex-col gap-1">
-            <Label className="font-bold mr-2">{t('From')}</Label>
+            <Label>{t('From')}</Label>
             <DatePicker
               selected={from}
               onChange={(d) => setFrom(d)}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className={datePickerInputClassName}
+              portalId="datepicker-portal"
+              popperClassName="!z-[60] !pointer-events-auto"
               dateFormat="yyyy-MM-dd"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label className="font-bold mr-2">{t('To')}</Label>
+            <Label>{t('To')}</Label>
             <DatePicker
               selected={to}
               onChange={(d) => setTo(d)}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className={datePickerInputClassName}
+              portalId="datepicker-portal"
+              popperClassName="!z-[60] !pointer-events-auto"
               dateFormat="yyyy-MM-dd"
             />
           </div>

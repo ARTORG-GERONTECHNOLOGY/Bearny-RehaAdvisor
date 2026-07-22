@@ -23,6 +23,7 @@ type Option = { value: string; label: string };
 
 // Matches the shadcn Input look (see components/ui/input.tsx) for the raw
 // <input>/<select> elements in this form that aren't using the <Input> component.
+// TODO: migrate these to the ui Input/Select components.
 const inputFieldClass = (invalid: boolean) =>
   `flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 md:text-sm ${
     invalid ? 'border-nok focus-visible:ring-nok' : 'border-input focus-visible:ring-ring'

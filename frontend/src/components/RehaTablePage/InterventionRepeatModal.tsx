@@ -17,7 +17,7 @@ import config from '@/config/config.json';
 import { InterventionRepeatModalStore } from '@/stores/interventionRepeatModalStore';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel, FieldGroup, FieldDescription } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Input, datePickerInputClassName } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -128,7 +128,9 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                   id="ir-effective-from"
                   selected={store.effectiveFrom}
                   onChange={(d) => (store.effectiveFrom = d as Date)}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className={datePickerInputClassName}
+                  portalId="datepicker-portal"
+                  popperClassName="!z-[60] !pointer-events-auto"
                   dateFormat="yyyy-MM-dd"
                 />
               </Field>
@@ -139,7 +141,9 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                   id="ir-start-date"
                   selected={store.startDateCreate}
                   onChange={(d) => (store.startDateCreate = d as Date)}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className={datePickerInputClassName}
+                  portalId="datepicker-portal"
+                  popperClassName="!z-[60] !pointer-events-auto"
                   dateFormat="yyyy-MM-dd"
                 />
               </Field>
@@ -245,7 +249,9 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                       <DatePicker
                         selected={store.endDate}
                         onChange={(d) => (store.endDate = d as Date)}
-                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className={datePickerInputClassName}
+                        portalId="datepicker-portal"
+                        popperClassName="!z-[60] !pointer-events-auto"
                         dateFormat="yyyy-MM-dd"
                       />
                     )}
