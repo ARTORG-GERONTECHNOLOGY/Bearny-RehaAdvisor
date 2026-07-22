@@ -10,7 +10,7 @@ interface PatientInfoCharacteristicsCardProps {
   store: PatientPopupStore;
 }
 
-export const CHARACTERISTICS_FIELDS: PatientFieldConfig[] = [
+const CHARACTERISTICS_FIELDS: PatientFieldConfig[] = [
   { be_name: 'level_of_education', label: 'Level of education', type: 'text', maxLength: 200 },
   { be_name: 'professional_status', label: 'Professional status', type: 'text', maxLength: 200 },
   { be_name: 'marital_status', label: 'Marital status', type: 'text', maxLength: 200 },
