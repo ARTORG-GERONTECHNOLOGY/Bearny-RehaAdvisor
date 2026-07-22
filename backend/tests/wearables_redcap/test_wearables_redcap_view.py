@@ -283,8 +283,12 @@ def test_success_does_not_include_legacy_results_key():
                 {"baseline": "sent", "followup": "skipped"},
                 {
                     "baseline": {"status": "sent", "record": {}},
-                    "followup": {"status": "skipped", "skip_reason": "future_window",
-                                 "window_start": "2024-05-29", "window_end": "2024-06-28"},
+                    "followup": {
+                        "status": "skipped",
+                        "skip_reason": "future_window",
+                        "window_start": "2024-05-29",
+                        "window_end": "2024-06-28",
+                    },
                 },
             ),
         ):
@@ -389,10 +393,18 @@ def test_event_names_from_body_passed_to_service():
             return_value=(
                 {"baseline": "skipped", "followup": "skipped"},
                 {
-                    "baseline": {"status": "skipped", "skip_reason": "future_window",
-                                 "window_start": "2024-01-08", "window_end": "2024-01-28"},
-                    "followup": {"status": "skipped", "skip_reason": "future_window",
-                                 "window_start": "2024-05-29", "window_end": "2024-06-28"},
+                    "baseline": {
+                        "status": "skipped",
+                        "skip_reason": "future_window",
+                        "window_start": "2024-01-08",
+                        "window_end": "2024-01-28",
+                    },
+                    "followup": {
+                        "status": "skipped",
+                        "skip_reason": "future_window",
+                        "window_start": "2024-05-29",
+                        "window_end": "2024-06-28",
+                    },
                 },
             ),
         ) as mock_export:
@@ -412,7 +424,9 @@ def test_event_names_from_body_passed_to_service():
     args, kwargs = mock_export.call_args
     assert args[1] == "custom_bl_arm_1" or kwargs.get("event_baseline") == "custom_bl_arm_1"
     assert args[2] == "custom_fu_arm_1" or kwargs.get("event_followup") == "custom_fu_arm_1"
-    return_payloads = kwargs.get("return_payloads") if "return_payloads" in kwargs else (args[3] if len(args) > 3 else None)
+    return_payloads = (
+        kwargs.get("return_payloads") if "return_payloads" in kwargs else (args[3] if len(args) > 3 else None)
+    )
     assert return_payloads is True
 
 
@@ -428,10 +442,18 @@ def test_force_true_sets_skip_if_populated_false():
             return_value=(
                 {"baseline": "skipped", "followup": "skipped"},
                 {
-                    "baseline": {"status": "skipped", "skip_reason": "future_window",
-                                 "window_start": "2024-01-08", "window_end": "2024-01-28"},
-                    "followup": {"status": "skipped", "skip_reason": "future_window",
-                                 "window_start": "2024-05-29", "window_end": "2024-06-28"},
+                    "baseline": {
+                        "status": "skipped",
+                        "skip_reason": "future_window",
+                        "window_start": "2024-01-08",
+                        "window_end": "2024-01-28",
+                    },
+                    "followup": {
+                        "status": "skipped",
+                        "skip_reason": "future_window",
+                        "window_start": "2024-05-29",
+                        "window_end": "2024-06-28",
+                    },
                 },
             ),
         ) as mock_export:
@@ -459,10 +481,18 @@ def test_force_false_sets_skip_if_populated_true():
             return_value=(
                 {"baseline": "skipped", "followup": "skipped"},
                 {
-                    "baseline": {"status": "skipped", "skip_reason": "future_window",
-                                 "window_start": "2024-01-08", "window_end": "2024-01-28"},
-                    "followup": {"status": "skipped", "skip_reason": "future_window",
-                                 "window_start": "2024-05-29", "window_end": "2024-06-28"},
+                    "baseline": {
+                        "status": "skipped",
+                        "skip_reason": "future_window",
+                        "window_start": "2024-01-08",
+                        "window_end": "2024-01-28",
+                    },
+                    "followup": {
+                        "status": "skipped",
+                        "skip_reason": "future_window",
+                        "window_start": "2024-05-29",
+                        "window_end": "2024-06-28",
+                    },
                 },
             ),
         ) as mock_export:
@@ -490,10 +520,18 @@ def test_invalid_json_body_treated_as_empty():
             return_value=(
                 {"baseline": "skipped", "followup": "skipped"},
                 {
-                    "baseline": {"status": "skipped", "skip_reason": "future_window",
-                                 "window_start": "2024-01-08", "window_end": "2024-01-28"},
-                    "followup": {"status": "skipped", "skip_reason": "future_window",
-                                 "window_start": "2024-05-29", "window_end": "2024-06-28"},
+                    "baseline": {
+                        "status": "skipped",
+                        "skip_reason": "future_window",
+                        "window_start": "2024-01-08",
+                        "window_end": "2024-01-28",
+                    },
+                    "followup": {
+                        "status": "skipped",
+                        "skip_reason": "future_window",
+                        "window_start": "2024-05-29",
+                        "window_end": "2024-06-28",
+                    },
                 },
             ),
         ):
@@ -521,10 +559,18 @@ def test_precomputed_summary_passed_to_export():
             return_value=(
                 {"baseline": "skipped", "followup": "skipped"},
                 {
-                    "baseline": {"status": "skipped", "skip_reason": "no_records",
-                                 "window_start": "2024-01-08", "window_end": "2024-01-28"},
-                    "followup": {"status": "skipped", "skip_reason": "future_window",
-                                 "window_start": "2024-05-29", "window_end": "2024-06-28"},
+                    "baseline": {
+                        "status": "skipped",
+                        "skip_reason": "no_records",
+                        "window_start": "2024-01-08",
+                        "window_end": "2024-01-28",
+                    },
+                    "followup": {
+                        "status": "skipped",
+                        "skip_reason": "future_window",
+                        "window_start": "2024-05-29",
+                        "window_end": "2024-06-28",
+                    },
                 },
             ),
         ) as mock_export:

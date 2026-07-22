@@ -43,8 +43,7 @@ def _build_period_response(result: str, payload: dict, summary_period) -> dict:
             out["detail"] = f"Window starts {payload.get('window_start')} — not yet reached"
         elif skip_reason == "no_records":
             out["detail"] = (
-                f"No wearable records found in window "
-                f"{payload.get('window_start')} to {payload.get('window_end')}"
+                f"No wearable records found in window " f"{payload.get('window_start')} to {payload.get('window_end')}"
             )
         elif skip_reason == "no_valid_days":
             total = payload.get("total_records", 0)
@@ -69,15 +68,12 @@ def _build_period_response(result: str, payload: dict, summary_period) -> dict:
             out["redcap_event"] = payload.get("redcap_event")
 
     elif status == "sent" and summary_period:
-        out["window"] = (
-            f"{summary_period.get('monitoring_start')} to "
-            f"{summary_period.get('monitoring_end')}"
+        out["window"] = f"{summary_period.get('monitoring_start')} to " f"{summary_period.get('monitoring_end')}"
+        out["valid_activity_days"] = summary_period.get("valid_week_days", 0) + summary_period.get(
+            "valid_weekend_days", 0
         )
-        out["valid_activity_days"] = (
-            summary_period.get("valid_week_days", 0) + summary_period.get("valid_weekend_days", 0)
-        )
-        out["valid_sleep_nights"] = (
-            summary_period.get("valid_week_nights", 0) + summary_period.get("valid_weekend_nights", 0)
+        out["valid_sleep_nights"] = summary_period.get("valid_week_nights", 0) + summary_period.get(
+            "valid_weekend_nights", 0
         )
         record = payload.get("record", {})
         if record.get("redcap_event_name"):
