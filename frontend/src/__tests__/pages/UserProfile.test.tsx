@@ -213,7 +213,7 @@ describe('UserProfile page', () => {
 
     renderWithRouter(<UserProfile />);
 
-    expect(screen.getByTestId('banner-danger')).toHaveTextContent('SomeErrorKey');
+    expect(screen.getByTestId('banner-destructive')).toHaveTextContent('SomeErrorKey');
     expect(screen.getByTestId('banner-success')).toHaveTextContent('SomeSuccessKey');
 
     // close error

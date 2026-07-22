@@ -165,7 +165,7 @@ const PatientView: React.FC = observer(() => {
         />
 
         <StatusBanner type="success" message={pageSuccess} onClose={dismissPageSuccess} />
-        <StatusBanner type="danger" message={pageError} onClose={dismissPageError} />
+        <StatusBanner type="destructive" message={pageError} onClose={dismissPageError} />
 
         <ActivitySection
           loading={patientFitbitStore.connected === null || patientFitbitStore.summaryLoading}

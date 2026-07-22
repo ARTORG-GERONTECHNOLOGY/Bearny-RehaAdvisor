@@ -1,5 +1,6 @@
 import React from 'react';
-import { Badge, Alert } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -103,13 +104,13 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
               {t('Refresh list')}
             </Button>
 
-            <Badge bg="secondary">
+            <Badge variant="dashboard">
               {candidates.length} {t('found')}
             </Badge>
           </div>
         </div>
 
-        {error ? <Alert variant="danger">{error}</Alert> : null}
+        {error ? <Alert variant="destructive">{error}</Alert> : null}
 
         {loading ? (
           <div className="text-center py-4">
@@ -144,7 +145,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
                 const patientCell = hasPat ? (
                   <span style={{ whiteSpace: 'nowrap' }}>{c.pat_id}</span>
                 ) : (
-                  <Badge bg="secondary">{t('record only')}</Badge>
+                  <Badge variant="dashboard">{t('record only')}</Badge>
                 );
 
                 return (
@@ -152,7 +153,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
                     <TableCell style={{ whiteSpace: 'nowrap' }}>
                       {patientCell}
                       {c.dag ? (
-                        <Badge bg="light" text="dark" className="ms-2">
+                        <Badge variant="dashboard" className="ms-2">
                           DAG: {c.dag}
                         </Badge>
                       ) : null}
@@ -163,7 +164,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
                     </TableCell>
 
                     <TableCell>
-                      <Badge bg="info">{c.project}</Badge>
+                      <Badge variant="dashboard-info">{c.project}</Badge>
                     </TableCell>
 
                     <TableCell>

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
 import { FaLock } from 'react-icons/fa';
 
@@ -12,12 +12,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { translateText } from '@/utils/translate';
 import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
 import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
 import {
   getBadgeVariantFromIntervention,
+  getMediaBadge,
   getMediaTypeLabelFromIntervention,
   getTagColor,
 } from '@/utils/interventions';
@@ -184,30 +186,6 @@ const getPlayableUrl = (m: InterventionMedia): string => {
   if (m.kind === 'external') return norm(m.url || '');
   if (m.kind === 'file') return norm(m.file_url || m.file_path || '');
   return '';
-};
-
-// Keep this for "Media" section label only
-const getMediaBadge = (media: InterventionMedia[]) => {
-  if (!media.length) return { label: 'No media', variant: 'secondary' as const };
-  const types = new Set(media.map((m) => m.media_type));
-  if (types.size > 1) return { label: 'Mixed', variant: 'primary' as const };
-
-  const only = [...types][0];
-  switch (only) {
-    case 'video':
-      return { label: 'Video', variant: 'danger' as const };
-    case 'audio':
-    case 'streaming':
-      return { label: 'Audio', variant: 'warning' as const };
-    case 'pdf':
-      return { label: 'PDF', variant: 'info' as const };
-    case 'image':
-      return { label: 'Image', variant: 'success' as const };
-    case 'app':
-      return { label: 'App', variant: 'dark' as const };
-    default:
-      return { label: 'Link', variant: 'secondary' as const };
-  }
 };
 
 // ✅ “library-style” tags under description
@@ -593,106 +571,116 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   const titleRaw = effectiveItem?.title || effectiveItem?.intervention_title || '';
 
   return (
-    <Dialog open={show} onOpenChange={(open) => !open && confirmClose()}>
-      <DialogContent className="max-w-3xl" onPointerDownOutside={(e) => e.preventDefault()}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 flex-wrap">
-            {effectiveIsPrivate && (
-              <OverlayTrigger overlay={<Tooltip>{t('Private intervention')}</Tooltip>}>
-                <span className="text-muted">
-                  <FaLock />
-                </span>
-              </OverlayTrigger>
-            )}
+    <TooltipProvider>
+      <Dialog open={show} onOpenChange={(open) => !open && confirmClose()}>
+        <DialogContent className="max-w-3xl" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
+              {effectiveIsPrivate && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted">
+                      <FaLock />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('Private intervention')}</TooltipContent>
+                </Tooltip>
+              )}
 
-            {titleLang ? (
-              <OverlayTrigger overlay={<Tooltip>{titleRaw}</Tooltip>}>
-                <span>{translatedTitle}</span>
-              </OverlayTrigger>
-            ) : (
-              titleRaw
-            )}
-          </DialogTitle>
-        </DialogHeader>
+              {titleLang ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>{translatedTitle}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>{titleRaw}</TooltipContent>
+                </Tooltip>
+              ) : (
+                titleRaw
+              )}
+            </DialogTitle>
+          </DialogHeader>
 
-        {error && <ErrorAlert message={error} onClose={() => setError('')} />}
+          {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
-        <div className="w-full">
-          {/* languages */}
-          {(loadingLangs || sortedLangOptions.length > 1) && (
-            <div className="mb-3">
-              <div className="flex items-center justify-between mb-2">
-                <h5 className="mb-0">{t('Languages')}</h5>
-                {loadingLangs ? <small className="text-muted">{t('Loading…')}</small> : null}
+          <div className="w-full">
+            {/* languages */}
+            {(loadingLangs || sortedLangOptions.length > 1) && (
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h5 className="mb-0">{t('Languages')}</h5>
+                  {loadingLangs ? <small className="text-muted">{t('Loading…')}</small> : null}
+                </div>
+
+                <ButtonGroup>
+                  {sortedLangOptions.map((opt) => {
+                    const optLang = String(opt.language || '').toLowerCase();
+                    const active = optLang === currentLang;
+                    return (
+                      <Button
+                        key={optLang}
+                        size="dashboard"
+                        variant={active ? undefined : 'secondary'}
+                        onClick={() => switchVariantByLang(optLang)}
+                        aria-pressed={active}
+                      >
+                        {optLang.toUpperCase()}
+                      </Button>
+                    );
+                  })}
+                </ButtonGroup>
               </div>
+            )}
 
-              <ButtonGroup>
-                {sortedLangOptions.map((opt) => {
-                  const optLang = String(opt.language || '').toLowerCase();
-                  const active = optLang === currentLang;
-                  return (
-                    <Button
-                      key={optLang}
-                      size="dashboard"
-                      variant={active ? undefined : 'secondary'}
-                      onClick={() => switchVariantByLang(optLang)}
-                      aria-pressed={active}
-                    >
-                      {optLang.toUpperCase()}
-                    </Button>
-                  );
-                })}
-              </ButtonGroup>
-            </div>
-          )}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
+              <div className="md:col-span-6">
+                <h5>{t('Description')}</h5>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-3">
-            <div className="md:col-span-6">
-              <h5>{t('Description')}</h5>
+                <p className="text-muted mb-2">
+                  {detectedLang ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span>{translatedText}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>{effectiveItem?.description}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    effectiveItem?.description
+                  )}
+                </p>
 
-              <p className="text-muted mb-2">
-                {detectedLang ? (
-                  <OverlayTrigger overlay={<Tooltip>{effectiveItem?.description}</Tooltip>}>
-                    <span>{translatedText}</span>
-                  </OverlayTrigger>
-                ) : (
-                  effectiveItem?.description
-                )}
-              </p>
+                {renderMetaTags()}
 
-              {renderMetaTags()}
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {/* content type badge should match therapist colors */}
-                <Badge bg={mediaVariant as any} aria-label={t('Media type')}>
-                  {t(mediaLabel, { defaultValue: mediaLabel })}
-                </Badge>
-
-                {effectiveItem?.language ? (
-                  <Badge bg="secondary">{String(effectiveItem.language).toUpperCase()}</Badge>
-                ) : null}
-
-                {effectiveItem?.provider ? (
-                  <Badge bg="light" text="dark">
-                    {String(effectiveItem.provider)}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {/* content type badge should match therapist colors */}
+                  <Badge variant={mediaVariant as any} aria-label={t('Media type')}>
+                    {t(mediaLabel, { defaultValue: mediaLabel })}
                   </Badge>
-                ) : null}
-              </div>
-            </div>
 
-            <div className="md:col-span-6">
-              <div className="flex items-center justify-between">
-                <h5 className="mb-0">{t('Media')}</h5>
-                <Badge bg={effectiveMediaBadge.variant as any}>
-                  {t(effectiveMediaBadge.label)}
-                </Badge>
+                  {effectiveItem?.language ? (
+                    <Badge variant="dashboard">
+                      {String(effectiveItem.language).toUpperCase()}
+                    </Badge>
+                  ) : null}
+
+                  {effectiveItem?.provider ? (
+                    <Badge variant="dashboard">{String(effectiveItem.provider)}</Badge>
+                  ) : null}
+                </div>
               </div>
-              <div className="mt-2">{renderMediaContent()}</div>
+
+              <div className="md:col-span-6">
+                <div className="flex items-center justify-between">
+                  <h5 className="mb-0">{t('Media')}</h5>
+                  <Badge variant={effectiveMediaBadge.variant as any}>
+                    {t(effectiveMediaBadge.label)}
+                  </Badge>
+                </div>
+                <div className="mt-2">{renderMediaContent()}</div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <style>{`
+          <style>{`
           .meta-tag-row {
             display: flex;
             flex-wrap: wrap;
@@ -772,13 +760,14 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
           }
         `}</style>
 
-        <DialogFooter>
-          <Button size="dashboard" variant="secondary" onClick={confirmClose}>
-            {t('Close')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button size="dashboard" variant="secondary" onClick={confirmClose}>
+              {t('Close')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </TooltipProvider>
   );
 };
 

@@ -1,6 +1,6 @@
 // src/components/RehaTablePage/QuestionnaireScheduleModal.tsx
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
@@ -337,18 +337,13 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
         footer={footer}
       >
         {error && (
-          <Alert
-            variant="danger"
-            onClose={() => setError('')}
-            dismissible
-            style={{ whiteSpace: 'pre-wrap' }}
-          >
+          <Alert variant="destructive" onClose={() => setError('')} closeLabel={t('Close alert')}>
             {error}
           </Alert>
         )}
 
         {Object.keys(fieldErrors).length > 0 && (
-          <Alert variant="danger">
+          <Alert variant="destructive">
             <ul className="mb-0">
               {Object.entries(fieldErrors).map(([k, msg]) => (
                 <li key={k}>{msg}</li>

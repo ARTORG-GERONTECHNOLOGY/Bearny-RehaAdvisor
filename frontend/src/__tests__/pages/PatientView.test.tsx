@@ -423,7 +423,7 @@ describe('PatientView', () => {
 
     render(<PatientView />);
 
-    expect(await screen.findByTestId('banner-danger')).toHaveTextContent(
+    expect(await screen.findByTestId('banner-destructive')).toHaveTextContent(
       'Fitbit connection failed.'
     );
   });
@@ -478,7 +478,7 @@ describe('PatientView', () => {
 
     render(<PatientView />);
 
-    expect(await screen.findByTestId('banner-danger')).toHaveTextContent(
+    expect(await screen.findByTestId('banner-destructive')).toHaveTextContent(
       'Fitbit is not configured on this server. Please contact support.'
     );
   });
@@ -499,7 +499,7 @@ describe('PatientView', () => {
 
       render(<PatientView />);
 
-      expect(await screen.findByTestId('banner-danger')).toHaveTextContent(expectedMessage);
+      expect(await screen.findByTestId('banner-destructive')).toHaveTextContent(expectedMessage);
     }
   );
 
@@ -512,11 +512,11 @@ describe('PatientView', () => {
 
     render(<PatientView />);
 
-    expect(await screen.findByTestId('banner-danger')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('close-danger'));
+    expect(await screen.findByTestId('banner-destructive')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('close-destructive'));
 
     await waitFor(() => {
-      expect(screen.queryByTestId('banner-danger')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('banner-destructive')).not.toBeInTheDocument();
     });
   });
 

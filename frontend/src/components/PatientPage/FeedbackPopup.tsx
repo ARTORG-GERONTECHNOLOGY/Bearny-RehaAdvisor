@@ -1,6 +1,6 @@
 // src/components/patient/FeedbackPopup.tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import {
   Sheet,
   SheetContent,
@@ -533,7 +533,7 @@ const FeedbackPopup: React.FC<Props> = ({
 
             <div className="flex flex-col gap-2 flex-1">
               {micPermissionDenied && (
-                <Alert variant="danger">{t('Microphone access denied.')}</Alert>
+                <Alert variant="destructive">{t('Microphone access denied.')}</Alert>
               )}
               {error && (
                 <ErrorAlert message={error} onClose={() => setError(null)} className="m-0" />

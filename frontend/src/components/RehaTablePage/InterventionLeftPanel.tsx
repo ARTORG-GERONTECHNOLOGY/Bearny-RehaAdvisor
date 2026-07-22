@@ -1,6 +1,5 @@
 // src/components/RehaTablePage/InterventionLeftPanel.tsx
 import React, { useMemo, useRef, useState } from 'react';
-import { OverlayTrigger, Tooltip } from 'react-bootstrap';
 import Select, { StylesConfig } from 'react-select';
 import { TFunction } from 'i18next';
 import { FaPlus, FaMinus, FaChartBar, FaEdit, FaUndo, FaGlobe, FaFilter } from 'react-icons/fa';
@@ -33,6 +32,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 // Sentinel for the "clear filter" Select item — Radix forbids an empty-string item value.
 const ALL_FILTER_VALUE = '__all__';
@@ -199,9 +199,12 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
         <CardHeader className="p-3 pb-2">
           <CardTitle className="text-sm">
             {isTranslated ? (
-              <OverlayTrigger overlay={<Tooltip>{original}</Tooltip>}>
-                <div>{title}</div>
-              </OverlayTrigger>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>{title}</div>
+                </TooltipTrigger>
+                <TooltipContent>{original}</TooltipContent>
+              </Tooltip>
             ) : (
               <div>{title}</div>
             )}
@@ -227,66 +230,113 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
               {/* Stats/Feedback only when assigned */}
               {assigned && (
                 <>
-                  <OverlayTrigger placement="left" overlay={<Tooltip>{t('Statistics')}</Tooltip>}>
-                    <Button
-                      size="dashboard"
-                      variant="secondary"
-                      onClick={() => showStats(intervention)}
-                      aria-label={t('Statistics')}
-                      className="px-3"
-                    >
-                      <FaChartBar className="text-pink" />
-                    </Button>
-                  </OverlayTrigger>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="dashboard"
+                        variant="secondary"
+                        onClick={() => showStats(intervention)}
+                        aria-label={t('Statistics')}
+                        className="px-3"
+                      >
+                        <FaChartBar className="text-pink" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t('Statistics')}</TooltipContent>
+                  </Tooltip>
 
-                  <OverlayTrigger placement="left" overlay={<Tooltip>{t('Feedback')}</Tooltip>}>
-                    <Button
-                      size="dashboard"
-                      variant="secondary"
-                      onClick={() => openFeedbackBrowser(intervention)}
-                      aria-label={t('Feedback')}
-                      className="px-3"
-                    >
-                      <StarIcon className="text-yellow" />
-                    </Button>
-                  </OverlayTrigger>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="dashboard"
+                        variant="secondary"
+                        onClick={() => openFeedbackBrowser(intervention)}
+                        aria-label={t('Feedback')}
+                        className="px-3"
+                      >
+                        <StarIcon className="text-yellow" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t('Feedback')}</TooltipContent>
+                  </Tooltip>
                 </>
               )}
 
               {/* Modify only if assigned AND has future */}
               {assigned && hasFuture && (
-                <OverlayTrigger placement="left" overlay={<Tooltip>{t('Modify')}</Tooltip>}>
-                  <Button
-                    size="dashboard"
-                    variant="secondary"
-                    onClick={() => handleModifyIntervention(intervention)}
-                    aria-label={t('Modify')}
-                    className="px-3"
-                  >
-                    <FaEdit />
-                  </Button>
-                </OverlayTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="dashboard"
+                      variant="secondary"
+                      onClick={() => handleModifyIntervention(intervention)}
+                      aria-label={t('Modify')}
+                      className="px-3"
+                    >
+                      <FaEdit />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('Modify')}</TooltipContent>
+                </Tooltip>
               )}
 
               {/* Patient tab past section: schedule again */}
               {opts.showScheduleAgain ? (
-                <OverlayTrigger placement="left" overlay={<Tooltip>{t('Schedule again')}</Tooltip>}>
-                  <Button
-                    size="dashboard"
-                    variant="secondary"
-                    onClick={() => handleAddIntervention(intervention)}
-                    aria-label={t('Schedule again')}
-                    className="px-3"
-                  >
-                    <FaPlus className="text-ok" />
-                  </Button>
-                </OverlayTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="dashboard"
+                      variant="secondary"
+                      onClick={() => handleAddIntervention(intervention)}
+                      aria-label={t('Schedule again')}
+                      className="px-3"
+                    >
+                      <FaPlus className="text-ok" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('Schedule again')}</TooltipContent>
+                </Tooltip>
               ) : null}
 
               {/* ALL tab behavior for + / - */}
               {opts.inAllTab ? (
                 assigned ? (
-                  <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="dashboard"
+                        variant="secondary"
+                        onClick={() => handleDeleteExercise(intervention._id)}
+                        aria-label={t('Remove')}
+                        className="px-3"
+                      >
+                        <FaMinus className="text-nok" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t('Remove')}</TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="dashboard"
+                        variant="secondary"
+                        onClick={() => handleAddIntervention(intervention)}
+                        aria-label={t('Add')}
+                        className="px-3"
+                      >
+                        <FaPlus className="text-ok" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t('Add')}</TooltipContent>
+                  </Tooltip>
+                )
+              ) : null}
+
+              {/* Patient tab active section remove only if hasFuture */}
+              {!opts.inAllTab && !opts.showScheduleAgain && hasFuture ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
                     <Button
                       size="dashboard"
                       variant="secondary"
@@ -296,35 +346,9 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                     >
                       <FaMinus className="text-nok" />
                     </Button>
-                  </OverlayTrigger>
-                ) : (
-                  <OverlayTrigger placement="left" overlay={<Tooltip>{t('Add')}</Tooltip>}>
-                    <Button
-                      size="dashboard"
-                      variant="secondary"
-                      onClick={() => handleAddIntervention(intervention)}
-                      aria-label={t('Add')}
-                      className="px-3"
-                    >
-                      <FaPlus className="text-ok" />
-                    </Button>
-                  </OverlayTrigger>
-                )
-              ) : null}
-
-              {/* Patient tab active section remove only if hasFuture */}
-              {!opts.inAllTab && !opts.showScheduleAgain && hasFuture ? (
-                <OverlayTrigger placement="left" overlay={<Tooltip>{t('Remove')}</Tooltip>}>
-                  <Button
-                    size="dashboard"
-                    variant="secondary"
-                    onClick={() => handleDeleteExercise(intervention._id)}
-                    aria-label={t('Remove')}
-                    className="px-3"
-                  >
-                    <FaMinus className="text-nok" />
-                  </Button>
-                </OverlayTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('Remove')}</TooltipContent>
+                </Tooltip>
               ) : null}
             </ButtonGroup>
           </div>
@@ -477,58 +501,60 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
   );
 
   return (
-    <div className="flex flex-col gap-2">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('Active interventions')}</CardTitle>
-          <CardAction>
-            <Badge variant="dashboard">{activeItems.length}</Badge>
-          </CardAction>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 max-h-96 overflow-auto">
-          {activeItems.length === 0 ? (
-            <div className="text-zinc-500">{t('No active interventions.')}</div>
-          ) : (
-            activeItems.map((it: any) => renderInterventionCard(it))
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('Past interventions')}</CardTitle>
-          <CardAction>
-            <Badge variant="dashboard">{pastItems.length}</Badge>
-          </CardAction>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 max-h-96 overflow-auto">
-          {pastItems.length === 0 ? (
-            <div className="text-zinc-500">{t('No past interventions.')}</div>
-          ) : (
-            pastItems.map((it: any) => renderInterventionCard(it, { showScheduleAgain: true }))
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle>{t('All interventions')}</CardTitle>
-          <CardAction>
-            <Badge variant="dashboard">{visibleItems.length}</Badge>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
-          {renderFiltersBar()}
-          <div className="mt-3 flex flex-col gap-2 h-96 overflow-auto" ref={listScrollRef}>
-            {visibleItems.length === 0 ? (
-              <div className="text-zinc-500">{t('No interventions match the filters.')}</div>
+    <TooltipProvider>
+      <div className="flex flex-col gap-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('Active interventions')}</CardTitle>
+            <CardAction>
+              <Badge variant="dashboard">{activeItems.length}</Badge>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 max-h-96 overflow-auto">
+            {activeItems.length === 0 ? (
+              <div className="text-zinc-500">{t('No active interventions.')}</div>
             ) : (
-              visibleItems.map((it: any) => renderInterventionCard(it, { inAllTab: true }))
+              activeItems.map((it: any) => renderInterventionCard(it))
             )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('Past interventions')}</CardTitle>
+            <CardAction>
+              <Badge variant="dashboard">{pastItems.length}</Badge>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 max-h-96 overflow-auto">
+            {pastItems.length === 0 ? (
+              <div className="text-zinc-500">{t('No past interventions.')}</div>
+            ) : (
+              pastItems.map((it: any) => renderInterventionCard(it, { showScheduleAgain: true }))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle>{t('All interventions')}</CardTitle>
+            <CardAction>
+              <Badge variant="dashboard">{visibleItems.length}</Badge>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            {renderFiltersBar()}
+            <div className="mt-3 flex flex-col gap-2 h-96 overflow-auto" ref={listScrollRef}>
+              {visibleItems.length === 0 ? (
+                <div className="text-zinc-500">{t('No interventions match the filters.')}</div>
+              ) : (
+                visibleItems.map((it: any) => renderInterventionCard(it, { inAllTab: true }))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </TooltipProvider>
   );
 };
 

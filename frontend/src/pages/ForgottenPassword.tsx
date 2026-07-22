@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
@@ -36,9 +36,7 @@ const ForgotPassword: React.FC = observer(() => {
         <PageHeader title={t('ForgottenPassword')} />
         <Card className="bg-white max-w-lg mt-2">
           {store.success && (
-            <Alert variant="success" className="text-center">
-              {t('Passwordresetlinksent.Pleasecheckyouremail.')}
-            </Alert>
+            <Alert variant="success">{t('Passwordresetlinksent.Pleasecheckyouremail.')}</Alert>
           )}
 
           {store.error && <ErrorAlert message={store.error} onClose={() => (store.error = null)} />}

@@ -1,7 +1,8 @@
 // src/components/TherapistInterventionPage/ImportInterventionsModal.tsx
 import React, { useMemo, useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Alert, Badge, Nav } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
+import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -20,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import interventionsConfig from '../../config/interventions.json';
 import { interventionsImportStore } from '@/stores/interventionsImportStore';
@@ -208,21 +210,18 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
         </DialogHeader>
 
         {/* ── Tab switcher ── */}
-        <Nav
-          variant="tabs"
-          activeKey={activeTab}
-          onSelect={(k) => {
-            if (k === 'excel' || k === 'media') setActiveTab(k);
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            if (v === 'excel' || v === 'media') setActiveTab(v);
           }}
           className="mb-3"
         >
-          <Nav.Item>
-            <Nav.Link eventKey="excel">{t('Excel Import')}</Nav.Link>
-          </Nav.Item>
-          <Nav.Item>
-            <Nav.Link eventKey="media">{t('Upload Media')}</Nav.Link>
-          </Nav.Item>
-        </Nav>
+          <TabsList>
+            <TabsTrigger value="excel">{t('Excel Import')}</TabsTrigger>
+            <TabsTrigger value="media">{t('Upload Media')}</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {/* ══════════════════════════════════════════════════════════════════
             Excel Import tab
@@ -230,7 +229,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
         {activeTab === 'excel' && (
           <>
             {interventionsImportStore.error && (
-              <Alert variant="danger" role="alert">
+              <Alert variant="destructive">
                 {interventionsImportStore.errorCode === 'sheet_not_found' ? (
                   <>
                     {t('Sheet not found in the Excel file.')}
@@ -358,13 +357,13 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                   </div>
 
                   <div className="mt-2 d-flex flex-wrap gap-2">
-                    <Badge bg="success">
+                    <Badge variant="dashboard-success">
                       {t('Created')}: {r.created ?? 0}
                     </Badge>
-                    <Badge bg="primary">
+                    <Badge variant="dashboard-info">
                       {t('Updated')}: {r.updated ?? 0}
                     </Badge>
-                    <Badge bg="secondary">
+                    <Badge variant="dashboard">
                       {t('Skipped')}: {r.skipped ?? 0}
                     </Badge>
                     {(() => {
@@ -377,17 +376,17 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                       return (
                         <>
                           {errorsCount > 0 && (
-                            <Badge bg="danger">
+                            <Badge variant="dashboard-destructive">
                               {t('Errors')}: {errorsCount}
                             </Badge>
                           )}
                           {warningsCount > 0 && (
-                            <Badge bg="warning" text="dark">
+                            <Badge variant="dashboard-warning">
                               {t('Warnings')}: {warningsCount}
                             </Badge>
                           )}
                           {errorsCount === 0 && warningsCount === 0 && (
-                            <Badge bg="success">{t('Errors')}: 0</Badge>
+                            <Badge variant="dashboard-success">{t('Errors')}: 0</Badge>
                           )}
                         </>
                       );
@@ -407,8 +406,9 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                             <div key={idx} className="small mb-2">
                               <div className="d-flex align-items-center gap-2 flex-wrap">
                                 <Badge
-                                  bg={isWarning ? 'warning' : 'danger'}
-                                  text={isWarning ? 'dark' : undefined}
+                                  variant={
+                                    isWarning ? 'dashboard-warning' : 'dashboard-destructive'
+                                  }
                                 >
                                   {isWarning ? t('Warning') : t('Error')}
                                 </Badge>
@@ -447,9 +447,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
         {activeTab === 'media' && (
           <>
             {interventionsMediaUploadStore.error && (
-              <Alert variant="danger" role="alert">
-                {interventionsMediaUploadStore.error}
-              </Alert>
+              <Alert variant="destructive">{interventionsMediaUploadStore.error}</Alert>
             )}
 
             {/* Naming-convention help text */}
@@ -521,15 +519,15 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                     data-testid="video-file-row"
                   >
                     {vf.valid && !vf.tooLarge ? (
-                      <Badge bg="success" title={t('Valid filename')}>
+                      <Badge variant="dashboard-success" title={t('Valid filename')}>
                         ✓
                       </Badge>
                     ) : vf.valid && vf.tooLarge ? (
-                      <Badge bg="warning" text="dark" title={t('File too large')}>
+                      <Badge variant="dashboard-warning" title={t('File too large')}>
                         ⚠
                       </Badge>
                     ) : (
-                      <Badge bg="danger" title={t('Invalid filename')}>
+                      <Badge variant="dashboard-destructive" title={t('Invalid filename')}>
                         ✗
                       </Badge>
                     )}
@@ -586,10 +584,10 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
               <div className="border rounded p-3">
                 <div className="fw-semibold mb-2">{t('Upload results')}</div>
                 <div className="d-flex flex-wrap gap-2 mb-2">
-                  <Badge bg="success">
+                  <Badge variant="dashboard-success">
                     {t('OK')}: {vr.filter((r) => r.status === 'ok').length}
                   </Badge>
-                  <Badge bg="danger">
+                  <Badge variant="dashboard-destructive">
                     {t('Errors')}: {vr.filter((r) => r.status === 'error').length}
                   </Badge>
                 </div>
@@ -597,7 +595,11 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                   {vr.map((res: MediaUploadFileResult, idx: number) => (
                     <div key={idx} className="small mb-2">
                       <div className="d-flex align-items-center gap-2 flex-wrap">
-                        <Badge bg={res.status === 'ok' ? 'success' : 'danger'}>
+                        <Badge
+                          variant={
+                            res.status === 'ok' ? 'dashboard-success' : 'dashboard-destructive'
+                          }
+                        >
                           {res.status === 'ok' ? t('OK') : t('Error')}
                         </Badge>
                         <code className="text-break">{res.filename}</code>

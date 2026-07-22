@@ -1,9 +1,17 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Footer from '@/components/common/Footer';
 import '@testing-library/jest-dom';
 import { useIsStandalone } from '@/components/PwaInstallSheet';
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
+
+beforeAll(() => {
+  Element.prototype.hasPointerCapture = jest.fn().mockReturnValue(false);
+  Element.prototype.setPointerCapture = jest.fn();
+  Element.prototype.releasePointerCapture = jest.fn();
+  Element.prototype.scrollIntoView = jest.fn();
+});
 
 jest.mock('@/components/PwaInstallSheet', () => {
   const React = jest.requireActual('react');
@@ -76,18 +84,19 @@ describe('Footer component', () => {
     expect(screen.getByTestId('pwa-install-sheet')).toHaveAttribute('data-open', 'true');
   });
 
-  it('changes the language when a dropdown item is clicked', () => {
+  it('changes the language when a dropdown item is clicked', async () => {
+    const user = userEvent.setup();
     const { useTranslation } = jest.requireMock('react-i18next');
     const { i18n } = useTranslation();
 
-    const { container } = render(
+    render(
       <MemoryRouter>
         <Footer />
       </MemoryRouter>
     );
 
-    fireEvent.click(container.querySelector('.dropdown-toggle')!);
-    fireEvent.click(screen.getByText('FR').closest('a')!);
+    await user.click(screen.getByRole('button', { name: 'Language' }));
+    await user.click(await screen.findByText('FR'));
     expect(i18n.changeLanguage).toHaveBeenCalledWith('fr');
   });
 });

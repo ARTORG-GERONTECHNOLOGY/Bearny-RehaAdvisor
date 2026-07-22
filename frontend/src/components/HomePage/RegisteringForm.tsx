@@ -3,11 +3,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Select from 'react-select';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
-import apiClient from '../../api/client';
-import config from '../../config/config.json';
+import apiClient from '@/api/client';
+import config from '@/config/config.json';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Alert } from '@/components/ui/alert';
 
 interface FormDataShape {
   [key: string]: any; // string | string[]
@@ -516,20 +517,16 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
         <div className="flex-1 overflow-y-auto">
           {formError && (
-            <div className="alert alert-danger">
-              <div className="d-flex justify-content-between align-items-center">
-                <span style={{ whiteSpace: 'pre-line' }}>{formError}</span>
-                <button
-                  type="button"
-                  className="btn-close"
-                  aria-label={t('Close')}
-                  onClick={() => {
-                    setFormError(null);
-                    setServerDetail(null);
-                    setShowDetails(false);
-                  }}
-                />
-              </div>
+            <Alert
+              variant="destructive"
+              closeLabel={t('Close alert')}
+              onClose={() => {
+                setFormError(null);
+                setServerDetail(null);
+                setShowDetails(false);
+              }}
+            >
+              <span style={{ whiteSpace: 'pre-line' }}>{formError}</span>
 
               {serverDetail && (
                 <div className="mt-2">
@@ -549,19 +546,17 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                   )}
                 </div>
               )}
-            </div>
+            </Alert>
           )}
 
           {successMsg && (
-            <div className="alert alert-success d-flex justify-content-between align-items-center">
-              <span>{successMsg}</span>
-              <button
-                type="button"
-                className="btn-close"
-                aria-label={t('Close')}
-                onClick={() => setSuccessMsg(null)}
-              />
-            </div>
+            <Alert
+              variant="success"
+              closeLabel={t('Close alert')}
+              onClose={() => setSuccessMsg(null)}
+            >
+              {successMsg}
+            </Alert>
           )}
 
           <form

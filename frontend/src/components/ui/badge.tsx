@@ -12,7 +12,11 @@ const badgeVariants = cva(
         card: 'bg-white text-brand rounded-xl pl-[10px] pr-3 border border-accent',
         'filter-active': 'bg-white text-zinc-800 text-nowrap',
         'filter-inactive': 'bg-zinc-50 text-zinc-400 text-nowrap',
-        dashboard: 'bg-white text-zinc-800 rounded-lg py-0.5 px-2 border border-accent capitalize',
+        dashboard: 'rounded-lg py-0.5 px-2 border border-accent bg-white text-zinc-800 capitalize',
+        'dashboard-success': 'rounded-lg py-0.5 px-2 border border-ok bg-ok/5 text-ok',
+        'dashboard-warning': 'rounded-lg py-0.5 px-2 border border-yellow bg-yellow/5 text-yellow',
+        'dashboard-info': 'rounded-lg py-0.5 px-2 border border-blue-800 bg-blue-50 text-blue-800',
+        'dashboard-destructive': 'rounded-lg py-0.5 px-2 border border-nok bg-nok/5 text-nok',
       },
     },
     defaultVariants: {

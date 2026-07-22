@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import ErrorAlert from '@/components/common/ErrorAlert';
+import { Alert } from '@/components/ui/alert';
 import config from '@/config/config.json';
 import apiClient from '@/api/client';
 import userProfileStore from '@/stores/userProfileStore';
@@ -347,16 +348,12 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
           </DialogHeader>
 
           {reqSuccess ? (
-            <div role="status" className="bg-ok/5 p-3 text-ok text-sm rounded-md">
+            <Alert variant="success" role="status">
               {reqSuccess}
-            </div>
+            </Alert>
           ) : (
             <FieldGroup>
-              {reqError && (
-                <div role="alert" className="bg-nok/10 p-3 text-nok text-sm rounded-md">
-                  {reqError}
-                </div>
-              )}
+              {reqError && <Alert variant="destructive">{reqError}</Alert>}
 
               <MultiSelectField
                 id="req-clinics"

@@ -323,8 +323,8 @@ describe('RegisteringForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     await screen.findByText(/You have been registered/);
-    const successAlert = document.querySelector('.alert-success') as HTMLElement;
-    fireEvent.click(within(successAlert).getByLabelText('Close'));
+    const successAlert = screen.getByRole('alert');
+    fireEvent.click(within(successAlert).getByLabelText('Close alert'));
     expect(screen.queryByText(/You have been registered/)).not.toBeInTheDocument();
   });
 
@@ -356,8 +356,8 @@ describe('RegisteringForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     await screen.findByText('Bad request');
-    const errorAlert = document.querySelector('.alert-danger') as HTMLElement;
-    fireEvent.click(within(errorAlert).getByLabelText('Close'));
+    const errorAlert = screen.getByRole('alert');
+    fireEvent.click(within(errorAlert).getByLabelText('Close alert'));
     expect(screen.queryByText('Bad request')).not.toBeInTheDocument();
   });
 

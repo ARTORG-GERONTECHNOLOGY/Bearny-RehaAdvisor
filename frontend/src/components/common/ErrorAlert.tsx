@@ -1,16 +1,18 @@
 import { FC } from 'react';
-import { Alert } from 'react-bootstrap';
+import { useTranslation } from 'react-i18next';
+import { Alert } from '@/components/ui/alert';
 
 interface ErrorAlertProps {
   message: string;
   onClose?: () => void;
-  className?: string; // optional wrapper class
+  className?: string;
 }
 
 const ErrorAlert: FC<ErrorAlertProps> = ({ message, onClose, className = '' }) => {
+  const { t } = useTranslation();
   return (
-    <div className={`px-2 ${className}`}>
-      <Alert variant="danger" dismissible onClose={onClose} role="alert">
+    <div className={className}>
+      <Alert variant="destructive" onClose={onClose} closeLabel={t('Close alert')}>
         {message}
       </Alert>
     </div>

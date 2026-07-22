@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 
 import apiClient from '@/api/client';
 import { extractApiError } from '@/stores/rehabTableStore';
@@ -181,7 +181,12 @@ const QuestionnairesContent: React.FC<QuestionnairesContentProps> = ({ patientId
   return (
     <div>
       {error && (
-        <Alert variant="danger" onClose={() => setError(null)} dismissible className="my-3">
+        <Alert
+          variant="destructive"
+          onClose={() => setError(null)}
+          closeLabel={t('Close alert')}
+          className="my-3"
+        >
           {error}
         </Alert>
       )}

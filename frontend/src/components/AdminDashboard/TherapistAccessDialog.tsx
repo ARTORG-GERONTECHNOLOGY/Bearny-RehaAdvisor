@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -64,13 +64,13 @@ const TherapistAccessDialog: React.FC<Props> = ({
         </DialogHeader>
 
         {success && (
-          <Alert variant="success" dismissible onClose={onDismissSuccess}>
+          <Alert variant="success" onClose={onDismissSuccess} closeLabel={t('Close alert')}>
             {success}
           </Alert>
         )}
 
         {error && (
-          <Alert variant="danger" dismissible onClose={onDismissError}>
+          <Alert variant="destructive" onClose={onDismissError} closeLabel={t('Close alert')}>
             {error}
           </Alert>
         )}

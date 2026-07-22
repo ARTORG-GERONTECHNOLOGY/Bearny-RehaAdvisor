@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge } from 'react-bootstrap';
+import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
@@ -30,7 +30,7 @@ const PatientInfoRedcapCard: React.FC<PatientInfoRedcapCardProps> = observer(({ 
             {store.redcapProject ? (
               <div className="flex items-center flex-wrap gap-2">
                 <div>
-                  {t('Project')}: <Badge bg="info">{store.redcapProject}</Badge>
+                  {t('Project')}: <Badge variant="dashboard-info">{store.redcapProject}</Badge>
                 </div>
                 <div>
                   {t('Records')}: {store.redcapRows?.length || 0}

@@ -53,7 +53,7 @@ describe('PatientInfoWearablesSyncResult', () => {
     store.wearablesSyncPayloads = { daily: { status: 'success', record: {} } };
 
     render(<PatientInfoWearablesSyncResult store={store} />);
-    fireEvent.click(screen.getByLabelText('Close'));
+    fireEvent.click(screen.getByLabelText('Close alert'));
 
     expect(store.wearablesSyncResult).toBeNull();
     expect(store.wearablesSyncPayloads).toBeNull();
