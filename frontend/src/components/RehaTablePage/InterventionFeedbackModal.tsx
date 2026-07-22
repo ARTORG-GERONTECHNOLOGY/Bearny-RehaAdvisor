@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { ListGroup, Badge, Alert } from 'react-bootstrap';
+import { ListGroup, Badge } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -146,9 +147,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
             </div>
 
             {!visibleDates.length ? (
-              <Alert variant="secondary" className="mb-0">
-                {safeT(t, 'No feedback available')}
-              </Alert>
+              <Alert className="mb-0">{safeT(t, 'No feedback available')}</Alert>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 {/* LEFT: dates list (scrollable) */}
@@ -232,7 +231,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                       <div className="fw-semibold mb-2">{safeT(t, 'Answers')}</div>
 
                       {!feedback.length ? (
-                        <Alert variant="secondary">{safeT(t, 'No feedback available')}</Alert>
+                        <Alert>{safeT(t, 'No feedback available')}</Alert>
                       ) : (
                         <ListGroup>
                           {feedback.map((fb: any, i: number) => {

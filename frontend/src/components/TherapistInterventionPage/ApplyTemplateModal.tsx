@@ -1,6 +1,6 @@
 // src/components/TherapistInterventionPage/ApplyTemplateModal.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
@@ -267,7 +267,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
         </DialogHeader>
 
         {error && (
-          <Alert variant="danger" dismissible onClose={() => setError('')}>
+          <Alert variant="destructive" onClose={() => setError('')} closeLabel="Close alert">
             <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
               <span>{error}</span>
               <Button

@@ -1406,7 +1406,7 @@ describe('AdminDashboard', () => {
 
       const successAlert = await screen.findByText('Saved successfully.');
       fireEvent.click(
-        within(successAlert.closest('.alert') as HTMLElement).getByRole('button', {
+        within(successAlert.closest('[role="alert"]') as HTMLElement).getByRole('button', {
           name: 'Close alert',
         })
       );

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
@@ -100,9 +100,9 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
 
         {store.error && (
           <Alert
-            variant="danger"
-            dismissible
+            variant="destructive"
             onClose={() => (store.error = '')}
+            closeLabel="Close alert"
             style={{ whiteSpace: 'pre-wrap' }}
           >
             {store.error}
@@ -110,7 +110,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
         )}
 
         {Object.keys(store.fieldErrors).length > 0 && (
-          <Alert variant="danger">
+          <Alert variant="destructive">
             <ul className="mb-0">
               {Object.entries(store.fieldErrors).map(([key, msg]) => (
                 <li key={key}>{msg}</li>

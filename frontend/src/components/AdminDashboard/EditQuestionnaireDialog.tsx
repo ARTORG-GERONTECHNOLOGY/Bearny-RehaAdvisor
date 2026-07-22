@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -51,7 +51,7 @@ const EditQuestionnaireDialog: React.FC<Props> = ({
           <DialogTitle>{t('Edit questionnaire')}</DialogTitle>
         </DialogHeader>
         {error && (
-          <Alert variant="danger" dismissible onClose={onDismissError}>
+          <Alert variant="destructive" onClose={onDismissError} closeLabel="Close alert">
             {error}
           </Alert>
         )}

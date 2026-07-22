@@ -1,7 +1,8 @@
 // src/components/TherapistInterventionPage/ImportInterventionsModal.tsx
 import React, { useMemo, useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Alert, Badge } from 'react-bootstrap';
+import { Badge } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -228,7 +229,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
         {activeTab === 'excel' && (
           <>
             {interventionsImportStore.error && (
-              <Alert variant="danger" role="alert">
+              <Alert variant="destructive">
                 {interventionsImportStore.errorCode === 'sheet_not_found' ? (
                   <>
                     {t('Sheet not found in the Excel file.')}
@@ -445,9 +446,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
         {activeTab === 'media' && (
           <>
             {interventionsMediaUploadStore.error && (
-              <Alert variant="danger" role="alert">
-                {interventionsMediaUploadStore.error}
-              </Alert>
+              <Alert variant="destructive">{interventionsMediaUploadStore.error}</Alert>
             )}
 
             {/* Naming-convention help text */}

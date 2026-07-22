@@ -1,5 +1,6 @@
 import React from 'react';
-import { Badge, Alert } from 'react-bootstrap';
+import { Badge } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -109,7 +110,7 @@ const ImportFromRedcapModal: React.FC<Props> = (props) => {
           </div>
         </div>
 
-        {error ? <Alert variant="danger">{error}</Alert> : null}
+        {error ? <Alert variant="destructive">{error}</Alert> : null}
 
         {loading ? (
           <div className="text-center py-4">

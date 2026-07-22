@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 
 import { PatientPopupStore } from '@/stores/patientPopupStore';
 import { Table, TableBody, TableRow, TableCell } from '@/components/ui/table';
+import { Alert } from '@/components/ui/alert';
 
 interface PatientInfoWearablesSyncResultProps {
   store: PatientPopupStore;
@@ -16,7 +17,14 @@ const PatientInfoWearablesSyncResult: React.FC<PatientInfoWearablesSyncResultPro
     if (!store.wearablesSyncResult) return null;
 
     return (
-      <div className="alert alert-success alert-dismissible" role="alert">
+      <Alert
+        variant="success"
+        onClose={() => {
+          store.wearablesSyncResult = null;
+          store.wearablesSyncPayloads = null;
+        }}
+        closeLabel={t('Close')}
+      >
         <strong>{t('Wearables synced to REDCap')}</strong>
         <ul>
           {Object.entries(store.wearablesSyncResult).map(([period, status]) => (
@@ -72,16 +80,7 @@ const PatientInfoWearablesSyncResult: React.FC<PatientInfoWearablesSyncResultPro
             })}
           </>
         )}
-        <button
-          type="button"
-          className="btn-close"
-          onClick={() => {
-            store.wearablesSyncResult = null;
-            store.wearablesSyncPayloads = null;
-          }}
-          aria-label={t('Close')}
-        />
-      </div>
+      </Alert>
     );
   }
 );

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Badge, Alert } from 'react-bootstrap';
+import { Badge } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -653,7 +654,11 @@ const AdminDashboard: React.FC = observer(() => {
         {/* ── Tab 2: access change requests ── */}
         <TabsContent value="access-requests">
           {changeReqError && (
-            <Alert variant="danger" dismissible onClose={() => setChangeReqError(null)}>
+            <Alert
+              variant="destructive"
+              onClose={() => setChangeReqError(null)}
+              closeLabel="Close alert"
+            >
               {changeReqError}
             </Alert>
           )}
@@ -713,7 +718,11 @@ const AdminDashboard: React.FC = observer(() => {
         {/* ── Tab 3: interventions ── */}
         <TabsContent value="interventions">
           {interventionError && (
-            <Alert variant="danger" dismissible onClose={() => setInterventionError(null)}>
+            <Alert
+              variant="destructive"
+              onClose={() => setInterventionError(null)}
+              closeLabel="Close alert"
+            >
               {interventionError}
             </Alert>
           )}
@@ -795,7 +804,11 @@ const AdminDashboard: React.FC = observer(() => {
         {/* ── Tab 4: questionnaires ── */}
         <TabsContent value="questionnaires">
           {questionnaireError && (
-            <Alert variant="danger" dismissible onClose={() => setQuestionnaireError(null)}>
+            <Alert
+              variant="destructive"
+              onClose={() => setQuestionnaireError(null)}
+              closeLabel="Close alert"
+            >
               {questionnaireError}
             </Alert>
           )}
@@ -922,12 +935,20 @@ const AdminDashboard: React.FC = observer(() => {
         {/* ── Tab 5: export ── */}
         <TabsContent value="export">
           {exportClinicsError && (
-            <Alert variant="danger" dismissible onClose={() => setExportClinicsError(null)}>
+            <Alert
+              variant="destructive"
+              onClose={() => setExportClinicsError(null)}
+              closeLabel="Close alert"
+            >
               {exportClinicsError}
             </Alert>
           )}
           {exportError && (
-            <Alert variant="danger" dismissible onClose={() => setExportError(null)}>
+            <Alert
+              variant="destructive"
+              onClose={() => setExportError(null)}
+              closeLabel="Close alert"
+            >
               {exportError}
             </Alert>
           )}

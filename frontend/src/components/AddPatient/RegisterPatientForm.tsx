@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldLabel, FieldGroup, FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Alert } from '@/components/ui/alert';
 import {
   Select as UiSelect,
   SelectContent,
@@ -466,9 +467,9 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
 
       {/* Server-side error banner (human readable, not JSON) */}
       {apiError && (
-        <div className="alert alert-danger" role="alert" aria-live="assertive">
+        <Alert variant="destructive" aria-live="assertive">
           {apiError}
-        </div>
+        </Alert>
       )}
 
       <FieldGroup>
@@ -605,7 +606,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
       </FieldGroup>
 
       {registered ? (
-        <div className="alert alert-success mt-4">
+        <Alert variant="success" className="mt-4">
           <p>
             {t(
               'The patient has been registered. Account information has been sent to the given email.'
@@ -617,7 +618,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
             </p>
           )}
           <Link to="/">{t('Click here to log in')}</Link>
-        </div>
+        </Alert>
       ) : (
         <div className="d-flex justify-content-between mt-4">
           {step > 0 && (

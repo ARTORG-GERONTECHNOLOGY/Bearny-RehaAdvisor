@@ -1,6 +1,6 @@
 // components/TherapistInterventionPage/TemplateAssignModal.tsx
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
@@ -296,7 +296,7 @@ const TemplateAssignModal: React.FC<Props> = ({
 
         {/* ERROR BANNER */}
         {error && (
-          <Alert variant="danger" dismissible onClose={() => setError('')}>
+          <Alert variant="destructive" onClose={() => setError('')} closeLabel="Close alert">
             <div className="d-flex justify-content-between">
               <span>{error}</span>
               <Button

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { saveAs } from 'file-saver';
 import { observer } from 'mobx-react-lite';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 
 import ExportModal from '@/components/Health/ExportModal';
@@ -94,16 +94,8 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
 
   return (
     <div className="flex flex-col gap-3">
-      {store.error && (
-        <Alert variant="danger" role="alert">
-          {store.error}
-        </Alert>
-      )}
-      {store.thresholdsError && (
-        <Alert variant="warning" role="alert">
-          {store.thresholdsError}
-        </Alert>
-      )}
+      {store.error && <Alert variant="destructive">{store.error}</Alert>}
+      {store.thresholdsError && <Alert variant="warning">{store.thresholdsError}</Alert>}
 
       <HealthViewControls
         store={store}

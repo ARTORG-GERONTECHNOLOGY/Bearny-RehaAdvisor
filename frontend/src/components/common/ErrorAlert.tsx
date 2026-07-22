@@ -1,16 +1,16 @@
 import { FC } from 'react';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 
 interface ErrorAlertProps {
   message: string;
   onClose?: () => void;
-  className?: string; // optional wrapper class
+  className?: string;
 }
 
 const ErrorAlert: FC<ErrorAlertProps> = ({ message, onClose, className = '' }) => {
   return (
-    <div className={`px-2 ${className}`}>
-      <Alert variant="danger" dismissible onClose={onClose} role="alert">
+    <div className={className}>
+      <Alert variant="destructive" onClose={onClose} closeLabel="Close alert">
         {message}
       </Alert>
     </div>

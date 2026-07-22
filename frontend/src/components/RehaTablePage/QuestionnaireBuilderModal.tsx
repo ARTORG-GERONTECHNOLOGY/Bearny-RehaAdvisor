@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 
 import apiClient from '@/api/client';
@@ -135,7 +135,7 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
           <DialogTitle>{t('Create questionnaire')}</DialogTitle>
         </DialogHeader>
 
-        {error ? <Alert variant="danger">{error}</Alert> : null}
+        {error ? <Alert variant="destructive">{error}</Alert> : null}
 
         <FieldGroup>
           <Field>

@@ -1,6 +1,7 @@
 // components/TherapistInterventionPage/ProductPopup.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, Alert } from 'react-bootstrap';
+import { Badge } from 'react-bootstrap';
+import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import Microlink from '@microlink/react';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
@@ -823,7 +824,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
               </>
             ) : (
               <div className="mt-2">
-                <Alert variant="secondary" className="mb-0">
+                <Alert className="mb-0">
                   {t(
                     'This is a private intervention. Template assignment by diagnosis is disabled.'
                   )}
