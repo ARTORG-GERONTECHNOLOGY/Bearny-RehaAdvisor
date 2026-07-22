@@ -954,7 +954,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
               </div>
 
               {/* ---------- media ---------- */}
-              <hr className="my-4" />
+              <Separator className="my-4" />
               <div className="flex items-center justify-between mb-2">
                 <h5 className="text-base font-semibold mb-0">{t('Media')}</h5>
                 <Button size="dashboard" onClick={addMediaRow}>
@@ -1095,7 +1095,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
               })}
 
               {/* ---------- privacy ---------- */}
-              <hr className="my-4" />
+              <Separator className="my-4" />
               <div className="flex items-center gap-2 mb-3">
                 <Checkbox
                   id="isPrivate"

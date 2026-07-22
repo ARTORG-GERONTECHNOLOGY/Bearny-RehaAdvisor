@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import {
@@ -417,7 +418,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                               <div className={`mt-1 ${isWarning ? 'text-yellow' : 'text-nok'}`}>
                                 {e.error ?? '-'}
                               </div>
-                              <hr className="my-2" />
+                              <Separator className="my-2" />
                             </div>
                           );
                         })}
@@ -620,7 +621,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                         )}
                       </div>
                       {res.error && <div className="text-nok mt-1">{res.error}</div>}
-                      <hr className="my-1" />
+                      <Separator className="my-1" />
                     </div>
                   ))}
                 </div>

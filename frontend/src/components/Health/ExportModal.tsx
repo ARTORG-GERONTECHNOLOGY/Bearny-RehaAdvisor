@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 type Props = {
   show: boolean;
@@ -111,7 +112,7 @@ const ExportModal: React.FC<Props> = ({
           </div>
         </div>
 
-        <hr className="my-4" />
+        <Separator className="my-4" />
 
         <Label className="font-bold">{t('Select Plots to Export')}</Label>
         <div className="mb-1">
