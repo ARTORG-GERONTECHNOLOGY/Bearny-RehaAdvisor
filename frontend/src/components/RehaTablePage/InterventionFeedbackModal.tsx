@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { ListGroup, Badge } from 'react-bootstrap';
+import { Badge } from 'react-bootstrap';
 import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import {
@@ -13,6 +13,7 @@ import StarRating, { getRatingFromDateEntry } from './StarRating';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 type AnyObj = Record<string, any>;
 
@@ -154,54 +155,56 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                 <div className="md:col-span-4">
                   <div className="fw-semibold mb-2">{safeT(t, 'Dates')}</div>
 
-                  <div>
-                    <ListGroup>
-                      {visibleDates.map((d: any, idx: number) => {
-                        const st = String(d?.status || '').toLowerCase();
-                        const fbCount = asArray(d?.feedback).length;
-                        const hasVid = !!d?.video?.video_url;
+                  <div className="flex flex-col gap-1">
+                    {visibleDates.map((d: any, idx: number) => {
+                      const st = String(d?.status || '').toLowerCase();
+                      const fbCount = asArray(d?.feedback).length;
+                      const hasVid = !!d?.video?.video_url;
+                      const isActive = idx === selectedIdx;
 
-                        return (
-                          <ListGroup.Item
-                            key={d?.datetime || idx}
-                            action
-                            active={idx === selectedIdx}
-                            onClick={() => setSelectedIdx(idx)}
-                            className="d-flex justify-content-between align-items-center"
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <span style={{ fontSize: 13 }}>
-                              {formatDateTime(String(d?.datetime || ''))}
-                            </span>
+                      return (
+                        <button
+                          key={d?.datetime || idx}
+                          type="button"
+                          onClick={() => setSelectedIdx(idx)}
+                          className={cn(
+                            'flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-left transition-colors',
+                            isActive
+                              ? 'border-chartMuted bg-chartMuted'
+                              : 'border-border bg-background hover:bg-accent'
+                          )}
+                        >
+                          <span style={{ fontSize: 13 }}>
+                            {formatDateTime(String(d?.datetime || ''))}
+                          </span>
 
-                            <span className="d-flex gap-1 align-items-center">
-                              {st ? (
-                                <Badge
-                                  bg={
-                                    st === 'completed'
-                                      ? 'success'
-                                      : st === 'missed'
-                                        ? 'danger'
-                                        : st === 'today'
-                                          ? 'primary'
-                                          : 'secondary'
-                                  }
-                                >
-                                  {safeT(t, st)}
-                                </Badge>
-                              ) : null}
+                          <span className="d-flex gap-1 align-items-center">
+                            {st ? (
+                              <Badge
+                                bg={
+                                  st === 'completed'
+                                    ? 'success'
+                                    : st === 'missed'
+                                      ? 'danger'
+                                      : st === 'today'
+                                        ? 'primary'
+                                        : 'secondary'
+                                }
+                              >
+                                {safeT(t, st)}
+                              </Badge>
+                            ) : null}
 
-                              {fbCount > 0 ? <Badge bg="info">Q:{fbCount}</Badge> : null}
-                              {hasVid ? (
-                                <Badge bg="warning" text="dark">
-                                  V
-                                </Badge>
-                              ) : null}
-                            </span>
-                          </ListGroup.Item>
-                        );
-                      })}
-                    </ListGroup>
+                            {fbCount > 0 ? <Badge bg="info">Q:{fbCount}</Badge> : null}
+                            {hasVid ? (
+                              <Badge bg="warning" text="dark">
+                                V
+                              </Badge>
+                            ) : null}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -233,7 +236,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                       {!feedback.length ? (
                         <Alert>{safeT(t, 'No feedback available')}</Alert>
                       ) : (
-                        <ListGroup>
+                        <div className="divide-y rounded-md border">
                           {feedback.map((fb: any, i: number) => {
                             const q = fb?.question;
                             const qText = pickTranslation(q?.translations, userLang);
@@ -245,7 +248,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                               .join(', ');
 
                             return (
-                              <ListGroup.Item key={i}>
+                              <div key={i} className="px-3 py-2">
                                 <div className="fw-semibold">{qText || safeT(t, 'Question')}</div>
 
                                 {(() => {
@@ -273,10 +276,10 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                                     <audio controls src={fb.audio_url} />
                                   </div>
                                 ) : null}
-                              </ListGroup.Item>
+                              </div>
                             );
                           })}
-                        </ListGroup>
+                        </div>
                       )}
                     </div>
                   )}
