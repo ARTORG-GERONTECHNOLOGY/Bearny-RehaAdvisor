@@ -13,7 +13,8 @@ format_frontend_local() {
 }
 
 format_frontend_docker() {
-  docker exec react sh -lc "cd /app && npm run format"
+  # Use prettier binary directly to avoid npm v11/Node 18 exit-code incompatibility
+  docker exec react sh -lc "cd /app && node_modules/.bin/prettier --write ."
 }
 
 format_backend_local() {

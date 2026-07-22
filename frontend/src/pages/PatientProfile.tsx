@@ -6,6 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Card from '@/components/Card';
+import { Skeleton } from '@/components/ui/skeleton';
+import FitbitConnectButton from '@/components/PatientPage/GoogleHealthConnectButton';
+import { useNotifications } from '@/hooks/useNotifications';
 import authStore from '@/stores/authStore';
 import { observer } from 'mobx-react-lite';
 import { Link, useNavigate } from 'react-router-dom';
@@ -13,7 +16,6 @@ import LogoutFill from '@/assets/icons/logout-fill.svg?react';
 import Mail from '@/assets/icons/contact/mail.svg?react';
 import Phone from '@/assets/icons/contact/phone.svg?react';
 import config from '@/config/config.json';
-import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
 import LanguageSelectorCard from '@/components/UserProfile/LanguageSelectorCard';
 import NotificationsCard from '@/components/UserProfile/NotificationsCard';
@@ -22,9 +24,8 @@ import FitbitCard from '@/components/UserProfile/FitbitCard';
 const PatientProfile: React.FC = observer(() => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { isAllowed } = useRoleAuthGate('Patient');
 
-  const patientId = authStore.getStoredUserId();
+  const patientId = localStorage.getItem('id') || authStore.id || '';
   const displayName = authStore.firstName || t('Profile');
 
   const contactEmail =
@@ -55,11 +56,29 @@ const PatientProfile: React.FC = observer(() => {
     navigate('/');
   };
 
+  // Check authentication
   useEffect(() => {
-    if (isAllowed && patientId) {
-      patientFitbitStore.fetchStatus(patientId);
-    }
-  }, [isAllowed, patientId]);
+    let alive = true;
+
+    const checkAuth = async () => {
+      await authStore.checkAuthentication();
+
+      if (!alive) return;
+      if (!authStore.isAuthenticated || authStore.userType !== 'Patient') {
+        navigate('/');
+      }
+
+      if (patientId) {
+        patientFitbitStore.fetchStatus(patientId);
+      }
+    };
+
+    checkAuth();
+
+    return () => {
+      alive = false;
+    };
+  }, [navigate]);
 
   return (
     <Layout>

@@ -38,7 +38,7 @@
   "Fitbit Activity Summary": "Fitbit Activity Summary",
   "lastSync: (expects a {{date}} placeholder)": "Last sync: {{date}}",
   "Active Minutes": "Active Zone Minutes",
-  "activeMinutes": "Active Zone Minutes",
+  "activeMinutes": "Active zone minutes",
   "min": "min",
   "inactivity": "Low Activity",
   "Save for today": "Save for today",
@@ -177,7 +177,6 @@
   "lastSync": "Last sync: {{date}}",
   "today": "Today",
   "steps": "Steps",
-  "activeMinutes": "Active zone minutes",
   "activeZoneMinutes": "Active zone minutes",
   "fatBurnZone": "Fat burn",
   "cardioZone": "Cardio",
@@ -1410,5 +1409,9 @@
   "Engagement": "Engagement",
   "Cardiovascular": "Cardiovascular",
   "Activity": "Activity",
-  "Sleep & Recovery": "Sleep & Recovery"
+  "Sleep & Recovery": "Sleep & Recovery",
+  "Reconnect": "Reconnect",
+  "reconnectBannerWarning": "Your health data connection expires in {{count}} day(s). Reconnect now to keep your data flowing.",
+  "reconnectBannerExpired": "Your health data connection has expired. Reconnect to restore it.",
+  "reconnectBannerReason": "App verification requires periodic re-authorisation."
 }
