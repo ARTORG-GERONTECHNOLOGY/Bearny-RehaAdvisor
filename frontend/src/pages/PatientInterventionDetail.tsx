@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Nav, Tab } from 'react-bootstrap';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { FaLock } from 'react-icons/fa';
 
 import Layout from '@/components/Layout';
@@ -282,22 +282,20 @@ const MediaContent: React.FC<{ mediaList: InterventionMedia[] }> = ({ mediaList 
   }
 
   return (
-    <Tab.Container activeKey={activeTab} onSelect={(k) => setActiveTab(k ?? 'media-0')}>
-      <Nav variant="tabs" className="mb-3 flex-wrap">
+    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v || 'media-0')}>
+      <TabsList className="mb-3 h-auto flex-wrap justify-start">
         {renderableMedia.map((m, idx) => (
-          <Nav.Item key={idx}>
-            <Nav.Link eventKey={`media-${idx}`}>{m.title || `${t('Media')} ${idx + 1}`}</Nav.Link>
-          </Nav.Item>
+          <TabsTrigger key={idx} value={`media-${idx}`}>
+            {m.title || `${t('Media')} ${idx + 1}`}
+          </TabsTrigger>
         ))}
-      </Nav>
-      <Tab.Content>
-        {renderableMedia.map((m, idx) => (
-          <Tab.Pane key={idx} eventKey={`media-${idx}`}>
-            <OneMedia m={m} idx={idx} />
-          </Tab.Pane>
-        ))}
-      </Tab.Content>
-    </Tab.Container>
+      </TabsList>
+      {renderableMedia.map((m, idx) => (
+        <TabsContent key={idx} value={`media-${idx}`}>
+          <OneMedia m={m} idx={idx} />
+        </TabsContent>
+      ))}
+    </Tabs>
   );
 };
 

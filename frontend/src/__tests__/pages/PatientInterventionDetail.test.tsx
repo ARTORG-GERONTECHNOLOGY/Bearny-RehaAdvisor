@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 const mockNavigate = jest.fn();
 let mockInterventionId = 'int-1';
@@ -22,35 +23,6 @@ jest.mock('react-bootstrap', () => ({
   Alert: function Alert({ children }: any) {
     return <div role="alert">{children}</div>;
   },
-  Tab: Object.assign(
-    function Tab({ children }: any) {
-      return <>{children}</>;
-    },
-    {
-      Container: function TabContainer({ children }: any) {
-        return <>{children}</>;
-      },
-      Content: function TabContent({ children }: any) {
-        return <>{children}</>;
-      },
-      Pane: function TabPane({ children }: any) {
-        return <>{children}</>;
-      },
-    }
-  ),
-  Nav: Object.assign(
-    function Nav({ children }: any) {
-      return <>{children}</>;
-    },
-    {
-      Item: function NavItem({ children }: any) {
-        return <>{children}</>;
-      },
-      Link: function NavLink({ children, onClick }: any) {
-        return <button onClick={onClick}>{children}</button>;
-      },
-    }
-  ),
 }));
 
 jest.mock('react-icons/fa', () => ({
@@ -617,6 +589,7 @@ describe('PatientInterventionDetail', () => {
   });
 
   it('renders a tabbed view when there are multiple renderable media items', async () => {
+    const user = userEvent.setup();
     (patientInterventionsStore as any).items = [
       buildRec({
         intervention: {
@@ -643,11 +616,15 @@ describe('PatientInterventionDetail', () => {
     render(<PatientInterventionDetail />);
     await screen.findByText('Morning Stretch');
 
-    expect(screen.getAllByTestId('playable-media')).toHaveLength(2);
-    // Nav.Link tab buttons for each media item
-    expect(screen.getByRole('button', { name: 'Vid' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Aud' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Aud' }));
+    // Only the active tab's media is mounted
+    expect(screen.getAllByTestId('playable-media')).toHaveLength(1);
+    expect(screen.getByRole('tab', { name: 'Vid' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Aud' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Aud' }));
+
+    await waitFor(() => expect(screen.getAllByTestId('playable-media')).toHaveLength(1));
+    expect(screen.getByRole('tab', { name: 'Aud' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('falls back to legacy link/media_file fields when no media array is present', async () => {
