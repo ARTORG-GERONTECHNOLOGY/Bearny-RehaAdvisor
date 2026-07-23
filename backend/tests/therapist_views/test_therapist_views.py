@@ -238,6 +238,64 @@ def test_list_therapist_patients_excludes_inactive_users():
     assert all(row["_id"] != str(patient.id) for row in data)
 
 
+def test_list_therapist_patients_includes_rehab_end_date():
+    """rehab_end_date must be present in the response so the frontend can split active/completed."""
+    therapist, patient = create_therapist_with_patient()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    row = next((p for p in data if p["_id"] == str(patient.id)), None)
+    assert row is not None, "Patient should appear in the list"
+    assert "rehab_end_date" in row, "rehab_end_date must be included in the response"
+    assert row["rehab_end_date"] is not None, "Patient fixture has reha_end_date set — must not be null"
+
+
+def test_list_therapist_patients_rehab_end_date_null_for_active_patient():
+    """Patients without an end date should have rehab_end_date: null."""
+    therapist_user = User(
+        username=f"th-{ObjectId()}",
+        email=f"th-{ObjectId()}@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    therapist = Therapist(
+        userId=therapist_user,
+        name="Therapist",
+        first_name="John",
+        clinics=["Inselspital"],
+    ).save()
+    pt_user = User(
+        username=f"pt-{ObjectId()}",
+        email=f"pt-{ObjectId()}@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    Patient(
+        userId=pt_user,
+        patient_code=f"PAT-{ObjectId()}",
+        therapist=therapist,
+        clinic="Inselspital",
+        reha_end_date=None,
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist_user.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    row = next((p for p in data if p.get("username") == pt_user.username), None)
+    assert row is not None
+    assert "rehab_end_date" in row
+    assert row["rehab_end_date"] is None
+
+
 def test_list_therapist_patients_includes_last_online_and_biomarker_fields():
     therapist, patient = create_therapist_with_patient()
 
