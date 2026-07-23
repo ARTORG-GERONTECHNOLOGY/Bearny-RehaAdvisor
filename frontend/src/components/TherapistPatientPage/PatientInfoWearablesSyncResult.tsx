@@ -63,11 +63,7 @@ function PeriodRow({
   return (
     <li className="py-0.5">
       <span className="font-medium">{label}:</span>{' '}
-      <span
-        className={
-          status === 'sent' ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'
-        }
-      >
+      <span className={status === 'sent' ? 'text-brand' : 'text-muted-foreground'}>
         {t(`sync_status_${status}`, { defaultValue: status })}
       </span>
       {detail && <span className="ms-2 text-sm text-muted-foreground">— {detail}</span>}
@@ -89,6 +85,7 @@ const PatientInfoWearablesSyncResult: React.FC<PatientInfoWearablesSyncResultPro
           store.wearablesSyncFirstDate = null;
         }}
         closeLabel={t('Close alert')}
+        className="mb-3"
       >
         <strong>{t('Wearables synced to REDCap')}</strong>
         {store.wearablesSyncFirstDate && (
