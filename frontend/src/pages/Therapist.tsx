@@ -258,9 +258,7 @@ const Therapist: React.FC = observer(() => {
                 <TableHead>{t('Birth Date')}</TableHead>
                 <TableHead>{t('Sex')}</TableHead>
                 <TableHead>{t('Diagnosis_patient_list')}</TableHead>
-                {appModeStore.showStudyGroup && store.groupOptions.length > 0 && (
-                  <TableHead>{t('Group')}</TableHead>
-                )}
+                {appModeStore.showStudyGroup && <TableHead>{t('Group')}</TableHead>}
                 <TableHead
                   onClick={() => handleColSort('last_login')}
                   className="cursor-pointer transition-colors hover:bg-muted/50"
@@ -330,7 +328,7 @@ const Therapist: React.FC = observer(() => {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{String(t(p.sex))}</TableCell>
                     <TableCell className="text-muted-foreground">{diagnosis}</TableCell>
-                    {appModeStore.showStudyGroup && store.groupOptions.length > 0 && (
+                    {appModeStore.showStudyGroup && (
                       <TableCell>
                         {studyGroup && <Badge variant="outline">{studyGroup}</Badge>}
                       </TableCell>
@@ -378,9 +376,7 @@ const Therapist: React.FC = observer(() => {
                   <TableHead>{t('Birth Date')}</TableHead>
                   <TableHead>{t('Sex')}</TableHead>
                   <TableHead>{t('Diagnosis_patient_list')}</TableHead>
-                  {appModeStore.showStudyGroup && store.groupOptions.length > 0 && (
-                    <TableHead>{t('Group')}</TableHead>
-                  )}
+                  {appModeStore.showStudyGroup && <TableHead>{t('Group')}</TableHead>}
                   <TableHead>{t('Status')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -418,7 +414,7 @@ const Therapist: React.FC = observer(() => {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{String(t(p.sex))}</TableCell>
                       <TableCell className="text-muted-foreground">{diagnosis}</TableCell>
-                      {appModeStore.showStudyGroup && store.groupOptions.length > 0 && (
+                      {appModeStore.showStudyGroup && (
                         <TableCell>
                           {studyGroup && <Badge variant="outline">{studyGroup}</Badge>}
                         </TableCell>
@@ -440,7 +436,7 @@ const Therapist: React.FC = observer(() => {
                 {completedPatients.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={appModeStore.showStudyGroup && store.groupOptions.length > 0 ? 7 : 6}
+                      colSpan={appModeStore.showStudyGroup ? 7 : 6}
                       className="text-center text-muted-foreground"
                     >
                       {String(t('No completed patients'))}
