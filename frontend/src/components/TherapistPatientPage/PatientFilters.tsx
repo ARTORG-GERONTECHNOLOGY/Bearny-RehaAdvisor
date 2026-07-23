@@ -134,44 +134,32 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
             </Select>
           )}
 
-          <div>
-            <Label htmlFor="sort-by-select" className="me-2">
-              {String(t('Sort by'))}
-            </Label>
-            <Select
-              value={store.sortBy}
-              onValueChange={(value) => store.setSortBy(value as SortKey)}
-            >
-              <SelectTrigger id="sort-by-select" aria-label="Sort by">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ampel">{String(t('Performance'))}</SelectItem>
-                <SelectItem value="created">{String(t('Newest created'))}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={store.sortBy} onValueChange={(value) => store.setSortBy(value as SortKey)}>
+            <SelectTrigger id="sort-by-select" aria-label={String(t('Sort by'))}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ampel">{String(t('Performance'))}</SelectItem>
+              <SelectItem value="created">{String(t('Newest created'))}</SelectItem>
+            </SelectContent>
+          </Select>
 
-          <div className="flex flex-wrap gap-2 items-center md:pt-6">
-            <Switch
-              id="toggle-completed"
-              checked={store.showCompleted}
-              onCheckedChange={(checked) => store.setShowCompleted(checked)}
-            />
-            <Label htmlFor="toggle-completed" className="cursor-pointer">
-              {String(t('Show completed'))}
-            </Label>
+          <div className="flex flex-wrap gap-3 items-center justify-between">
+            <div className="flex gap-2 items-center">
+              <Switch
+                id="toggle-completed"
+                checked={store.showCompleted}
+                onCheckedChange={(checked) => store.setShowCompleted(checked)}
+              />
+              <Label htmlFor="toggle-completed" className="cursor-pointer">
+                {String(t('Show completed'))}
+              </Label>
+            </div>
+            <Button size="dashboard" variant="secondary" onClick={store.resetFilters}>
+              <FaUndo />
+              {String(t('Reset filters'))}
+            </Button>
           </div>
-
-          <Button
-            size="dashboard"
-            variant="secondary"
-            onClick={store.resetFilters}
-            className="self-end"
-          >
-            <FaUndo />
-            {String(t('Reset filters'))}
-          </Button>
         </div>
       </CardContent>
     </Card>
