@@ -1,6 +1,8 @@
 {
   "Intervention successfully added": "Interventie succesvol toegevoegd",
   "Filter by Disease": "Filteren op ziekte",
+  "Filter by Group": "Filteren op groep",
+  "Group": "Groep",
   "failedCheck": "Kon de vitale waarden van vandaag niet ophalen.",
   "failedSave": "Opslaan van de vitale waarden van vandaag mislukt. Probeer opnieuw.",
   "failedReschedule": "Verzetten mislukt. Probeer opnieuw.",
