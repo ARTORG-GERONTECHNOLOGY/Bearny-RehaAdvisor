@@ -78,6 +78,7 @@ jest.mock('@/stores/appModeStore', () => ({
     showRedcapImport: false,
     showRedcapTab: false,
     hidePiiFields: false,
+    showStudyGroup: false,
     fetchMode: jest.fn(),
   },
 }));
