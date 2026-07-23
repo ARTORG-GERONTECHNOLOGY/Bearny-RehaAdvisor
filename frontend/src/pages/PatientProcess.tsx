@@ -121,6 +121,7 @@ const PatientProcess: React.FC = observer(() => {
               role="button"
               aria-pressed={processFilter === value}
               aria-label={processFilter === 'week' ? t('Show last week') : t('Show last month')}
+              className="px-4 py-2 text-base"
             >
               {label}
             </Badge>

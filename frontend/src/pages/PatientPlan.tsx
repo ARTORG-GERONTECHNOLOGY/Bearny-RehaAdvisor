@@ -100,6 +100,7 @@ const PatientPlan: React.FC = observer(() => {
               role="button"
               aria-pressed={dayFilter === value}
               aria-label={value === 'all' ? t('Show all days') : t('Show {{day}}', { day: label })}
+              className="px-4 py-2 text-base"
             >
               {label}
             </Badge>
