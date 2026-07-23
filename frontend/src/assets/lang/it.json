@@ -178,7 +178,6 @@
   "lastSync": "Ultima sincronizzazione: {{date}}",
   "today": "Oggi",
   "steps": "Passi",
-  "activeMinutes": "Minuti di zona attiva",
   "activeZoneMinutes": "Minuti di zona attiva",
   "fatBurnZone": "Brucia grassi",
   "cardioZone": "Cardio",
@@ -1411,5 +1410,18 @@
   "Engagement": "Coinvolgimento",
   "Cardiovascular": "Cardiovascolare",
   "Activity": "Attività",
-  "Sleep & Recovery": "Sonno e recupero"
+  "Sleep & Recovery": "Sonno e recupero",
+  "wearables_no_fitbit_data": "Nessun dato wearable trovato. Il dispositivo deve essere indossato prima di poter esportare i dati in REDCap.",
+  "sync_period_baseline": "Baseline",
+  "sync_period_followup": "Follow-up",
+  "sync_status_sent": "Inviato",
+  "sync_status_skipped": "Saltato",
+  "sync_first_measurement_date": "Prima data di misurazione",
+  "sync_window": "Finestra",
+  "sync_valid_activity_days": "Giorni di attività validi",
+  "sync_valid_sleep_nights": "Notti di sonno valide",
+  "skip_reason_future_window": "Finestra non ancora raggiunta",
+  "skip_reason_no_records": "Nessun dato wearable trovato nella finestra",
+  "skip_reason_no_valid_days": "{{count}} record trovati ma nessuno soddisfa la soglia di {{hours}}h/giorno di utilizzo ({{activity}} giorno/i di attività valido/i, {{sleep}} notte/i di sonno valida/e)",
+  "skip_reason_already_populated": "Già compilato in REDCap (evento: {{event}}, monitoring_start: {{start}}) — usare la risincronizzazione forzata per sovrascrivere"
 }

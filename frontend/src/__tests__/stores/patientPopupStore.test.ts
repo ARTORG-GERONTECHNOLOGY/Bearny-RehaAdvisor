@@ -647,7 +647,12 @@ describe('PatientPopupStore', () => {
   describe('syncWearablesToRedcap', () => {
     it('sends optional event params and stores results', async () => {
       (mockApiClient.post as jest.Mock).mockResolvedValueOnce({
-        data: { results: { fitbit: 'ok' }, sent_payloads: { fitbit: {} } },
+        data: {
+          ok: true,
+          patient_code: 'P-1',
+          first_measurement_date: '2024-01-01',
+          periods: { baseline: { status: 'sent' }, followup: { status: 'skipped', skip_reason: 'future_window' } },
+        },
       });
 
       await store.syncWearablesToRedcap(t, 'baseline_arm_1', 'followup_arm_1', true);
@@ -659,7 +664,11 @@ describe('PatientPopupStore', () => {
         event_followup: 'followup_arm_1',
         force: true,
       });
-      expect(store.wearablesSyncResult).toEqual({ fitbit: 'ok' });
+      expect(store.wearablesSyncPeriods).toEqual({
+        baseline: { status: 'sent' },
+        followup: { status: 'skipped', skip_reason: 'future_window' },
+      });
+      expect(store.wearablesSyncFirstDate).toBe('2024-01-01');
       expect(store.wearablesSyncing).toBe(false);
     });
 
