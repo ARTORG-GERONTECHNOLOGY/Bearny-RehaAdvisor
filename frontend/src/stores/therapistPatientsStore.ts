@@ -470,8 +470,7 @@ export class TherapistPatientsStore {
 
     if (this.groupFilter) {
       filtered = filtered.filter(
-        (p) =>
-          (p as unknown as { study_group?: string | null }).study_group === this.groupFilter,
+        (p) => (p as unknown as { study_group?: string | null }).study_group === this.groupFilter
       );
     }
 
