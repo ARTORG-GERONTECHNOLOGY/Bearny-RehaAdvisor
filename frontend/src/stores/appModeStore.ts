@@ -35,6 +35,11 @@ class AppModeStore {
     return this.mode === 'study';
   }
 
+  /** Study group column and filter are shown (study/dev modes only). */
+  get showStudyGroup(): boolean {
+    return this.mode === 'study' || this.mode === 'dev';
+  }
+
   // ── Data fetching ──────────────────────────────────────────────────────────
 
   async fetchMode(): Promise<void> {

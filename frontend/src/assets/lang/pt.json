@@ -1,6 +1,8 @@
 {
   "Intervention successfully added": "Intervenção adicionada com sucesso",
   "Filter by Disease": "Filtrar por Doença",
+  "Filter by Group": "Filtrar por Grupo",
+  "Group": "Grupo",
   "failedCheck": "Falha ao verificar os dados vitais de hoje.",
   "failedSave": "Falha ao guardar os dados vitais de hoje. Por favor tente novamente.",
   "failedReschedule": "Falha ao reagendar. Por favor tente novamente.",
