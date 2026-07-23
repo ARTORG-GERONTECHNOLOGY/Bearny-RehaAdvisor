@@ -330,7 +330,7 @@ const Therapist: React.FC = observer(() => {
                     <TableCell className="text-muted-foreground">{diagnosis}</TableCell>
                     {appModeStore.showStudyGroup && (
                       <TableCell>
-                        {studyGroup && <Badge variant="outline">{studyGroup}</Badge>}
+                        {studyGroup && <Badge variant="dashboard">{studyGroup}</Badge>}
                       </TableCell>
                     )}
                     <TableCell>
@@ -351,7 +351,7 @@ const Therapist: React.FC = observer(() => {
 
               {activePatients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground">
+                  <TableCell colSpan={appModeStore.showStudyGroup ? 10 : 9} className="text-center text-muted-foreground">
                     {store.loading
                       ? String(t('Loading patients...'))
                       : String(t('No active patients'))}
@@ -416,7 +416,7 @@ const Therapist: React.FC = observer(() => {
                       <TableCell className="text-muted-foreground">{diagnosis}</TableCell>
                       {appModeStore.showStudyGroup && (
                         <TableCell>
-                          {studyGroup && <Badge variant="outline">{studyGroup}</Badge>}
+                          {studyGroup && <Badge variant="dashboard">{studyGroup}</Badge>}
                         </TableCell>
                       )}
                       <TableCell>
