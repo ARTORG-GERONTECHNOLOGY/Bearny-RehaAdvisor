@@ -45,7 +45,12 @@ describe('PatientInfoWearablesSyncResult', () => {
   it('renders skip_reason future_window', () => {
     const store = makeStore();
     store.wearablesSyncPeriods = {
-      followup: { status: 'skipped', skip_reason: 'future_window', window_start: '2024-05-29', window_end: '2024-06-28' },
+      followup: {
+        status: 'skipped',
+        skip_reason: 'future_window',
+        window_start: '2024-05-29',
+        window_end: '2024-06-28',
+      },
     };
 
     render(<PatientInfoWearablesSyncResult store={store} />);

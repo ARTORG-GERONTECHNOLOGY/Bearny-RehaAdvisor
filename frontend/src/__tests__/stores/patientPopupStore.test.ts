@@ -651,7 +651,10 @@ describe('PatientPopupStore', () => {
           ok: true,
           patient_code: 'P-1',
           first_measurement_date: '2024-01-01',
-          periods: { baseline: { status: 'sent' }, followup: { status: 'skipped', skip_reason: 'future_window' } },
+          periods: {
+            baseline: { status: 'sent' },
+            followup: { status: 'skipped', skip_reason: 'future_window' },
+          },
         },
       });
 

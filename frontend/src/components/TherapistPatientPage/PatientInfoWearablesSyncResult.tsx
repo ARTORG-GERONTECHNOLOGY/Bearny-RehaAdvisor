@@ -14,7 +14,15 @@ const PERIOD_LABEL: Record<string, string> = {
   followup: 'sync_period_followup',
 };
 
-function PeriodRow({ period, data, t }: { period: string; data: any; t: (k: string, opts?: Record<string, unknown>) => string }) {
+function PeriodRow({
+  period,
+  data,
+  t,
+}: {
+  period: string;
+  data: any;
+  t: (k: string, opts?: Record<string, unknown>) => string;
+}) {
   const label = t(PERIOD_LABEL[period] ?? period);
   const status: string = data?.status ?? 'unknown';
   const skipReason: string | undefined = data?.skip_reason;
@@ -42,8 +50,10 @@ function PeriodRow({ period, data, t }: { period: string; data: any; t: (k: stri
   } else if (status === 'sent') {
     const parts: string[] = [];
     if (data.window) parts.push(`${t('sync_window')}: ${data.window}`);
-    if (data.valid_activity_days != null) parts.push(`${t('sync_valid_activity_days')}: ${data.valid_activity_days}`);
-    if (data.valid_sleep_nights != null) parts.push(`${t('sync_valid_sleep_nights')}: ${data.valid_sleep_nights}`);
+    if (data.valid_activity_days != null)
+      parts.push(`${t('sync_valid_activity_days')}: ${data.valid_activity_days}`);
+    if (data.valid_sleep_nights != null)
+      parts.push(`${t('sync_valid_sleep_nights')}: ${data.valid_sleep_nights}`);
     if (data.redcap_event) parts.push(`${t('REDCap')} event: ${data.redcap_event}`);
     detail = parts.join(' · ') || null;
   } else if (status?.startsWith('error')) {
@@ -53,7 +63,11 @@ function PeriodRow({ period, data, t }: { period: string; data: any; t: (k: stri
   return (
     <li className="py-0.5">
       <span className="font-medium">{label}:</span>{' '}
-      <span className={status === 'sent' ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}>
+      <span
+        className={
+          status === 'sent' ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'
+        }
+      >
         {t(`sync_status_${status}`, { defaultValue: status })}
       </span>
       {detail && <span className="ms-2 text-sm text-muted-foreground">— {detail}</span>}
