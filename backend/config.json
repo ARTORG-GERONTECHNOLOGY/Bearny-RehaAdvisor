@@ -617,6 +617,10 @@
         "autoimmune_cond",
         "aquired_immune_defficiency",
         "thyroid_dis"
-    ]
-      
+    ],
+    "study_group_redcap_field": "rando_res",
+    "study_group_labels": {
+        "1": "Control Group",
+        "2": "Deeper Group"
+    }
 }

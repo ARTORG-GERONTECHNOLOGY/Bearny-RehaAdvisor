@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
 
 import { TherapistPatientsStore, SortKey } from '@/stores/therapistPatientsStore';
+import { appModeStore } from '@/stores/appModeStore';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -112,44 +113,53 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
             </SelectContent>
           </Select>
 
-          <div>
-            <Label htmlFor="sort-by-select" className="me-2">
-              {String(t('Sort by'))}
-            </Label>
+          {appModeStore.showStudyGroup && (
             <Select
-              value={store.sortBy}
-              onValueChange={(value) => store.setSortBy(value as SortKey)}
+              value={store.groupFilter || CLEAR_FILTER_VALUE}
+              onValueChange={(value) =>
+                store.setGroupFilter(value === CLEAR_FILTER_VALUE ? '' : value)
+              }
             >
-              <SelectTrigger id="sort-by-select" aria-label="Sort by">
-                <SelectValue />
+              <SelectTrigger aria-label={String(t('Filter by Group'))}>
+                <SelectValue placeholder={String(t('Filter by Group'))} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ampel">{String(t('Performance'))}</SelectItem>
-                <SelectItem value="created">{String(t('Newest created'))}</SelectItem>
+                <SelectItem value={CLEAR_FILTER_VALUE}>{String(t('Filter by Group'))}</SelectItem>
+                {store.groupOptions.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
-          </div>
+          )}
 
-          <div className="flex flex-wrap gap-2 items-center md:pt-6">
-            <Switch
-              id="toggle-completed"
-              checked={store.showCompleted}
-              onCheckedChange={(checked) => store.setShowCompleted(checked)}
-            />
-            <Label htmlFor="toggle-completed" className="cursor-pointer">
-              {String(t('Show completed'))}
-            </Label>
-          </div>
+          <Select value={store.sortBy} onValueChange={(value) => store.setSortBy(value as SortKey)}>
+            <SelectTrigger id="sort-by-select" aria-label={String(t('Sort by'))}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ampel">{String(t('Performance'))}</SelectItem>
+              <SelectItem value="created">{String(t('Newest created'))}</SelectItem>
+            </SelectContent>
+          </Select>
 
-          <Button
-            size="dashboard"
-            variant="secondary"
-            onClick={store.resetFilters}
-            className="self-end"
-          >
-            <FaUndo />
-            {String(t('Reset filters'))}
-          </Button>
+          <div className="flex flex-wrap gap-3 items-center justify-between">
+            <div className="flex gap-2 items-center">
+              <Switch
+                id="toggle-completed"
+                checked={store.showCompleted}
+                onCheckedChange={(checked) => store.setShowCompleted(checked)}
+              />
+              <Label htmlFor="toggle-completed" className="cursor-pointer">
+                {String(t('Show completed'))}
+              </Label>
+            </div>
+            <Button size="dashboard" variant="secondary" onClick={store.resetFilters}>
+              <FaUndo />
+              {String(t('Reset filters'))}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

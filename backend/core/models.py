@@ -618,6 +618,8 @@ class Patient(Document):
     reha_end_date = DateTimeField(required=False, null=True)  # actual end of the rehabilitation programme
     study_end_date = DateTimeField(required=False, null=True)  # end of the study / after-rehab monitoring plan
 
+    study_group = StringField(max_length=60, required=False, null=True)  # e.g. "Control Group" / "Deeper Group"
+
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
 
