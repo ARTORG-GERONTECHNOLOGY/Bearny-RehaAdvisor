@@ -23,6 +23,19 @@ jest.mock('@/stores/authStore', () => ({
   default: { id: 'therapist-1', userType: 'Therapist', isAuthenticated: true },
 }));
 
+jest.mock('@/stores/appModeStore', () => ({
+  appModeStore: {
+    mode: 'study',
+    loaded: true,
+    showManualCreate: false,
+    showRedcapImport: true,
+    showRedcapTab: true,
+    hidePiiFields: true,
+    showStudyGroup: true,
+    fetchMode: jest.fn(),
+  },
+}));
+
 const sexOptions = ['Male', 'Female'];
 const durationOptions = ['< 30 days', '30-60 days'];
 
