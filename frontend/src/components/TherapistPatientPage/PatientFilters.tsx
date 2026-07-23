@@ -113,7 +113,7 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
             </SelectContent>
           </Select>
 
-          {appModeStore.showStudyGroup && store.groupOptions.length > 0 && (
+          {appModeStore.showStudyGroup && (
             <Select
               value={store.groupFilter || CLEAR_FILTER_VALUE}
               onValueChange={(value) =>
