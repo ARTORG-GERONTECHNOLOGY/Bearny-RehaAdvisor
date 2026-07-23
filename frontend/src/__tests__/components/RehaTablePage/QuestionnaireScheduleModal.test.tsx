@@ -82,8 +82,8 @@ describe('QuestionnaireScheduleModal', () => {
     });
 
     it('shows Start Date in create mode and Effective from in modify mode', () => {
-      // The DatePicker doesn't consume react-bootstrap's controlId context, so
-      // the label has no associated control — assert on the label text instead.
+      // The FieldLabel isn't wired to the DatePicker via htmlFor, so the label
+      // has no associated control — assert on the label text instead.
       const { rerender } = render(<QuestionnaireScheduleModal {...defaultProps} />);
       expect(screen.getByText('Start Date')).toBeInTheDocument();
 
@@ -354,7 +354,7 @@ describe('QuestionnaireScheduleModal', () => {
     it('shows the end-date picker when "On date" is selected', () => {
       render(<QuestionnaireScheduleModal {...defaultProps} />);
       fireEvent.click(screen.getByLabelText('On date'));
-      expect(document.querySelectorAll('input.form-control').length).toBeGreaterThanOrEqual(2);
+      expect(document.querySelectorAll('input.border-input').length).toBeGreaterThanOrEqual(2);
     });
 
     it('shows and updates the occurrence count field for "After N times"', () => {
@@ -425,7 +425,7 @@ describe('QuestionnaireScheduleModal', () => {
 
     it('updates the create-mode start date by picking a day from the calendar', () => {
       render(<QuestionnaireScheduleModal {...defaultProps} />);
-      const dateInput = document.querySelectorAll('input.form-control')[0] as HTMLInputElement;
+      const dateInput = document.querySelectorAll('input.border-input')[0] as HTMLInputElement;
       const before = dateInput.value;
       fireEvent.click(dateInput);
       const dayCells = document.querySelectorAll(
@@ -442,7 +442,7 @@ describe('QuestionnaireScheduleModal', () => {
           defaults={{ selectedDays: ['Mon'], end: { type: 'date', date: '2026-04-01' } }}
         />
       );
-      const dateInputs = document.querySelectorAll('input.form-control');
+      const dateInputs = document.querySelectorAll('input.border-input');
       const endDateInput = dateInputs[dateInputs.length - 1] as HTMLInputElement;
       const before = endDateInput.value;
       fireEvent.click(endDateInput);
@@ -461,13 +461,13 @@ describe('QuestionnaireScheduleModal', () => {
           defaults={{ effectiveFrom: '2026-05-01' }}
         />
       );
-      const dateInput = document.querySelectorAll('input.form-control')[0] as HTMLInputElement;
+      const dateInput = document.querySelectorAll('input.border-input')[0] as HTMLInputElement;
       expect(dateInput.value).toBe('2026-05-01');
     });
 
     it('updates the effective-from date in modify mode by picking a day from the calendar', () => {
       render(<QuestionnaireScheduleModal {...defaultProps} mode="modify" />);
-      const dateInput = document.querySelectorAll('input.form-control')[0] as HTMLInputElement;
+      const dateInput = document.querySelectorAll('input.border-input')[0] as HTMLInputElement;
       const before = dateInput.value;
       fireEvent.click(dateInput);
       const dayCells = document.querySelectorAll(

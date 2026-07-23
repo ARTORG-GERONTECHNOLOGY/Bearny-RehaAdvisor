@@ -74,8 +74,8 @@ const MetricCard: React.FC<{
 }> = ({ icon: Icon, label, value, children }) => (
   <Card>
     <CardHeader>
-      <CardDescription>
-        <Icon className="h-4 w-4 mr-1 -mt-1" />
+      <CardDescription className="flex items-center gap-1">
+        <Icon className="h-4 w-4" />
         {label}
       </CardDescription>
       <CardTitle>{value}</CardTitle>
@@ -118,7 +118,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
   return (
     <div className="flex flex-col gap-10">
       <div>
-        <h5>{t('Engagement')}</h5>
+        <h5 className="text-base font-semibold mb-2">{t('Engagement')}</h5>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <MetricCard
             icon={AdherenceIcon}
@@ -156,7 +156,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
       </div>
 
       <div>
-        <h5>{t('Cardiovascular')}</h5>
+        <h5 className="text-base font-semibold mb-2">{t('Cardiovascular')}</h5>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <MetricCard
             icon={RestingHRIcon}
@@ -197,7 +197,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
       </div>
 
       <div>
-        <h5>{t('Activity')}</h5>
+        <h5 className="text-base font-semibold mb-2">{t('Activity')}</h5>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <MetricCard
             icon={StepsIcon}
@@ -251,7 +251,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
       </div>
 
       <div>
-        <h5>{t('Sleep & Recovery')}</h5>
+        <h5 className="text-base font-semibold mb-2">{t('Sleep & Recovery')}</h5>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           <MetricCard
             icon={SleepIcon}

@@ -102,7 +102,7 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
 
   if (safeItems.length === 0) {
     return (
-      <div className="text-center text-muted" role="alert">
+      <div className="text-center text-muted-foreground" role="alert">
         {t('No interventions found.')}
       </div>
     );

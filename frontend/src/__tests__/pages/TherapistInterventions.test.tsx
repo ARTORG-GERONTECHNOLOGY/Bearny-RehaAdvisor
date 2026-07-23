@@ -640,8 +640,8 @@ describe('TherapistInterventions — Templates tab', () => {
     // Scope to the autocomplete dropdown — the full <select> below also lists
     // both templates regardless of the search text.
     const dropdown = searchInput
-      .closest('.position-relative')!
-      .querySelector('.position-absolute.bg-white') as HTMLElement;
+      .closest('[data-slot="input-group"]')!
+      .parentElement!.querySelector('.absolute.bg-white') as HTMLElement;
     expect(within(dropdown).queryByText(/Ortho/)).not.toBeInTheDocument();
     const match = within(dropdown).getByText(
       (_, el) => el?.tagName === 'SPAN' && /Plan/.test(el.textContent || '')

@@ -13,7 +13,7 @@ import { toISODateUTC } from '@/utils/dateFormat';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel, FieldGroup, FieldDescription } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Input, datePickerInputClassName } from '@/components/ui/input';
 import {
   Select,
   SelectTrigger,
@@ -302,14 +302,14 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
     const footer = useMemo(() => {
       if (success) {
         return (
-          <div className="w-100 text-center">
-            <span className="text-success fw-semibold">{t('Success!')}</span>
+          <div className="w-full text-center">
+            <span className="text-brand font-semibold">{t('Success!')}</span>
           </div>
         );
       }
 
       return (
-        <div className="w-100 d-flex gap-2 justify-content-end">
+        <div className="w-full flex gap-2 justify-end">
           <Button size="dashboard" variant="secondary" onClick={confirmClose} disabled={submitting}>
             {t('Cancel')}
           </Button>
@@ -344,7 +344,7 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
 
         {Object.keys(fieldErrors).length > 0 && (
           <Alert variant="destructive">
-            <ul className="mb-0">
+            <ul className="list-disc pl-6 mb-0">
               {Object.entries(fieldErrors).map(([k, msg]) => (
                 <li key={k}>{msg}</li>
               ))}
@@ -363,7 +363,9 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
                   id="q-effective-from"
                   selected={effectiveFrom}
                   onChange={(d) => setEffectiveFrom(d as Date)}
-                  className="form-control"
+                  className={datePickerInputClassName}
+                  portalId="datepicker-portal"
+                  popperClassName="!z-[60] !pointer-events-auto"
                   dateFormat="yyyy-MM-dd"
                 />
                 <FieldDescription>
@@ -377,7 +379,9 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
                   id="q-start-date"
                   selected={startDateCreate}
                   onChange={(d) => setStartDateCreate(d as Date)}
-                  className="form-control"
+                  className={datePickerInputClassName}
+                  portalId="datepicker-portal"
+                  popperClassName="!z-[60] !pointer-events-auto"
                   dateFormat="yyyy-MM-dd"
                 />
                 <FieldDescription>{t('If unsure, start tomorrow at 08:00.')}</FieldDescription>
@@ -430,7 +434,7 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
 
             {unit === 'week' && (
               <div role="group" aria-label={t('Select days of the week')}>
-                <div className="d-flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   {weekdays.map((day) => (
                     <Button
                       key={day}
@@ -473,7 +477,9 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
                   <DatePicker
                     selected={endDate}
                     onChange={(d) => setEndDate(d as Date)}
-                    className="form-control"
+                    className={datePickerInputClassName}
+                    portalId="datepicker-portal"
+                    popperClassName="!z-[60] !pointer-events-auto"
                     dateFormat="yyyy-MM-dd"
                   />
                 )}

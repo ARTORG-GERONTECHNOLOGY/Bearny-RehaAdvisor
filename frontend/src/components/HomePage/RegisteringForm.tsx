@@ -21,6 +21,14 @@ interface RegisterFormProps {
 
 type Option = { value: string; label: string };
 
+// Matches the shadcn Input look (see components/ui/input.tsx) for the raw
+// <input>/<select> elements in this form that aren't using the <Input> component.
+// TODO: migrate these to the ui Input/Select components.
+const inputFieldClass = (invalid: boolean) =>
+  `flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 md:text-sm ${
+    invalid ? 'border-nok focus-visible:ring-nok' : 'border-input focus-visible:ring-ring'
+  }`;
+
 const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const { t } = useTranslation();
 
@@ -532,13 +540,13 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                 <div className="mt-2">
                   <button
                     type="button"
-                    className="btn btn-link p-0"
+                    className="p-0 text-primary underline hover:no-underline"
                     onClick={() => setShowDetails((v) => !v)}
                   >
                     {t('Additional information')}
                   </button>
                   {showDetails && (
-                    <pre className="small bg-light p-2 border rounded mt-1 mb-0">
+                    <pre className="text-sm bg-gray-50 p-2 border rounded mt-1 mb-0">
                       {t('Status')}: {serverDetail.status ?? '-'}
                       {'\n'}
                       {serverDetail.message}
@@ -568,13 +576,13 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
             }}
           >
             <fieldset disabled={loading || !!successMsg}>
-              <h4 className="mb-3">{t(formSteps[step]?.title)}</h4>
+              <h4 className="text-lg font-semibold mb-3">{t(formSteps[step]?.title)}</h4>
 
               {currentFields.map((field: any) => {
                 const isRequired = !!field.required;
                 const labelText = (
                   <>
-                    {t(field.label)} {isRequired && <span className="text-danger">*</span>}
+                    {t(field.label)} {isRequired && <span className="text-nok">*</span>}
                   </>
                 );
 
@@ -584,7 +592,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
 
                 return (
                   <div key={field.name} className="mb-3">
-                    <label htmlFor={field.name} className="form-label">
+                    <label htmlFor={field.name} className="text-sm font-medium leading-none">
                       {labelText}
                     </label>
 
@@ -621,7 +629,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                         />
 
                         {field.name === 'projects' && !projectsDisabled && (
-                          <div className="text-muted small mt-1">
+                          <div className="text-muted-foreground text-sm mt-1">
                             {t('Available projects based on selected clinic(s).')}
                           </div>
                         )}
@@ -629,7 +637,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                     ) : field.type === 'dropdown' ? (
                       <select
                         id={field.name}
-                        className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
+                        className={inputFieldClass(!!errors[field.name])}
                         value={String(formData[field.name] || '')}
                         onChange={handleChange}
                         onBlur={() => {
@@ -650,7 +658,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                         ))}
                       </select>
                     ) : field.type === 'password' ? (
-                      <div className="position-relative">
+                      <div className="relative">
                         <input
                           type={
                             field.name === 'password'
@@ -661,7 +669,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                                 ? 'text'
                                 : 'password'
                           }
-                          className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
+                          className={inputFieldClass(!!errors[field.name])}
                           id={field.name}
                           value={String(formData[field.name] || '')}
                           onChange={handleChange}
@@ -669,7 +677,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                           autoComplete="new-password"
                         />
                         <span
-                          className="position-absolute end-0 top-50 translate-middle-y me-3"
+                          className="absolute end-0 top-1/2 -translate-y-1/2 me-3"
                           role="button"
                           tabIndex={0}
                           onClick={() =>
@@ -699,7 +707,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                         {errors[field.name] && (
                           <div
                             id={`${field.name}-help`}
-                            className="mt-1 small text-danger"
+                            className="mt-1 text-sm text-nok"
                             aria-live="polite"
                           >
                             {errors[field.name]}
@@ -709,7 +717,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                     ) : (
                       <input
                         type={field.type}
-                        className={`form-control ${errors[field.name] ? 'is-invalid' : ''}`}
+                        className={inputFieldClass(!!errors[field.name])}
                         id={field.name}
                         value={String(formData[field.name] || '')}
                         onChange={handleChange}
@@ -745,7 +753,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                     )}
 
                     {field.type !== 'password' && errors[field.name] && (
-                      <div className="text-danger mt-1" aria-live="polite">
+                      <div className="text-nok mt-1" aria-live="polite">
                         {errors[field.name]}
                       </div>
                     )}
@@ -754,7 +762,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
               })}
             </fieldset>
 
-            <div className="d-flex justify-content-between mt-4">
+            <div className="flex justify-between mt-4">
               {successMsg ? (
                 <div className="ms-auto">
                   <Button

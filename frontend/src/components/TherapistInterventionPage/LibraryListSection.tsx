@@ -13,7 +13,9 @@ type Props = {
 const LibraryListSection: React.FC<Props> = ({ loading, items, onClick, t, translatedTitles }) => {
   if (!loading && items.length === 0) {
     return (
-      <div className="text-center text-muted">{t('No interventions match your filters.')}</div>
+      <div className="text-center text-muted-foreground">
+        {t('No interventions match your filters.')}
+      </div>
     );
   }
 

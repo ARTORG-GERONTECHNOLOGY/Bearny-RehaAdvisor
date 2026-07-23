@@ -121,7 +121,7 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
               {questionnaires.length === 0 && (
-                <div className="text-muted">{t('No questionnaires found')}</div>
+                <div className="text-muted-foreground">{t('No questionnaires found')}</div>
               )}
               {questionnaires.map((q) => (
                 <QuestionnaireAvailableCard
@@ -147,7 +147,7 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
               {assignedQuestionnaires.length === 0 && (
-                <div className="text-muted">{t('No questionnaires assigned')}</div>
+                <div className="text-muted-foreground">{t('No questionnaires assigned')}</div>
               )}
               {assignedQuestionnaires.map((a) => (
                 <QuestionnaireAssignedCard

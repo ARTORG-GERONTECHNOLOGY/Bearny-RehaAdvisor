@@ -1,5 +1,4 @@
 // src/utils/healthCharts.ts
-import * as d3 from 'd3';
 import { toLocalYMD } from '@/utils/dateFormat';
 
 // `start`/`end` are always constructed as local calendar dates (e.g. `new Date(y, m, d)`).
@@ -97,77 +96,6 @@ export const worstTier = (...tiers: (ThresholdTier | null)[]): ThresholdTier | n
     );
 
 // ---------- svg & shared UI ----------
-// One tooltip reused by all charts
-export const getOrCreateTooltip = () => {
-  let tt = d3.select<HTMLDivElement, unknown>('body').select('.chart-tooltip');
-  if (tt.empty()) {
-    tt = d3
-      .select('body')
-      .append('div')
-      .attr('class', 'chart-tooltip bg-light border p-2 rounded shadow-sm position-absolute')
-      .style('opacity', 0)
-      .style('pointer-events', 'none')
-      .style('z-index', '9999');
-  }
-  return tt;
-};
-
-// Simple legend (placed below title, right-aligned)
-type LegendItem = { label: string; color: string; symbol?: 'rect' | 'line' | 'dot' | 'area' };
-export function renderLegend(
-  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-  items: LegendItem[],
-  y: number = 40,
-  note?: string
-) {
-  if (!items.length) return;
-
-  const g = svg.append('g').attr('class', 'chart-legend');
-  let dx = 0;
-
-  items.forEach((it) => {
-    const item = g.append('g').attr('transform', `translate(${dx},${y})`);
-
-    if (it.symbol === 'line') {
-      item
-        .append('line')
-        .attr('x1', 0)
-        .attr('x2', 18)
-        .attr('y1', 8)
-        .attr('y2', 8)
-        .attr('stroke', it.color)
-        .attr('stroke-width', 2);
-    } else if (it.symbol === 'dot') {
-      item.append('circle').attr('cx', 9).attr('cy', 8).attr('r', 4).attr('fill', it.color);
-    } else {
-      item.append('rect').attr('width', 18).attr('height', 12).attr('fill', it.color);
-    }
-
-    const text = item.append('text').attr('x', 24).attr('y', 11).text(it.label);
-    const w = 24 + (text.node()?.getBBox().width || 60);
-    dx += w + 14;
-  });
-
-  if (note) {
-    const noteText = svg
-      .append('text')
-      .attr('x', 60)
-      .attr('y', y + 26)
-      .style('font-size', '11px')
-      .style('opacity', 0.8)
-      .text(note);
-    // keep note from affecting legend alignment
-    noteText.attr('text-anchor', 'start');
-  }
-
-  const vb = (svg.node() as SVGSVGElement).viewBox.baseVal;
-  if (vb?.width) {
-    const bbox = (g.node() as SVGGElement).getBBox();
-    const pad = 10;
-    g.attr('transform', `translate(${vb.width - bbox.width - pad},0)`);
-  }
-}
-
 // Export → data URL (for PDF export)
 export const svgToImageDataUrl = (el: SVGSVGElement): Promise<string> =>
   new Promise((resolve) => {
@@ -197,36 +125,3 @@ export const svgToImageDataUrl = (el: SVGSVGElement): Promise<string> =>
     };
     img.src = url;
   });
-
-// ---------- band-axis helper ----------
-export function smartBandAxisBottom(
-  x: d3.ScaleBand<string>,
-  opts: { maxTicks?: number; rotate?: number; format?: (d: string) => string } = {}
-) {
-  const { maxTicks = 12, rotate = -35, format = (d: string) => d } = opts;
-
-  return (g: d3.Selection<SVGGElement, unknown, null, undefined>) => {
-    const domain = x.domain();
-    let ticks = domain;
-
-    if (domain.length > maxTicks) {
-      const step = Math.ceil(domain.length / maxTicks);
-      ticks = domain.filter((_, i) => i % step === 0);
-    }
-
-    const axis = d3
-      .axisBottom(x)
-      .tickValues(ticks)
-      .tickFormat((d: string) => format(d));
-
-    g.call(axis);
-
-    if (rotate !== 0) {
-      g.selectAll<SVGTextElement, string>('text')
-        .attr('text-anchor', rotate < 0 ? 'end' : 'start')
-        .attr('transform', `rotate(${rotate})`)
-        .attr('dx', rotate < 0 ? '-0.4em' : '0.4em')
-        .attr('dy', '0.6em');
-    }
-  };
-}

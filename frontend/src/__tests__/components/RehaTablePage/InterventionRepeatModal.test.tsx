@@ -242,7 +242,7 @@ describe('InterventionRepeatModal', () => {
       const radios = screen.getAllByRole('radio');
       fireEvent.click(radios[1]); // "On date"
       // Two date pickers now: start date + end date
-      expect(document.querySelectorAll('input.form-control').length).toBeGreaterThanOrEqual(2);
+      expect(document.querySelectorAll('input.border-input').length).toBeGreaterThanOrEqual(2);
     });
 
     it('shows the occurrence count field when "After N times" is selected and updates it', () => {

@@ -132,7 +132,7 @@ export default function Navigation() {
         <div className="w-full relative flex justify-center gap-2">
           {/* Home button — left-aligned within container bounds */}
           <div className="absolute inset-0 flex pointer-events-none">
-            <div className="container mx-auto max-w-screen-md self-stretch flex items-center justify-start pointer-events-auto">
+            <div className="container mx-auto max-w-[90%] xl:max-w-screen-xl self-stretch flex items-center justify-start pointer-events-auto">
               <button
                 aria-label="Home"
                 onClick={() => navigate('/')}

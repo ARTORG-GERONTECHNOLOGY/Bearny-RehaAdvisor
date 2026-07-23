@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
 import {
@@ -251,7 +252,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
 
             <form>
               <Field className="mb-3">
-                <FieldLabel htmlFor="excel-file-input" className="fw-semibold">
+                <FieldLabel htmlFor="excel-file-input">
                   {t('Excel file (.xlsx / .xlsm / .csv)')}
                 </FieldLabel>
                 <Input
@@ -272,9 +273,9 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                   disabled={interventionsImportStore.loading}
                 />
                 {excelSizeError && <FieldError>{excelSizeError}</FieldError>}
-                <div className="text-muted small mt-1">
+                <div className="text-muted-foreground text-sm mt-1">
                   {t('The file should contain the intervention sheet (default: Content).')}{' '}
-                  <span className="text-muted">
+                  <span className="text-muted-foreground">
                     {t('ID format')}
                     {': '}
                     <code>3500_web_de</code> {t('(original)')} /&nbsp;
@@ -289,17 +290,15 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                     <code>de, fr, it, pt, nl, en</code>
                   </span>
                 </div>
-                <div className="text-muted small mt-1">{t('multiMediaExcelInfo')}</div>
+                <div className="text-muted-foreground text-sm mt-1">{t('multiMediaExcelInfo')}</div>
               </Field>
 
               <div className="border rounded p-3 mb-3">
-                <div className="fw-semibold mb-2">{t('Options')}</div>
+                <div className="font-semibold mb-2">{t('Options')}</div>
 
-                <div className="d-flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-3">
                   <Field style={{ minWidth: 220 }}>
-                    <FieldLabel htmlFor="import-sheet-name" className="fw-semibold">
-                      {t('Sheet name')}
-                    </FieldLabel>
+                    <FieldLabel htmlFor="import-sheet-name">{t('Sheet name')}</FieldLabel>
                     <Input
                       id="import-sheet-name"
                       value={sheetName}
@@ -310,9 +309,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                   </Field>
 
                   <Field style={{ minWidth: 160 }}>
-                    <FieldLabel htmlFor="import-default-lang" className="fw-semibold">
-                      {t('Default language')}
-                    </FieldLabel>
+                    <FieldLabel htmlFor="import-default-lang">{t('Default language')}</FieldLabel>
                     <Select
                       value={defaultLang}
                       onValueChange={(value) => setDefaultLang(value)}
@@ -333,9 +330,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                   </Field>
 
                   <Field style={{ minWidth: 140 }}>
-                    <FieldLabel htmlFor="import-limit" className="fw-semibold">
-                      {t('Limit')}
-                    </FieldLabel>
+                    <FieldLabel htmlFor="import-limit">{t('Limit')}</FieldLabel>
                     <Input
                       id="import-limit"
                       value={limit}
@@ -344,19 +339,21 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                       placeholder={t('Optional')}
                       inputMode="numeric"
                     />
-                    <div className="text-muted small">{t('Import only first N rows')}</div>
+                    <div className="text-muted-foreground text-sm">
+                      {t('Import only first N rows')}
+                    </div>
                   </Field>
                 </div>
               </div>
 
               {r && (
                 <div className="border rounded p-3">
-                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <div className="fw-semibold">{t('Import result')}</div>
-                    {r.message && <div className="text-muted small">{r.message}</div>}
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="font-semibold">{t('Import result')}</div>
+                    {r.message && <div className="text-muted-foreground text-sm">{r.message}</div>}
                   </div>
 
-                  <div className="mt-2 d-flex flex-wrap gap-2">
+                  <div className="mt-2 flex flex-wrap gap-2">
                     <Badge variant="dashboard-success">
                       {t('Created')}: {r.created ?? 0}
                     </Badge>
@@ -395,7 +392,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
 
                   {(r.errors?.length ?? 0) > 0 && (
                     <div className="mt-3">
-                      <div className="fw-semibold mb-2">{t('Details')}</div>
+                      <div className="font-semibold mb-2">{t('Details')}</div>
                       <div
                         style={{ maxHeight: 260, overflowY: 'auto' }}
                         className="border rounded p-2"
@@ -403,8 +400,8 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                         {(r.errors || []).slice(0, 200).map((e: any, idx: number) => {
                           const isWarning = e.severity === 'warning';
                           return (
-                            <div key={idx} className="small mb-2">
-                              <div className="d-flex align-items-center gap-2 flex-wrap">
+                            <div key={idx} className="text-sm mb-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <Badge
                                   variant={
                                     isWarning ? 'dashboard-warning' : 'dashboard-destructive'
@@ -418,17 +415,15 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                                   <code>{e.intervention_id ?? e.external_id ?? '-'}</code>
                                 </span>
                               </div>
-                              <div
-                                className={`mt-1 ${isWarning ? 'text-warning-emphasis' : 'text-danger'}`}
-                              >
+                              <div className={`mt-1 ${isWarning ? 'text-yellow' : 'text-nok'}`}>
                                 {e.error ?? '-'}
                               </div>
-                              <hr className="my-2" />
+                              <Separator className="my-2" />
                             </div>
                           );
                         })}
                         {(r.errors || []).length > 200 && (
-                          <div className="text-muted small">
+                          <div className="text-muted-foreground text-sm">
                             {t('Too many issues to display (showing first 200).')}
                           </div>
                         )}
@@ -451,8 +446,8 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
             )}
 
             {/* Naming-convention help text */}
-            <div className="border rounded p-3 mb-3 bg-light small">
-              <div className="fw-semibold mb-1">{t('Naming convention')}</div>
+            <div className="border rounded p-3 mb-3 bg-gray-50 text-sm">
+              <div className="font-semibold mb-1">{t('Naming convention')}</div>
               <p className="mb-1">
                 {t('Each filename must encode the intervention ID, format, and language:')}
               </p>
@@ -470,13 +465,13 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                 {'  ·  '}
                 {t('Valid extensions')}: <code>mp4, mp3, m4a, wav, pdf, jpg, jpeg, png</code>
               </div>
-              <div className="mt-1 text-muted">
+              <div className="mt-1 text-muted-foreground">
                 {t(
                   'The language suffix (e.g. _de) determines which language variant receives the file. Only the matching language variant is updated.'
                 )}
               </div>
-              <div className="mt-2 border-top pt-2">
-                <span className="fw-semibold">{t('Multiple media per intervention')}:</span>{' '}
+              <div className="mt-2 border-t pt-2">
+                <span className="font-semibold">{t('Multiple media per intervention')}:</span>{' '}
                 {t('multiMediaFileUploadInfo')}
               </div>
             </div>
@@ -491,8 +486,10 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
               role="button"
               aria-label={t('Drop zone for media files')}
             >
-              <div className="text-muted">{t('Drag & drop files here, or click to browse')}</div>
-              <div className="text-muted" style={{ fontSize: '0.8em' }}>
+              <div className="text-muted-foreground">
+                {t('Drag & drop files here, or click to browse')}
+              </div>
+              <div className="text-muted-foreground" style={{ fontSize: '0.8em' }}>
                 mp4 · mp3 · m4a · wav · pdf · jpg · png
               </div>
               <Input
@@ -515,7 +512,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                 {validatedMediaFiles.map((vf, idx) => (
                   <div
                     key={idx}
-                    className="d-flex align-items-center gap-2 mb-1 small"
+                    className="flex items-center gap-2 mb-1 text-sm"
                     data-testid="video-file-row"
                   >
                     {vf.valid && !vf.tooLarge ? (
@@ -532,20 +529,20 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                       </Badge>
                     )}
 
-                    <span className="text-break flex-grow-1">{vf.file.name}</span>
+                    <span className="whitespace-normal break-words grow">{vf.file.name}</span>
 
                     {vf.valid && vf.externalId && !vf.tooLarge && (
-                      <span className="text-muted text-nowrap">
+                      <span className="text-muted-foreground whitespace-nowrap">
                         id: <code>{vf.externalId}</code>
                       </span>
                     )}
                     {!vf.valid && (
-                      <span className="text-danger text-nowrap">
+                      <span className="text-nok whitespace-nowrap">
                         {t('Invalid filename format')}
                       </span>
                     )}
                     {vf.tooLarge && (
-                      <span className="text-warning-emphasis text-nowrap">
+                      <span className="text-yellow whitespace-nowrap">
                         {t('File too large')} ({formatMB(vf.file.size)}&thinsp;/&thinsp;
                         {vf.maxSizeMB}&thinsp;MB max)
                       </span>
@@ -554,7 +551,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                     <Button
                       size="dashboard"
                       variant="ghost"
-                      className="p-0 ms-1 text-muted"
+                      className="p-0 ms-1 text-muted-foreground"
                       onClick={() => removeMediaFile(idx)}
                       aria-label={t('Remove file')}
                     >
@@ -566,7 +563,10 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
             )}
 
             {validatedMediaFiles.length > 0 && (
-              <div className="text-muted small mb-3" data-testid="media-upload-summary">
+              <div
+                className="text-muted-foreground text-sm mb-3"
+                data-testid="media-upload-summary"
+              >
                 {hasValidMediaFiles
                   ? t(
                       'Ready to upload {{count}} file(s), {{size}} MB total. Large selections are uploaded in smaller batches automatically.',
@@ -582,8 +582,8 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
             {/* Upload results */}
             {vr && (
               <div className="border rounded p-3">
-                <div className="fw-semibold mb-2">{t('Upload results')}</div>
-                <div className="d-flex flex-wrap gap-2 mb-2">
+                <div className="font-semibold mb-2">{t('Upload results')}</div>
+                <div className="flex flex-wrap gap-2 mb-2">
                   <Badge variant="dashboard-success">
                     {t('OK')}: {vr.filter((r) => r.status === 'ok').length}
                   </Badge>
@@ -593,8 +593,8 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                 </div>
                 <div style={{ maxHeight: 240, overflowY: 'auto' }}>
                   {vr.map((res: MediaUploadFileResult, idx: number) => (
-                    <div key={idx} className="small mb-2">
-                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                    <div key={idx} className="text-sm mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Badge
                           variant={
                             res.status === 'ok' ? 'dashboard-success' : 'dashboard-destructive'
@@ -602,9 +602,9 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                         >
                           {res.status === 'ok' ? t('OK') : t('Error')}
                         </Badge>
-                        <code className="text-break">{res.filename}</code>
+                        <code className="break-words">{res.filename}</code>
                         {res.external_id && (
-                          <span className="text-muted">
+                          <span className="text-muted-foreground">
                             id: <code>{res.external_id}</code>
                             {(res as any).language && (
                               <>
@@ -615,13 +615,13 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                           </span>
                         )}
                         {res.status === 'ok' && (
-                          <span className="text-success ms-auto text-nowrap">
+                          <span className="text-brand ms-auto whitespace-nowrap">
                             {t('Updated')} {res.interventions_updated.length} {t('intervention(s)')}
                           </span>
                         )}
                       </div>
-                      {res.error && <div className="text-danger mt-1">{res.error}</div>}
-                      <hr className="my-1" />
+                      {res.error && <div className="text-nok mt-1">{res.error}</div>}
+                      <Separator className="my-1" />
                     </div>
                   ))}
                 </div>
@@ -643,7 +643,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
           {activeTab === 'excel' && (
             <Button size="dashboard" onClick={submitExcel} disabled={!canSubmit}>
               {interventionsImportStore.loading ? (
-                <span className="d-inline-flex align-items-center gap-2">
+                <span className="inline-flex items-center gap-2">
                   <Spinner /> {t('Importing...')}
                 </span>
               ) : (
@@ -659,7 +659,7 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
               disabled={!hasValidMediaFiles || interventionsMediaUploadStore.loading}
             >
               {interventionsMediaUploadStore.loading ? (
-                <span className="d-inline-flex align-items-center gap-2">
+                <span className="inline-flex items-center gap-2">
                   <Spinner /> {t('Uploading...')}
                 </span>
               ) : (

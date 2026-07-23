@@ -744,7 +744,10 @@ describe('AddRecomendationPopUp', () => {
     };
 
     it('submits a well-formed FormData payload and shows the success alert', async () => {
-      (mockApiClient.post as jest.Mock).mockResolvedValueOnce({ status: 201, data: {} });
+      (mockApiClient.post as jest.Mock).mockResolvedValueOnce({
+        status: 200,
+        data: { success: true, message: 'Intervention created successfully', id: 'i1' },
+      });
       const onSuccess = jest.fn();
       const user = userEvent.setup();
       render(<AddRecomendationPopUp show handleClose={jest.fn()} onSuccess={onSuccess} />);
@@ -773,7 +776,10 @@ describe('AddRecomendationPopUp', () => {
     });
 
     it('appends the media file to the payload for a file-kind media row', async () => {
-      (mockApiClient.post as jest.Mock).mockResolvedValueOnce({ status: 201, data: {} });
+      (mockApiClient.post as jest.Mock).mockResolvedValueOnce({
+        status: 200,
+        data: { success: true, message: 'Intervention created successfully', id: 'i1' },
+      });
       const user = userEvent.setup();
       renderPopup();
       await fillRequiredFields(user);
@@ -800,7 +806,10 @@ describe('AddRecomendationPopUp', () => {
       (mockApiClient.get as jest.Mock).mockResolvedValueOnce({
         data: [{ _id: 'p1', patient_code: 'PAT-1' }],
       });
-      (mockApiClient.post as jest.Mock).mockResolvedValueOnce({ status: 201, data: {} });
+      (mockApiClient.post as jest.Mock).mockResolvedValueOnce({
+        status: 200,
+        data: { success: true, message: 'Intervention created successfully', id: 'i1' },
+      });
 
       const user = userEvent.setup();
       renderPopup();
@@ -965,7 +974,10 @@ describe('AddRecomendationPopUp', () => {
       fireEvent.click(screen.getByRole('button', { name: 'trigger-onhide' }));
       expect(handleClose).not.toHaveBeenCalled();
 
-      resolvePost({ status: 201, data: {} });
+      resolvePost({
+        status: 200,
+        data: { success: true, message: 'Intervention created successfully', id: 'i1' },
+      });
       await waitFor(() => expect(mockApiClient.post).toHaveBeenCalled());
     });
 

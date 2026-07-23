@@ -261,7 +261,7 @@ const FilterBar: React.FC<Props> = ({
       {/* meta row */}
       {typeof resultCount === 'number' || loading || (!isNarrow && onReset) ? (
         <div className="flex items-center justify-between gap-2 mt-2.5">
-          <div className="text-muted small">
+          <div className="text-muted-foreground text-sm">
             {loading
               ? `${t('Loading')}...`
               : typeof resultCount === 'number'
