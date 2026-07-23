@@ -515,7 +515,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
           headers: { 'Content-Type': 'multipart/form-data' },
         });
 
-        if (res.status === 201) {
+        if (res.data?.success) {
           setSuccess(true);
           setError('');
           setErrors({});
