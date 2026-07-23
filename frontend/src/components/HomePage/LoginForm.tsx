@@ -151,7 +151,7 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
               </FieldGroup>
 
               <ForgotPasswordLink
-                onClick={() => navigate('/forgottenpwd')}
+                to="/forgottenpwd"
                 text={t('Need help recovering your account?')}
               />
             </form>

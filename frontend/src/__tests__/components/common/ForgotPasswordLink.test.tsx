@@ -1,29 +1,32 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import ForgotPasswordLink from '@/components/common/ForgotPasswordLink';
 
 describe('ForgotPasswordLink', () => {
   it('renders with default text', () => {
-    const mockClick = jest.fn();
-    render(<ForgotPasswordLink onClick={mockClick} />);
+    render(<ForgotPasswordLink to="/forgottenpwd" text="Forgot Password?" />, {
+      wrapper: MemoryRouter,
+    });
 
-    const button = screen.getByRole('button', { name: /Forgot Password\?/i });
-    expect(button).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /Forgot Password\?/i });
+    expect(link).toBeInTheDocument();
   });
 
   it('renders with custom text', () => {
-    const mockClick = jest.fn();
-    render(<ForgotPasswordLink onClick={mockClick} text="Reset Access Word" />);
+    render(<ForgotPasswordLink to="/forgottenpwd" text="Reset Access Word" />, {
+      wrapper: MemoryRouter,
+    });
 
-    const button = screen.getByRole('button', { name: /Reset Access Word/i });
-    expect(button).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /Reset Access Word/i });
+    expect(link).toBeInTheDocument();
   });
 
-  it('calls onClick when clicked', () => {
-    const mockClick = jest.fn();
-    render(<ForgotPasswordLink onClick={mockClick} />);
+  it('links to the given route', () => {
+    render(<ForgotPasswordLink to="/forgottenpwd" text="Forgot Password?" />, {
+      wrapper: MemoryRouter,
+    });
 
-    const button = screen.getByRole('button');
-    fireEvent.click(button);
-    expect(mockClick).toHaveBeenCalledTimes(1);
+    const link = screen.getByRole('link');
+    expect(link).toHaveAttribute('href', '/forgottenpwd');
   });
 });

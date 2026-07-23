@@ -458,10 +458,10 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="d-flex justify-content-between align-items-end mb-2">
-        <h4 className="mb-0">{t(formSteps[step]?.title)}</h4>
-        <small className="text-muted">
-          <span className="text-danger">*</span> {t('required')}
+      <div className="flex justify-between items-end mb-2">
+        <h4 className="text-lg font-semibold mb-0">{t(formSteps[step]?.title)}</h4>
+        <small className="text-sm text-muted-foreground">
+          <span className="text-nok">*</span> {t('required')}
         </small>
       </div>
 
@@ -501,16 +501,16 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
               key={field.name}
               orientation={field.type === 'checkbox' ? 'horizontal' : 'vertical'}
             >
-              <FieldLabel htmlFor={field.name} className="d-flex align-items-center gap-1">
+              <FieldLabel htmlFor={field.name} className="flex items-center gap-1">
                 <span>
                   {t(field.label)}
                   {required && (
                     <>
-                      <span className="text-danger" aria-hidden="true">
+                      <span className="text-nok" aria-hidden="true">
                         {' '}
                         *
                       </span>
-                      <span className="visually-hidden"> {t('required')}</span>
+                      <span className="sr-only"> {t('required')}</span>
                     </>
                   )}
                 </span>
@@ -617,10 +617,12 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
               <strong>{t('Patient ID:')}</strong> {patientId}
             </p>
           )}
-          <Link to="/">{t('Click here to log in')}</Link>
+          <Link to="/" className="underline">
+            {t('Click here to log in')}
+          </Link>
         </Alert>
       ) : (
-        <div className="d-flex justify-content-between mt-4">
+        <div className="flex justify-between mt-4">
           {step > 0 && (
             <Button type="button" size="dashboard" variant="secondary" onClick={prevStep}>
               {t('Back')}

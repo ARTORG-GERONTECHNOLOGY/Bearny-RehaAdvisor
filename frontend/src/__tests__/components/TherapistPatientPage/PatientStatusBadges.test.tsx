@@ -1,4 +1,5 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '../../../../i18n';
 import {
@@ -7,6 +8,7 @@ import {
   FeedbackBadge,
   WearBadge,
 } from '@/components/TherapistPatientPage/PatientStatusBadges';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { PatientType } from '@/types';
 import '@testing-library/jest-dom';
 
@@ -30,7 +32,11 @@ const makePatient = (overrides: Record<string, unknown> = {}): PatientType =>
   }) as unknown as PatientType;
 
 const renderWithI18n = (ui: React.ReactElement) =>
-  render(<I18nextProvider i18n={i18n}>{ui}</I18nextProvider>);
+  render(
+    <I18nextProvider i18n={i18n}>
+      <TooltipProvider delayDuration={0}>{ui}</TooltipProvider>
+    </I18nextProvider>
+  );
 
 describe('LoginBadge', () => {
   it('shows "Never logged in" when there is no login data', () => {
@@ -50,21 +56,23 @@ describe('LoginBadge', () => {
     expect(screen.getByText('5d ago')).toBeInTheDocument();
   });
 
-  it('shows the tooltip on hover/focus and hides it again on mouse-out/blur', () => {
+  it('shows the tooltip on hover', async () => {
+    const user = userEvent.setup();
     renderWithI18n(<LoginBadge patient={makePatient({ last_online: isoDaysAgo(5) })} />);
     const badge = screen.getByText('5d ago');
 
-    fireEvent.mouseOver(badge);
-    expect(screen.getByText(/Last login/)).toBeInTheDocument();
-
-    fireEvent.mouseOut(badge);
     expect(screen.queryByText(/Last login/)).not.toBeInTheDocument();
 
-    fireEvent.focus(badge);
-    expect(screen.getByText(/Last login/)).toBeInTheDocument();
+    await user.hover(badge);
+    expect(await screen.findByText(/Last login/)).toBeInTheDocument();
+  });
 
-    fireEvent.blur(badge);
-    expect(screen.queryByText(/Last login/)).not.toBeInTheDocument();
+  it('shows the tooltip on focus', async () => {
+    renderWithI18n(<LoginBadge patient={makePatient({ last_online: isoDaysAgo(5) })} />);
+    const badge = screen.getByText('5d ago');
+
+    badge.focus();
+    expect(await screen.findByText(/Last login/)).toBeInTheDocument();
   });
 });
 

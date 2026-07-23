@@ -46,7 +46,7 @@ type BioLike = {
   fitbit_no_token?: unknown;
 };
 
-export const asRecord = (v: unknown): Record<string, unknown> =>
+const asRecord = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
 
 export const toNum = (v: unknown): number | null => {
@@ -110,7 +110,7 @@ export const chipClass = (level: Traffic) => {
   }
 };
 
-export const levelToNum = (lvl: Traffic) =>
+const levelToNum = (lvl: Traffic) =>
   lvl === 'bad' ? 3 : lvl === 'warn' ? 2 : lvl === 'unknown' ? 1 : 0;
 
 export const levelRankSmallBadFirst = (lvl: Traffic) =>

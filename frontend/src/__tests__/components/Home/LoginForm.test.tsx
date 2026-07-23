@@ -11,33 +11,6 @@ jest.mock('react-router-dom', () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-// Simplify Bootstrap Modal: render children only when show=true
-jest.mock('react-bootstrap', () => {
-  const actual = jest.requireActual('react-bootstrap');
-  return {
-    ...actual,
-    Modal: Object.assign(
-      ({ show, children }: any) => (show ? <div data-testid="modal">{children}</div> : null),
-      {
-        Header: ({ children }: any) => <div>{children}</div>,
-        Title: ({ children }: any) => <h5>{children}</h5>,
-        Body: ({ children }: any) => <div>{children}</div>,
-      }
-    ),
-    Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
-    Form: ({ children, onSubmit }: any) => (
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit?.(e);
-        }}
-      >
-        {children}
-      </form>
-    ),
-  };
-});
-
 // Mock shadcn Sheet (replaces Bootstrap Modal in LoginForm)
 jest.mock('@/components/ui/sheet', () => {
   const React = jest.requireActual('react');
@@ -141,7 +114,7 @@ jest.mock('@/components/common/ForgotPasswordLink', () => {
   const React = jest.requireActual('react');
   return {
     __esModule: true,
-    default: ({ onClick, text }: any) => <button onClick={onClick}>{text}</button>,
+    default: ({ to, text }: any) => <a href={to}>{text}</a>,
   };
 });
 
@@ -579,10 +552,12 @@ describe('LoginForm', () => {
     });
   });
 
-  it('navigates to /forgottenpwd when the forgot-password link is clicked', () => {
+  it('links to /forgottenpwd for the forgot-password link', () => {
     openModal();
-    fireEvent.click(screen.getByText('Need help recovering your account?'));
-    expect(mockNavigate).toHaveBeenCalledWith('/forgottenpwd');
+    expect(screen.getByText('Need help recovering your account?')).toHaveAttribute(
+      'href',
+      '/forgottenpwd'
+    );
   });
 
   it('closes and resets the form when the sheet is dismissed', async () => {

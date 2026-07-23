@@ -5,28 +5,11 @@
 html,
 body {
   @apply bg-back;
+  font-family: 'ABCDiatypeRounded', sans-serif;
 }
 
-/* Better “safe” wrapping for long localized strings (older browsers fallback gracefully) */
-.lead {
-  overflow-wrap: anywhere;
-}
-
-/* Ensure accordion body is visible when expanded */
-.accordion-body {
-  visibility: visible;
-}
-
-/* Adjust Bootstrap ratios responsively */
-@media (min-width: 768px) {
-  .ratio-md-4x3 {
-    --bs-aspect-ratio: calc(3 / 4 * 100%);
-  }
-}
-@media (min-width: 992px) {
-  .ratio-lg-16x9 {
-    --bs-aspect-ratio: calc(9 / 16 * 100%);
-  }
+code {
+  @apply rounded bg-zinc-100 px-1.5 py-0.5 text-[0.875em] text-pink;
 }
 
 /* Sentry Feedback Widget Customization */

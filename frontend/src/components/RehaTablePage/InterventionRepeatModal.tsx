@@ -17,7 +17,7 @@ import config from '@/config/config.json';
 import { InterventionRepeatModalStore } from '@/stores/interventionRepeatModalStore';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel, FieldGroup, FieldDescription } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Input, datePickerInputClassName } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -111,7 +111,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
 
         {Object.keys(store.fieldErrors).length > 0 && (
           <Alert variant="destructive">
-            <ul className="mb-0">
+            <ul className="list-disc pl-6 mb-0">
               {Object.entries(store.fieldErrors).map(([key, msg]) => (
                 <li key={key}>{msg}</li>
               ))}
@@ -128,7 +128,9 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                   id="ir-effective-from"
                   selected={store.effectiveFrom}
                   onChange={(d) => (store.effectiveFrom = d as Date)}
-                  className="form-control"
+                  className={datePickerInputClassName}
+                  portalId="datepicker-portal"
+                  popperClassName="!z-[60] !pointer-events-auto"
                   dateFormat="yyyy-MM-dd"
                 />
               </Field>
@@ -139,7 +141,9 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                   id="ir-start-date"
                   selected={store.startDateCreate}
                   onChange={(d) => (store.startDateCreate = d as Date)}
-                  className="form-control"
+                  className={datePickerInputClassName}
+                  portalId="datepicker-portal"
+                  popperClassName="!z-[60] !pointer-events-auto"
                   dateFormat="yyyy-MM-dd"
                 />
               </Field>
@@ -207,7 +211,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                 </Field>
 
                 {store.unit === 'week' && (
-                  <div className="d-flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {store.weekdays.map((day) => (
                       <Button
                         key={day}
@@ -245,7 +249,9 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                       <DatePicker
                         selected={store.endDate}
                         onChange={(d) => (store.endDate = d as Date)}
-                        className="form-control"
+                        className={datePickerInputClassName}
+                        portalId="datepicker-portal"
+                        popperClassName="!z-[60] !pointer-events-auto"
                         dateFormat="yyyy-MM-dd"
                       />
                     )}

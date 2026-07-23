@@ -80,8 +80,8 @@ This document describes the technical architecture, system design, data models, 
 | **Routing** | React Router v6 | Client-side routing |
 | **HTTP Client** | Axios | API communication |
 | **i18n** | i18next | Multi-language support |
-| **Styling** | CSS Modules + SCSS | Component-scoped styling |
-| **UI Components** | Custom + HTML5 | Semantic, accessible components |
+| **Styling** | Tailwind CSS | Utility-first styling |
+| **UI Components** | shadcn/ui + Radix UI | Accessible, composable component primitives |
 | **Testing** | Jest + React Testing Library | Unit and integration tests |
 
 ### Backend Stack

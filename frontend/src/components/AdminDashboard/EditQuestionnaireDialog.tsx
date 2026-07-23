@@ -55,7 +55,7 @@ const EditQuestionnaireDialog: React.FC<Props> = ({
             {error}
           </Alert>
         )}
-        <Alert variant="info" className="py-2 mb-3 small">
+        <Alert variant="info" className="py-2 mb-3 text-sm">
           <strong>{t('What changes here.')}</strong>{' '}
           {t(
             'Editing updates title, description and tags only — the underlying questions are not affected. Patients already assigned this questionnaire will continue to see the title and description that was current when they were assigned (their version is preserved). New assignments will use the updated information. Each save increments the version number shown in the table.'

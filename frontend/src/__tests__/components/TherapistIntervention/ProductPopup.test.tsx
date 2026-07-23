@@ -319,9 +319,7 @@ describe('ProductPopup diagnosis assignment', () => {
     );
     await waitFor(() => expect(screen.getByText('Assigned')).toBeInTheDocument());
 
-    const row = screen
-      .getByText('Assigned')
-      .closest('.d-flex.align-items-center.justify-content-between')!;
+    const row = screen.getByText('Assigned').closest('.flex.items-center.justify-between')!;
     const buttons = within(row as HTMLElement).getAllByRole('button');
     fireEvent.click(buttons[buttons.length - 1]);
 
@@ -350,9 +348,7 @@ describe('ProductPopup diagnosis assignment', () => {
     );
     await waitFor(() => expect(screen.getByText('Assigned')).toBeInTheDocument());
 
-    const row = screen
-      .getByText('Assigned')
-      .closest('.d-flex.align-items-center.justify-content-between')!;
+    const row = screen.getByText('Assigned').closest('.flex.items-center.justify-between')!;
     const buttons = within(row as HTMLElement).getAllByRole('button');
     fireEvent.click(buttons[buttons.length - 1]);
 
@@ -380,9 +376,7 @@ describe('ProductPopup diagnosis assignment', () => {
     // Open the assign modal before the description/title translation promise resolves,
     // so translatedTitle is still '' and interventionTitle falls back to the raw item title.
     const row = await screen.findByText('heart failure');
-    fireEvent.click(
-      within(row.closest('.d-flex.align-items-center.justify-content-between')!).getByRole('button')
-    );
+    fireEvent.click(within(row.closest('.flex.items-center.justify-between')!).getByRole('button'));
     expect(await screen.findByTestId('template-assign-modal')).toBeInTheDocument();
 
     resolveTranslate({ translatedText: 'Test Intervention', detectedSourceLanguage: 'en' });
@@ -399,9 +393,7 @@ describe('ProductPopup diagnosis assignment', () => {
       expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
     );
 
-    const row = screen
-      .getByText('heart failure')
-      .closest('.d-flex.align-items-center.justify-content-between')!;
+    const row = screen.getByText('heart failure').closest('.flex.items-center.justify-between')!;
     fireEvent.click(within(row as HTMLElement).getByRole('button'));
 
     expect(await screen.findByTestId('template-assign-modal')).toHaveTextContent(
@@ -446,7 +438,7 @@ describe('ProductPopup diagnosis assignment', () => {
   });
 });
 
-describe('ProductPopup react-bootstrap Modal escape handling', () => {
+describe('ProductPopup Modal escape handling', () => {
   it('closes via the Modal onEscapeKeyDown handler when Escape is dispatched on document', async () => {
     const apiClient = jest.requireMock('@/api/client').default;
     apiClient.get.mockResolvedValue({ data: { items: [] } });
@@ -477,9 +469,7 @@ describe('ProductPopup escape/close while the assign modal is open', () => {
       expect(screen.getByText('[translated] Test Intervention')).toBeInTheDocument()
     );
 
-    const row = screen
-      .getByText('heart failure')
-      .closest('.d-flex.align-items-center.justify-content-between')!;
+    const row = screen.getByText('heart failure').closest('.flex.items-center.justify-between')!;
     fireEvent.click(within(row as HTMLElement).getByRole('button'));
     expect(await screen.findByTestId('template-assign-modal')).toBeInTheDocument();
 

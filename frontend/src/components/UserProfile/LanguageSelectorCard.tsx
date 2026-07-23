@@ -55,10 +55,12 @@ export default function LanguageSelectorCard() {
           <SelectGroup>
             {languages.map((l) => (
               <SelectItem key={l} value={l}>
-                <span className="font-bold text-lg leading-6 text-zinc-800">
-                  {languageNames[l]}
+                <span className="flex items-center gap-1">
+                  <span className="font-bold text-lg leading-6 text-zinc-800">
+                    {languageNames[l]}
+                  </span>
+                  <img src={flagMap[l]} alt="" className="h-4 w-4 rounded-full" />
                 </span>
-                <img src={flagMap[l]} className="h-4 w-4 rounded-full ml-1 -mt-1" />
               </SelectItem>
             ))}
           </SelectGroup>

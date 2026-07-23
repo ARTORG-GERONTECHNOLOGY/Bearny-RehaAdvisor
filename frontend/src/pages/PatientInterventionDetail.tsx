@@ -644,7 +644,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
     <Layout>
       <TooltipProvider>
         <div className="flex flex-col gap-2">
-          <div className="flex justify-between align-items-end">
+          <div className="flex justify-between items-end">
             <Button
               size="icon"
               variant="secondary"

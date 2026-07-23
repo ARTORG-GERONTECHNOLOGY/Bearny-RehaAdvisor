@@ -1,0 +1,60 @@
+/* Local variable-weight font faces for the app's body/heading typeface. */
+@font-face {
+  font-family: 'ABCDiatypeRounded';
+  src:
+    url('/fonts/ABCDiatypeRounded-Regular.woff2') format('woff2'),
+    url('/fonts/ABCDiatypeRounded-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ABCDiatypeRounded';
+  src:
+    url('/fonts/ABCDiatypeRounded-RegularItalic.woff2') format('woff2'),
+    url('/fonts/ABCDiatypeRounded-RegularItalic.woff') format('woff');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ABCDiatypeRounded';
+  src:
+    url('/fonts/ABCDiatypeRounded-Medium.woff2') format('woff2'),
+    url('/fonts/ABCDiatypeRounded-Medium.woff') format('woff');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ABCDiatypeRounded';
+  src:
+    url('/fonts/ABCDiatypeRounded-MediumItalic.woff2') format('woff2'),
+    url('/fonts/ABCDiatypeRounded-MediumItalic.woff') format('woff');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ABCDiatypeRounded';
+  src:
+    url('/fonts/ABCDiatypeRounded-Bold.woff2') format('woff2'),
+    url('/fonts/ABCDiatypeRounded-Bold.woff') format('woff');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ABCDiatypeRounded';
+  src:
+    url('/fonts/ABCDiatypeRounded-BoldItalic.woff2') format('woff2'),
+    url('/fonts/ABCDiatypeRounded-BoldItalic.woff') format('woff');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}

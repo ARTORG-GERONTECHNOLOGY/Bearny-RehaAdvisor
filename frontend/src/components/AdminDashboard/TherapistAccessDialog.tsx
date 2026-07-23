@@ -76,18 +76,18 @@ const TherapistAccessDialog: React.FC<Props> = ({
         )}
 
         {loading ? (
-          <div className="d-flex align-items-center gap-2">
+          <div className="flex items-center gap-2">
             <Spinner />
             <div>{t('Loading')}...</div>
           </div>
         ) : (
           <>
-            <p className="text-muted mb-2">{t('Projects')}</p>
+            <p className="text-muted-foreground mb-2">{t('Projects')}</p>
             {availableProjects.length === 0 ? (
               <Alert variant="warning">{t('No projects configured on the server.')}</Alert>
             ) : (
               <div className="mb-3">
-                <div className="d-flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-3">
                   {availableProjects.map((p) => {
                     const id = `proj_${p}`;
                     return (
@@ -106,14 +106,14 @@ const TherapistAccessDialog: React.FC<Props> = ({
                 </div>
 
                 <div className="mt-2">
-                  <small className="text-muted">
+                  <small className="text-sm text-muted-foreground">
                     {t('Selected')}: {selectedProjects.length ? selectedProjects.join(', ') : '—'}
                   </small>
                 </div>
               </div>
             )}
 
-            <p className="text-muted mb-2">{t('Clinics')}</p>
+            <p className="text-muted-foreground mb-2">{t('Clinics')}</p>
             {!selectedProjects.length ? (
               <Alert variant="info" className="mb-0">
                 {t('Select a project to see available clinics.')}
@@ -123,7 +123,7 @@ const TherapistAccessDialog: React.FC<Props> = ({
                 {t('No clinics are configured for the selected project(s).')}
               </Alert>
             ) : (
-              <div className="d-flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3">
                 {allowedClinics.map((c) => {
                   const id = `clinic_${c}`;
                   return (
@@ -144,7 +144,7 @@ const TherapistAccessDialog: React.FC<Props> = ({
 
             {selectedProjects.length > 0 && (
               <div className="mt-2">
-                <small className="text-muted">
+                <small className="text-sm text-muted-foreground">
                   {t('Clinics are filtered by selected projects.')}
                 </small>
               </div>

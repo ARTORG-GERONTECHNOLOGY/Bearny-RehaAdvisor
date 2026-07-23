@@ -42,7 +42,7 @@ export default function StartScreen({ micError, onStart }: Props) {
 
         <div className="mb-3.5">
           Bevor wir starten,
-          <ul>
+          <ul className="list-disc pl-6 mt-1">
             <li>begeben Sie sich bitte an einen ruhigen und ungestörten Ort mit Internet,</li>
             <li>erlauben Sie Zugriff auf das Mikrofon,</li>
             <li>sprechen Sie klar und deutlich,</li>

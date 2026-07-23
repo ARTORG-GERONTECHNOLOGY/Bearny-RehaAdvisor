@@ -485,7 +485,7 @@ const FeedbackPopup: React.FC<Props> = ({
               className={
                 active
                   ? 'bg-brand/20 hover:bg-brand/20 text-brand'
-                  : 'bg-white border border-zinc-200 text-zinc-800'
+                  : 'bg-white border border-solid border-zinc-200 text-zinc-800'
               }
               onClick={() => handleOptionSelect(opt.key, currentQuestion.questionKey, multiple)}
               aria-pressed={active}

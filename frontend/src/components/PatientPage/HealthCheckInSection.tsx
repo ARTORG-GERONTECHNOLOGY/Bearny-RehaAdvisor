@@ -33,6 +33,14 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
   const checkInEntries = [hasWeightEntry, hasBloodPressureEntry];
   const checkInEnteredCount = checkInEntries.filter(Boolean).length;
 
+  const handleActivateKeyDown =
+    (onActivate: () => void) => (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onActivate();
+      }
+    };
+
   if (loading) {
     return <PatientHealthCheckInSectionSkeleton />;
   }
@@ -48,9 +56,11 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
 
       <div className="flex gap-2 flex-wrap">
         <Card
+          tabIndex={0}
           role="button"
-          className="flex-1 flex flex-col gap-4 justify-between"
+          className="flex-1 flex flex-col gap-4 justify-between hover:bg-accent focus:bg-accent transition-colors cursor-pointer"
           onClick={onOpenWeightEntry}
+          onKeyDown={handleActivateKeyDown(onOpenWeightEntry)}
         >
           <div className="flex justify-between">
             <div>
@@ -72,9 +82,11 @@ const HealthCheckInSection: React.FC<HealthCheckInSectionProps> = ({
         </Card>
 
         <Card
+          tabIndex={0}
           role="button"
-          className="flex-1 flex flex-col gap-4 justify-between"
+          className="flex-1 flex flex-col gap-4 justify-between hover:bg-accent focus:bg-accent transition-colors cursor-pointer"
           onClick={onOpenBloodPressureEntry}
+          onKeyDown={handleActivateKeyDown(onOpenBloodPressureEntry)}
         >
           <div className="flex justify-between">
             <div>

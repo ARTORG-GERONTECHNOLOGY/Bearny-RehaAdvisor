@@ -26,7 +26,7 @@ export interface ThresholdFieldGroup {
   yellowLabel?: string;
 }
 
-export const THRESHOLD_FIELD_GROUPS: ThresholdFieldGroup[] = [
+const THRESHOLD_FIELD_GROUPS: ThresholdFieldGroup[] = [
   {
     id: 'steps',
     viewPrefix: 'min.',

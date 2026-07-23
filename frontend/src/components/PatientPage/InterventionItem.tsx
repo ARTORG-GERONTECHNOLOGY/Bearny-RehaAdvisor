@@ -60,7 +60,7 @@ const InterventionItem: React.FC<InterventionItemProps> = ({
               <span aria-label={t('Duration')}>{duration}</span>min
             </div>
           )}
-          <div className="font-bold font-lg leading-5 text-zinc-800 break-words lg:line-clamp-2">
+          <div className="font-bold text-lg leading-5 text-zinc-800 break-words lg:line-clamp-2">
             {title}
           </div>
         </div>

@@ -4,7 +4,7 @@ import path from 'path';
 describe('font setup', () => {
   const projectRoot = process.cwd();
   const indexHtmlPath = path.join(projectRoot, 'index.html');
-  const customBootstrapPath = path.join(projectRoot, 'src/assets/styles/custom-bootstrap.scss');
+  const fontsCssPath = path.join(projectRoot, 'src/assets/styles/fonts.css');
   const fontsDir = path.join(projectRoot, 'public/fonts');
 
   const expectedFontFiles = [
@@ -28,12 +28,12 @@ describe('font setup', () => {
   });
 
   it('declares local ABCDiatypeRounded font-face rules', () => {
-    const customBootstrap = fs.readFileSync(customBootstrapPath, 'utf8');
+    const fontsCss = fs.readFileSync(fontsCssPath, 'utf8');
 
-    expect(customBootstrap).toContain("font-family: 'ABCDiatypeRounded'");
-    expect(customBootstrap).toContain('ABCDiatypeRounded-Regular.woff2');
-    expect(customBootstrap).toContain('ABCDiatypeRounded-Medium.woff2');
-    expect(customBootstrap).toContain('ABCDiatypeRounded-Bold.woff2');
+    expect(fontsCss).toContain("font-family: 'ABCDiatypeRounded'");
+    expect(fontsCss).toContain('ABCDiatypeRounded-Regular.woff2');
+    expect(fontsCss).toContain('ABCDiatypeRounded-Medium.woff2');
+    expect(fontsCss).toContain('ABCDiatypeRounded-Bold.woff2');
   });
 
   it('includes all required local font files', () => {

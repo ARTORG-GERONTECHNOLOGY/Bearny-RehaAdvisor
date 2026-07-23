@@ -43,7 +43,7 @@ const AddPatientPopup: React.FC<AddPatientPopupProps> = observer(({ show, handle
 
   const footer = useMemo(
     () => (
-      <div className="w-100 d-flex justify-content-end">
+      <div className="w-full flex justify-end">
         <Button size="dashboard" variant="secondary" onClick={confirmClose}>
           {t('Close')}
         </Button>
@@ -67,7 +67,9 @@ const AddPatientPopup: React.FC<AddPatientPopupProps> = observer(({ show, handle
           {authStore.id ? (
             <FormRegisterPatient therapist={authStore.id} />
           ) : (
-            <p className="text-muted text-center mb-0">{t('Loading user information...')}</p>
+            <p className="text-muted-foreground text-center mb-0">
+              {t('Loading user information...')}
+            </p>
           )}
         </CardContent>
       </Card>

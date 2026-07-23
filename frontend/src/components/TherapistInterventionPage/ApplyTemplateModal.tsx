@@ -268,7 +268,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
 
         {error && (
           <Alert variant="destructive" onClose={() => setError('')} closeLabel={t('Close alert')}>
-            <div className="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+            <div className="flex justify-between items-center gap-2 flex-wrap">
               <span>{error}</span>
               <Button
                 type="button"
@@ -280,7 +280,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
               </Button>
             </div>
             {showErrors && Object.keys(fieldErrors).length > 0 && (
-              <ul className="mt-2 mb-0">
+              <ul className="list-disc pl-6 mt-2 mb-0">
                 {Object.entries(fieldErrors).map(([key, msg]) => (
                   <li key={key}>
                     <strong>{humanize(key)}:</strong> {msg}
@@ -325,13 +325,13 @@ const ApplyTemplateModal: React.FC<Props> = ({
                     />
                     <div className="border rounded" style={{ maxHeight: 220, overflowY: 'auto' }}>
                       {filteredPatients.length === 0 ? (
-                        <div className="text-muted text-center py-3 small">
+                        <div className="text-muted-foreground text-center py-3 text-sm">
                           {t('No data available')}
                         </div>
                       ) : (
                         <>
                           {/* Select all row */}
-                          <div className="d-flex align-items-center px-3 py-2 border-bottom bg-light">
+                          <div className="flex items-center px-3 py-2 border-b bg-gray-50">
                             <Checkbox
                               id="select-all-patients"
                               checked={
@@ -343,7 +343,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
                             />
                             <label
                               htmlFor="select-all-patients"
-                              className="small fw-semibold"
+                              className="text-sm font-semibold"
                               style={{ cursor: 'pointer' }}
                             >
                               {t('Select All')}
@@ -353,7 +353,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
                           {filteredPatients.map((p) => (
                             <div
                               key={p._id}
-                              className={`d-flex align-items-center px-3 py-2 border-bottom ${selectedIds.has(p._id) ? 'bg-primary bg-opacity-10' : ''}`}
+                              className={`flex items-center px-3 py-2 border-b ${selectedIds.has(p._id) ? 'bg-primary/10' : ''}`}
                             >
                               <Checkbox
                                 id={`patient-${p._id}`}
@@ -363,13 +363,15 @@ const ApplyTemplateModal: React.FC<Props> = ({
                               />
                               <label
                                 htmlFor={`patient-${p._id}`}
-                                className="small"
+                                className="text-sm"
                                 style={{ cursor: 'pointer' }}
                               >
                                 <strong>
                                   {p.first_name} {p.name}
                                 </strong>
-                                <span className="text-muted ms-2">({p.patient_code})</span>
+                                <span className="text-muted-foreground ms-2">
+                                  ({p.patient_code})
+                                </span>
                               </label>
                             </div>
                           ))}

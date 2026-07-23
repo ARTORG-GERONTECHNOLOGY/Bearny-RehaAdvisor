@@ -371,7 +371,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
 
   const renderFiltersBar = () => (
     <div className="flex items-center gap-2">
-      <Field className="flex-grow-1">
+      <Field className="grow">
         <Input
           id="searchInput"
           type="text"

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useTranslation } from 'react-i18next';
+import { FaFileCsv, FaFilePdf } from 'react-icons/fa';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +13,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { datePickerInputClassName } from '@/components/ui/input';
 
 type Props = {
   show: boolean;
@@ -90,50 +94,52 @@ const ExportModal: React.FC<Props> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
           <div className="flex flex-col gap-1">
-            <Label className="fw-bold mr-2">{t('From')}</Label>
+            <Label>{t('From')}</Label>
             <DatePicker
               selected={from}
               onChange={(d) => setFrom(d)}
-              className="form-control"
+              className={datePickerInputClassName}
+              portalId="datepicker-portal"
+              popperClassName="!z-[60] !pointer-events-auto"
               dateFormat="yyyy-MM-dd"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label className="fw-bold mr-2">{t('To')}</Label>
+            <Label>{t('To')}</Label>
             <DatePicker
               selected={to}
               onChange={(d) => setTo(d)}
-              className="form-control"
+              className={datePickerInputClassName}
+              portalId="datepicker-portal"
+              popperClassName="!z-[60] !pointer-events-auto"
               dateFormat="yyyy-MM-dd"
             />
           </div>
         </div>
 
-        <hr className="my-4" />
+        <Separator className="my-4" />
 
-        <Label className="fw-bold">{t('Select Plots to Export')}</Label>
-        <div className="mb-2">
-          <span
-            className={`badge rounded-pill px-3 py-2 ${allSelected ? 'bg-brand text-white' : 'bg-light text-success border border-success'}`}
-            style={{ cursor: 'pointer' }}
+        <Label className="font-bold">{t('Select Plots to Export')}</Label>
+        <div className="mb-1">
+          <Badge
+            className={`cursor-pointer ${allSelected ? 'bg-brand text-white' : 'border border-brand bg-white text-brand'}`}
             onClick={toggleAll}
           >
             {t('Select All')}
-          </span>
+          </Badge>
         </div>
 
-        <div className="d-flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 mb-2">
           {ids.map((id) => (
-            <span
+            <Badge
               key={id}
-              className={`badge rounded-pill px-3 py-2 ${
-                chosen[id] ? 'bg-primary text-white' : 'bg-light text-primary border border-primary'
+              className={`cursor-pointer ${
+                chosen[id] ? 'bg-pink text-white' : 'border border-pink bg-white text-pink'
               }`}
-              style={{ cursor: 'pointer' }}
               onClick={() => setChosen((p) => ({ ...p, [id]: !p[id] }))}
             >
               {t(id)}
-            </span>
+            </Badge>
           ))}
         </div>
 
@@ -141,20 +147,22 @@ const ExportModal: React.FC<Props> = ({
           <Button size="dashboard" variant="secondary" onClick={onClose}>
             {t('Cancel')}
           </Button>
-          <div className="d-flex gap-2">
+          <div className="flex gap-2">
             <Button
               size="dashboard"
               disabled={disabled}
               onClick={() => from && to && onExportCSV(from, to, chosen)}
             >
-              <i className="bi bi-file-earmark-spreadsheet"></i> {t('Export CSV')}
+              <FaFileCsv />
+              {t('Export CSV')}
             </Button>
             <Button
               size="dashboard"
               disabled={disabled}
               onClick={() => from && to && onExportPDF(from, to, chosen)}
             >
-              <i className="bi bi-file-earmark-pdf"></i> {t('Export PDF')}
+              <FaFilePdf />
+              {t('Export PDF')}
             </Button>
           </div>
         </DialogFooter>

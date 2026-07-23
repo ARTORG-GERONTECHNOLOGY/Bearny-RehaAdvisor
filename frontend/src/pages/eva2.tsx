@@ -1056,7 +1056,7 @@ export default function HealthSlider() {
           {uploadFail.open && (
             <div className="icf-modal-overlay">
               <div className="icf-modal">
-                <h3 className="mt-0">Upload fehlgeschlagen</h3>
+                <h3 className="text-lg font-semibold mt-0">Upload fehlgeschlagen</h3>
 
                 {uploadFail.meta && (
                   <div className="icf-rating-rescue mb-4">

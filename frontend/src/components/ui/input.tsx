@@ -19,4 +19,10 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<'input'>>(
 );
 Input.displayName = 'Input';
 
+// react-datepicker renders its own internal <input>, styled via a plain
+// className string rather than the <Input> component — shared here so the
+// several DatePicker usages across the app don't each hand-copy the look.
+export const datePickerInputClassName =
+  'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+
 export { Input };

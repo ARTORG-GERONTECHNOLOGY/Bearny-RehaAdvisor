@@ -86,25 +86,25 @@ const TemplatesLayout: React.FC<Props> = ({
               {templateItems.map((it, idx) => (
                 <Card
                   key={`${it.intervention._id}-${it.diagnosis}-${idx}`}
-                  className="flex justify-between align-items-start p-3 cursor-pointer hover:shadow-md transition-shadow"
+                  className="flex justify-between items-start p-3 cursor-pointer hover:shadow-md transition-shadow"
                   onClick={() => onTemplateItemClick(it)}
                   title={t('Click to view details')}
                 >
                   <div>
-                    <div className="fw-semibold text-sm">
+                    <div className="font-semibold text-sm">
                       {translatedTitles[it.intervention._id]?.title || it.intervention.title}
                       {translatedTitles[it.intervention._id]?.lang && (
-                        <span className="text-muted ms-2 text-xs">
+                        <span className="text-muted-foreground ms-2 text-xs">
                           ({t('Translated from')}: {translatedTitles[it.intervention._id]?.lang})
                         </span>
                       )}
                     </div>
 
-                    <div className="text-xs text-muted">
+                    <div className="text-xs text-muted-foreground">
                       {t('For')}: {it.diagnosis}
                     </div>
 
-                    <div className="text-xs text-muted mt-1">
+                    <div className="text-xs text-muted-foreground mt-1">
                       {getSegments(it).map((seg, i) => (
                         <div key={i}>{segmentSummary(seg, it)}</div>
                       ))}
@@ -172,7 +172,9 @@ const TemplatesLayout: React.FC<Props> = ({
 
               <div className="mt-3 flex flex-col gap-2 max-h-[420px] overflow-y-auto">
                 {browseAllItems.length === 0 && (
-                  <div className="text-muted px-2">{t('No interventions match your filters.')}</div>
+                  <div className="text-muted-foreground px-2">
+                    {t('No interventions match your filters.')}
+                  </div>
                 )}
 
                 {browseAllItems.map((intervention) => {
@@ -184,15 +186,15 @@ const TemplatesLayout: React.FC<Props> = ({
                   return (
                     <Card
                       key={intervention._id}
-                      className="flex justify-between align-items-start p-3 cursor-pointer hover:shadow-md transition-shadow"
+                      className="flex justify-between items-start p-3 cursor-pointer hover:shadow-md transition-shadow"
                       title={t('Click to view details')}
                       onClick={() => onBrowseItemClick(intervention)}
                     >
                       <div>
-                        <div className="fw-semibold text-sm">{displayTitle}</div>
+                        <div className="font-semibold text-sm">{displayTitle}</div>
 
                         {(intervention.tags || []).length > 0 && (
-                          <div className="mt-2 d-flex flex-wrap gap-1" aria-label={t('Tags')}>
+                          <div className="mt-2 flex flex-wrap gap-1" aria-label={t('Tags')}>
                             {(intervention.tags || []).map((tag) => (
                               <Badge
                                 key={tag}
@@ -273,9 +275,9 @@ const TemplatesLayout: React.FC<Props> = ({
         </div>
 
         <div className="md:col-span-8">
-          <Card className="h-100">
+          <Card className="h-full">
             <CardContent className="p-4">
-              <div className="min-vh-50 overflow-auto">{timeline}</div>
+              <div className="min-h-[50vh] overflow-auto">{timeline}</div>
             </CardContent>
           </Card>
         </div>

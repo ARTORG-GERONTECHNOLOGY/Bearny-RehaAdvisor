@@ -45,7 +45,7 @@ const Footer: FunctionComponent = () => {
     <>
       <footer className="bg-white py-4">
         <Container>
-          <div className="flex flex-wrap gap-1 justify-center md:block w-full mb-4">
+          <div className="flex flex-wrap gap-1 justify-center md:justify-start w-full mb-4">
             <img
               src="/artorg_unibern_logo.gif"
               alt="ARTORG Center for Biomedical Engineering Research"
@@ -61,10 +61,10 @@ const Footer: FunctionComponent = () => {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 flex-wrap">
             <div className="flex flex-col items-center md:items-start">
               <div className="flex gap-1 flex-wrap">
-                <NavLink to="/terms" className="text-sm">
+                <NavLink to="/terms" className="text-sm text-muted-foreground underline">
                   {t('Terms & Conditions')}
                 </NavLink>
-                <a href="/privacy-policy.html" className="text-sm">
+                <a href="/privacy-policy.html" className="text-sm text-muted-foreground underline">
                   {t('Privacy Policy')}
                 </a>
               </div>

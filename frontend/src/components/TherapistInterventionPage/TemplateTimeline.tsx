@@ -120,19 +120,21 @@ const TemplateTimeline: React.FC<Props> = ({ items, horizonDays = 84, translated
             <CardContent className="p-2">
               <div className="template-list">
                 {(byDay[d] || []).map((ev, i) => (
-                  <div key={i} className="small mb-1">
+                  <div key={i} className="text-sm mb-1">
                     <Badge variant="dashboard" className="px-1 py-0 me-1">
                       {ev.time || '—'}
                     </Badge>
                     {displayTitle(ev.id, ev.rawTitle)}
                     {srcLang(ev.id) && (
-                      <span className="text-muted ms-1">
+                      <span className="text-muted-foreground ms-1">
                         ({t('Translated from')}: {srcLang(ev.id)})
                       </span>
                     )}
                   </div>
                 ))}
-                {(!byDay[d] || byDay[d].length === 0) && <div className="text-muted small">—</div>}
+                {(!byDay[d] || byDay[d].length === 0) && (
+                  <div className="text-muted-foreground text-sm">—</div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -147,22 +149,22 @@ const TemplateTimeline: React.FC<Props> = ({ items, horizonDays = 84, translated
             </DialogTitle>
           </DialogHeader>
           {dayEvents.length === 0 ? (
-            <div className="text-muted">{t('No items on this day.')}</div>
+            <div className="text-muted-foreground">{t('No items on this day.')}</div>
           ) : (
             dayEvents.map((ev, idx) => {
               const seg = pickSegmentForDay(ev.item, openDay!);
               const title = displayTitle(ev.id, ev.rawTitle);
               return (
                 <div key={idx} className="mb-3">
-                  <div className="fw-semibold">
+                  <div className="font-semibold">
                     {ev.time || '—'} {title}
                     {srcLang(ev.id) && (
-                      <span className="text-muted ms-2 small">
+                      <span className="text-muted-foreground ms-2 text-sm">
                         ({t('Translated from')}: {srcLang(ev.id)})
                       </span>
                     )}
                   </div>
-                  <div className="small text-muted">
+                  <div className="text-sm text-muted-foreground">
                     {t('For:')} {ev.item.diagnosis} {segmentSummary(seg, ev.item, t)}
                   </div>
                 </div>

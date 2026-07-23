@@ -13,8 +13,8 @@ const AddInterventionRow: React.FC<Props> = ({ onAdd, onImport }) => {
   const { t } = useTranslation();
 
   return (
-    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-      <div className="d-flex gap-2">
+    <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+      <div className="flex gap-2">
         <Button size="dashboard" onClick={onAdd}>
           <FaPlus />
           {t('Add New Intervention')}

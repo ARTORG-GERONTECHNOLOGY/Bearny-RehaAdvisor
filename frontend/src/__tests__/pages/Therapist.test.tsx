@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports, react/display-name, @typescript-eslint/no-explicit-any */
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import Therapist from '@/pages/Therapist';
 import { MemoryRouter } from 'react-router-dom';
 import authStore from '@/stores/authStore';
@@ -550,7 +551,7 @@ describe('Therapist traffic lights', () => {
     });
 
     const chip = await screen.findByLabelText('Feedback good');
-    fireEvent.mouseOver(chip);
+    await userEvent.hover(chip);
 
     await waitFor(() => {
       expect(screen.getByText(/Low ratings.*in last 14 days.*0/i)).toBeInTheDocument();

@@ -19,12 +19,6 @@ jest.mock('react-router-dom', () => {
   };
 });
 
-jest.mock('react-bootstrap', () => ({
-  Alert: function Alert({ children }: any) {
-    return <div role="alert">{children}</div>;
-  },
-}));
-
 jest.mock('react-icons/fa', () => ({
   FaLock: function FaLock() {
     return <span data-testid="fa-lock" />;

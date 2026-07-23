@@ -66,7 +66,7 @@ export const PlayableMedia: React.FC<{
   }, [m]);
 
   if (!linkUrl) {
-    return <div className="text-muted small">No playable URL available.</div>;
+    return <div className="text-muted-foreground text-sm">No playable URL available.</div>;
   }
 
   const openLink = showOpenLink ? <OpenLinkButton href={linkUrl} text={openText} /> : null;
