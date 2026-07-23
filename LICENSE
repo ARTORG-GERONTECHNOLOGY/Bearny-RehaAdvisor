@@ -29,6 +29,6 @@ proprietary, separately licensed, and NOT covered by the MIT grant above:
 - `frontend/src/assets/icons/` — Nucleo UI Icons, licensed
   from Nucleo. Redistribution outside that license is not permitted.
 
-These files remain in this repository's history for build purposes only and
-must not be reused, copied, or redistributed independently of this project's
-licensed deployment.
+These files are included in this repository solely to
+support building and serving this project, and must not be reused, copied, or
+redistributed except as permitted by the applicable third-party licenses.
