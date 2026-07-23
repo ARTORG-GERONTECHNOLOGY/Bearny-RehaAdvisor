@@ -351,7 +351,10 @@ const Therapist: React.FC = observer(() => {
 
               {activePatients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={appModeStore.showStudyGroup ? 10 : 9} className="text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={appModeStore.showStudyGroup ? 10 : 9}
+                    className="text-center text-muted-foreground"
+                  >
                     {store.loading
                       ? String(t('Loading patients...'))
                       : String(t('No active patients'))}
