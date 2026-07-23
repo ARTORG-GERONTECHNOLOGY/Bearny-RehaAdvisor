@@ -4,6 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
 
 import { TherapistPatientsStore, SortKey } from '@/stores/therapistPatientsStore';
+import { appModeStore } from '@/stores/appModeStore';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -112,7 +113,7 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
             </SelectContent>
           </Select>
 
-          {store.groupOptions.length > 0 && (
+          {appModeStore.showStudyGroup && store.groupOptions.length > 0 && (
             <Select
               value={store.groupFilter || CLEAR_FILTER_VALUE}
               onValueChange={(value) =>
