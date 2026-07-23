@@ -112,6 +112,27 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
             </SelectContent>
           </Select>
 
+          {store.groupOptions.length > 0 && (
+            <Select
+              value={store.groupFilter || CLEAR_FILTER_VALUE}
+              onValueChange={(value) =>
+                store.setGroupFilter(value === CLEAR_FILTER_VALUE ? '' : value)
+              }
+            >
+              <SelectTrigger aria-label={String(t('Filter by Group'))}>
+                <SelectValue placeholder={String(t('Filter by Group'))} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={CLEAR_FILTER_VALUE}>{String(t('Filter by Group'))}</SelectItem>
+                {store.groupOptions.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
           <div>
             <Label htmlFor="sort-by-select" className="me-2">
               {String(t('Sort by'))}

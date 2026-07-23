@@ -591,6 +591,7 @@ def list_therapist_patients(request, therapist_id):
                 "reha_end_date",
                 "thresholds",
                 "wearable_device",
+                "study_group",
             )
             .no_dereference()
         )
@@ -714,6 +715,7 @@ def list_therapist_patients(request, therapist_id):
                     "rehab_end_date": (
                         patient.reha_end_date.isoformat() if getattr(patient, "reha_end_date", None) else None
                     ),
+                    "study_group": getattr(patient, "study_group", None) or None,
                 }
             )
 

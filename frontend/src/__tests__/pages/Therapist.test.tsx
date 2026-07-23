@@ -104,6 +104,7 @@ const mockStore = {
   sexFilter: '',
   durationFilter: '',
   diseaseFilter: '',
+  groupFilter: '',
   sortBy: 'created' as const,
   get diseaseOptions() {
     const all: string[] = [];
@@ -112,6 +113,13 @@ const mockStore = {
       else if (p.diagnosis) all.push(String(p.diagnosis));
     });
     return Array.from(new Set(all)).sort();
+  },
+  get groupOptions() {
+    const groups = new Set<string>();
+    this.patients.forEach((p: any) => {
+      if (p.study_group) groups.add(p.study_group);
+    });
+    return Array.from(groups).sort();
   },
   get filteredPatients() {
     let filtered = [...this.patients];
@@ -161,6 +169,9 @@ const mockStore = {
   }),
   setDiseaseFilter: jest.fn((disease: string) => {
     mockStore.diseaseFilter = disease;
+  }),
+  setGroupFilter: jest.fn((group: string) => {
+    mockStore.groupFilter = group;
   }),
   setSortKey: jest.fn(),
   setSortBy: jest.fn((key: string) => {

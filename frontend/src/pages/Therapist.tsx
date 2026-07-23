@@ -258,6 +258,7 @@ const Therapist: React.FC = observer(() => {
                 <TableHead>{t('Birth Date')}</TableHead>
                 <TableHead>{t('Sex')}</TableHead>
                 <TableHead>{t('Diagnosis_patient_list')}</TableHead>
+                {store.groupOptions.length > 0 && <TableHead>{t('Group')}</TableHead>}
                 <TableHead
                   onClick={() => handleColSort('last_login')}
                   className="cursor-pointer transition-colors hover:bg-muted/50"
@@ -304,6 +305,7 @@ const Therapist: React.FC = observer(() => {
                   : String(t(p.diagnosis || ''));
                 const patientId = getPatientIdStr(p);
                 const mongoId = getPatientMongoId(p);
+                const studyGroup = getPatientExtra(p).study_group;
 
                 return (
                   <TableRow
@@ -326,6 +328,11 @@ const Therapist: React.FC = observer(() => {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{String(t(p.sex))}</TableCell>
                     <TableCell className="text-muted-foreground">{diagnosis}</TableCell>
+                    {store.groupOptions.length > 0 && (
+                      <TableCell>
+                        {studyGroup && <Badge variant="outline">{studyGroup}</Badge>}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <LoginBadge patient={p} />
                     </TableCell>
@@ -369,6 +376,7 @@ const Therapist: React.FC = observer(() => {
                   <TableHead>{t('Birth Date')}</TableHead>
                   <TableHead>{t('Sex')}</TableHead>
                   <TableHead>{t('Diagnosis_patient_list')}</TableHead>
+                  {store.groupOptions.length > 0 && <TableHead>{t('Group')}</TableHead>}
                   <TableHead>{t('Status')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -383,6 +391,7 @@ const Therapist: React.FC = observer(() => {
 
                   const extra = getPatientExtra(p);
                   const endDate = getIsoMaybe(extra.rehab_end_date);
+                  const studyGroup = extra.study_group;
 
                   return (
                     <TableRow
@@ -405,6 +414,11 @@ const Therapist: React.FC = observer(() => {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{String(t(p.sex))}</TableCell>
                       <TableCell className="text-muted-foreground">{diagnosis}</TableCell>
+                      {store.groupOptions.length > 0 && (
+                        <TableCell>
+                          {studyGroup && <Badge variant="outline">{studyGroup}</Badge>}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
                           {String(t('Completed'))}
@@ -421,7 +435,10 @@ const Therapist: React.FC = observer(() => {
 
                 {completedPatients.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell
+                      colSpan={store.groupOptions.length > 0 ? 7 : 6}
+                      className="text-center text-muted-foreground"
+                    >
                       {String(t('No completed patients'))}
                     </TableCell>
                   </TableRow>

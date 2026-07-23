@@ -252,7 +252,11 @@ def redcap_export_minimal(
     if record_id:
         base["records[0]"] = record_id
 
-    rows = _post_redcap_minimal(api_url, base, ["record_id", "pat_id", "ic"])
+    sg_field = config.get("study_group_redcap_field", "")
+    minimal_fields = ["record_id", "pat_id", "ic"]
+    if sg_field:
+        minimal_fields.append(sg_field)
+    rows = _post_redcap_minimal(api_url, base, minimal_fields)
 
     # client-side filter by patient_id (pat_id)
     if patient_id:
@@ -690,6 +694,17 @@ def import_patient_from_redcap(request):
         patient.redcap_record_id = record_id
         patient.redcap_pat_id = pat_id
         patient.redcap_dag = dag
+
+        # Store study group from whichever row in the export has the field set.
+        sg_field = config.get("study_group_redcap_field", "")
+        sg_labels = config.get("study_group_labels", {})
+        if sg_field:
+            raw_sg = None
+            for _row in all_fetched:
+                raw_sg = _norm(_row.get(sg_field))
+                if raw_sg:
+                    break
+            patient.study_group = sg_labels.get(str(raw_sg), raw_sg) if raw_sg else None
 
         patient.save()
 
