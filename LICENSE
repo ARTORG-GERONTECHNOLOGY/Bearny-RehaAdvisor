@@ -19,3 +19,16 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Exclusions
+
+This license does not apply to the following third-party assets, which are
+proprietary, separately licensed, and NOT covered by the MIT grant above:
+
+- `frontend/public/fonts/` — ABC Diatype Rounded, licensed from ABC Dinamo. Redistribution outside that license is not permitted.
+- `frontend/src/assets/icons/` — Nucleo UI Icons, licensed
+  from Nucleo. Redistribution outside that license is not permitted.
+
+These files remain in this repository's history for build purposes only and
+must not be reused, copied, or redistributed independently of this project's
+licensed deployment.
