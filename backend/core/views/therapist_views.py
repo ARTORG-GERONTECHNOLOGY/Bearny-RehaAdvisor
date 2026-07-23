@@ -712,9 +712,7 @@ def list_therapist_patients(request, therapist_id):
                     "adherence_total": adh_total,
                     "wearable_device": getattr(patient, "wearable_device", None) or "fitbit",
                     "rehab_end_date": (
-                        patient.reha_end_date.isoformat()
-                        if getattr(patient, "reha_end_date", None)
-                        else None
+                        patient.reha_end_date.isoformat() if getattr(patient, "reha_end_date", None) else None
                     ),
                 }
             )
