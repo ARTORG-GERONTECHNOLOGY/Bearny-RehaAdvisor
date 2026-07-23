@@ -79,7 +79,7 @@ jest.mock('@/components/PatientLibrary/PatientLibraryInterventionCard', () => ({
   __esModule: true,
   default: (props: any) => {
     mockInterventionCard(props);
-    return <div data-testid="intervention-card" />;
+    return <div data-testid={`intervention-card-${props.item._id}`} />;
   },
 }));
 
@@ -587,11 +587,8 @@ describe('PatientInterventionsLibrary', () => {
 
     // Both the "reminder"-aimed item and the item with no aims land in Other,
     // while the "exercise"-aimed item is rendered in its own section instead.
-    const otherCardIds = mockInterventionCard.mock.calls
-      .map((call: any) => call[0])
-      .filter((props: any) => props.containerClassName === 'shrink-0 w-72')
-      .map((props: any) => props.item._id);
-
-    expect(otherCardIds).toEqual(expect.arrayContaining(['1', '2', '3']));
+    expect(within(otherSection).getByTestId('intervention-card-2')).toBeInTheDocument();
+    expect(within(otherSection).getByTestId('intervention-card-3')).toBeInTheDocument();
+    expect(within(otherSection).queryByTestId('intervention-card-1')).not.toBeInTheDocument();
   });
 });
