@@ -3,83 +3,104 @@ import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 
 import { PatientPopupStore } from '@/stores/patientPopupStore';
-import { Table, TableBody, TableRow, TableCell } from '@/components/ui/table';
 import { Alert } from '@/components/ui/alert';
 
 interface PatientInfoWearablesSyncResultProps {
   store: PatientPopupStore;
 }
 
+const PERIOD_LABEL: Record<string, string> = {
+  baseline: 'sync_period_baseline',
+  followup: 'sync_period_followup',
+};
+
+function PeriodRow({
+  period,
+  data,
+  t,
+}: {
+  period: string;
+  data: any;
+  t: (k: string, opts?: Record<string, unknown>) => string;
+}) {
+  const label = t(PERIOD_LABEL[period] ?? period);
+  const status: string = data?.status ?? 'unknown';
+  const skipReason: string | undefined = data?.skip_reason;
+
+  let detail: React.ReactNode = null;
+
+  if (status === 'skipped') {
+    if (skipReason === 'future_window') {
+      detail = t('skip_reason_future_window');
+    } else if (skipReason === 'no_records') {
+      detail = t('skip_reason_no_records');
+    } else if (skipReason === 'no_valid_days') {
+      detail = t('skip_reason_no_valid_days', {
+        count: data.total_records_in_window ?? 0,
+        hours: Math.round((data.wear_threshold_minutes ?? 600) / 60),
+        activity: data.valid_activity_days ?? 0,
+        sleep: data.valid_sleep_nights ?? 0,
+      });
+    } else if (skipReason === 'already_populated') {
+      detail = t('skip_reason_already_populated', {
+        event: data.redcap_event ?? '',
+        start: data.existing_start ?? '',
+      });
+    }
+  } else if (status === 'sent') {
+    const parts: string[] = [];
+    if (data.window) parts.push(`${t('sync_window')}: ${data.window}`);
+    if (data.valid_activity_days != null)
+      parts.push(`${t('sync_valid_activity_days')}: ${data.valid_activity_days}`);
+    if (data.valid_sleep_nights != null)
+      parts.push(`${t('sync_valid_sleep_nights')}: ${data.valid_sleep_nights}`);
+    if (data.redcap_event) parts.push(`${t('REDCap')} event: ${data.redcap_event}`);
+    detail = parts.join(' · ') || null;
+  } else if (status?.startsWith('error')) {
+    detail = data.detail ?? status;
+  }
+
+  return (
+    <li className="py-0.5">
+      <span className="font-medium">{label}:</span>{' '}
+      <span
+        className={
+          status === 'sent' ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'
+        }
+      >
+        {t(`sync_status_${status}`, { defaultValue: status })}
+      </span>
+      {detail && <span className="ms-2 text-sm text-muted-foreground">— {detail}</span>}
+    </li>
+  );
+}
+
 const PatientInfoWearablesSyncResult: React.FC<PatientInfoWearablesSyncResultProps> = observer(
   ({ store }) => {
     const { t } = useTranslation();
 
-    if (!store.wearablesSyncResult) return null;
+    if (!store.wearablesSyncPeriods) return null;
 
     return (
       <Alert
         variant="success"
         onClose={() => {
-          store.wearablesSyncResult = null;
-          store.wearablesSyncPayloads = null;
+          store.wearablesSyncPeriods = null;
+          store.wearablesSyncFirstDate = null;
         }}
         closeLabel={t('Close alert')}
       >
         <strong>{t('Wearables synced to REDCap')}</strong>
+        {store.wearablesSyncFirstDate && (
+          <div className="text-sm text-muted-foreground mb-1">
+            {t('sync_first_measurement_date')}: {store.wearablesSyncFirstDate}
+          </div>
+        )}
         <ul className="list-disc pl-6">
-          {Object.entries(store.wearablesSyncResult).map(([period, status]) => (
-            <li key={period}>
-              {t(period)}: <code>{status}</code>
-              {store.wearablesSyncPayloads?.[period]?.reason && (
-                <span className="ms-2 text-muted-foreground">
-                  ({store.wearablesSyncPayloads[period].reason})
-                </span>
-              )}
-            </li>
+          {Object.entries(store.wearablesSyncPeriods).map(([period, data]) => (
+            <PeriodRow key={period} period={period} data={data} t={t} />
           ))}
         </ul>
-        {store.wearablesSyncPayloads && (
-          <>
-            <div className="mb-1">{t('Payload sent to REDCap (by period)')}</div>
-            {Object.entries(store.wearablesSyncPayloads).map(([period, payload]) => {
-              const details = (payload as any) || {};
-              const record = details.record || {};
-              return (
-                <div key={period} className="mb-1 p-2 bg-back border rounded">
-                  <div className="font-semibold mb-1">{t(period)}</div>
-                  <Table>
-                    <TableBody>
-                      <TableRow>
-                        <TableCell>{t('status')}</TableCell>
-                        <TableCell>
-                          <code>{String(details.status ?? 'unknown')}</code>
-                        </TableCell>
-                      </TableRow>
-                      {details.reason && (
-                        <TableRow>
-                          <TableCell>{t('reason')}</TableCell>
-                          <TableCell>{String(details.reason)}</TableCell>
-                        </TableRow>
-                      )}
-                      {details.error && (
-                        <TableRow>
-                          <TableCell>{t('Error')}</TableCell>
-                          <TableCell>{String(details.error)}</TableCell>
-                        </TableRow>
-                      )}
-                      {Object.entries(record).map(([field, value]) => (
-                        <TableRow key={`${period}-${field}`}>
-                          <TableCell>{field}</TableCell>
-                          <TableCell>{String(value)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              );
-            })}
-          </>
-        )}
       </Alert>
     );
   }
