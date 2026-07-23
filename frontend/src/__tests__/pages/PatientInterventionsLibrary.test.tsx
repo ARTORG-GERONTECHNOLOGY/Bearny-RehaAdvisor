@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 const mockNavigate = jest.fn();
 const mockSearchPanel = jest.fn(() => <div data-testid="search-panel" />);
@@ -538,5 +538,60 @@ describe('PatientInterventionsLibrary', () => {
     mockNavigate.mockClear();
     sheetCard![0].onClick();
     expect(mockNavigate).toHaveBeenCalled();
+  });
+
+  it('groups interventions whose aims do not match exercise/education/instruction into an "Other" section', async () => {
+    mockStore.visibleItemsForPatient = [
+      {
+        _id: '1',
+        id: '1',
+        title: 'Morning Stretch',
+        aims: ['exercise'],
+        content_type: 'video',
+        duration: 10,
+      },
+      {
+        _id: '2',
+        id: '2',
+        title: 'Daily Reminder',
+        aims: ['reminder'],
+        content_type: 'text',
+        duration: 5,
+      },
+      {
+        _id: '3',
+        id: '3',
+        title: 'No Aims Set',
+        content_type: 'pdf',
+        duration: 20,
+      },
+    ];
+
+    render(<PatientInterventionsLibrary />);
+
+    await waitFor(() => {
+      expect(mockStore.fetchAll).toHaveBeenCalled();
+    });
+
+    // "Other" section appears alongside Exercise, and no Education/Instructions
+    // section renders since nothing in this fixture matches those keywords.
+    await waitFor(() => {
+      expect(screen.getByText('Other')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Education')).not.toBeInTheDocument();
+    expect(screen.queryByText('Instructions')).not.toBeInTheDocument();
+
+    const otherSection = screen.getByText('Other').closest('section') as HTMLElement;
+    expect(otherSection).toBeTruthy();
+    expect(within(otherSection).getByText(/2\s*Contents/)).toBeInTheDocument();
+
+    // Both the "reminder"-aimed item and the item with no aims land in Other,
+    // while the "exercise"-aimed item is rendered in its own section instead.
+    const otherCardIds = mockInterventionCard.mock.calls
+      .map((call: any) => call[0])
+      .filter((props: any) => props.containerClassName === 'shrink-0 w-72')
+      .map((props: any) => props.item._id);
+
+    expect(otherCardIds).toEqual(expect.arrayContaining(['1', '2', '3']));
   });
 });
