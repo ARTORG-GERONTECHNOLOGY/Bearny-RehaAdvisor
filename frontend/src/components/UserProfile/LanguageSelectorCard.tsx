@@ -59,7 +59,7 @@ export default function LanguageSelectorCard() {
                   <span className="font-bold text-lg leading-6 text-zinc-800">
                     {languageNames[l]}
                   </span>
-                  <img src={flagMap[l]} className="h-4 w-4 rounded-full" />
+                  <img src={flagMap[l]} alt="" className="h-4 w-4 rounded-full" />
                 </span>
               </SelectItem>
             ))}
