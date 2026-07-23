@@ -1,6 +1,8 @@
 {
   "Intervention successfully added": "Intervention erfolgreich hinzugefügt",
   "Filter by Disease": "Nach Krankheit filtern",
+  "Filter by Group": "Nach Gruppe filtern",
+  "Group": "Gruppe",
   "failedCheck": "Die heutigen Vitalwerte konnten nicht überprüft werden.",
   "failedSave": "Die heutigen Vitalwerte konnten nicht gespeichert werden. Bitte versuchen Sie es erneut.",
   "failedReschedule": "Verschieben fehlgeschlagen. Bitte versuchen Sie es erneut.",
