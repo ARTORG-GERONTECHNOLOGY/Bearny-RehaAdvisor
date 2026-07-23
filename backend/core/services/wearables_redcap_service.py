@@ -1,11 +1,19 @@
 import json
 import logging
 import os
+from datetime import date as date_type
 from datetime import datetime, timedelta
 from datetime import timezone as dt_tz
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.models import FitbitData, Patient
+
+# GoogleHealthData is introduced by the Google Health migration branch.
+# Import it conditionally so this module works on main before that branch lands.
+try:
+    from core.models import GoogleHealthData as _GoogleHealthData  # type: ignore[attr-defined]
+except ImportError:
+    _GoogleHealthData = None  # type: ignore[assignment,misc]
 from core.services.redcap_service import (
     RedcapError,
     _parse_invalid_fields,
@@ -27,7 +35,7 @@ class WearablesSyncError(ValueError):
 
 
 # ---------------------------------------------------------------------------
-# Window definitions (days relative to first Fitbit measurement date, 1-indexed)
+# Window definitions (days relative to first wearable measurement date, 1-indexed)
 # ---------------------------------------------------------------------------
 BASELINE_DAY_START = 8  # first 7 days are excluded (device calibration / habituation)
 BASELINE_DAY_END = 28
@@ -71,8 +79,8 @@ def _as_utc(dt: datetime) -> datetime:
     return dt.astimezone(dt_tz.utc)
 
 
-def _record_date(r: FitbitData):
-    """Return the date part of a FitbitData record as a datetime.date."""
+def _record_date(r) -> Optional[date_type]:
+    """Return the date part of a wearable data record as a datetime.date."""
     d = r.date
     if d is None:
         return None
@@ -81,12 +89,66 @@ def _record_date(r: FitbitData):
     return d
 
 
-def _find_first_measurement_date(user) -> Optional[datetime.date]:
-    """Return the earliest calendar date that has any Fitbit data for *user*."""
-    first = FitbitData.objects(user=user).order_by("date").first()
-    if not first:
-        return None
-    return _record_date(first)
+def _find_first_measurement_date(user) -> Optional[date_type]:
+    """Return the earliest calendar date with any wearable data for *user*.
+
+    Checks GoogleHealthData (when available) and FitbitData so patients who
+    migrated from Fitbit to Google Health are not incorrectly rejected.
+    """
+    dates: List[date_type] = []
+
+    if _GoogleHealthData is not None:
+        gh = _GoogleHealthData.objects(user=user).order_by("date").first()
+        if gh:
+            d = _record_date(gh)
+            if d:
+                dates.append(d)
+
+    fb = FitbitData.objects(user=user).order_by("date").first()
+    if fb:
+        d = _record_date(fb)
+        if d:
+            dates.append(d)
+
+    return min(dates) if dates else None
+
+
+def _build_period_diagnosis(user, window_start: date_type, window_end: date_type) -> Dict[str, Any]:
+    """Return diagnostic info explaining why a monitoring window had no exportable data."""
+    today = datetime.now(dt_tz.utc).date()
+    info: Dict[str, Any] = {
+        "window_start": _fmt_date(window_start),
+        "window_end": _fmt_date(window_end),
+    }
+    if window_start > today:
+        info["skip_reason"] = "future_window"
+        return info
+
+    start_dt = datetime.combine(window_start, datetime.min.time()).replace(tzinfo=dt_tz.utc)
+    end_dt = datetime.combine(window_end, datetime.max.time()).replace(tzinfo=dt_tz.utc)
+
+    records: list = []
+    if _GoogleHealthData is not None:
+        records = list(_GoogleHealthData.objects(user=user, date__gte=start_dt, date__lte=end_dt))
+    if not records:
+        records = list(FitbitData.objects(user=user, date__gte=start_dt, date__lte=end_dt))
+
+    total = len(records)
+    valid_activity = sum(1 for r in records if _is_valid_activity_day(r))
+    valid_sleep = sum(1 for r in records if _is_valid_sleep_night(r))
+
+    info["total_records"] = total
+    info["valid_activity_days"] = valid_activity
+    info["valid_sleep_nights"] = valid_sleep
+
+    if total == 0:
+        info["skip_reason"] = "no_records"
+    else:
+        info["skip_reason"] = "no_valid_days"
+        info["wear_threshold_minutes"] = MIN_WEAR_MINUTES
+        info["sleep_threshold_minutes"] = MIN_SLEEP_MINUTES
+
+    return info
 
 
 def _is_valid_activity_day(r: FitbitData) -> bool:
@@ -285,7 +347,7 @@ def compute_wearables_summary(patient: Patient) -> Dict[str, Any]:
     first_date = _find_first_measurement_date(user)
     if not first_date:
         raise WearablesSyncError(
-            f"No Fitbit data found for patient {patient.patient_code}. "
+            f"No wearable data found for patient {patient.patient_code}. "
             "The device must be worn before wearables can be exported to REDCap.",
             code="wearables_no_fitbit_data",
         )
@@ -313,6 +375,12 @@ def compute_wearables_summary(patient: Patient) -> Dict[str, Any]:
     return {
         "baseline": _summarize_period(user, baseline_start, baseline_end, sleep_fmt),
         "followup": _summarize_period(user, followup_start, followup_end, sleep_fmt),
+        "_meta": {
+            "first_date": _fmt_date(first_date),
+            "baseline_window": {"start": _fmt_date(baseline_start), "end": _fmt_date(baseline_end)},
+            "followup_window": {"start": _fmt_date(followup_start), "end": _fmt_date(followup_end)},
+            "user": user,
+        },
     }
 
 
@@ -359,6 +427,7 @@ def export_wearables_to_redcap(
     event_followup: Optional[str] = None,
     return_payloads: bool = False,
     skip_if_populated: bool = True,
+    precomputed_summary: Optional[Dict[str, Any]] = None,
 ) -> "Dict[str, str] | Tuple[Dict[str, str], Dict[str, Dict[str, Any]]]":
     """
     Compute wearables summary for both periods and import into REDCap.
@@ -367,6 +436,9 @@ def export_wearables_to_redcap(
         If monitoring_start is already set for a given event in REDCap, that
         period is skipped to avoid overwriting previously validated data.
         Pass False to force recalculation.
+
+    precomputed_summary: pass the result of compute_wearables_summary() to
+        avoid calling it twice when the caller already has it.
 
     Returns {"baseline": "ok"|"skipped"|"error: ...", "followup": ...}.
     Optionally returns payload details when return_payloads=True.
@@ -398,7 +470,9 @@ def export_wearables_to_redcap(
             if ev:
                 existing_by_event[ev] = row
 
-    summary = compute_wearables_summary(patient)
+    summary = precomputed_summary if precomputed_summary is not None else compute_wearables_summary(patient)
+    meta = summary.get("_meta", {})
+    user = meta.get("user")
     ev_baseline, ev_followup = _resolve_event_names(project_name, event_baseline, event_followup)
 
     results: Dict[str, str] = {}
@@ -408,12 +482,26 @@ def export_wearables_to_redcap(
         data = summary.get(period)
 
         if not data:
+            diag: Dict[str, Any] = {"status": "skipped"}
+            if user:
+                window = meta.get(f"{period}_window", {})
+                try:
+                    w_start = date_type.fromisoformat(window["start"])
+                    w_end = date_type.fromisoformat(window["end"])
+                    diag.update(_build_period_diagnosis(user, w_start, w_end))
+                except Exception:
+                    diag["skip_reason"] = "no_valid_days"
             results[period] = "skipped"
-            payloads[period] = {"status": "skipped", "reason": "no_fitbit_data_in_period"}
+            payloads[period] = diag
             logger.info(
-                "Wearables [%s] for %s: no valid Fitbit data in window — skipped",
+                "Wearables [%s] for %s: %s (%s records, %s valid activity days) in %s..%s — skipped",
                 period,
                 patient.patient_code,
+                diag.get("skip_reason", "no_data"),
+                diag.get("total_records", "?"),
+                diag.get("valid_activity_days", "?"),
+                diag.get("window_start", "?"),
+                diag.get("window_end", "?"),
             )
             continue
 
@@ -424,8 +512,9 @@ def export_wearables_to_redcap(
                 results[period] = "skipped"
                 payloads[period] = {
                     "status": "skipped",
-                    "reason": "already_populated",
+                    "skip_reason": "already_populated",
                     "existing_start": existing.get("monitoring_start"),
+                    "redcap_event": ev_name,
                 }
                 logger.info(
                     "Wearables [%s] for %s: REDCap event %s already has monitoring_start=%s — skipped",

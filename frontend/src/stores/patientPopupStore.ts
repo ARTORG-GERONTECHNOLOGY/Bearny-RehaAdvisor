@@ -735,19 +735,19 @@ export class PatientPopupStore {
   // Wearables → REDCap sync
   // -------------------------
   wearablesSyncing = false;
-  wearablesSyncResult: Record<string, string> | null = null;
-  wearablesSyncPayloads: Record<string, any> | null = null;
+  wearablesSyncPeriods: Record<string, any> | null = null;
+  wearablesSyncFirstDate: string | null = null;
   wearablesSyncError: string | null = null;
 
   async syncWearablesToRedcap(
-    t: (k: string) => string,
+    t: (k: string, opts?: Record<string, unknown>) => string,
     eventBaseline?: string,
     eventFollowup?: string,
     force: boolean = false
   ) {
     this.wearablesSyncing = true;
-    this.wearablesSyncResult = null;
-    this.wearablesSyncPayloads = null;
+    this.wearablesSyncPeriods = null;
+    this.wearablesSyncFirstDate = null;
     this.wearablesSyncError = null;
     try {
       const body: Record<string, string | boolean> = {};
@@ -756,8 +756,8 @@ export class PatientPopupStore {
       if (force) body.force = true;
       const res = await apiClient.post(`/wearables/sync-to-redcap/${this.patientId}/`, body);
       runInAction(() => {
-        this.wearablesSyncResult = (res.data as any)?.results ?? {};
-        this.wearablesSyncPayloads = (res.data as any)?.sent_payloads ?? null;
+        this.wearablesSyncPeriods = (res.data as any)?.periods ?? {};
+        this.wearablesSyncFirstDate = (res.data as any)?.first_measurement_date ?? null;
       });
     } catch (err: any) {
       const code: string | undefined = err?.response?.data?.code;

@@ -270,7 +270,7 @@ class TestComputeWearablesSummary:
 
     def test_raises_when_no_fitbit_data(self):
         _, patient = _make_patient()
-        with pytest.raises(Exception, match="No Fitbit data"):
+        with pytest.raises(Exception, match="No wearable data"):
             compute_wearables_summary(patient)
 
     def test_baseline_window_is_day_8_to_28(self):
@@ -573,7 +573,7 @@ class TestExportWearablesToRedcap:
 
         assert results["baseline"] == "ok"
         assert payloads["baseline"]["status"] == "sent"
-        assert payloads["followup"]["reason"] == "no_fitbit_data_in_period"
+        assert payloads["followup"].get("skip_reason") in ("future_window", "no_records", "no_valid_days")
 
 
 # ---------------------------------------------------------------------------

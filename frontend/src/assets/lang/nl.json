@@ -172,7 +172,6 @@
   "lastSync": "Laatste synchronisatie: {{date}}",
   "today": "Vandaag",
   "steps": "Stappen",
-  "activeMinutes": "Actieve zoneminuten",
   "activeZoneMinutes": "Actieve zoneminuten",
   "fatBurnZone": "Vetverbranding",
   "cardioZone": "Cardio",
@@ -1411,5 +1410,18 @@
   "Engagement": "Betrokkenheid",
   "Cardiovascular": "Cardiovasculair",
   "Activity": "Activiteit",
-  "Sleep & Recovery": "Slaap & Herstel"
+  "Sleep & Recovery": "Slaap & Herstel",
+  "wearables_no_fitbit_data": "Geen wearable-gegevens gevonden. Het apparaat moet gedragen worden voordat gegevens naar REDCap geëxporteerd kunnen worden.",
+  "sync_period_baseline": "Baseline",
+  "sync_period_followup": "Follow-up",
+  "sync_status_sent": "Verzonden",
+  "sync_status_skipped": "Overgeslagen",
+  "sync_first_measurement_date": "Eerste meetdatum",
+  "sync_window": "Venster",
+  "sync_valid_activity_days": "Geldige activiteitsdagen",
+  "sync_valid_sleep_nights": "Geldige slaapdagen",
+  "skip_reason_future_window": "Venster nog niet bereikt",
+  "skip_reason_no_records": "Geen wearable-gegevens gevonden in het venster",
+  "skip_reason_no_valid_days": "{{count}} record(s) gevonden maar geen voldoet aan de {{hours}}u/dag draagdrempel ({{activity}} geldige activiteitsdag(en), {{sleep}} geldige slaapdagen)",
+  "skip_reason_already_populated": "Al ingevuld in REDCap (evenement: {{event}}, monitoring_start: {{start}}) — gebruik geforceerde hersynchronisatie om te overschrijven"
 }
