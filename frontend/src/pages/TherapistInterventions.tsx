@@ -690,14 +690,28 @@ const TherapistRecomendations: React.FC = observer(() => {
     localStorage.setItem('templateSeenMap', JSON.stringify(updated));
   };
 
-  const findTemplateFor = (intId: string): TemplateItem | undefined => {
-    if (templateDiag) {
-      return templateItems.find(
-        (it) => it.diagnosis === templateDiag && it.intervention._id === intId
-      );
-    }
-    return templateItems.find((it) => it.intervention._id === intId);
-  };
+  // Indexed by intervention id so browseAllItems rows don't each scan all of templateItems.
+  const templateItemsByIntervention = useMemo(() => {
+    const map = new Map<string, TemplateItem[]>();
+    templateItems.forEach((it) => {
+      const list = map.get(it.intervention._id);
+      if (list) list.push(it);
+      else map.set(it.intervention._id, [it]);
+    });
+    return map;
+  }, [templateItems]);
+
+  const findTemplateFor = useCallback(
+    (intId: string): TemplateItem | undefined => {
+      const candidates = templateItemsByIntervention.get(intId);
+      if (!candidates) return undefined;
+      if (templateDiag) {
+        return candidates.find((it) => it.diagnosis === templateDiag);
+      }
+      return candidates[0];
+    },
+    [templateItemsByIntervention, templateDiag]
+  );
 
   const segmentSummary = (seg: any, it: TemplateItem) => {
     const daysStr =
