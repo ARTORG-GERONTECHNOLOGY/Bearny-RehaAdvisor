@@ -23,7 +23,8 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from django.http import JsonResponse
 from django.utils import timezone
-from mongoengine.errors import DoesNotExist, ValidationError as MEValidationError
+from mongoengine.errors import DoesNotExist
+from mongoengine.errors import ValidationError as MEValidationError
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
