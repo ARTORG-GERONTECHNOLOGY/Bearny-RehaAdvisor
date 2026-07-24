@@ -382,10 +382,16 @@ def _parse_external_id_and_language(
             external_id = "_".join(parts[:-1])
             fmt = fmt_candidate if fmt_candidate in VALID_FORMAT_CODES else None
             return external_id, lang_candidate, fmt, media_slot
-        # 3+ parts but the last segment is not a valid language (e.g. "50030_de_vid"
-        # where the user swapped the format and language positions).  Do NOT fall
-        # through to the legacy 2-part regex — that would silently match the wrong
-        # suffix (e.g. "id" from "_vid") and produce a garbled external_id.
+        # 3+ parts but the last segment is not a valid language — check for the
+        # swapped {num}_{lang}_{fmt} pattern (e.g. "50700_de_vid" instead of
+        # "50700_vid_de").  Silently correct it so deduplication works against
+        # the canonical external_id (e.g. "50700_vid").
+        fmt_candidate2 = parts[-1]
+        lang_candidate2 = parts[-2]
+        if lang_candidate2 in VALID_LANGS and fmt_candidate2 in VALID_FORMAT_CODES:
+            external_id = "_".join(parts[:-2]) + "_" + fmt_candidate2
+            return external_id, lang_candidate2, fmt_candidate2, media_slot
+        # Truly unrecognised format — give up without garbling the external_id.
         rebuilt = "_".join(parts)
         return rebuilt, None, None, media_slot
 

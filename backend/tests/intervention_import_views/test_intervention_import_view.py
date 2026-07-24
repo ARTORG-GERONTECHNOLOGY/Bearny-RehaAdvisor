@@ -64,6 +64,10 @@ def test_helper_parsers():
     assert _parse_external_id_and_language("4001_de_3") == ("4001", "de", None, 3)
     # Slot 1 is not treated as a slot (slots start at 2); _1 stays in the ID unparsed
     assert _parse_external_id_and_language("3500_web_de_1") == ("3500_web_de_1", None, None, None)
+    # Swapped {num}_{lang}_{fmt} format — auto-corrected to canonical {num}_{fmt}_{lang}
+    assert _parse_external_id_and_language("50700_de_vid") == ("50700_vid", "de", "vid", None)
+    assert _parse_external_id_and_language("50700_de_pdf") == ("50700_pdf", "de", "pdf", None)
+    assert _parse_external_id_and_language("3500_de_web") == ("3500_web", "de", "web", None)
     assert _map_content_type("video") == "Video"
     assert _map_content_type("vid") == "Video"
     assert _map_content_type("br") == "Brochure"
@@ -461,19 +465,14 @@ def test_guess_media_type_for_url_honors_video_fallback():
     assert _guess_media_type_for_url(opaque, "garbage_type") == "website"
 
 
-def test_import_reversed_id_order_is_rejected_not_silently_stored():
+def test_import_reversed_id_order_is_auto_corrected():
     """
-    Bug: an intervention_id with the language and format code swapped
-    (e.g. "50030_de_vid") causes _parse_external_id_and_language to return
-    lang=None because "vid" is not a valid language code.  Previously the
-    row was imported with a garbled external_id ("50030_de_vid") and no
-    language, creating an orphaned document that could never be found or
-    merged on re-import.
-
-    After the fix, the row must be rejected with severity="error" and skipped.
+    IDs with the language and format code swapped (e.g. "50030_de_vid" instead
+    of the canonical "50030_vid_de") are silently corrected by the parser so
+    the import succeeds and deduplication works against the canonical external_id.
     """
     with tempfile.TemporaryDirectory() as td:
-        p = Path(td) / "bad_id.xlsx"
+        p = Path(td) / "swapped_id.xlsx"
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Content"
@@ -483,16 +482,18 @@ def test_import_reversed_id_order_is_rejected_not_silently_stored():
 
         result = import_interventions_from_excel(str(p), dry_run=False)
 
-        # Row must be skipped — no document created
-        assert result["created"] == 0, "Garbled ID should not create a document"
-        assert result["skipped"] >= 1
+        # Row must be imported successfully under the canonical external_id
+        assert result["created"] == 1, "Swapped ID should be auto-corrected and imported"
+        assert result["skipped"] == 0
 
-        # An error (not just a warning) must be reported
+        # No hard errors
         error_entries = [e for e in result["errors"] if e.get("severity") == "error"]
-        assert error_entries, "Expected at least one error entry for the garbled ID"
-        assert "50030_de_vid" in error_entries[0]["intervention_id"]
+        assert not error_entries, f"Unexpected errors: {error_entries}"
 
-        # No orphaned document with the garbled external_id
+        # Document stored under canonical external_id, not the garbled form
+        doc = Intervention.objects(external_id="50030_vid").first()
+        assert doc is not None, "Intervention should be stored under canonical external_id '50030_vid'"
+        assert doc.language == "de"
         assert Intervention.objects(external_id="50030_de_vid").first() is None
 
 
