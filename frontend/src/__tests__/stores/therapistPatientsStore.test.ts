@@ -562,15 +562,15 @@ describe('TherapistPatientsStore', () => {
   // ------------------------------------------------------------------
   describe('isCompletedPatient', () => {
     it('is true when study_end_date is in the past', () => {
-      expect(
-        store.isCompletedPatient(makePatient({ study_end_date: '2020-01-01' }) as any)
-      ).toBe(true);
+      expect(store.isCompletedPatient(makePatient({ study_end_date: '2020-01-01' }) as any)).toBe(
+        true
+      );
     });
 
     it('is false when study_end_date is in the future', () => {
-      expect(
-        store.isCompletedPatient(makePatient({ study_end_date: '2099-01-01' }) as any)
-      ).toBe(false);
+      expect(store.isCompletedPatient(makePatient({ study_end_date: '2099-01-01' }) as any)).toBe(
+        false
+      );
     });
 
     it('is false when study_end_date is not set', () => {
@@ -578,9 +578,9 @@ describe('TherapistPatientsStore', () => {
     });
 
     it('is false when only rehab_end_date is set (no study_end_date)', () => {
-      expect(
-        store.isCompletedPatient(makePatient({ rehab_end_date: '2020-01-01' }) as any)
-      ).toBe(false);
+      expect(store.isCompletedPatient(makePatient({ rehab_end_date: '2020-01-01' }) as any)).toBe(
+        false
+      );
     });
   });
 
@@ -601,7 +601,10 @@ describe('TherapistPatientsStore', () => {
     });
 
     it('keeps patient active when study_end_date is in the future', () => {
-      const stillActive = makePatient({ _id: 'still-active', study_end_date: '2099-01-01T00:00:00Z' });
+      const stillActive = makePatient({
+        _id: 'still-active',
+        study_end_date: '2099-01-01T00:00:00Z',
+      });
       const done = makePatient({ _id: 'done', study_end_date: '2025-01-01T00:00:00Z' });
 
       const { active: activeList, completed } = store.splitCompleted([stillActive, done] as any);
