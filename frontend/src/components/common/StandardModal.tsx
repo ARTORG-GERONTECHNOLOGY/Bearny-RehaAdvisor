@@ -5,6 +5,7 @@ import {
   DialogHeader,
   DialogFooter,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +13,7 @@ type Props = {
   show: boolean;
   onHide: () => void;
   title?: React.ReactNode;
+  description?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: 'sm' | 'lg' | 'xl';
@@ -30,6 +32,7 @@ const StandardModal: React.FC<Props> = ({
   show,
   onHide,
   title,
+  description,
   children,
   footer,
   size = 'lg',
@@ -49,6 +52,7 @@ const StandardModal: React.FC<Props> = ({
         {title !== undefined ? (
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
+            {description !== undefined && <DialogDescription>{description}</DialogDescription>}
           </DialogHeader>
         ) : (
           // Radix requires a DialogTitle for a11y even when this modal has no visible header.

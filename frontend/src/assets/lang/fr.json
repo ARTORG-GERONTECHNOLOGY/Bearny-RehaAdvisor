@@ -1426,5 +1426,18 @@
   "skip_reason_future_window": "Fenêtre pas encore atteinte",
   "skip_reason_no_records": "Aucune donnée wearable trouvée dans la fenêtre",
   "skip_reason_no_valid_days": "{{count}} enregistrement(s) trouvé(s) mais aucun ne satisfait le seuil de port de {{hours}}h/jour ({{activity}} jour(s) d'activité valide(s), {{sleep}} nuit(s) de sommeil valide(s))",
-  "skip_reason_already_populated": "Déjà renseigné dans REDCap (événement : {{event}}, monitoring_start : {{start}}) — utiliser la re-synchronisation forcée pour écraser"
+  "skip_reason_already_populated": "Déjà renseigné dans REDCap (événement : {{event}}, monitoring_start : {{start}}) — utiliser la re-synchronisation forcée pour écraser",
+  "Flag": "Signalement",
+  "Flag patient": "Signaler le patient",
+  "Unflag patient": "Retirer le signalement",
+  "View comments": "Voir les commentaires",
+  "Add comment": "Ajouter un commentaire",
+  "Adding...": "Ajout en cours...",
+  "Comments": "Commentaires",
+  "History": "Historique",
+  "No comments yet.": "Aucun commentaire pour l'instant.",
+  "e.g. Called patient, left voicemail.": "p. ex. Patient appelé, message vocal laissé.",
+  "Failed to add comment.": "Échec de l'ajout du commentaire.",
+  "Failed to load comments.": "Échec du chargement des commentaires.",
+  "Failed to update flag.": "Échec de la mise à jour du signalement."
 }

@@ -546,6 +546,12 @@ class PatientThresholdsSnapshot(EmbeddedDocument):
     thresholds = EmbeddedDocumentField("PatientThresholds", required=True)
 
 
+class PatientComment(EmbeddedDocument):
+    text = StringField(required=True, max_length=1000)
+    created_at = DateTimeField(default=timezone.now)
+    commented_by = StringField(default="")
+
+
 class Patient(Document):
     meta = {
         "collection": "Patients",
@@ -570,6 +576,12 @@ class Patient(Document):
     # ✅ Platform-specific settings
     thresholds = EmbeddedDocumentField("PatientThresholds", default=lambda: PatientThresholds())
     thresholds_history = ListField(EmbeddedDocumentField("PatientThresholdsSnapshot"), default=list)
+
+    # ✅ Therapist-facing flag + comment history
+    flagged = BooleanField(default=False)
+    flagged_at = DateTimeField(required=False, null=True)
+    flagged_by = StringField(default="")
+    comments = ListField(EmbeddedDocumentField("PatientComment"), default=list)
 
     # ✅ Optional platform fields (can also come from REDCap)
     clinic = StringField(max_length=120, default="")

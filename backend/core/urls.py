@@ -31,6 +31,7 @@ from core.views.eva_view import (
 from core.views.intervention_import import import_interventions
 from core.views.intervention_media_upload import upload_intervention_media
 from core.views.media_auth_view import media_auth_check
+from core.views.patient_flag_views import patient_comments_view, patient_flag_view
 from core.views.patient_thresholds import patient_thresholds_view
 from core.views.questionaires_view import (
     assign_questionnaire,
@@ -335,6 +336,16 @@ urlpatterns = [
         "api/patients/<str:patient_id>/thresholds/",
         patient_thresholds_view,
         name="patient-thresholds",
+    ),
+    path(
+        "api/patients/<str:patient_id>/flag/",
+        patient_flag_view,
+        name="patient-flag",
+    ),
+    path(
+        "api/patients/<str:patient_id>/comments/",
+        patient_comments_view,
+        name="patient-comments",
     ),
     path(
         "api/patients/<str:patient_id>/reset-password/",
