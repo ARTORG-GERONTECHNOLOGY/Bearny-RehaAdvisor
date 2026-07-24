@@ -492,9 +492,9 @@ export class TherapistPatientsStore {
   }
 
   isCompletedPatient(p: PatientType) {
-    const status = (p as unknown as { rehab_status?: unknown }).rehab_status;
-    const end = (p as unknown as { rehab_end_date?: unknown }).rehab_end_date;
-    return status === 'completed' || !!end;
+    const end = (p as unknown as { study_end_date?: unknown }).study_end_date;
+    if (!end || typeof end !== 'string') return false;
+    return new Date(end).getTime() <= Date.now();
   }
 
   splitCompleted(sortedFiltered: PatientType[]) {
@@ -503,11 +503,11 @@ export class TherapistPatientsStore {
       .filter((p) => this.isCompletedPatient(p))
       .sort((a, b) => {
         const eaRaw =
-          (a as unknown as { rehab_end_date?: unknown; created_at?: unknown }).rehab_end_date ??
+          (a as unknown as { study_end_date?: unknown; created_at?: unknown }).study_end_date ??
           (a as unknown as { created_at?: unknown }).created_at ??
           0;
         const ebRaw =
-          (b as unknown as { rehab_end_date?: unknown; created_at?: unknown }).rehab_end_date ??
+          (b as unknown as { study_end_date?: unknown; created_at?: unknown }).study_end_date ??
           (b as unknown as { created_at?: unknown }).created_at ??
           0;
 

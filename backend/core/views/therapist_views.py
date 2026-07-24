@@ -497,6 +497,7 @@ def list_therapist_patients(request, therapist_id):
                 "patient_code",
                 "userId",
                 "reha_end_date",
+                "study_end_date",
                 "thresholds",
                 "wearable_device",
                 "study_group",
@@ -622,6 +623,9 @@ def list_therapist_patients(request, therapist_id):
                     "wearable_device": getattr(patient, "wearable_device", None) or "fitbit",
                     "rehab_end_date": (
                         patient.reha_end_date.isoformat() if getattr(patient, "reha_end_date", None) else None
+                    ),
+                    "study_end_date": (
+                        patient.study_end_date.isoformat() if getattr(patient, "study_end_date", None) else None
                     ),
                     "study_group": getattr(patient, "study_group", None) or None,
                 }

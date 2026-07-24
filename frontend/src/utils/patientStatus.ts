@@ -29,6 +29,7 @@ type PatientExtra = {
   adherence_rate?: unknown;
 
   rehab_end_date?: unknown;
+  study_end_date?: unknown;
   study_group?: string | null;
 
   last_feedback_at?: unknown;
