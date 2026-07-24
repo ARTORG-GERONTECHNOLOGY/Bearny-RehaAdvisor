@@ -1,10 +1,17 @@
 // src/stores/therapistPatientsStore.ts
 import { makeAutoObservable, runInAction } from 'mobx';
-import apiClient from '../api/client';
-import authStore from './authStore';
-import { PatientType } from '../types';
+import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
+import { PatientComment, PatientType } from '@/types';
 
-export type SortKey = 'ampel' | 'created' | 'last_login' | 'adherence' | 'feedback' | 'wear';
+export type SortKey =
+  | 'ampel'
+  | 'created'
+  | 'last_login'
+  | 'adherence'
+  | 'feedback'
+  | 'wear'
+  | 'flag';
 
 export type RedcapCandidate = {
   project: string;
@@ -105,6 +112,19 @@ export class TherapistPatientsStore {
   // ✅ import tracking
   importingKey: string | null = null; // which row is importing right now
   importedKeys: Record<string, boolean> = {}; // grey-out rows that were imported
+
+  // ✅ flag toggle
+  flagTogglingId: string | null = null; // patient _id currently being (un)flagged
+
+  // ✅ flag + comments modal
+  showFlagCommentsModal = false;
+  flagCommentsPatientId: string | null = null;
+  flagCommentsPatientName = '';
+  comments: PatientComment[] = [];
+  commentsLoading = false;
+  commentsError = '';
+  commentSubmitting = false;
+  newCommentText = '';
 
   // filters
   searchTerm = '';
@@ -298,6 +318,124 @@ export class TherapistPatientsStore {
     } finally {
       runInAction(() => {
         this.importingKey = null;
+      });
+    }
+  }
+
+  // -------------------------
+  // ✅ Flag toggle
+  // -------------------------
+  async toggleFlag(patient: PatientType, t: (key: string) => string) {
+    const patientId = patient._id;
+    if (!patientId || this.flagTogglingId) return;
+
+    const nextFlagged = !patient.flagged;
+    this.flagTogglingId = patientId;
+
+    try {
+      const res = await apiClient.patch(`/patients/${patientId}/flag/`, { flagged: nextFlagged });
+      const data = res.data as {
+        flagged?: boolean;
+        flagged_at?: string | null;
+        flagged_by?: string;
+      };
+
+      runInAction(() => {
+        const target = this.patients.find((p) => p._id === patientId);
+        if (target) {
+          target.flagged = data.flagged ?? nextFlagged;
+          target.flagged_at = data.flagged_at ?? null;
+          target.flagged_by = data.flagged_by ?? '';
+        }
+      });
+    } catch (err: unknown) {
+      const { message } = extractApiMessage(err, t('Failed to update flag.'));
+      runInAction(() => {
+        this.error = message;
+      });
+    } finally {
+      runInAction(() => {
+        this.flagTogglingId = null;
+      });
+    }
+  }
+
+  // -------------------------
+  // ✅ Flag + comments modal
+  // -------------------------
+  openFlagComments(patient: PatientType, t: (key: string) => string) {
+    this.showFlagCommentsModal = true;
+    this.flagCommentsPatientId = patient._id;
+    this.flagCommentsPatientName = `${patient.first_name || ''} ${patient.name || ''}`.trim();
+    this.comments = [];
+    this.commentsError = '';
+    this.newCommentText = '';
+    void this.fetchComments(t);
+  }
+
+  closeFlagComments() {
+    this.showFlagCommentsModal = false;
+    this.flagCommentsPatientId = null;
+    this.flagCommentsPatientName = '';
+    this.comments = [];
+    this.commentsError = '';
+    this.newCommentText = '';
+  }
+
+  setNewCommentText(v: string) {
+    this.newCommentText = v;
+  }
+
+  async fetchComments(t: (key: string) => string) {
+    const patientId = this.flagCommentsPatientId;
+    if (!patientId) return;
+
+    this.commentsLoading = true;
+    this.commentsError = '';
+
+    try {
+      const res = await apiClient.get(`/patients/${patientId}/comments/`);
+      const data = res.data as { comments?: PatientComment[] };
+
+      runInAction(() => {
+        this.comments = Array.isArray(data.comments) ? data.comments : [];
+      });
+    } catch (err: unknown) {
+      const { message } = extractApiMessage(err, t('Failed to load comments.'));
+      runInAction(() => {
+        this.commentsError = message;
+      });
+    } finally {
+      runInAction(() => {
+        this.commentsLoading = false;
+      });
+    }
+  }
+
+  async addComment(t: (key: string) => string) {
+    const patientId = this.flagCommentsPatientId;
+    const text = this.newCommentText.trim();
+    if (!patientId || !text || this.commentSubmitting) return;
+
+    this.commentSubmitting = true;
+    this.commentsError = '';
+
+    try {
+      const res = await apiClient.post(`/patients/${patientId}/comments/`, { text });
+      const data = res.data as { comments?: PatientComment[] };
+
+      runInAction(() => {
+        this.comments = Array.isArray(data.comments) ? data.comments : this.comments;
+        this.newCommentText = '';
+      });
+    } catch (err: unknown) {
+      const { message } = extractApiMessage(err, t('Failed to add comment.'));
+      runInAction(() => {
+        this.commentsError = message;
+      });
+    } finally {
+      runInAction(() => {
+        this.commentSubmitting = false;
       });
     }
   }

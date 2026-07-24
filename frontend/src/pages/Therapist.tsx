@@ -9,6 +9,8 @@ import { observer } from 'mobx-react-lite';
 import WelcomeArea from '@/components/common/WelcomeArea';
 import AddPatientPopup from '@/components/AddPatient/AddPatientPopUp';
 import ImportFromRedcapModal from '@/components/TherapistPatientPage/ImportFromRedcapModal';
+import FlagCommentsModal from '@/components/TherapistPatientPage/FlagCommentsModal';
+import FlagActions from '@/components/TherapistPatientPage/FlagActions';
 import PatientFilters from '@/components/TherapistPatientPage/PatientFilters';
 import {
   LoginBadge,
@@ -138,6 +140,7 @@ const Therapist: React.FC = observer(() => {
     const getAdh = (p: PatientType) => toNum(getPatientExtra(p).adherence_rate) ?? -1;
     const getFb = (p: PatientType) => levelRankSmallBadFirst(feedbackLevel(p));
     const getWear = (p: PatientType) => levelRankSmallBadFirst(getWearInfo(p).level);
+    const getFlag = (p: PatientType) => (p.flagged ? 0 : 1);
 
     const dir = (key: string, val: number) => (colSortDir[key] === 'desc' ? -val : val);
 
@@ -156,6 +159,8 @@ const Therapist: React.FC = observer(() => {
           return dir('feedback', getFb(a) - getFb(b));
         case 'wear':
           return dir('wear', getWear(a) - getWear(b));
+        case 'flag':
+          return dir('flag', getFlag(a) - getFlag(b));
         case 'created':
         default: {
           const xa = getPatientExtra(a);
@@ -295,6 +300,15 @@ const Therapist: React.FC = observer(() => {
                     {renderSortIcon('wear')}
                   </div>
                 </TableHead>
+                <TableHead
+                  onClick={() => handleColSort('flag')}
+                  className="cursor-pointer transition-colors hover:bg-muted/50 text-center"
+                >
+                  <div className="flex gap-1 items-center justify-center">
+                    {t('Flag')}
+                    {renderSortIcon('flag')}
+                  </div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -345,6 +359,9 @@ const Therapist: React.FC = observer(() => {
                     <TableCell>
                       <WearBadge patient={p} />
                     </TableCell>
+                    <TableCell>
+                      <FlagActions patient={p} store={store} />
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -352,7 +369,7 @@ const Therapist: React.FC = observer(() => {
               {activePatients.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={appModeStore.showStudyGroup ? 10 : 9}
+                    colSpan={appModeStore.showStudyGroup ? 11 : 10}
                     className="text-center text-muted-foreground"
                   >
                     {store.loading
@@ -470,6 +487,8 @@ const Therapist: React.FC = observer(() => {
             onImportOne={(c: RedcapCandidate) => store.importOneFromRedcap(c, t)}
           />
         )}
+
+        <FlagCommentsModal store={store} />
       </div>
     </Layout>
   );
