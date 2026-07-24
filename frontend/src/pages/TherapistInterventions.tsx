@@ -690,7 +690,7 @@ const TherapistRecomendations: React.FC = observer(() => {
     localStorage.setItem('templateSeenMap', JSON.stringify(updated));
   };
 
-  // Indexed by intervention id for O(1) lookups instead of scanning templateItems per row.
+  // Indexed by intervention id so browseAllItems rows don't each scan all of templateItems.
   const templateItemsByIntervention = useMemo(() => {
     const map = new Map<string, TemplateItem[]>();
     templateItems.forEach((it) => {
