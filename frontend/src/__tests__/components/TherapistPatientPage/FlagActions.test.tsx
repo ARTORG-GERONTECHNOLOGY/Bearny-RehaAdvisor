@@ -25,7 +25,7 @@ const makePatient = (overrides: Record<string, unknown> = {}): PatientType =>
 
 const makeStore = (overrides: Record<string, unknown> = {}) =>
   ({
-    flagTogglingId: null as string | null,
+    togglingFlagIds: new Set<string>(),
     toggleFlag: jest.fn(),
     openFlagComments: jest.fn(),
     ...overrides,
@@ -84,14 +84,14 @@ describe('FlagActions', () => {
   });
 
   it('disables the flag button while this patient is being toggled', () => {
-    const store = makeStore({ flagTogglingId: 'patient-1' });
+    const store = makeStore({ togglingFlagIds: new Set(['patient-1']) });
     renderWithI18n(<FlagActions patient={makePatient()} store={store} />);
 
     expect(screen.getByRole('button', { name: 'Flag patient' })).toBeDisabled();
   });
 
   it('does not disable the flag button while a different patient is being toggled', () => {
-    const store = makeStore({ flagTogglingId: 'some-other-patient' });
+    const store = makeStore({ togglingFlagIds: new Set(['some-other-patient']) });
     renderWithI18n(<FlagActions patient={makePatient()} store={store} />);
 
     expect(screen.getByRole('button', { name: 'Flag patient' })).not.toBeDisabled();

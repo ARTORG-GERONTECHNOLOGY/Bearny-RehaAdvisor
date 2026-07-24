@@ -56,10 +56,18 @@ def _parse_json_body(request) -> Dict[str, Any]:
 def _get_patient(patient_id: str) -> Patient | None:
     """Look up a Patient by its own id or its linked User id; None if not found."""
     try:
-        if isinstance(patient_id, str) and len(patient_id) == 24:
-            return Patient.objects.get(pk=ObjectId(patient_id))
-        return Patient.objects.get(userId=ObjectId(patient_id))
-    except (Patient.DoesNotExist, DoesNotExist, InvalidId):
+        oid = ObjectId(patient_id)
+    except (InvalidId, TypeError):
+        return None
+
+    try:
+        return Patient.objects.get(pk=oid)
+    except (Patient.DoesNotExist, DoesNotExist):
+        pass
+
+    try:
+        return Patient.objects.get(userId=oid)
+    except (Patient.DoesNotExist, DoesNotExist):
         return None
 
 

@@ -114,7 +114,7 @@ export class TherapistPatientsStore {
   importedKeys: Record<string, boolean> = {}; // grey-out rows that were imported
 
   // ✅ flag toggle
-  flagTogglingId: string | null = null; // patient _id currently being (un)flagged
+  togglingFlagIds: Set<string> = new Set(); // patient _ids currently being (un)flagged
 
   // ✅ flag + comments modal
   showFlagCommentsModal = false;
@@ -327,10 +327,10 @@ export class TherapistPatientsStore {
   // -------------------------
   async toggleFlag(patient: PatientType, t: (key: string) => string) {
     const patientId = patient._id;
-    if (!patientId || this.flagTogglingId) return;
+    if (!patientId || this.togglingFlagIds.has(patientId)) return;
 
     const nextFlagged = !patient.flagged;
-    this.flagTogglingId = patientId;
+    this.togglingFlagIds.add(patientId);
 
     try {
       const res = await apiClient.patch(`/patients/${patientId}/flag/`, { flagged: nextFlagged });
@@ -355,7 +355,7 @@ export class TherapistPatientsStore {
       });
     } finally {
       runInAction(() => {
-        this.flagTogglingId = null;
+        this.togglingFlagIds.delete(patientId);
       });
     }
   }

@@ -623,10 +623,21 @@ describe('TherapistPatientsStore', () => {
       expect(apiClient.patch).not.toHaveBeenCalled();
     });
 
-    it('is a no-op while another flag toggle is in flight', async () => {
-      store.flagTogglingId = 'some-other-patient';
+    it('is a no-op while a toggle for the same patient is already in flight', async () => {
+      store.togglingFlagIds.add('p1');
       await store.toggleFlag(makePatient({ _id: 'p1' }) as any, t);
       expect(apiClient.patch).not.toHaveBeenCalled();
+    });
+
+    it('does not block toggling a different patient while one is in flight', async () => {
+      store.togglingFlagIds.add('some-other-patient');
+      (apiClient.patch as jest.Mock).mockResolvedValueOnce({
+        data: { flagged: true, flagged_at: '2026-01-01T00:00:00Z', flagged_by: 'Dr. House' },
+      });
+
+      await store.toggleFlag(makePatient({ _id: 'p1' }) as any, t);
+
+      expect(apiClient.patch).toHaveBeenCalledWith('/patients/p1/flag/', { flagged: true });
     });
 
     it('flags an unflagged patient and updates it in place from the response', async () => {
@@ -641,7 +652,7 @@ describe('TherapistPatientsStore', () => {
       expect(store.patients[0].flagged).toBe(true);
       expect(store.patients[0].flagged_at).toBe('2026-01-01T00:00:00Z');
       expect(store.patients[0].flagged_by).toBe('Dr. House');
-      expect(store.flagTogglingId).toBeNull();
+      expect(store.togglingFlagIds.has('p1')).toBe(false);
     });
 
     it('unflags an already-flagged patient', async () => {
@@ -667,7 +678,7 @@ describe('TherapistPatientsStore', () => {
       expect(store.patients[0].flagged_by).toBe('');
     });
 
-    it('sets an error and clears flagTogglingId on failure', async () => {
+    it('sets an error and clears togglingFlagIds on failure', async () => {
       store.patients = [makePatient({ _id: 'p1', flagged: false })] as any;
       (apiClient.patch as jest.Mock).mockRejectedValueOnce({
         response: { data: { message: 'Not authorised' } },
@@ -676,7 +687,7 @@ describe('TherapistPatientsStore', () => {
       await store.toggleFlag(store.patients[0], t);
 
       expect(store.error).toBe('Not authorised');
-      expect(store.flagTogglingId).toBeNull();
+      expect(store.togglingFlagIds.has('p1')).toBe(false);
     });
   });
 

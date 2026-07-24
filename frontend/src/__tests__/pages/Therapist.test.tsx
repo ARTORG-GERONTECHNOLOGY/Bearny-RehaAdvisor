@@ -217,7 +217,7 @@ const mockStore = {
   importedKeys: {} as Record<string, boolean>,
   showCompleted: false,
   // flag toggle
-  flagTogglingId: null as string | null,
+  togglingFlagIds: new Set<string>(),
   toggleFlag: jest.fn().mockResolvedValue(undefined),
   // flag + comments modal
   showFlagCommentsModal: false,
@@ -266,7 +266,7 @@ beforeEach(() => {
   mockStore.durationFilter = '';
   mockStore.diseaseFilter = '';
   mockStore.sortBy = 'created';
-  mockStore.flagTogglingId = null;
+  mockStore.togglingFlagIds = new Set();
   mockStore.showFlagCommentsModal = false;
   mockStore.flagCommentsPatientId = null;
   mockStore.flagCommentsPatientName = '';

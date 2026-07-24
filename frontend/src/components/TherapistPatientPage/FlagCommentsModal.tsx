@@ -69,7 +69,10 @@ const FlagCommentsModal: React.FC<Props> = observer(({ store }) => {
         ) : (
           <ul className="flex flex-col gap-3 max-h-80 overflow-y-auto">
             {store.comments.map((c, idx) => (
-              <li key={idx} className="border-b border-border pb-2 last:border-b-0">
+              <li
+                key={`${c.created_at ?? idx}-${c.commented_by}`}
+                className="border-b border-border pb-2 last:border-b-0"
+              >
                 <div className="flex justify-between gap-2 text-xs text-muted-foreground">
                   <span>{c.commented_by || t('Unknown')}</span>
                   <span>{fmtDateTime(c.created_at || undefined)}</span>

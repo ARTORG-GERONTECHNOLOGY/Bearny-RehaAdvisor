@@ -74,6 +74,19 @@ def test_get_patient_wellformed_but_nonexistent_id_returns_none():
     assert _get_patient(str(ObjectId())) is None
 
 
+def test_get_patient_found_by_linked_user_id():
+    """Regression: both a Patient's own pk and its linked User id are 24-char
+    ObjectIds, so the userId fallback is only reachable if the pk lookup is
+    tried and allowed to miss before falling back — it must not be dead code."""
+    _, th = _make_therapist("th_uid", ["Inselspital"])
+    pu = User(username=f"pt-{ObjectId()}", role="Patient", createdAt=datetime.now(), isActive=True).save()
+    patient = Patient(userId=pu, patient_code=f"PX-{ObjectId()}", therapist=th, clinic="Inselspital").save()
+
+    found = _get_patient(str(pu.id))
+    assert found is not None
+    assert found.id == patient.id
+
+
 # ===========================================================================
 # _coerce_aware
 # ===========================================================================

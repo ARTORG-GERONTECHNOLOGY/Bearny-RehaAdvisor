@@ -37,7 +37,7 @@ const FlagActions: React.FC<Props> = observer(({ patient, store }) => {
             type="button"
             aria-label={String(patient.flagged ? t('Unflag patient') : t('Flag patient'))}
             aria-pressed={!!patient.flagged}
-            disabled={store.flagTogglingId === mongoId}
+            disabled={store.togglingFlagIds.has(mongoId)}
             onClick={(e) => {
               e.stopPropagation();
               void store.toggleFlag(patient, t);
