@@ -431,9 +431,7 @@ def _adherence(patient, lookback_days: int = 7):
     now = timezone.now()  # aware
     local_tz = timezone.get_current_timezone()
     boundary_date = timezone.localdate(now) - timedelta(days=lookback_days)
-    since = timezone.make_aware(
-        datetime.combine(boundary_date, datetime.min.time()), local_tz
-    )
+    since = timezone.make_aware(datetime.combine(boundary_date, datetime.min.time()), local_tz)
 
     # ---- helpers ------------------------------------------------------------
     def _to_dt(v):

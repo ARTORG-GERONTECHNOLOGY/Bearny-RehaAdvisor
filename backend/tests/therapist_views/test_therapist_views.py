@@ -1313,9 +1313,7 @@ def test_adherence_boundary_day_session_is_counted():
     ).save()
 
     adh_7, adh_total = _adherence(patient)
-    assert adh_7 == 100, (
-        f"Session within the boundary calendar day must be counted; got adh_7={adh_7}"
-    )
+    assert adh_7 == 100, f"Session within the boundary calendar day must be counted; got adh_7={adh_7}"
 
 
 def test_adherence_rate_via_endpoint_one_of_three():
@@ -1367,9 +1365,7 @@ def test_adherence_rate_via_endpoint_one_of_three():
     )
     assert resp.status_code == 200
     row = next(r for r in resp.json() if r["_id"] == str(patient.id))
-    assert row["adherence_rate"] == 33, (
-        f"Expected 33% adherence (1/3 completed) but got {row['adherence_rate']}"
-    )
+    assert row["adherence_rate"] == 33, f"Expected 33% adherence (1/3 completed) but got {row['adherence_rate']}"
 
 
 def test_adherence_rate_via_endpoint_none_when_no_schedule_no_logs():
