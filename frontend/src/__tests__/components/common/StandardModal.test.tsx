@@ -131,4 +131,33 @@ describe('StandardModal', () => {
     );
     expect(screen.getByRole('dialog')).toHaveClass('max-w-5xl');
   });
+
+  it('does not render a description when none is provided', () => {
+    render(
+      <StandardModal show onHide={jest.fn()} title="My Title">
+        <div>Body content</div>
+      </StandardModal>
+    );
+    expect(screen.queryByText('My Description')).not.toBeInTheDocument();
+  });
+
+  it('renders the description under the title when provided', () => {
+    render(
+      <StandardModal show onHide={jest.fn()} title="My Title" description="My Description">
+        <div>Body content</div>
+      </StandardModal>
+    );
+    expect(screen.getByText('My Title')).toBeInTheDocument();
+    expect(screen.getByText('My Description')).toBeInTheDocument();
+  });
+
+  it('renders no description when title is not provided either (headerless dialog)', () => {
+    render(
+      <StandardModal show onHide={jest.fn()} description="My Description">
+        <div>Body content</div>
+      </StandardModal>
+    );
+    // A description alone without a title never renders — there is no header to attach it to.
+    expect(screen.queryByText('My Description')).not.toBeInTheDocument();
+  });
 });

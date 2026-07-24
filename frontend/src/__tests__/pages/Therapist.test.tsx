@@ -42,6 +42,9 @@ jest.mock('@/components/TherapistPatientPage/ImportFromRedcapModal', () => (prop
     <button onClick={() => props.onImportOne({ key: 'c1' })}>import-one-redcap</button>
   </div>
 ));
+jest.mock('@/components/TherapistPatientPage/FlagCommentsModal', () => () => (
+  <div>Flag Comments Modal</div>
+));
 
 // Mock translation function — use jest.fn() so individual tests can override it
 const mockUseTranslation = jest.fn(() => ({ t: (key: string) => key }));
@@ -213,6 +216,23 @@ const mockStore = {
   importingKey: null as string | null,
   importedKeys: {} as Record<string, boolean>,
   showCompleted: false,
+  // flag toggle
+  flagTogglingId: null as string | null,
+  toggleFlag: jest.fn().mockResolvedValue(undefined),
+  // flag + comments modal
+  showFlagCommentsModal: false,
+  flagCommentsPatientId: null as string | null,
+  flagCommentsPatientName: '',
+  comments: [] as { text: string; created_at: string | null; commented_by: string }[],
+  commentsLoading: false,
+  commentsError: '',
+  commentSubmitting: false,
+  newCommentText: '',
+  openFlagComments: jest.fn(),
+  closeFlagComments: jest.fn(),
+  setNewCommentText: jest.fn(),
+  fetchComments: jest.fn().mockResolvedValue(undefined),
+  addComment: jest.fn().mockResolvedValue(undefined),
 };
 
 jest.mock('@/stores/therapistPatientsStore', () => ({
@@ -246,6 +266,15 @@ beforeEach(() => {
   mockStore.durationFilter = '';
   mockStore.diseaseFilter = '';
   mockStore.sortBy = 'created';
+  mockStore.flagTogglingId = null;
+  mockStore.showFlagCommentsModal = false;
+  mockStore.flagCommentsPatientId = null;
+  mockStore.flagCommentsPatientName = '';
+  mockStore.comments = [];
+  mockStore.commentsLoading = false;
+  mockStore.commentsError = '';
+  mockStore.commentSubmitting = false;
+  mockStore.newCommentText = '';
   appModeStore.loaded = true;
   appModeStore.showManualCreate = true;
   appModeStore.showRedcapImport = false;
@@ -854,6 +883,122 @@ describe('Column sorting', () => {
     renderSortable();
     fireEvent.click(screen.getByText('Wear'));
     await waitFor(() => expect(mockStore.setSortBy).toHaveBeenCalledWith('wear'));
+  });
+
+  test('clicking the Flag header triggers a flag-based sort', async () => {
+    renderSortable();
+    fireEvent.click(screen.getByText('Flag'));
+    await waitFor(() => expect(mockStore.setSortBy).toHaveBeenCalledWith('flag'));
+  });
+
+  test('sorting by Flag puts flagged patients first (asc = flagged first)', async () => {
+    mockStore.patients = [
+      { ...sortablePatients[0], flagged: false },
+      { ...sortablePatients[1], flagged: true },
+    ] as any;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    await screen.findByText('Alpha One');
+
+    fireEvent.click(screen.getByText('Flag'));
+
+    await waitFor(() => expect(getBodyRowNames()).toEqual(['Beta Two', 'Alpha One']));
+  });
+});
+
+describe('Flag column', () => {
+  const flagPatient = {
+    _id: 'flag-patient-1',
+    created_at: '2026-01-01T00:00:00',
+    age: '1990-01-01',
+    sex: 'Male',
+    first_name: 'Flag',
+    name: 'Target',
+    diagnosis: ['Stroke'],
+    duration: 30,
+    flagged: false,
+  };
+
+  test('renders a Flag button and a View comments button for each active patient', async () => {
+    mockStore.patients = [flagPatient] as any;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    await screen.findByText('Flag Target');
+
+    expect(screen.getByRole('button', { name: 'Flag patient' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View comments' })).toBeInTheDocument();
+  });
+
+  test('clicking the flag button toggles the flag without navigating to the patient detail page', async () => {
+    mockStore.patients = [flagPatient] as any;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    await screen.findByText('Flag Target');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Flag patient' }));
+
+    expect(mockStore.toggleFlag).toHaveBeenCalledWith(flagPatient, expect.any(Function));
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  test('clicking the comments button opens the comments modal without navigating', async () => {
+    mockStore.patients = [flagPatient] as any;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    await screen.findByText('Flag Target');
+
+    fireEvent.click(screen.getByRole('button', { name: 'View comments' }));
+
+    expect(mockStore.openFlagComments).toHaveBeenCalledWith(flagPatient, expect.any(Function));
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  test('shows the flagged (pressed) state for an already-flagged patient', async () => {
+    mockStore.patients = [{ ...flagPatient, flagged: true }] as any;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    await screen.findByText('Flag Target');
+
+    expect(screen.getByRole('button', { name: 'Unflag patient' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  });
+
+  test('does not render Flag/View comments buttons in the completed patients table', async () => {
+    mockStore.patients = [
+      {
+        ...flagPatient,
+        _id: 'completed-flag',
+        rehab_status: 'completed',
+        rehab_end_date: '2026-03-01',
+      },
+    ] as any;
+    mockStore.showCompleted = true;
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+    await screen.findByText('Flag Target');
+
+    expect(screen.queryByRole('button', { name: 'Flag patient' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View comments' })).not.toBeInTheDocument();
   });
 });
 
