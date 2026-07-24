@@ -561,28 +561,34 @@ describe('TherapistPatientsStore', () => {
   // isCompletedPatient / splitCompleted
   // ------------------------------------------------------------------
   describe('isCompletedPatient', () => {
-    it('is true when rehab_status is "completed"', () => {
-      expect(store.isCompletedPatient(makePatient({ rehab_status: 'completed' }) as any)).toBe(
-        true
-      );
+    it('is true when study_end_date is in the past', () => {
+      expect(
+        store.isCompletedPatient(makePatient({ study_end_date: '2020-01-01' }) as any)
+      ).toBe(true);
     });
 
-    it('is true when rehab_end_date is set', () => {
-      expect(store.isCompletedPatient(makePatient({ rehab_end_date: '2026-01-01' }) as any)).toBe(
-        true
-      );
+    it('is false when study_end_date is in the future', () => {
+      expect(
+        store.isCompletedPatient(makePatient({ study_end_date: '2099-01-01' }) as any)
+      ).toBe(false);
     });
 
-    it('is false otherwise', () => {
+    it('is false when study_end_date is not set', () => {
       expect(store.isCompletedPatient(makePatient() as any)).toBe(false);
+    });
+
+    it('is false when only rehab_end_date is set (no study_end_date)', () => {
+      expect(
+        store.isCompletedPatient(makePatient({ rehab_end_date: '2020-01-01' }) as any)
+      ).toBe(false);
     });
   });
 
   describe('splitCompleted', () => {
-    it('splits active vs completed and sorts completed by end date desc', () => {
+    it('splits active vs completed and sorts completed by study_end_date desc', () => {
       const active = makePatient({ _id: 'active-1' });
-      const doneOld = makePatient({ _id: 'done-old', rehab_end_date: '2025-01-01T00:00:00Z' });
-      const doneNew = makePatient({ _id: 'done-new', rehab_end_date: '2026-01-01T00:00:00Z' });
+      const doneOld = makePatient({ _id: 'done-old', study_end_date: '2025-01-01T00:00:00Z' });
+      const doneNew = makePatient({ _id: 'done-new', study_end_date: '2026-01-01T00:00:00Z' });
 
       const { active: activeList, completed } = store.splitCompleted([
         active,
@@ -594,20 +600,14 @@ describe('TherapistPatientsStore', () => {
       expect(completed.map((p: any) => p._id)).toEqual(['done-new', 'done-old']);
     });
 
-    it('falls back to created_at when rehab_end_date is absent for completed patients', () => {
-      const doneOld = makePatient({
-        _id: 'done-old',
-        rehab_status: 'completed',
-        created_at: '2025-01-01T00:00:00Z',
-      });
-      const doneNew = makePatient({
-        _id: 'done-new',
-        rehab_status: 'completed',
-        created_at: '2026-01-01T00:00:00Z',
-      });
+    it('keeps patient active when study_end_date is in the future', () => {
+      const stillActive = makePatient({ _id: 'still-active', study_end_date: '2099-01-01T00:00:00Z' });
+      const done = makePatient({ _id: 'done', study_end_date: '2025-01-01T00:00:00Z' });
 
-      const { completed } = store.splitCompleted([doneOld, doneNew] as any);
-      expect(completed.map((p: any) => p._id)).toEqual(['done-new', 'done-old']);
+      const { active: activeList, completed } = store.splitCompleted([stillActive, done] as any);
+
+      expect(activeList.map((p: any) => p._id)).toEqual(['still-active']);
+      expect(completed.map((p: any) => p._id)).toEqual(['done']);
     });
   });
 });
