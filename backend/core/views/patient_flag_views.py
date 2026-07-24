@@ -134,8 +134,9 @@ def patient_flag_view(request, patient_id: str):
 
     try:
         body = _parse_json_body(request)
-    except ValueError as ve:
-        return bad(str(ve), status=400)
+    except ValueError:
+        logger.exception("Invalid JSON body while updating patient flag")
+        return bad("Invalid JSON body.", status=400)
 
     flagged = body.get("flagged")
     if not isinstance(flagged, bool):
@@ -146,9 +147,9 @@ def patient_flag_view(request, patient_id: str):
         patient.flagged_at = timezone.now() if flagged else None
         patient.flagged_by = _display_name(request) if flagged else ""
         patient.save()
-    except MEValidationError as e:
+    except MEValidationError:
         logger.exception("Validation error updating patient flag")
-        return bad("Validation error.", field_errors={"flagged": str(e)}, status=400)
+        return bad("Validation error.", field_errors={"flagged": "Invalid value."}, status=400)
 
     return ok(
         {
@@ -178,8 +179,9 @@ def patient_comments_view(request, patient_id: str):
 
     try:
         body = _parse_json_body(request)
-    except ValueError as ve:
-        return bad(str(ve), status=400)
+    except ValueError:
+        logger.exception("Invalid JSON body while adding patient comment")
+        return bad("Invalid JSON body.", status=400)
 
     text = body.get("text")
     if not isinstance(text, str) or not text.strip():
@@ -198,9 +200,9 @@ def patient_comments_view(request, patient_id: str):
         # Atomic $push avoids a lost-update race from read-modify-write on the list.
         Patient.objects(pk=patient.id).update_one(push__comments=comment)
         patient.reload()
-    except MEValidationError as e:
+    except MEValidationError:
         logger.exception("Validation error adding patient comment")
-        return bad("Validation error.", field_errors={"text": str(e)}, status=400)
+        return bad("Validation error.", field_errors={"text": "Invalid value."}, status=400)
 
     comments_sorted = sorted(patient.comments, key=_comment_sort_key, reverse=True)
     return ok(
