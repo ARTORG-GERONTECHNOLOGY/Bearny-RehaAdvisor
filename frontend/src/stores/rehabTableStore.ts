@@ -321,7 +321,8 @@ export class RehabTableStore {
   private hasFutureDates(interventionId: string) {
     const planItem = this.planInterventionsById.get(interventionId);
     const dates = getDates(planItem);
-    return dates.some((d) => new Date(d.datetime) > new Date());
+    const now = new Date();
+    return dates.some((d) => new Date(d.datetime) > now);
   }
 
   private get matchedPatientItems(): Intervention[] {

@@ -125,8 +125,8 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
 
   // Indexed by intervention id so each rendered card doesn't scan all of patientData.interventions.
   const patientInterventionsById = useMemo(() => {
-    const map = new Map<string, any>();
-    (patientData?.interventions || []).forEach((item: any) => {
+    const map = new Map<string, Intervention>();
+    (patientData?.interventions || []).forEach((item) => {
       if (!map.has(item._id)) map.set(item._id, item);
     });
     return map;
