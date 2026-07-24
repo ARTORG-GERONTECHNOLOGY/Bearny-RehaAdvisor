@@ -468,9 +468,20 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     [filteredItems]
   );
 
+  const otherItems = useMemo(
+    () =>
+      filteredItems.filter(
+        (item: InterventionCardItem) =>
+          !hasAimKeyword(item, 'exercise') &&
+          !hasAimKeyword(item, 'education') &&
+          !hasAimKeyword(item, 'instruction')
+      ),
+    [filteredItems]
+  );
+
   const [showTypeSheet, setShowTypeSheet] = useState<boolean>(false);
   const [activeTypeSection, setActiveTypeSection] = useState<
-    'exercise' | 'education' | 'instruction'
+    'exercise' | 'education' | 'instruction' | 'other'
   >('exercise');
 
   const typeSections = useMemo(
@@ -493,8 +504,14 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
         Icon: EducationIcon,
         items: instructionItems,
       },
+      {
+        key: 'other' as const,
+        title: t('Other'),
+        Icon: EducationIcon,
+        items: otherItems,
+      },
     ],
-    [t, exerciseItems, educationItems, instructionItems]
+    [t, exerciseItems, educationItems, instructionItems, otherItems]
   );
 
   const visibleTypeSections = useMemo(
