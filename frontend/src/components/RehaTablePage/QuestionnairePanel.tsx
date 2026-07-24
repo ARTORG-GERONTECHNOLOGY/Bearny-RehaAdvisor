@@ -102,7 +102,13 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
   }, {});
   const answeredDays = Object.keys(answeredByDay).sort((x, y) => y.localeCompare(x));
 
-  const isSheetItemAssigned = !!assignedQuestionnaires.find((a) => a._id === sheetItem?.id);
+  // Indexed by questionnaire id so each row doesn't scan all of assignedQuestionnaires.
+  const assignedIds = React.useMemo(
+    () => new Set(assignedQuestionnaires.map((a) => a._id)),
+    [assignedQuestionnaires]
+  );
+
+  const isSheetItemAssigned = !!sheetItem && assignedIds.has(sheetItem.id);
 
   return (
     <>
@@ -127,7 +133,7 @@ const QuestionnairePanel: React.FC<QuestionnairePanelProps> = ({ data, actions, 
                 <QuestionnaireAvailableCard
                   key={q._id}
                   q={q}
-                  isAssigned={!!assignedQuestionnaires.find((a) => a._id === q._id)}
+                  isAssigned={assignedIds.has(q._id)}
                   onOpen={() => setSheetItem({ id: q._id, scope: 'available' })}
                   onAssign={() => openAddQ(q)}
                   t={t}
