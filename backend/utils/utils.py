@@ -425,9 +425,15 @@ def _adherence(patient, lookback_days: int = 7):
     - Numerator uses PatientInterventionLogs with status containing 'completed'.
     - All datetimes (schedule + logs) are normalized to timezone-aware before comparison.
     - Falls back to completed/(completed+skipped) if no schedule was created for the window.
+    - 'since' is snapped to local midnight of (today - lookback_days) so that sessions
+      scheduled early in the day on the boundary date are not excluded by the exact UTC moment.
     """
     now = timezone.now()  # aware
-    since = now - timedelta(days=lookback_days)
+    local_tz = timezone.get_current_timezone()
+    boundary_date = timezone.localdate(now) - timedelta(days=lookback_days)
+    since = timezone.make_aware(
+        datetime.combine(boundary_date, datetime.min.time()), local_tz
+    )
 
     # ---- helpers ------------------------------------------------------------
     def _to_dt(v):

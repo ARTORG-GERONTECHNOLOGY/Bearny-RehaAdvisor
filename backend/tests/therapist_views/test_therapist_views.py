@@ -1245,3 +1245,180 @@ def test_no_projects_assigned_falls_back_to_clinic_filter():
     assert resp.status_code == 200
     ids = [r["_id"] for r in resp.json()]
     assert str(pt.id) in ids, "Legacy therapist (no projects) should see clinic patients"
+
+
+# ---------------------------------------------------------------------------
+# Adherence rate via the full patient-list endpoint (regression for #481)
+# ---------------------------------------------------------------------------
+#
+# Root cause of #481: _adherence used `since = now - timedelta(days=7)` (exact
+# UTC moment) as the window start.  Sessions scheduled early on the boundary
+# day (e.g. 08:00 UTC = 10:00 Zurich) and their logs (stored as naive-local →
+# treated as UTC, so also 10:00 UTC) both fell *before* `since` when `since`
+# was later in the day, so denom_7 > 0 but comp_7 = 0 → adh_7 = 0 %.
+# Fix: snap `since` to local midnight of (today − lookback_days).
+#
+
+
+def test_adherence_boundary_day_session_is_counted():
+    """
+    A session scheduled on the boundary day (day-7) at a time that is before the
+    exact 'now - 7 days' UTC moment must still be counted.
+
+    Old behaviour: `since = now - timedelta(days=7)`.  A session at, e.g., 01:00
+    on day-7 would have been excluded when `now` was 14:00, because
+    01:00 on day-7 < 14:00 on day-7.
+
+    New behaviour: `since` is snapped to local midnight of day-7, so any session
+    on that calendar day is included.  We simulate this by placing the date 6 days
+    and 23 hours ago (which is 1 hour into the boundary day, but would be before
+    the exact now-7d moment).
+    """
+    therapist, patient = create_therapist_with_patient()
+    intervention = Intervention(
+        external_id=f"e-{ObjectId()}",
+        language="en",
+        title="Morning Exercise",
+        description="Early session",
+        content_type="Video",
+    ).save()
+
+    now = datetime.now()
+    # 6 days and 23 hours ago: this is on the 7th-ago calendar day but BEFORE
+    # the exact `now - timedelta(days=7)` moment (which is 7 * 24 h ago).
+    # With the old approach this would be EXCLUDED from the 7d window.
+    # With the fix (since = midnight of day-7) it must be INCLUDED.
+    early_boundary = now - timedelta(days=6, hours=23)
+
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=now - timedelta(days=10),
+        endDate=now + timedelta(days=10),
+        status="active",
+        interventions=[
+            InterventionAssignment(
+                interventionId=intervention,
+                dates=[early_boundary],
+            )
+        ],
+    ).save()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=early_boundary,
+        status=["completed"],
+    ).save()
+
+    adh_7, adh_total = _adherence(patient)
+    assert adh_7 == 100, (
+        f"Session within the boundary calendar day must be counted; got adh_7={adh_7}"
+    )
+
+
+def test_adherence_rate_via_endpoint_one_of_three():
+    """
+    Regression for #481: patient with 1/3 completed sessions must show ~33%
+    through the full patient-list endpoint (which loads patients with
+    .only().no_dereference() and then calls _adherence).
+    """
+    therapist, patient = create_therapist_with_patient()
+    intervention = Intervention(
+        external_id=f"e-{ObjectId()}",
+        language="en",
+        title="Exercise",
+        description="Exercise",
+        content_type="Video",
+    ).save()
+
+    now = timezone.now()
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=now - timedelta(days=10),
+        endDate=now + timedelta(days=10),
+        status="active",
+        interventions=[
+            InterventionAssignment(
+                interventionId=intervention,
+                dates=[
+                    now - timedelta(days=1),
+                    now - timedelta(days=3),
+                    now - timedelta(days=5),
+                ],
+            )
+        ],
+    ).save()
+
+    # Only 1 of the 3 sessions completed
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=now - timedelta(days=1),
+        status=["completed"],
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    assert row["adherence_rate"] == 33, (
+        f"Expected 33% adherence (1/3 completed) but got {row['adherence_rate']}"
+    )
+
+
+def test_adherence_rate_via_endpoint_none_when_no_schedule_no_logs():
+    """Patient with no plan and no logs must return null adherence_rate."""
+    therapist, patient = create_therapist_with_patient()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    assert row["adherence_rate"] is None
+
+
+def test_adherence_rate_via_endpoint_zero_when_scheduled_but_not_done():
+    """Patient with 3 scheduled sessions and 0 completions must show 0%."""
+    therapist, patient = create_therapist_with_patient()
+    intervention = Intervention(
+        external_id=f"e-{ObjectId()}",
+        language="en",
+        title="Exercise",
+        description="Exercise",
+        content_type="Video",
+    ).save()
+
+    now = timezone.now()
+    RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=now - timedelta(days=10),
+        endDate=now + timedelta(days=10),
+        status="active",
+        interventions=[
+            InterventionAssignment(
+                interventionId=intervention,
+                dates=[
+                    now - timedelta(days=1),
+                    now - timedelta(days=3),
+                    now - timedelta(days=5),
+                ],
+            )
+        ],
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    assert row["adherence_rate"] == 0
