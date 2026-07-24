@@ -15,7 +15,7 @@ for `core/views/patient_flag_views.py`.
 | `/api/patients/<patient_id>/comments/` | GET | `patient_comments_view` | 4 |
 | `/api/patients/<patient_id>/comments/` | POST | `patient_comments_view` | 6 |
 
-**Total: 30 tests** (17 HTTP-level + 13 helper/unit-level)
+**Total: 31 tests** (16 HTTP-level + 15 helper/unit-level)
 
 ---
 
@@ -46,6 +46,7 @@ for `core/views/patient_flag_views.py`.
 | `test_get_patient_found_by_pk` | Valid patient id | Patient returned |
 | `test_get_patient_malformed_id_returns_none` | Garbage id | `None`, not an `InvalidId` crash |
 | `test_get_patient_wellformed_but_nonexistent_id_returns_none` | Valid ObjectId, no such patient | `None` |
+| `test_get_patient_found_by_linked_user_id` | Id matches a Patient's linked User id, not its own pk | Patient returned via the userId fallback |
 | `test_coerce_aware_none_naive_and_aware` | `None`, naive, and aware datetimes | Always returns an aware datetime |
 | `test_comment_to_dict_and_sort_key` | Serializing a comment | Matches expected dict shape |
 | `test_comments_sort_tolerates_naive_created_at` | Comment list mixing naive and aware `created_at` | 200, no `TypeError`, correct order |
