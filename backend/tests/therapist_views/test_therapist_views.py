@@ -239,7 +239,7 @@ def test_list_therapist_patients_excludes_inactive_users():
 
 
 def test_list_therapist_patients_includes_rehab_end_date():
-    """rehab_end_date must be present in the response so the frontend can split active/completed."""
+    """rehab_end_date must be present in the response (kept for backwards compatibility)."""
     therapist, patient = create_therapist_with_patient()
 
     resp = client.get(
@@ -294,6 +294,89 @@ def test_list_therapist_patients_rehab_end_date_null_for_active_patient():
     assert row is not None
     assert "rehab_end_date" in row
     assert row["rehab_end_date"] is None
+
+
+def test_list_therapist_patients_includes_study_end_date():
+    """study_end_date drives the active/completed split on the frontend."""
+    therapist_user = User(
+        username=f"th-{ObjectId()}",
+        email=f"th-{ObjectId()}@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    therapist = Therapist(
+        userId=therapist_user,
+        name="Therapist",
+        first_name="John",
+        clinics=["Inselspital"],
+    ).save()
+    pt_user = User(
+        username=f"pt-{ObjectId()}",
+        email=f"pt-{ObjectId()}@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    study_end = datetime(2026, 6, 1)
+    Patient(
+        userId=pt_user,
+        patient_code=f"PAT-{ObjectId()}",
+        therapist=therapist,
+        clinic="Inselspital",
+        study_end_date=study_end,
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist_user.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    row = next((p for p in data if p.get("username") == pt_user.username), None)
+    assert row is not None
+    assert "study_end_date" in row
+    assert row["study_end_date"] is not None
+    assert row["study_end_date"].startswith("2026-06-01")
+
+
+def test_list_therapist_patients_study_end_date_null_when_not_set():
+    therapist_user = User(
+        username=f"th-{ObjectId()}",
+        email=f"th-{ObjectId()}@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    therapist = Therapist(
+        userId=therapist_user,
+        name="Therapist",
+        first_name="John",
+        clinics=["Inselspital"],
+    ).save()
+    pt_user = User(
+        username=f"pt-{ObjectId()}",
+        email=f"pt-{ObjectId()}@example.com",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    Patient(
+        userId=pt_user,
+        patient_code=f"PAT-{ObjectId()}",
+        therapist=therapist,
+        clinic="Inselspital",
+        study_end_date=None,
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist_user.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    row = next((p for p in data if p.get("username") == pt_user.username), None)
+    assert row is not None
+    assert "study_end_date" in row
+    assert row["study_end_date"] is None
 
 
 def test_list_therapist_patients_includes_last_online_and_biomarker_fields():
