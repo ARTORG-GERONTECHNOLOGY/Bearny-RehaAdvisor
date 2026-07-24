@@ -123,6 +123,15 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
     resetAllFilters,
   } = filters;
 
+  // Indexed by intervention id so each rendered card doesn't scan all of patientData.interventions.
+  const patientInterventionsById = useMemo(() => {
+    const map = new Map<string, Intervention>();
+    (patientData?.interventions || []).forEach((item) => {
+      if (!map.has(item._id)) map.set(item._id, item);
+    });
+    return map;
+  }, [patientData?.interventions]);
+
   const languageOptions = useMemo(() => {
     const langs = allItems
       .flatMap((item: any) => [
@@ -171,8 +180,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
 
     const typeLabel = typeMap[intervention._id] || intervention.content_type || '';
 
-    const patientHasIntervention =
-      patientData?.interventions?.find((item: any) => item._id === intervention._id) || null;
+    const patientHasIntervention = patientInterventionsById.get(intervention._id) || null;
     const assigned = !!patientHasIntervention;
     const hasFuture =
       patientHasIntervention?.dates?.some((d: any) => new Date(d.datetime) > new Date()) || false;
