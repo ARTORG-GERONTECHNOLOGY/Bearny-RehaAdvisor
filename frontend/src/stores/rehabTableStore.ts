@@ -309,24 +309,32 @@ export class RehabTableStore {
     return { ...(plan || {}), interventions: merged };
   }
 
+  // Indexed by intervention id so lookups don't each scan all of patientData.interventions.
+  private get planInterventionsById(): Map<string, unknown> {
+    const map = new Map<string, unknown>();
+    (this.patientData?.interventions || []).forEach((i) => {
+      if (!map.has(i._id)) map.set(i._id, i);
+    });
+    return map;
+  }
+
   private hasFutureDates(interventionId: string) {
-    const planItem = (this.patientData?.interventions || []).find(
-      (i) => i._id === interventionId
-    ) as unknown;
+    const planItem = this.planInterventionsById.get(interventionId);
     const dates = getDates(planItem);
     return dates.some((d) => new Date(d.datetime) > new Date());
   }
 
+  private get matchedPatientItems(): Intervention[] {
+    const ids = this.planInterventionsById;
+    return (this.allInterventions || []).filter((it) => ids.has(it._id));
+  }
+
   get activePatientItems(): Intervention[] {
-    const ids = new Set((this.patientData?.interventions || []).map((x) => x._id));
-    const items = (this.allInterventions || []).filter((it) => ids.has(it._id));
-    return items.filter((it) => this.hasFutureDates(it._id));
+    return this.matchedPatientItems.filter((it) => this.hasFutureDates(it._id));
   }
 
   get pastPatientItems(): Intervention[] {
-    const ids = new Set((this.patientData?.interventions || []).map((x) => x._id));
-    const items = (this.allInterventions || []).filter((it) => ids.has(it._id));
-    return items.filter((it) => !this.hasFutureDates(it._id));
+    return this.matchedPatientItems.filter((it) => !this.hasFutureDates(it._id));
   }
 
   get selectedExerciseFromPlan(): Intervention | null {
