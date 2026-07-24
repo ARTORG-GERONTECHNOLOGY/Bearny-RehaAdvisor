@@ -632,9 +632,7 @@ def list_therapist_patients(request, therapist_id):
                     ),
                     "study_group": getattr(patient, "study_group", None) or None,
                     "flagged": bool(getattr(patient, "flagged", False)),
-                    "flagged_at": (
-                        patient.flagged_at.isoformat() if getattr(patient, "flagged_at", None) else None
-                    ),
+                    "flagged_at": (patient.flagged_at.isoformat() if getattr(patient, "flagged_at", None) else None),
                     "flagged_by": getattr(patient, "flagged_by", "") or "",
                 }
             )
