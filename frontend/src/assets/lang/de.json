@@ -1426,5 +1426,8 @@
   "skip_reason_future_window": "Zeitraum noch nicht erreicht",
   "skip_reason_no_records": "Keine Wearable-Daten im Zeitraum gefunden",
   "skip_reason_no_valid_days": "{{count}} Datensatz/Datensätze gefunden, aber keiner erfüllt die {{hours}}h/Tag-Tragedauer ({{activity}} gültige Aktivitätstage, {{sleep}} gültige Schlafnächte)",
-  "skip_reason_already_populated": "Bereits in REDCap befüllt (Event: {{event}}, monitoring_start: {{start}}) — Neu synchronisieren (erzwingen) verwenden, um zu überschreiben"
+  "skip_reason_already_populated": "Bereits in REDCap befüllt (Event: {{event}}, monitoring_start: {{start}}) — Neu synchronisieren (erzwingen) verwenden, um zu überschreiben",
+  "Export steps, active zone minutes, sleep and blood pressure for the selected time period as a PDF.": "Schritte, aktive Zonenminuten, Schlaf und Blutdruck für den ausgewählten Zeitraum als PDF exportieren.",
+  "Exporting...": "Wird exportiert...",
+  "Failed to export health data.": "Fehler beim Exportieren der Gesundheitsdaten."
 }

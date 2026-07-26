@@ -125,3 +125,31 @@ export const svgToImageDataUrl = (el: SVGSVGElement): Promise<string> =>
     };
     img.src = url;
   });
+
+// ---------- PDF export captions (avg/min/max) ----------
+export const statsOf = (values: number[]): { avg: number; min: number; max: number } | null => {
+  if (!values.length) return null;
+  return {
+    avg: values.reduce((sum, v) => sum + v, 0) / values.length,
+    min: Math.min(...values),
+    max: Math.max(...values),
+  };
+};
+
+// Shared "avg/min/max" caption; `predicate` excludes values (e.g. 0-minute exercise days).
+export const scalarCaption = <T>(
+  rows: T[],
+  field: keyof T,
+  fmtValue: (v: number) => string,
+  opts: { label?: string; predicate?: (v: number) => boolean } = {}
+): string | null => {
+  const predicate = opts.predicate ?? (() => true);
+  const s = statsOf(
+    rows
+      .map((r) => r[field] as unknown as number | null)
+      .filter((n): n is number => n != null && predicate(n))
+  );
+  if (!s) return null;
+  const body = `avg ${fmtValue(s.avg)} · min ${fmtValue(s.min)} · max ${fmtValue(s.max)}`;
+  return opts.label ? `${opts.label}: ${body}` : body;
+};

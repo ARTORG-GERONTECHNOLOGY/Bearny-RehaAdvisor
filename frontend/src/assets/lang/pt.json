@@ -1426,5 +1426,8 @@
   "skip_reason_future_window": "Janela ainda não atingida",
   "skip_reason_no_records": "Nenhum dado wearable encontrado na janela",
   "skip_reason_no_valid_days": "{{count}} registo(s) encontrado(s) mas nenhum satisfaz o limiar de {{hours}}h/dia de utilização ({{activity}} dia(s) de atividade válido(s), {{sleep}} noite(s) de sono válida(s))",
-  "skip_reason_already_populated": "Já preenchido no REDCap (evento: {{event}}, monitoring_start: {{start}}) — use a ressincronização forçada para substituir"
+  "skip_reason_already_populated": "Já preenchido no REDCap (evento: {{event}}, monitoring_start: {{start}}) — use a ressincronização forçada para substituir",
+  "Export steps, active zone minutes, sleep and blood pressure for the selected time period as a PDF.": "Exportar passos, minutos de zona ativa, sono e pressão arterial do período selecionado em PDF.",
+  "Exporting...": "A exportar...",
+  "Failed to export health data.": "Falha ao exportar os dados de saúde."
 }

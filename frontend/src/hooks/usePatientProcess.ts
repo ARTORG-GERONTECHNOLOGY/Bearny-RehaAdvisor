@@ -372,6 +372,7 @@ export function usePatientProcess() {
   }, [dailyMetrics, chartThresholds]);
 
   return {
+    patientId,
     processFilter,
     setProcessFilter,
     from,

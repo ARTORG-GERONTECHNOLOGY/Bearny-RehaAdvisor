@@ -7,7 +7,14 @@ import type { RefObject } from 'react';
 import type { SvgRefs } from '@/components/Health/HealthMetricsCards';
 import type HealthPageStore from '@/stores/healthPageStore';
 
-import { isInRange, svgToImageDataUrl, toEuroDate, formatDateEU } from '@/utils/healthCharts';
+import {
+  isInRange,
+  svgToImageDataUrl,
+  toEuroDate,
+  formatDateEU,
+  statsOf,
+  scalarCaption,
+} from '@/utils/healthCharts';
 import { filterAdherenceInRange } from '@/components/Health/charts/AdherenceLine';
 import { filterWearTimeInRange } from '@/components/Health/charts/WearTimeChart';
 import { filterRestingHRInRange } from '@/components/Health/charts/RestingHRChart';
@@ -262,32 +269,6 @@ export const buildHealthPdf = async (
   // clean mini-chart look, so the exported image alone has no scale. Computed from
   // the same filter functions that drive the chart, not re-derived independently.
   const fmt = (v: number, decimals = 0) => v.toFixed(decimals);
-  const stats = (values: number[]): { avg: number; min: number; max: number } | null => {
-    if (!values.length) return null;
-    return {
-      avg: values.reduce((sum, v) => sum + v, 0) / values.length,
-      min: Math.min(...values),
-      max: Math.max(...values),
-    };
-  };
-
-  // Shared "avg/min/max" caption; `predicate` excludes values (e.g. 0-minute exercise days).
-  const scalarCaption = <T>(
-    rows: T[],
-    field: keyof T,
-    fmtValue: (v: number) => string,
-    opts: { label?: string; predicate?: (v: number) => boolean } = {}
-  ): string | null => {
-    const predicate = opts.predicate ?? (() => true);
-    const s = stats(
-      rows
-        .map((r) => r[field] as unknown as number | null)
-        .filter((v): v is number => v != null && predicate(v))
-    );
-    if (!s) return null;
-    const body = `avg ${fmtValue(s.avg)} · min ${fmtValue(s.min)} · max ${fmtValue(s.max)}`;
-    return opts.label ? `${opts.label}: ${body}` : body;
-  };
 
   const captionBuilders: Record<string, () => string | null> = {
     adherence: () =>
@@ -313,8 +294,8 @@ export const buildHealthPdf = async (
       ),
     bloodPressure: () => {
       const rows = filterBloodPressureInRange(store.fitbitData, from, to);
-      const sys = stats(rows.map((r) => r.sys).filter((v): v is number => v != null));
-      const dia = stats(rows.map((r) => r.dia).filter((v): v is number => v != null));
+      const sys = statsOf(rows.map((r) => r.sys).filter((v): v is number => v != null));
+      const dia = statsOf(rows.map((r) => r.dia).filter((v): v is number => v != null));
       if (!sys && !dia) return null;
       const parts = [
         sys &&
@@ -325,7 +306,7 @@ export const buildHealthPdf = async (
       return `${parts.join('   |   ')} mmHg`;
     },
     hrZones: () => {
-      const s = stats(
+      const s = statsOf(
         filterHRZonesInRange(store.fitbitData, from, to)
           .map((r) => r.fatBurn + r.cardio + r.peak)
           .filter((v) => v > 0)

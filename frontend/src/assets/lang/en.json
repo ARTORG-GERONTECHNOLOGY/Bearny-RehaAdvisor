@@ -1426,5 +1426,8 @@
   "skip_reason_future_window": "Window not yet reached",
   "skip_reason_no_records": "No wearable records found in window",
   "skip_reason_no_valid_days": "{{count}} record(s) found but none met the {{hours}}h/day wear threshold ({{activity}} valid activity day(s), {{sleep}} valid sleep night(s))",
-  "skip_reason_already_populated": "Already populated in REDCap (event: {{event}}, monitoring_start: {{start}}) — use force re-sync to overwrite"
+  "skip_reason_already_populated": "Already populated in REDCap (event: {{event}}, monitoring_start: {{start}}) — use force re-sync to overwrite",
+  "Export steps, active zone minutes, sleep and blood pressure for the selected time period as a PDF.": "Export steps, active zone minutes, sleep and blood pressure for the selected time period as a PDF.",
+  "Exporting...": "Exporting...",
+  "Failed to export health data.": "Failed to export health data."
 }

@@ -10,6 +10,8 @@ import {
   thresholdTier,
   worstTier,
   svgToImageDataUrl,
+  statsOf,
+  scalarCaption,
 } from '@/utils/healthCharts';
 import * as dateFormat from '@/utils/dateFormat';
 
@@ -199,6 +201,54 @@ describe('worstTier', () => {
     expect(worstTier('green', 'red')).toBe('red');
     expect(worstTier('yellow', 'red')).toBe('red');
     expect(worstTier('green', 'green')).toBe('green');
+  });
+});
+
+describe('statsOf', () => {
+  it('returns null for an empty array', () => {
+    expect(statsOf([])).toBeNull();
+  });
+
+  it('computes avg/min/max', () => {
+    expect(statsOf([10, 20, 30])).toEqual({ avg: 20, min: 10, max: 30 });
+  });
+
+  it('handles a single value', () => {
+    expect(statsOf([5])).toEqual({ avg: 5, min: 5, max: 5 });
+  });
+});
+
+describe('scalarCaption', () => {
+  type Row = { date: string; val: number | null };
+  const rows: Row[] = [
+    { date: '2024-01-01', val: 10 },
+    { date: '2024-01-02', val: null },
+    { date: '2024-01-03', val: 30 },
+  ];
+
+  it('returns null when every row is null for the field', () => {
+    const allNull: Row[] = [{ date: '2024-01-01', val: null }];
+    expect(scalarCaption(allNull, 'val', String)).toBeNull();
+  });
+
+  it('formats an avg/min/max caption, ignoring nulls', () => {
+    expect(scalarCaption(rows, 'val', (v) => String(v))).toBe('avg 20 · min 10 · max 30');
+  });
+
+  it('prefixes the caption with a label when given', () => {
+    expect(scalarCaption(rows, 'val', (v) => String(v), { label: 'Steps' })).toBe(
+      'Steps: avg 20 · min 10 · max 30'
+    );
+  });
+
+  it('excludes values the predicate rejects', () => {
+    const withZero: Row[] = [
+      { date: '2024-01-01', val: 0 },
+      { date: '2024-01-02', val: 10 },
+    ];
+    expect(scalarCaption(withZero, 'val', String, { predicate: (v) => v > 0 })).toBe(
+      'avg 10 · min 10 · max 10'
+    );
   });
 });
 
