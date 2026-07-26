@@ -122,7 +122,7 @@ const PatientExportModal: React.FC<Props> = ({
                 tabIndex={0}
                 aria-pressed={chosen[id]}
                 className={`cursor-pointer ${
-                  chosen[id] ? 'bg-pink text-white' : 'border border-pink bg-white text-pink'
+                  chosen[id] ? 'bg-brand text-white' : 'border border-brand bg-white text-brand'
                 }`}
                 onClick={toggle}
                 onKeyDown={(e) => {
