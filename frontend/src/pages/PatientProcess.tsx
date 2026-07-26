@@ -132,17 +132,29 @@ const PatientProcess: React.FC = observer(() => {
               <Badge
                 key={value}
                 onClick={() => setProcessFilter(value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setProcessFilter(value);
+                  }
+                }}
                 variant={processFilter === value ? 'filter-active' : 'filter-inactive'}
                 role="button"
+                tabIndex={0}
                 aria-pressed={processFilter === value}
-                aria-label={processFilter === 'week' ? t('Show last week') : t('Show last month')}
+                aria-label={value === 'week' ? t('Show last week') : t('Show last month')}
                 className="px-4 py-2 text-base"
               >
                 {label}
               </Badge>
             ))}
           </div>
-          <Button size="dashboard" className="text-base" onClick={openExportModal}>
+          <Button
+            size="dashboard"
+            className="text-base"
+            onClick={openExportModal}
+            disabled={!patientId}
+          >
             <FaFilePdf />
             {t('Export')}
           </Button>

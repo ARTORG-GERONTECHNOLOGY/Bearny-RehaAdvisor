@@ -166,6 +166,20 @@ describe('PatientProcess', () => {
     expect(mockSetProcessFilter).toHaveBeenCalledWith('month');
   });
 
+  it('is keyboard-operable: filter badges are focusable and respond to Enter/Space', async () => {
+    renderPage();
+    const badge = await waitFor(() => screen.getByText('Last Month'));
+
+    expect(badge).toHaveAttribute('tabIndex', '0');
+
+    fireEvent.keyDown(badge, { key: 'Enter' });
+    expect(mockSetProcessFilter).toHaveBeenCalledWith('month');
+
+    mockSetProcessFilter.mockClear();
+    fireEvent.keyDown(badge, { key: ' ' });
+    expect(mockSetProcessFilter).toHaveBeenCalledWith('month');
+  });
+
   it('renders all metric cards when not loading', async () => {
     renderPage();
     await waitFor(() => {
@@ -217,11 +231,12 @@ describe('PatientProcess', () => {
     });
   });
 
-  it('shows the "Show last month" aria-label when the month filter is active', async () => {
+  it('gives each filter badge its own aria-label, regardless of which is active', async () => {
     mockHookReturn = { ...baseHookReturn, processFilter: 'month' };
     renderPage();
     await waitFor(() => {
-      expect(screen.getAllByLabelText('Show last month').length).toBeGreaterThan(0);
+      expect(screen.getByLabelText('Show last week')).toBeInTheDocument();
+      expect(screen.getByLabelText('Show last month')).toBeInTheDocument();
     });
   });
 
@@ -265,6 +280,15 @@ describe('PatientProcess', () => {
         expect(screen.getByTestId('patient-export-modal')).toHaveTextContent(
           'Failed to export health data.'
         );
+      });
+    });
+
+    it('disables the Export button when there is no patient id', async () => {
+      mockHookReturn = { ...baseHookReturn, patientId: '' };
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Export/i })).toBeDisabled();
       });
     });
   });

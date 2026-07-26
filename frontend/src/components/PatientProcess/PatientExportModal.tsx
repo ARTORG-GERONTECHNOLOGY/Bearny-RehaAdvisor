@@ -68,7 +68,9 @@ const PatientExportModal: React.FC<Props> = ({
     }
   }, [show, initialFrom, initialTo]);
 
-  const disabled = !from || !to || exporting || !Object.values(chosen).some(Boolean);
+  const invalidRange = !!from && !!to && from.getTime() > to.getTime();
+  const disabled =
+    !from || !to || invalidRange || exporting || !Object.values(chosen).some(Boolean);
 
   return (
     <Sheet open={show} onOpenChange={(open) => !open && !exporting && onClose()}>
@@ -111,17 +113,29 @@ const PatientExportModal: React.FC<Props> = ({
 
         <Label className="font-bold">{t('Select Plots to Export')}</Label>
         <div className="flex flex-wrap gap-2 mt-1">
-          {METRIC_IDS.map((id) => (
-            <Badge
-              key={id}
-              className={`cursor-pointer ${
-                chosen[id] ? 'bg-pink text-white' : 'border border-pink bg-white text-pink'
-              }`}
-              onClick={() => setChosen((p) => ({ ...p, [id]: !p[id] }))}
-            >
-              {METRIC_LABELS[id]}
-            </Badge>
-          ))}
+          {METRIC_IDS.map((id) => {
+            const toggle = () => setChosen((p) => ({ ...p, [id]: !p[id] }));
+            return (
+              <Badge
+                key={id}
+                role="button"
+                tabIndex={0}
+                aria-pressed={chosen[id]}
+                className={`cursor-pointer ${
+                  chosen[id] ? 'bg-pink text-white' : 'border border-pink bg-white text-pink'
+                }`}
+                onClick={toggle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggle();
+                  }
+                }}
+              >
+                {METRIC_LABELS[id]}
+              </Badge>
+            );
+          })}
         </div>
 
         {error && <Alert variant="destructive">{error}</Alert>}

@@ -5,6 +5,20 @@ import PatientExportModal from '@/components/PatientProcess/PatientExportModal';
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
+// react-datepicker drives date changes through a calendar popup that isn't worth
+// exercising here — stub it down to a plain controlled text input so tests can set
+// `from`/`to` directly. Order in the DOM matches JSX order (From, then To).
+jest.mock('react-datepicker', () => ({
+  __esModule: true,
+  default: ({ selected, onChange }: { selected: Date | null; onChange: (d: Date) => void }) => (
+    <input
+      type="text"
+      value={selected ? selected.toISOString() : ''}
+      onChange={(e) => onChange(new Date(e.target.value))}
+    />
+  ),
+}));
+
 const defaultProps = {
   show: true,
   onClose: jest.fn(),
@@ -58,6 +72,21 @@ describe('PatientExportModal', () => {
   });
 
   // ------------------------------------------------------------------
+  // date range validation
+  // ------------------------------------------------------------------
+  describe('date range validation', () => {
+    it('disables the export button when From is after To', () => {
+      render(<PatientExportModal {...defaultProps} />);
+      const [fromInput] = screen.getAllByRole('textbox');
+
+      fireEvent.change(fromInput, { target: { value: '2026-02-01' } });
+
+      expect(screen.getByRole('button', { name: /Export PDF/i })).toBeDisabled();
+      expect(defaultProps.onExport).not.toHaveBeenCalled();
+    });
+  });
+
+  // ------------------------------------------------------------------
   // toggling metric selection
   // ------------------------------------------------------------------
   describe('toggling metric selection', () => {
@@ -75,6 +104,23 @@ describe('PatientExportModal', () => {
       expect(badge.className).toContain('bg-white');
 
       fireEvent.click(badge);
+      expect(badge.className).toContain('bg-pink');
+    });
+
+    it('is keyboard-operable: exposes button semantics and toggles on Enter/Space', () => {
+      render(<PatientExportModal {...defaultProps} />);
+      const badge = screen.getByText('Sleep');
+
+      expect(badge).toHaveAttribute('role', 'button');
+      expect(badge).toHaveAttribute('tabIndex', '0');
+      expect(badge).toHaveAttribute('aria-pressed', 'true');
+
+      fireEvent.keyDown(badge, { key: 'Enter' });
+      expect(badge).toHaveAttribute('aria-pressed', 'false');
+      expect(badge.className).toContain('bg-white');
+
+      fireEvent.keyDown(badge, { key: ' ' });
+      expect(badge).toHaveAttribute('aria-pressed', 'true');
       expect(badge.className).toContain('bg-pink');
     });
 
