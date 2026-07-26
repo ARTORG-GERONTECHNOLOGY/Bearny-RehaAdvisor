@@ -41,7 +41,7 @@ describe('PatientExportModal', () => {
     it('renders a badge for each of the four metrics', () => {
       render(<PatientExportModal {...defaultProps} />);
       expect(screen.getByText('Steps')).toBeInTheDocument();
-      expect(screen.getByText('activeMinutes')).toBeInTheDocument();
+      expect(screen.getByText('Active Minutes')).toBeInTheDocument();
       expect(screen.getByText('Sleep')).toBeInTheDocument();
       expect(screen.getByText('Blood pressure')).toBeInTheDocument();
     });
@@ -81,7 +81,7 @@ describe('PatientExportModal', () => {
     it('disables the export button once every metric is deselected', () => {
       render(<PatientExportModal {...defaultProps} />);
       fireEvent.click(screen.getByText('Steps'));
-      fireEvent.click(screen.getByText('activeMinutes'));
+      fireEvent.click(screen.getByText('Active Minutes'));
       fireEvent.click(screen.getByText('Sleep'));
       fireEvent.click(screen.getByText('Blood pressure'));
 
@@ -157,6 +157,21 @@ describe('PatientExportModal', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /Export PDF/i }));
       expect(defaultProps.onExport).toHaveBeenCalledWith(laterFrom, laterTo, expect.any(Object));
+    });
+
+    it('re-selects every metric after being closed and reopened, undoing prior deselection', () => {
+      const { rerender } = render(<PatientExportModal {...defaultProps} />);
+
+      fireEvent.click(screen.getByText('Sleep'));
+      rerender(<PatientExportModal {...defaultProps} show={false} />);
+      rerender(<PatientExportModal {...defaultProps} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Export PDF/i }));
+      expect(defaultProps.onExport).toHaveBeenCalledWith(
+        defaultProps.initialFrom,
+        defaultProps.initialTo,
+        { steps: true, activeMinutes: true, sleep: true, bloodPressure: true }
+      );
     });
   });
 });

@@ -31,6 +31,13 @@ type Props = {
 
 const METRIC_IDS: PatientExportMetric[] = ['steps', 'activeMinutes', 'sleep', 'bloodPressure'];
 
+const DEFAULT_CHOSEN: Record<PatientExportMetric, boolean> = {
+  steps: true,
+  activeMinutes: true,
+  sleep: true,
+  bloodPressure: true,
+};
+
 const PatientExportModal: React.FC<Props> = ({
   show,
   onClose,
@@ -44,24 +51,20 @@ const PatientExportModal: React.FC<Props> = ({
 
   const METRIC_LABELS: Record<PatientExportMetric, string> = {
     steps: t('Steps'),
-    activeMinutes: t('activeMinutes'),
+    activeMinutes: t('Active Minutes'),
     sleep: t('Sleep'),
     bloodPressure: t('Blood pressure'),
   };
 
   const [from, setFrom] = useState<Date | null>(initialFrom);
   const [to, setTo] = useState<Date | null>(initialTo);
-  const [chosen, setChosen] = useState<Record<PatientExportMetric, boolean>>({
-    steps: true,
-    activeMinutes: true,
-    sleep: true,
-    bloodPressure: true,
-  });
+  const [chosen, setChosen] = useState<Record<PatientExportMetric, boolean>>(DEFAULT_CHOSEN);
 
   useEffect(() => {
     if (show) {
       setFrom(initialFrom);
       setTo(initialTo);
+      setChosen(DEFAULT_CHOSEN);
     }
   }, [show, initialFrom, initialTo]);
 

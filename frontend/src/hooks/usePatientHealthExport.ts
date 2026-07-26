@@ -32,7 +32,10 @@ export function usePatientHealthExport(patientId: string | null) {
     try {
       const store = storeRef.current;
       await store.fetchCombinedHistoryForPatient(patientId, toLocalYMD(from), toLocalYMD(to), t);
-      if (store.error) throw new Error(store.error);
+      if (store.error) {
+        setError(store.error);
+        return;
+      }
 
       const doc = buildPatientHealthPdf(store, from, to, selections, t);
       doc.save(`HealthData_${toLocalYMD(from)}_to_${toLocalYMD(to)}.pdf`);
