@@ -92,8 +92,8 @@ describe('PatientExportModal', () => {
   describe('toggling metric selection', () => {
     it('all four metrics start selected', () => {
       render(<PatientExportModal {...defaultProps} />);
-      expect(screen.getByText('Steps').className).toContain('bg-pink');
-      expect(screen.getByText('Blood pressure').className).toContain('bg-pink');
+      expect(screen.getByText('Steps').className).toContain('bg-brand');
+      expect(screen.getByText('Blood pressure').className).toContain('bg-brand');
     });
 
     it('toggles a single badge off and back on', () => {
@@ -104,7 +104,7 @@ describe('PatientExportModal', () => {
       expect(badge.className).toContain('bg-white');
 
       fireEvent.click(badge);
-      expect(badge.className).toContain('bg-pink');
+      expect(badge.className).toContain('bg-brand');
     });
 
     it('is keyboard-operable: exposes button semantics and toggles on Enter/Space', () => {
@@ -121,7 +121,7 @@ describe('PatientExportModal', () => {
 
       fireEvent.keyDown(badge, { key: ' ' });
       expect(badge).toHaveAttribute('aria-pressed', 'true');
-      expect(badge.className).toContain('bg-pink');
+      expect(badge.className).toContain('bg-brand');
     });
 
     it('disables the export button once every metric is deselected', () => {
