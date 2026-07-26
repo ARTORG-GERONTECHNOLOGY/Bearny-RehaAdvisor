@@ -356,6 +356,50 @@ describe('buildHealthPdf', () => {
     expect(captions.some((c) => typeof c === 'string' && c.includes('avg'))).toBe(true);
   });
 
+  it('draws the range/stats summary at the top of the chart page, above the image', async () => {
+    const refs: SvgRefs = { ...emptySvgRefs, steps: svgRef() };
+    await buildHealthPdf(store, refs, from, to, { ...noSelections, steps: true }, t, 'en');
+
+    const rangeCall = textMock.mock.calls.find(
+      (call) => typeof call[0] === 'string' && call[0].includes('–')
+    );
+    const captionCall = textMock.mock.calls.find(
+      (call) => typeof call[0] === 'string' && call[0].includes('avg')
+    );
+    // y-coordinate is call[2]; both sit near the top (under the title at y=30),
+    // matching where the table page draws the same summary.
+    expect(rangeCall?.[2]).toBe(46);
+    expect(captionCall?.[2]).toBe(60);
+
+    // addImage(url, 'PNG', x, y, w, h) — y is the 4th argument.
+    const [, , , imgY] = addImageMock.mock.calls[0];
+    expect(imgY).toBeGreaterThan(captionCall![2] as number);
+  });
+
+  it('adds a Date/Steps table page right after the chart page, when data exists', async () => {
+    const refs: SvgRefs = { ...emptySvgRefs, steps: svgRef() };
+    await buildHealthPdf(store, refs, from, to, { ...noSelections, steps: true }, t, 'en');
+
+    // chart page (no leading page break) + 1 table page
+    expect(addPageMock).toHaveBeenCalledTimes(1);
+    expect(autoTableMock).toHaveBeenCalledTimes(1);
+
+    const [[, opts]] = autoTableMock.mock.calls;
+    expect(opts.head).toEqual([['Date', 'Steps']]);
+    expect(opts.body).toEqual([
+      ['01.03.2024', '4000'],
+      ['02.03.2024', '6000'],
+    ]);
+  });
+
+  it('skips the table page when the metric has no in-range data', async () => {
+    const refs: SvgRefs = { ...emptySvgRefs, breathing: svgRef() };
+    await buildHealthPdf(store, refs, from, to, { ...noSelections, breathing: true }, t, 'en');
+
+    expect(addPageMock).not.toHaveBeenCalled();
+    expect(autoTableMock).not.toHaveBeenCalled();
+  });
+
   it('builds a two-part sys/dia caption for blood pressure, in mmHg', async () => {
     const refs: SvgRefs = { ...emptySvgRefs, bloodPressure: svgRef() };
     await buildHealthPdf(store, refs, from, to, { ...noSelections, bloodPressure: true }, t, 'en');
@@ -365,6 +409,18 @@ describe('buildHealthPdf', () => {
     expect(caption).toContain('Blood pressure systolic');
     expect(caption).toContain('Blood pressure diastolic');
     expect(caption).toMatch(/mmHg$/);
+  });
+
+  it('builds a Date/Systolic/Diastolic table page for blood pressure', async () => {
+    const refs: SvgRefs = { ...emptySvgRefs, bloodPressure: svgRef() };
+    await buildHealthPdf(store, refs, from, to, { ...noSelections, bloodPressure: true }, t, 'en');
+
+    const [[, opts]] = autoTableMock.mock.calls;
+    expect(opts.head).toEqual([['Date', 'Systolic (mmHg)', 'Diastolic (mmHg)']]);
+    expect(opts.body).toEqual([
+      ['01.03.2024', '120', '80'],
+      ['02.03.2024', '125', '82'],
+    ]);
   });
 
   it('builds captions for weight, active minutes, exercise, sleep and breathing sections', async () => {
