@@ -62,6 +62,11 @@ const starAnswer = (key: number) => ({
   translations: [{ language: 'en', text: `${'★'.repeat(key)}${'☆'.repeat(5 - key)} (${key}/5)` }],
 });
 
+const openAnswer = () => ({
+  key: 'good',
+  translations: [{ language: 'en', text: 'Good' }],
+});
+
 const TODAY = new Date();
 TODAY.setHours(10, 0, 0, 0);
 
@@ -112,6 +117,20 @@ describe('InterventionCalendar agenda table', () => {
       />
     );
     expect(screen.getByText('—')).toBeInTheDocument();
+  });
+
+  it('shows a dot indicator (not "—") when open/text feedback is present without a star rating', () => {
+    const { container } = render(
+      <InterventionCalendar
+        patientData={
+          makePatientData(TODAY, null, { feedback: [{ answer: [openAnswer()] }] }) as any
+        }
+        onSelectIntervention={jest.fn()}
+        onSelectFeedback={jest.fn()}
+      />
+    );
+    expect(screen.queryByText('—')).not.toBeInTheDocument();
+    expect(container.querySelector('.rounded-full.bg-zinc-400')).toBeInTheDocument();
   });
 
   it('renders SVG stars when star feedback is present', () => {
