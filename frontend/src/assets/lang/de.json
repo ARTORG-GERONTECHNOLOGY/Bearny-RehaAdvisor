@@ -1426,5 +1426,18 @@
   "skip_reason_future_window": "Zeitraum noch nicht erreicht",
   "skip_reason_no_records": "Keine Wearable-Daten im Zeitraum gefunden",
   "skip_reason_no_valid_days": "{{count}} Datensatz/Datensätze gefunden, aber keiner erfüllt die {{hours}}h/Tag-Tragedauer ({{activity}} gültige Aktivitätstage, {{sleep}} gültige Schlafnächte)",
-  "skip_reason_already_populated": "Bereits in REDCap befüllt (Event: {{event}}, monitoring_start: {{start}}) — Neu synchronisieren (erzwingen) verwenden, um zu überschreiben"
+  "skip_reason_already_populated": "Bereits in REDCap befüllt (Event: {{event}}, monitoring_start: {{start}}) — Neu synchronisieren (erzwingen) verwenden, um zu überschreiben",
+  "Flag": "Markierung",
+  "Flag patient": "Patient markieren",
+  "Unflag patient": "Markierung aufheben",
+  "View comments": "Kommentare anzeigen",
+  "Add comment": "Kommentar hinzufügen",
+  "Adding...": "Wird hinzugefügt...",
+  "Comments": "Kommentare",
+  "History": "Verlauf",
+  "No comments yet.": "Noch keine Kommentare.",
+  "e.g. Called patient, left voicemail.": "z. B. Patient angerufen, Nachricht hinterlassen.",
+  "Failed to add comment.": "Fehler beim Hinzufügen des Kommentars.",
+  "Failed to load comments.": "Fehler beim Laden der Kommentare.",
+  "Failed to update flag.": "Fehler beim Aktualisieren der Markierung."
 }
