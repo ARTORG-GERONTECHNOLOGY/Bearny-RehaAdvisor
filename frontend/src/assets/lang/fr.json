@@ -1429,7 +1429,7 @@
   "skip_reason_already_populated": "Déjà renseigné dans REDCap (événement : {{event}}, monitoring_start : {{start}}) — utiliser la re-synchronisation forcée pour écraser",
   "Export steps, active zone minutes, sleep and blood pressure for the selected time period as a PDF.": "Exporter les pas, les minutes de zone active, le sommeil et la tension artérielle de la période sélectionnée au format PDF.",
   "Exporting...": "Exportation en cours...",
-  "Failed to export health data.": "Échec de l'exportation des données de santé."
+  "Failed to export health data.": "Échec de l'exportation des données de santé.",
   "Flag": "Signalement",
   "Flag patient": "Signaler le patient",
   "Unflag patient": "Retirer le signalement",

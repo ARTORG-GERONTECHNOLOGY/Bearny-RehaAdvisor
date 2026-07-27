@@ -1429,7 +1429,7 @@
   "skip_reason_already_populated": "Already populated in REDCap (event: {{event}}, monitoring_start: {{start}}) — use force re-sync to overwrite",
   "Export steps, active zone minutes, sleep and blood pressure for the selected time period as a PDF.": "Export steps, active zone minutes, sleep and blood pressure for the selected time period as a PDF.",
   "Exporting...": "Exporting...",
-  "Failed to export health data.": "Failed to export health data."
+  "Failed to export health data.": "Failed to export health data.",
   "Flag": "Flag",
   "Flag patient": "Flag patient",
   "Unflag patient": "Unflag patient",

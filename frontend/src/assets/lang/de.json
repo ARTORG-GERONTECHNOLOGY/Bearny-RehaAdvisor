@@ -1429,7 +1429,7 @@
   "skip_reason_already_populated": "Bereits in REDCap befüllt (Event: {{event}}, monitoring_start: {{start}}) — Neu synchronisieren (erzwingen) verwenden, um zu überschreiben",
   "Export steps, active zone minutes, sleep and blood pressure for the selected time period as a PDF.": "Schritte, aktive Zonenminuten, Schlaf und Blutdruck für den ausgewählten Zeitraum als PDF exportieren.",
   "Exporting...": "Wird exportiert...",
-  "Failed to export health data.": "Fehler beim Exportieren der Gesundheitsdaten."
+  "Failed to export health data.": "Fehler beim Exportieren der Gesundheitsdaten.",
   "Flag": "Markierung",
   "Flag patient": "Patient markieren",
   "Unflag patient": "Markierung aufheben",

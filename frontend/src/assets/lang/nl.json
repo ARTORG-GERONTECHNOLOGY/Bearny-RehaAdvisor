@@ -1429,7 +1429,7 @@
   "skip_reason_already_populated": "Al ingevuld in REDCap (evenement: {{event}}, monitoring_start: {{start}}) — gebruik geforceerde hersynchronisatie om te overschrijven",
   "Export steps, active zone minutes, sleep and blood pressure for the selected time period as a PDF.": "Exporteer stappen, actieve zoneminuten, slaap en bloeddruk voor de geselecteerde periode als PDF.",
   "Exporting...": "Exporteren...",
-  "Failed to export health data.": "Exporteren van gezondheidsgegevens mislukt."
+  "Failed to export health data.": "Exporteren van gezondheidsgegevens mislukt.",
   "Flag": "Markering",
   "Flag patient": "Patiënt markeren",
   "Unflag patient": "Markering verwijderen",
