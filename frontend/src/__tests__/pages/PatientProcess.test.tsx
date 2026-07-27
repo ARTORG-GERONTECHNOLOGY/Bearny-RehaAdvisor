@@ -9,6 +9,7 @@ jest.mock('date-fns', () => ({
 // ─── usePatientProcess hook ───────────────────────────────────────────────────
 const mockSetProcessFilter = jest.fn();
 const baseHookReturn = {
+  patientId: 'patient-123',
   processFilter: 'week' as const,
   setProcessFilter: mockSetProcessFilter,
   from: '2026-05-01',
@@ -48,6 +49,36 @@ let mockHookReturn = { ...baseHookReturn };
 
 jest.mock('@/hooks/usePatientProcess', () => ({
   usePatientProcess: () => mockHookReturn,
+}));
+
+// ─── usePatientHealthExport hook ──────────────────────────────────────────────
+// Mocked for the same reason as usePatientProcess above, plus a more concrete one: it pulls in
+// buildPatientHealthPdf → jsPDF (real ESM), which Jest can't parse without this module boundary
+// (see patientHealthExport.test.ts / usePatientHealthExport.test.ts for the real behavior).
+const mockOpenExportModal = jest.fn();
+const mockCloseExportModal = jest.fn();
+const mockRunExport = jest.fn();
+const baseExportHookReturn = {
+  showModal: false,
+  openModal: mockOpenExportModal,
+  closeModal: mockCloseExportModal,
+  exporting: false,
+  error: '',
+  runExport: mockRunExport,
+};
+let mockExportHookReturn = { ...baseExportHookReturn };
+
+jest.mock('@/hooks/usePatientHealthExport', () => ({
+  usePatientHealthExport: () => mockExportHookReturn,
+}));
+
+jest.mock('@/components/PatientProcess/PatientExportModal', () => ({
+  __esModule: true,
+  default: ({ show, exporting, error }: { show: boolean; exporting: boolean; error?: string }) => (
+    <div data-testid="patient-export-modal" data-show={show} data-exporting={exporting}>
+      {error}
+    </div>
+  ),
 }));
 
 // ─── Child components ─────────────────────────────────────────────────────────
@@ -107,7 +138,11 @@ const renderPage = () => render(<PatientProcess />);
 
 beforeEach(() => {
   mockHookReturn = { ...baseHookReturn };
+  mockExportHookReturn = { ...baseExportHookReturn };
   mockSetProcessFilter.mockClear();
+  mockOpenExportModal.mockClear();
+  mockCloseExportModal.mockClear();
+  mockRunExport.mockClear();
 });
 
 describe('PatientProcess', () => {
@@ -128,6 +163,20 @@ describe('PatientProcess', () => {
     renderPage();
     await waitFor(() => screen.getByText('Last Month'));
     fireEvent.click(screen.getByText('Last Month'));
+    expect(mockSetProcessFilter).toHaveBeenCalledWith('month');
+  });
+
+  it('is keyboard-operable: filter badges are focusable and respond to Enter/Space', async () => {
+    renderPage();
+    const badge = await waitFor(() => screen.getByText('Last Month'));
+
+    expect(badge).toHaveAttribute('tabIndex', '0');
+
+    fireEvent.keyDown(badge, { key: 'Enter' });
+    expect(mockSetProcessFilter).toHaveBeenCalledWith('month');
+
+    mockSetProcessFilter.mockClear();
+    fireEvent.keyDown(badge, { key: ' ' });
     expect(mockSetProcessFilter).toHaveBeenCalledWith('month');
   });
 
@@ -182,11 +231,12 @@ describe('PatientProcess', () => {
     });
   });
 
-  it('shows the "Show last month" aria-label when the month filter is active', async () => {
+  it('gives each filter badge its own aria-label, regardless of which is active', async () => {
     mockHookReturn = { ...baseHookReturn, processFilter: 'month' };
     renderPage();
     await waitFor(() => {
-      expect(screen.getAllByLabelText('Show last month').length).toBeGreaterThan(0);
+      expect(screen.getByLabelText('Show last week')).toBeInTheDocument();
+      expect(screen.getByLabelText('Show last month')).toBeInTheDocument();
     });
   });
 
@@ -195,6 +245,51 @@ describe('PatientProcess', () => {
     renderPage();
     await waitFor(() => {
       expect(screen.queryByTestId('recommendations-card')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('export', () => {
+    it('renders an Export button that opens the export modal', async () => {
+      renderPage();
+      await waitFor(() => screen.getByRole('button', { name: /Export/i }));
+
+      fireEvent.click(screen.getByRole('button', { name: /Export/i }));
+      expect(mockOpenExportModal).toHaveBeenCalledTimes(1);
+    });
+
+    it('passes the export hook state through to PatientExportModal', async () => {
+      mockExportHookReturn = { ...baseExportHookReturn, showModal: true, exporting: true };
+      renderPage();
+
+      await waitFor(() => {
+        const modal = screen.getByTestId('patient-export-modal');
+        expect(modal.dataset.show).toBe('true');
+        expect(modal.dataset.exporting).toBe('true');
+      });
+    });
+
+    it('surfaces the export error inside PatientExportModal', async () => {
+      mockExportHookReturn = {
+        ...baseExportHookReturn,
+        showModal: true,
+        error: 'Failed to export health data.',
+      };
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('patient-export-modal')).toHaveTextContent(
+          'Failed to export health data.'
+        );
+      });
+    });
+
+    it('disables the Export button when there is no patient id', async () => {
+      mockHookReturn = { ...baseHookReturn, patientId: '' };
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Export/i })).toBeDisabled();
+      });
     });
   });
 });

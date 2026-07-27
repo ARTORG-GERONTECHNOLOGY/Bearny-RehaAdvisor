@@ -7,7 +7,14 @@ import type { RefObject } from 'react';
 import type { SvgRefs } from '@/components/Health/HealthMetricsCards';
 import type HealthPageStore from '@/stores/healthPageStore';
 
-import { isInRange, svgToImageDataUrl, toEuroDate, formatDateEU } from '@/utils/healthCharts';
+import {
+  isInRange,
+  svgToImageDataUrl,
+  toEuroDate,
+  formatDateEU,
+  statsOf,
+  scalarCaption,
+} from '@/utils/healthCharts';
 import { filterAdherenceInRange } from '@/components/Health/charts/AdherenceLine';
 import { filterWearTimeInRange } from '@/components/Health/charts/WearTimeChart';
 import { filterRestingHRInRange } from '@/components/Health/charts/RestingHRChart';
@@ -262,32 +269,6 @@ export const buildHealthPdf = async (
   // clean mini-chart look, so the exported image alone has no scale. Computed from
   // the same filter functions that drive the chart, not re-derived independently.
   const fmt = (v: number, decimals = 0) => v.toFixed(decimals);
-  const stats = (values: number[]): { avg: number; min: number; max: number } | null => {
-    if (!values.length) return null;
-    return {
-      avg: values.reduce((sum, v) => sum + v, 0) / values.length,
-      min: Math.min(...values),
-      max: Math.max(...values),
-    };
-  };
-
-  // Shared "avg/min/max" caption; `predicate` excludes values (e.g. 0-minute exercise days).
-  const scalarCaption = <T>(
-    rows: T[],
-    field: keyof T,
-    fmtValue: (v: number) => string,
-    opts: { label?: string; predicate?: (v: number) => boolean } = {}
-  ): string | null => {
-    const predicate = opts.predicate ?? (() => true);
-    const s = stats(
-      rows
-        .map((r) => r[field] as unknown as number | null)
-        .filter((v): v is number => v != null && predicate(v))
-    );
-    if (!s) return null;
-    const body = `avg ${fmtValue(s.avg)} · min ${fmtValue(s.min)} · max ${fmtValue(s.max)}`;
-    return opts.label ? `${opts.label}: ${body}` : body;
-  };
 
   const captionBuilders: Record<string, () => string | null> = {
     adherence: () =>
@@ -313,8 +294,8 @@ export const buildHealthPdf = async (
       ),
     bloodPressure: () => {
       const rows = filterBloodPressureInRange(store.fitbitData, from, to);
-      const sys = stats(rows.map((r) => r.sys).filter((v): v is number => v != null));
-      const dia = stats(rows.map((r) => r.dia).filter((v): v is number => v != null));
+      const sys = statsOf(rows.map((r) => r.sys).filter((v): v is number => v != null));
+      const dia = statsOf(rows.map((r) => r.dia).filter((v): v is number => v != null));
       if (!sys && !dia) return null;
       const parts = [
         sys &&
@@ -325,7 +306,7 @@ export const buildHealthPdf = async (
       return `${parts.join('   |   ')} mmHg`;
     },
     hrZones: () => {
-      const s = stats(
+      const s = statsOf(
         filterHRZonesInRange(store.fitbitData, from, to)
           .map((r) => r.fatBurn + r.cardio + r.peak)
           .filter((v) => v > 0)
@@ -370,6 +351,128 @@ export const buildHealthPdf = async (
         'breathingRate',
         (v) => `${fmt(v, 1)}/min`
       ),
+  };
+
+  // Table view of the same per-day data behind each chart — added as an extra page
+  // right after the chart page, using the identical filter functions so the numbers
+  // always match what's plotted. `rows` uses the on-screen chart's raw values, not
+  // the caption's rounded display strings.
+  const tableBuilders: Record<string, () => { head: string[]; rows: string[][] } | null> = {
+    adherence: () => {
+      const rows = filterAdherenceInRange(store.adherenceData, from, to).filter(
+        (r) => r.pct != null
+      );
+      if (!rows.length) return null;
+      return {
+        head: [t('Date'), t('Adherence (%)')],
+        rows: rows.map((r) => [toEuroDate(r.date), `${fmt(r.pct as number)}%`]),
+      };
+    },
+    wearTime: () => {
+      const rows = filterWearTimeInRange(store.fitbitData, from, to).filter(
+        (r) => r.wearTime != null
+      );
+      if (!rows.length) return null;
+      return {
+        head: [t('Date'), t('Wear Time (min)')],
+        rows: rows.map((r) => [toEuroDate(r.date), fmt(r.wearTime as number)]),
+      };
+    },
+    restingHR: () => {
+      const rows = filterRestingHRInRange(store.fitbitData, from, to).filter(
+        (r) => r.restingHR != null
+      );
+      if (!rows.length) return null;
+      return {
+        head: [t('Date'), `${t('Resting Heart Rate')} (bpm)`],
+        rows: rows.map((r) => [toEuroDate(r.date), fmt(r.restingHR as number)]),
+      };
+    },
+    bloodPressure: () => {
+      const rows = filterBloodPressureInRange(store.fitbitData, from, to).filter(
+        (r) => r.sys != null || r.dia != null
+      );
+      if (!rows.length) return null;
+      return {
+        head: [t('Date'), t('Systolic (mmHg)'), t('Diastolic (mmHg)')],
+        rows: rows.map((r) => [
+          toEuroDate(r.date),
+          r.sys != null ? String(r.sys) : '',
+          r.dia != null ? String(r.dia) : '',
+        ]),
+      };
+    },
+    hrZones: () => {
+      const rows = filterHRZonesInRange(store.fitbitData, from, to).filter(
+        (r) => r.fatBurn > 0 || r.cardio > 0 || r.peak > 0
+      );
+      if (!rows.length) return null;
+      return {
+        head: [
+          t('Date'),
+          `${t('Fat Burn')} (${t('min')})`,
+          `${t('Cardio')} (${t('min')})`,
+          `${t('Peak')} (${t('min')})`,
+        ],
+        rows: rows.map((r) => [toEuroDate(r.date), fmt(r.fatBurn), fmt(r.cardio), fmt(r.peak)]),
+      };
+    },
+    steps: () => {
+      const rows = filterStepsInRange(store.fitbitData, from, to).filter((r) => r.steps != null);
+      if (!rows.length) return null;
+      return {
+        head: [t('Date'), t('Steps')],
+        rows: rows.map((r) => [toEuroDate(r.date), String(r.steps)]),
+      };
+    },
+    activeMinutes: () => {
+      const rows = filterActiveMinutesInRange(store.fitbitData, from, to).filter(
+        (r) => r.activeMinutes != null
+      );
+      if (!rows.length) return null;
+      return {
+        head: [t('Date'), t('Active Minutes')],
+        rows: rows.map((r) => [toEuroDate(r.date), String(r.activeMinutes)]),
+      };
+    },
+    weight: () => {
+      const rows = filterWeightInRange(store.fitbitData, from, to).filter((r) => r.weight != null);
+      if (!rows.length) return null;
+      return {
+        head: [t('Date'), t('Weight (kg)')],
+        rows: rows.map((r) => [toEuroDate(r.date), fmt(r.weight as number, 1)]),
+      };
+    },
+    exercise: () => {
+      const rows = filterExerciseInRange(store.fitbitData, from, to).filter(
+        (r) => r.total != null && r.total > 0
+      );
+      if (!rows.length) return null;
+      return {
+        head: [t('Date'), t('Duration (min)')],
+        rows: rows.map((r) => [toEuroDate(r.date), fmt(r.total as number)]),
+      };
+    },
+    sleep: () => {
+      const rows = filterSleepInRange(store.fitbitData, from, to).filter(
+        (r) => r.minutesAsleep != null
+      );
+      if (!rows.length) return null;
+      return {
+        head: [t('Date'), t('Duration (h)')],
+        rows: rows.map((r) => [toEuroDate(r.date), (r.minutesAsleep! / 60).toFixed(2)]),
+      };
+    },
+    breathing: () => {
+      const rows = filterBreathingInRange(store.fitbitData, from, to).filter(
+        (r) => r.breathingRate != null
+      );
+      if (!rows.length) return null;
+      return {
+        head: [t('Date'), t('Breathing Rate (breaths/min)')],
+        rows: rows.map((r) => [toEuroDate(r.date), fmt(r.breathingRate as number, 1)]),
+      };
+    },
   };
 
   const sections: Section[] = [
@@ -460,10 +563,19 @@ export const buildHealthPdf = async (
       continue;
     }
 
-    // Bottom margin (below maxH) is reserved for the date-range/stats caption below,
-    // since the chart itself has no axis labels to give it scale.
+    // Date-range/stats summary sits right under the title — same position as on the
+    // table page — since the chart itself has no axis labels to give it scale.
+    const rangeLine = `${formatDateEU(from)} – ${formatDateEU(to)}`;
+    const caption = captionBuilders[section.key]?.();
+    doc.setFontSize(9);
+    doc.text(rangeLine, pageW / 2, 46, { align: 'center' });
+    if (caption) doc.text(caption, pageW / 2, 60, { align: 'center' });
+    doc.setFontSize(titleFontSize);
+
+    // Chart image fills the space below the summary, down to the bottom margin.
+    const imgStartY = caption ? 74 : 60;
     const maxW = pageW - 60;
-    const maxH = pageH - 115;
+    const maxH = pageH - imgStartY - 30;
 
     const vb = (svg as any).viewBox?.baseVal;
     const sW = vb?.width || 800;
@@ -474,14 +586,28 @@ export const buildHealthPdf = async (
     const imgH = sH * scale;
 
     const url = await svgToImageDataUrl(svg);
-    doc.addImage(url, 'PNG', (pageW - imgW) / 2, 50, imgW, imgH);
+    doc.addImage(url, 'PNG', (pageW - imgW) / 2, imgStartY, imgW, imgH);
 
-    const rangeLine = `${formatDateEU(from)} – ${formatDateEU(to)}`;
-    const caption = captionBuilders[section.key]?.();
-    doc.setFontSize(9);
-    doc.text(rangeLine, pageW / 2, pageH - (caption ? 38 : 24), { align: 'center' });
-    if (caption) doc.text(caption, pageW / 2, pageH - 22, { align: 'center' });
-    doc.setFontSize(titleFontSize);
+    // Table view of the same data, right after the chart — only added when there's
+    // something to show, so a metric with no readings doesn't get a second empty page.
+    const table = tableBuilders[section.key]?.();
+    if (table) {
+      doc.addPage();
+      doc.text(String(section.title), pageW / 2, 30, { align: 'center' });
+      doc.setFontSize(9);
+      doc.text(rangeLine, pageW / 2, 46, { align: 'center' });
+      if (caption) doc.text(caption, pageW / 2, 60, { align: 'center' });
+      doc.setFontSize(titleFontSize);
+
+      autoTable(doc, {
+        startY: caption ? 74 : 60,
+        head: [table.head],
+        body: table.rows,
+        styles: { fontSize: 9, cellPadding: 5 },
+        headStyles: { fillColor: [0, 149, 108] },
+        margin: { left: 30, right: 30 },
+      });
+    }
   }
 
   return doc;
