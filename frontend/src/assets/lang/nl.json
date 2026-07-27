@@ -1426,5 +1426,18 @@
   "skip_reason_future_window": "Venster nog niet bereikt",
   "skip_reason_no_records": "Geen wearable-gegevens gevonden in het venster",
   "skip_reason_no_valid_days": "{{count}} record(s) gevonden maar geen voldoet aan de {{hours}}u/dag draagdrempel ({{activity}} geldige activiteitsdag(en), {{sleep}} geldige slaapdagen)",
-  "skip_reason_already_populated": "Al ingevuld in REDCap (evenement: {{event}}, monitoring_start: {{start}}) — gebruik geforceerde hersynchronisatie om te overschrijven"
+  "skip_reason_already_populated": "Al ingevuld in REDCap (evenement: {{event}}, monitoring_start: {{start}}) — gebruik geforceerde hersynchronisatie om te overschrijven",
+  "Flag": "Markering",
+  "Flag patient": "Patiënt markeren",
+  "Unflag patient": "Markering verwijderen",
+  "View comments": "Opmerkingen bekijken",
+  "Add comment": "Opmerking toevoegen",
+  "Adding...": "Bezig met toevoegen...",
+  "Comments": "Opmerkingen",
+  "History": "Geschiedenis",
+  "No comments yet.": "Nog geen opmerkingen.",
+  "e.g. Called patient, left voicemail.": "bijv. Patiënt gebeld, voicemail achtergelaten.",
+  "Failed to add comment.": "Toevoegen van opmerking mislukt.",
+  "Failed to load comments.": "Laden van opmerkingen mislukt.",
+  "Failed to update flag.": "Bijwerken van markering mislukt."
 }
