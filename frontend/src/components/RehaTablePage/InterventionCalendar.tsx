@@ -272,6 +272,11 @@ const InterventionCalendar: React.FC<Props> = ({
                     >
                       {rating !== null ? (
                         <StarRating value={rating} />
+                      ) : (ev.resource.dateEntry.feedback?.length ?? 0) > 0 ? (
+                        <span
+                          className="inline-block w-2 h-2 rounded-full bg-zinc-400"
+                          title={t('Open feedback')}
+                        />
                       ) : (
                         <span className="text-chartMuted">—</span>
                       )}
