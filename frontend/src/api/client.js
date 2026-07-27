@@ -47,7 +47,14 @@ apiClient.interceptors.response.use(
     // -------------------------------
     // 401 → Try refresh via httpOnly cookie
     // -------------------------------
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip refresh for auth endpoints — a 401 from login means wrong
+    // credentials (not an expired token), and /token/refresh/ itself
+    // returning 401 would cause an infinite loop.
+    const skipRefreshUrls = ['/auth/login/', '/auth/token/refresh/', '/auth/register/'];
+    const requestUrl = originalRequest.url || '';
+    const isAuthEndpoint = skipRefreshUrls.some((u) => requestUrl.includes(u));
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       // Another refresh is already in flight — queue this request
       if (_isRefreshing) {
         return new Promise((resolve, reject) => {
