@@ -613,4 +613,236 @@ describe('TherapistPatientsStore', () => {
       expect(completed.map((p: any) => p._id)).toEqual(['done']);
     });
   });
+
+  // ------------------------------------------------------------------
+  // toggleFlag
+  // ------------------------------------------------------------------
+  describe('toggleFlag', () => {
+    it('is a no-op when the patient has no _id', async () => {
+      await store.toggleFlag(makePatient({ _id: '' }) as any, t);
+      expect(apiClient.patch).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op while a toggle for the same patient is already in flight', async () => {
+      store.togglingFlagIds.add('p1');
+      await store.toggleFlag(makePatient({ _id: 'p1' }) as any, t);
+      expect(apiClient.patch).not.toHaveBeenCalled();
+    });
+
+    it('does not block toggling a different patient while one is in flight', async () => {
+      store.togglingFlagIds.add('some-other-patient');
+      (apiClient.patch as jest.Mock).mockResolvedValueOnce({
+        data: { flagged: true, flagged_at: '2026-01-01T00:00:00Z', flagged_by: 'Dr. House' },
+      });
+
+      await store.toggleFlag(makePatient({ _id: 'p1' }) as any, t);
+
+      expect(apiClient.patch).toHaveBeenCalledWith('/patients/p1/flag/', { flagged: true });
+    });
+
+    it('flags an unflagged patient and updates it in place from the response', async () => {
+      store.patients = [makePatient({ _id: 'p1', flagged: false })] as any;
+      (apiClient.patch as jest.Mock).mockResolvedValueOnce({
+        data: { flagged: true, flagged_at: '2026-01-01T00:00:00Z', flagged_by: 'Dr. House' },
+      });
+
+      await store.toggleFlag(store.patients[0], t);
+
+      expect(apiClient.patch).toHaveBeenCalledWith('/patients/p1/flag/', { flagged: true });
+      expect(store.patients[0].flagged).toBe(true);
+      expect(store.patients[0].flagged_at).toBe('2026-01-01T00:00:00Z');
+      expect(store.patients[0].flagged_by).toBe('Dr. House');
+      expect(store.togglingFlagIds.has('p1')).toBe(false);
+    });
+
+    it('unflags an already-flagged patient', async () => {
+      store.patients = [makePatient({ _id: 'p1', flagged: true })] as any;
+      (apiClient.patch as jest.Mock).mockResolvedValueOnce({
+        data: { flagged: false, flagged_at: null, flagged_by: '' },
+      });
+
+      await store.toggleFlag(store.patients[0], t);
+
+      expect(apiClient.patch).toHaveBeenCalledWith('/patients/p1/flag/', { flagged: false });
+      expect(store.patients[0].flagged).toBe(false);
+    });
+
+    it('falls back to the optimistic value and defaults when the response omits fields', async () => {
+      store.patients = [makePatient({ _id: 'p1', flagged: false })] as any;
+      (apiClient.patch as jest.Mock).mockResolvedValueOnce({ data: {} });
+
+      await store.toggleFlag(store.patients[0], t);
+
+      expect(store.patients[0].flagged).toBe(true);
+      expect(store.patients[0].flagged_at).toBeNull();
+      expect(store.patients[0].flagged_by).toBe('');
+    });
+
+    it('sets an error and clears togglingFlagIds on failure', async () => {
+      store.patients = [makePatient({ _id: 'p1', flagged: false })] as any;
+      (apiClient.patch as jest.Mock).mockRejectedValueOnce({
+        response: { data: { message: 'Not authorised' } },
+      });
+
+      await store.toggleFlag(store.patients[0], t);
+
+      expect(store.error).toBe('Not authorised');
+      expect(store.togglingFlagIds.has('p1')).toBe(false);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Flag + comments modal controls
+  // ------------------------------------------------------------------
+  describe('openFlagComments / closeFlagComments / setNewCommentText', () => {
+    it('opens the modal for the given patient and triggers a comments fetch', () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { comments: [] } });
+      const patient = makePatient({ _id: 'p1', first_name: 'Jane', name: 'Doe' });
+
+      store.openFlagComments(patient as any, t);
+
+      expect(store.showFlagCommentsModal).toBe(true);
+      expect(store.flagCommentsPatientId).toBe('p1');
+      expect(store.flagCommentsPatientName).toBe('Jane Doe');
+      expect(apiClient.get).toHaveBeenCalledWith('/patients/p1/comments/');
+    });
+
+    it('closeFlagComments resets all modal state back to defaults', () => {
+      store.showFlagCommentsModal = true;
+      store.flagCommentsPatientId = 'p1';
+      store.flagCommentsPatientName = 'Jane Doe';
+      store.comments = [{ text: 'hi', created_at: null, commented_by: 'A' }];
+      store.commentsError = 'oops';
+      store.newCommentText = 'draft';
+
+      store.closeFlagComments();
+
+      expect(store.showFlagCommentsModal).toBe(false);
+      expect(store.flagCommentsPatientId).toBeNull();
+      expect(store.flagCommentsPatientName).toBe('');
+      expect(store.comments).toEqual([]);
+      expect(store.commentsError).toBe('');
+      expect(store.newCommentText).toBe('');
+    });
+
+    it('setNewCommentText updates the draft text', () => {
+      store.setNewCommentText('Called patient.');
+      expect(store.newCommentText).toBe('Called patient.');
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // fetchComments
+  // ------------------------------------------------------------------
+  describe('fetchComments', () => {
+    it('is a no-op without a target patient', async () => {
+      await store.fetchComments(t);
+      expect(apiClient.get).not.toHaveBeenCalled();
+    });
+
+    it('loads comments for the current modal patient', async () => {
+      store.flagCommentsPatientId = 'p1';
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { comments: [{ text: 'hi', created_at: '2026-01-01T00:00:00Z', commented_by: 'A' }] },
+      });
+
+      await store.fetchComments(t);
+
+      expect(apiClient.get).toHaveBeenCalledWith('/patients/p1/comments/');
+      expect(store.comments).toHaveLength(1);
+      expect(store.commentsLoading).toBe(false);
+    });
+
+    it('defaults to an empty list for an unexpected response shape', async () => {
+      store.flagCommentsPatientId = 'p1';
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: {} });
+
+      await store.fetchComments(t);
+
+      expect(store.comments).toEqual([]);
+    });
+
+    it('sets commentsError on failure', async () => {
+      store.flagCommentsPatientId = 'p1';
+      (apiClient.get as jest.Mock).mockRejectedValueOnce({
+        response: { data: { message: 'Server error' } },
+      });
+
+      await store.fetchComments(t);
+
+      expect(store.commentsError).toBe('Server error');
+      expect(store.commentsLoading).toBe(false);
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // addComment
+  // ------------------------------------------------------------------
+  describe('addComment', () => {
+    it('is a no-op without a target patient', async () => {
+      store.newCommentText = 'hello';
+      await store.addComment(t);
+      expect(apiClient.post).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op when the draft text is empty or whitespace', async () => {
+      store.flagCommentsPatientId = 'p1';
+      store.newCommentText = '   ';
+      await store.addComment(t);
+      expect(apiClient.post).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op while a submission is already in flight', async () => {
+      store.flagCommentsPatientId = 'p1';
+      store.newCommentText = 'hello';
+      store.commentSubmitting = true;
+      await store.addComment(t);
+      expect(apiClient.post).not.toHaveBeenCalled();
+    });
+
+    it('posts the trimmed text, updates comments from the response, and clears the draft', async () => {
+      store.flagCommentsPatientId = 'p1';
+      store.newCommentText = '  Called patient.  ';
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: {
+          comments: [
+            { text: 'Called patient.', created_at: '2026-01-01T00:00:00Z', commented_by: 'A' },
+          ],
+        },
+      });
+
+      await store.addComment(t);
+
+      expect(apiClient.post).toHaveBeenCalledWith('/patients/p1/comments/', {
+        text: 'Called patient.',
+      });
+      expect(store.comments).toHaveLength(1);
+      expect(store.newCommentText).toBe('');
+      expect(store.commentSubmitting).toBe(false);
+    });
+
+    it('keeps the existing comments list when the response shape is unexpected', async () => {
+      store.flagCommentsPatientId = 'p1';
+      store.newCommentText = 'hello';
+      store.comments = [{ text: 'old', created_at: null, commented_by: 'A' }];
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({ data: {} });
+
+      await store.addComment(t);
+
+      expect(store.comments).toEqual([{ text: 'old', created_at: null, commented_by: 'A' }]);
+    });
+
+    it('sets commentsError on failure and resets commentSubmitting', async () => {
+      store.flagCommentsPatientId = 'p1';
+      store.newCommentText = 'hello';
+      (apiClient.post as jest.Mock).mockRejectedValueOnce({
+        response: { data: { message: 'Text too long' } },
+      });
+
+      await store.addComment(t);
+
+      expect(store.commentsError).toBe('Text too long');
+      expect(store.commentSubmitting).toBe(false);
+    });
+  });
 });

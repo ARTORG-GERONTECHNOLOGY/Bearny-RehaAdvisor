@@ -1430,4 +1430,17 @@
   "Export steps, active zone minutes, sleep and blood pressure for the selected time period as a PDF.": "Exporter les pas, les minutes de zone active, le sommeil et la tension artérielle de la période sélectionnée au format PDF.",
   "Exporting...": "Exportation en cours...",
   "Failed to export health data.": "Échec de l'exportation des données de santé."
+  "Flag": "Signalement",
+  "Flag patient": "Signaler le patient",
+  "Unflag patient": "Retirer le signalement",
+  "View comments": "Voir les commentaires",
+  "Add comment": "Ajouter un commentaire",
+  "Adding...": "Ajout en cours...",
+  "Comments": "Commentaires",
+  "History": "Historique",
+  "No comments yet.": "Aucun commentaire pour l'instant.",
+  "e.g. Called patient, left voicemail.": "p. ex. Patient appelé, message vocal laissé.",
+  "Failed to add comment.": "Échec de l'ajout du commentaire.",
+  "Failed to load comments.": "Échec du chargement des commentaires.",
+  "Failed to update flag.": "Échec de la mise à jour du signalement."
 }

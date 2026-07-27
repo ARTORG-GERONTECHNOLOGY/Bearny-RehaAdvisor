@@ -83,6 +83,15 @@ export interface PatientType {
   diagnosis: string[];
   sex: string;
   duration: number;
+  flagged?: boolean;
+  flagged_at?: string | null;
+  flagged_by?: string;
+}
+
+export interface PatientComment {
+  text: string;
+  created_at: string | null;
+  commented_by: string;
 }
 
 export interface AuthPayload {

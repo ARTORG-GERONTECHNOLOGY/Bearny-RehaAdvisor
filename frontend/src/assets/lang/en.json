@@ -1430,4 +1430,17 @@
   "Export steps, active zone minutes, sleep and blood pressure for the selected time period as a PDF.": "Export steps, active zone minutes, sleep and blood pressure for the selected time period as a PDF.",
   "Exporting...": "Exporting...",
   "Failed to export health data.": "Failed to export health data."
+  "Flag": "Flag",
+  "Flag patient": "Flag patient",
+  "Unflag patient": "Unflag patient",
+  "View comments": "View comments",
+  "Add comment": "Add comment",
+  "Adding...": "Adding...",
+  "Comments": "Comments",
+  "History": "History",
+  "No comments yet.": "No comments yet.",
+  "e.g. Called patient, left voicemail.": "e.g. Called patient, left voicemail.",
+  "Failed to add comment.": "Failed to add comment.",
+  "Failed to load comments.": "Failed to load comments.",
+  "Failed to update flag.": "Failed to update flag."
 }
