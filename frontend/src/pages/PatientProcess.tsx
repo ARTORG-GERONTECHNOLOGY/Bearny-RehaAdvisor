@@ -1,16 +1,20 @@
 import React from 'react';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
+import { FaFilePdf } from 'react-icons/fa';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import Section from '@/components/Section';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import type { ChartConfig } from '@/components/ui/chart';
 import { format } from 'date-fns';
 import RecommendationsCard from '@/components/PatientProcess/RecommendationsCard';
 import MetricBarCard from '@/components/PatientProcess/MetricBarCard';
 import BloodPressureCard from '@/components/PatientProcess/BloodPressureCard';
+import PatientExportModal from '@/components/PatientProcess/PatientExportModal';
 import { usePatientProcess } from '@/hooks/usePatientProcess';
+import { usePatientHealthExport } from '@/hooks/usePatientHealthExport';
 import { PatientProcessLoadingContent } from '@/components/skeletons/PatientProcessSkeleton';
 import { colors } from '@/lib/colors';
 
@@ -28,6 +32,7 @@ const PatientProcess: React.FC = observer(() => {
   const { t } = useTranslation();
 
   const {
+    patientId,
     processFilter,
     setProcessFilter,
     from,
@@ -40,6 +45,15 @@ const PatientProcess: React.FC = observer(() => {
     chartThresholds,
     chartYMax,
   } = usePatientProcess();
+
+  const {
+    showModal: showExportModal,
+    openModal: openExportModal,
+    closeModal: closeExportModal,
+    exporting,
+    error: exportError,
+    runExport,
+  } = usePatientHealthExport(patientId);
 
   const chartConfigs = React.useMemo(
     () => ({
@@ -108,24 +122,42 @@ const PatientProcess: React.FC = observer(() => {
           title={t('Process')}
           subtitle={`${format(new Date(`${from}T00:00:00Z`), 'dd.MM.')} - ${format(new Date(`${to}T00:00:00Z`), 'dd.MM.')}`}
         />
-        <div
-          className="flex gap-1 no-scrollbar overflow-y-auto"
-          role="group"
-          aria-label={t('Filter by time period')}
-        >
-          {filterOptions.map(({ value, label }) => (
-            <Badge
-              key={value}
-              onClick={() => setProcessFilter(value)}
-              variant={processFilter === value ? 'filter-active' : 'filter-inactive'}
-              role="button"
-              aria-pressed={processFilter === value}
-              aria-label={processFilter === 'week' ? t('Show last week') : t('Show last month')}
-              className="px-4 py-2 text-base"
-            >
-              {label}
-            </Badge>
-          ))}
+        <div className="flex flex-wrap gap-2">
+          <div
+            className="flex gap-1 no-scrollbar overflow-y-auto"
+            role="group"
+            aria-label={t('Filter by time period')}
+          >
+            {filterOptions.map(({ value, label }) => (
+              <Badge
+                key={value}
+                onClick={() => setProcessFilter(value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setProcessFilter(value);
+                  }
+                }}
+                variant={processFilter === value ? 'filter-active' : 'filter-inactive'}
+                role="button"
+                tabIndex={0}
+                aria-pressed={processFilter === value}
+                aria-label={value === 'week' ? t('Show last week') : t('Show last month')}
+                className="px-4 py-2 text-base"
+              >
+                {label}
+              </Badge>
+            ))}
+          </div>
+          <Button
+            size="dashboard"
+            className="text-base"
+            onClick={openExportModal}
+            disabled={!patientId}
+          >
+            <FaFilePdf />
+            {t('Export')}
+          </Button>
         </div>
       </div>
 
@@ -183,6 +215,16 @@ const PatientProcess: React.FC = observer(() => {
           </Section>
         </div>
       )}
+
+      <PatientExportModal
+        show={showExportModal}
+        onClose={closeExportModal}
+        initialFrom={new Date(`${from}T00:00:00`)}
+        initialTo={new Date(`${to}T00:00:00`)}
+        exporting={exporting}
+        error={exportError}
+        onExport={runExport}
+      />
     </Layout>
   );
 });

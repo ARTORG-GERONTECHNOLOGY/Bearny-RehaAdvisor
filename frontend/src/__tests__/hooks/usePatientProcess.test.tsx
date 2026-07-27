@@ -108,6 +108,8 @@ describe('usePatientProcess', () => {
       expect(result.current.loading).toBe(false);
     });
 
+    expect(result.current.patientId).toBe('patient-123');
+
     expect(apiClient.get).toHaveBeenNthCalledWith(
       1,
       '/patients/health-combined-history/patient-123/',
