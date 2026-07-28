@@ -24,10 +24,7 @@ const FitbitConnectButton: React.FC = observer(() => {
 
   if (patientFitbitStore.connected) {
     return (
-      <Button
-        variant="outline"
-        onClick={() => patientFitbitStore.disconnect()}
-      >
+      <Button variant="outline" onClick={() => patientFitbitStore.disconnect()}>
         {t('Disconnect Fitbit')}
       </Button>
     );

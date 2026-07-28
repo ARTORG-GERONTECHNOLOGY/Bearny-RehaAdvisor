@@ -545,11 +545,7 @@ def fitbit_callback(request):
             # different patient. This catches the case where a researcher set up two
             # patients sequentially on the same browser and Google silently reused the
             # first patient's session for the second OAuth flow.
-            existing = (
-                FitbitUserToken.objects(fitbit_user_id=fitbit_user_id, is_revoked__ne=True)
-                .only("user")
-                .first()
-            )
+            existing = FitbitUserToken.objects(fitbit_user_id=fitbit_user_id, is_revoked__ne=True).only("user").first()
             if existing is not None:
                 try:
                     existing_user_id = str(existing.user.id)
