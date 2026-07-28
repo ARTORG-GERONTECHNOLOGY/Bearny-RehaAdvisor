@@ -99,6 +99,16 @@ const PatientView: React.FC = observer(() => {
       setPageSuccess('');
       setPageError(String(t('Fitbit is not configured on this server. Please contact support.')));
     }
+    if (fitbitStatus === 'already_linked') {
+      setPageSuccess('');
+      setPageError(
+        String(
+          t(
+            'This Fitbit account is already connected to another patient. Please log out of your Google account in the browser, then try again.'
+          )
+        )
+      );
+    }
     if (fitbitStatus === 'auth_error') {
       const desc =
         fitbitError === 'redirect_uri_mismatch'

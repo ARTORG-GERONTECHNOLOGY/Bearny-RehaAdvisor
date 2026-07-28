@@ -21,14 +21,24 @@ const FitbitConnectButton: React.FC = observer(() => {
   }, [patientId]);
 
   if (patientFitbitStore.connected === null) return null;
-  if (patientFitbitStore.connected) return null;
 
+  if (patientFitbitStore.connected) {
+    return (
+      <Button variant="outline" onClick={() => patientFitbitStore.disconnect()}>
+        {t('Disconnect Fitbit')}
+      </Button>
+    );
+  }
+
+  // prompt=login forces Google/Fitbit to always show the account chooser,
+  // preventing a previous patient's active browser session from being silently reused.
   const authUrl =
     `https://www.fitbit.com/oauth2/authorize?response_type=code` +
     `&client_id=${FITBIT_CLIENT_ID}` +
     `&redirect_uri=${encodeURIComponent(FITBIT_REDIRECT_URI)}` +
     `&scope=${encodeURIComponent(FITBIT_SCOPES)}` +
     `&state=${patientId}` +
+    `&prompt=login` +
     `&expires_in=604800`;
 
   return (
