@@ -68,10 +68,10 @@ describe('FitbitStatus', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders nothing when already connected', () => {
+  it('renders a disconnect button when already connected', () => {
     mockConnected = true;
-    const { container } = render(<FitbitConnectButton />);
-    expect(container).toBeEmptyDOMElement();
+    render(<FitbitConnectButton />);
+    expect(screen.getByRole('button', { name: 'Disconnect Fitbit' })).toBeInTheDocument();
   });
 
   it('renders fitbit authorize link when disconnected', async () => {
@@ -86,6 +86,7 @@ describe('FitbitStatus', () => {
       expect.stringContaining('https://www.fitbit.com/oauth2/authorize')
     );
     expect(link).toHaveAttribute('href', expect.stringContaining('state=patient-77'));
+    expect(link).toHaveAttribute('href', expect.stringContaining('prompt=login'));
     expect(screen.getByRole('button', { name: 'Connect Fitbit' })).toBeInTheDocument();
   });
 });
