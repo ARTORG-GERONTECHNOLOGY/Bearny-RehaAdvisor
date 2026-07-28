@@ -539,12 +539,37 @@ def fitbit_callback(request):
 
         if response.status_code == 200:
             token_data = response.json()
+            fitbit_user_id = token_data.get("user_id")
+
+            # Guard: block linking a Fitbit account that is already connected to a
+            # different patient. This catches the case where a researcher set up two
+            # patients sequentially on the same browser and Google silently reused the
+            # first patient's session for the second OAuth flow.
+            existing = (
+                FitbitUserToken.objects(fitbit_user_id=fitbit_user_id, is_revoked__ne=True)
+                .only("user")
+                .first()
+            )
+            if existing is not None:
+                try:
+                    existing_user_id = str(existing.user.id)
+                except Exception:
+                    existing_user_id = None
+                if existing_user_id and existing_user_id != str(user.id):
+                    logger.error(
+                        "[fitbit_callback] Fitbit account %s is already linked to user %s; "
+                        "refusing to link to user %s (possible browser-session cross-contamination).",
+                        fitbit_user_id,
+                        existing_user_id,
+                        user.id,
+                    )
+                    return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=already_linked")
 
             FitbitUserToken.objects(user=user).update_one(
                 set__access_token=token_data["access_token"],
                 set__refresh_token=token_data["refresh_token"],
                 set__expires_at=timezone.now() + timedelta(seconds=token_data["expires_in"]),
-                set__fitbit_user_id=token_data["user_id"],
+                set__fitbit_user_id=fitbit_user_id,
                 set__is_revoked=False,
                 set__revoked_at=None,
                 upsert=True,
