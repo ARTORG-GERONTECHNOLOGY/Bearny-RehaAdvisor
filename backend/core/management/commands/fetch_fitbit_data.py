@@ -330,9 +330,7 @@ class Command(BaseCommand):
                     wt = wear_time_map.get(dt)
                     if wt is not None:
                         update_kwargs["set__wear_time_minutes"] = wt
-                    FitbitData.objects(user=user_token.user, date=dt).update_one(
-                        **update_kwargs, upsert=True
-                    )
+                    FitbitData.objects(user=user_token.user, date=dt).update_one(**update_kwargs, upsert=True)
 
                 logger.info(f"[Fitbit Sync] Completed for {user_token.user}")
 
