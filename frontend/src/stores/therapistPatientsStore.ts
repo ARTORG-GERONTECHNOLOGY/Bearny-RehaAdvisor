@@ -545,8 +545,7 @@ export class TherapistPatientsStore {
   get clinicOptions(): string[] {
     const clinics = new Set<string>();
     this.patients.forEach((p) => {
-      const c = (p as unknown as { clinic?: string | null }).clinic;
-      if (c) clinics.add(c);
+      if (p.clinic) clinics.add(p.clinic);
     });
     return Array.from(clinics).sort();
   }
@@ -573,11 +572,9 @@ export class TherapistPatientsStore {
         const full1 = `${first} ${last}`.trim();
         const full2 = `${last} ${first}`.trim();
 
-        const maybeUsername = (p as unknown as { username?: unknown }).username;
-        const username = typeof maybeUsername === 'string' ? maybeUsername.toLowerCase() : '';
+        const username = typeof p.username === 'string' ? p.username.toLowerCase() : '';
 
-        const maybeId = (p as unknown as { _id?: unknown })._id;
-        const pid = typeof maybeId === 'string' ? maybeId.toLowerCase() : '';
+        const pid = typeof p._id === 'string' ? p._id.toLowerCase() : '';
 
         const maybeCode = (p as unknown as { patient_code?: unknown }).patient_code;
         const pcode = typeof maybeCode === 'string' ? maybeCode.toLowerCase() : '';
@@ -596,8 +593,7 @@ export class TherapistPatientsStore {
 
     if (this.birthdateFilter) {
       filtered = filtered.filter((p) => {
-        const maybeAge = (p as unknown as { age?: unknown }).age;
-        const ageStr = typeof maybeAge === 'string' ? maybeAge : stringifyUnknown(maybeAge);
+        const ageStr = typeof p.age === 'string' ? p.age : stringifyUnknown(p.age);
         return ageStr.slice(0, 10) === this.birthdateFilter;
       });
     }
@@ -609,9 +605,7 @@ export class TherapistPatientsStore {
     }
 
     if (this.clinicFilter) {
-      filtered = filtered.filter(
-        (p) => (p as unknown as { clinic?: string | null }).clinic === this.clinicFilter
-      );
+      filtered = filtered.filter((p) => p.clinic === this.clinicFilter);
     }
 
     return filtered;
