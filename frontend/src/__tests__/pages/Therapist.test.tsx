@@ -109,6 +109,7 @@ const mockStore = {
   durationFilter: '',
   diseaseFilter: '',
   groupFilter: '',
+  clinicFilter: '',
   sortBy: 'created' as const,
   get diseaseOptions() {
     const all: string[] = [];
@@ -124,6 +125,13 @@ const mockStore = {
       if (p.study_group) groups.add(p.study_group);
     });
     return Array.from(groups).sort();
+  },
+  get clinicOptions() {
+    const clinics = new Set<string>();
+    this.patients.forEach((p: any) => {
+      if (p.clinic) clinics.add(p.clinic);
+    });
+    return Array.from(clinics).sort();
   },
   get filteredPatients() {
     let filtered = [...this.patients];
@@ -176,6 +184,9 @@ const mockStore = {
   }),
   setGroupFilter: jest.fn((group: string) => {
     mockStore.groupFilter = group;
+  }),
+  setClinicFilter: jest.fn((clinic: string) => {
+    mockStore.clinicFilter = clinic;
   }),
   setSortKey: jest.fn(),
   setSortBy: jest.fn((key: string) => {
@@ -265,6 +276,7 @@ beforeEach(() => {
   mockStore.sexFilter = '';
   mockStore.durationFilter = '';
   mockStore.diseaseFilter = '';
+  mockStore.clinicFilter = '';
   mockStore.sortBy = 'created';
   mockStore.togglingFlagIds = new Set();
   mockStore.showFlagCommentsModal = false;
