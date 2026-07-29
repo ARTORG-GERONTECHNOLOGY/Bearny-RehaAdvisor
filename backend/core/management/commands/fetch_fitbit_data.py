@@ -311,7 +311,7 @@ class Command(BaseCommand):
 
                     inactivity = max(0, 1440 - (active_minutes + sleep_minutes(dt)))
 
-                    FitbitData.objects(user=user_token.user, date=dt).update_one(
+                    update_kwargs = dict(
                         set__steps=series["steps"].get(dt),
                         set__floors=series["floors"].get(dt),
                         set__distance=series["distance"].get(dt),
@@ -326,9 +326,11 @@ class Command(BaseCommand):
                         set__breathing_rate=breathing_data.get(dt),
                         set__hrv=hrv_data.get(dt),
                         set__exercise=exercise_data.get(dt, []),
-                        set__wear_time_minutes=wear_time_map.get(dt),
-                        upsert=True,
                     )
+                    wt = wear_time_map.get(dt)
+                    if wt is not None:
+                        update_kwargs["set__wear_time_minutes"] = wt
+                    FitbitData.objects(user=user_token.user, date=dt).update_one(**update_kwargs, upsert=True)
 
                 logger.info(f"[Fitbit Sync] Completed for {user_token.user}")
 
