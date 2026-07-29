@@ -515,7 +515,7 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
             if values:
                 max_hr = max(values)
 
-        FitbitData.objects(user=user, date=dt).update_one(
+        update_kwargs = dict(
             set__resting_heart_rate=series["resting_heart_rate"].get(dt),
             set__steps=series["steps"].get(dt),
             set__floors=series["floors"].get(dt),
@@ -530,9 +530,11 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
             set__breathing_rate=breathing_data.get(dt),
             set__hrv=hrv_data.get(dt),
             set__inactivity_minutes=inactivity_minutes,
-            set__wear_time_minutes=wear_time_for(dt),
-            upsert=True,
         )
+        wt = wear_time_for(dt)
+        if wt is not None:
+            update_kwargs["set__wear_time_minutes"] = wt
+        FitbitData.objects(user=user, date=dt).update_one(**update_kwargs, upsert=True)
         upserted += 1
 
     if upserted == 0:
