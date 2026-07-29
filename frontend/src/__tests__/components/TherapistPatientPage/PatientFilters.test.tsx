@@ -93,11 +93,34 @@ describe('PatientFilters', () => {
         diagnosis: ['Stroke'],
         clinic: 'Inselspital',
       },
+      {
+        _id: 'p2',
+        first_name: 'John',
+        name: 'Smith',
+        sex: 'Male',
+        diagnosis: ['COPD'],
+        clinic: 'Berner Reha Centrum',
+      },
     ] as any;
     renderComponent();
     await user.click(screen.getByRole('combobox', { name: 'Filter by Clinic' }));
     await user.click(await screen.findByRole('option', { name: 'Inselspital' }));
     expect(store.clinicFilter).toBe('Inselspital');
+  });
+
+  it('hides the clinic filter when patients belong to a single clinic', () => {
+    store.patients = [
+      {
+        _id: 'p1',
+        first_name: 'Jane',
+        name: 'Doe',
+        sex: 'Female',
+        diagnosis: ['Stroke'],
+        clinic: 'Inselspital',
+      },
+    ] as any;
+    renderComponent();
+    expect(screen.queryByText('Filter by Clinic')).not.toBeInTheDocument();
   });
 
   it('clears the sex filter when selecting the neutral option again', async () => {
