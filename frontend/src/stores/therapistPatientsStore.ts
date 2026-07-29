@@ -133,6 +133,7 @@ export class TherapistPatientsStore {
   birthdateFilter = '';
   diseaseFilter = '';
   groupFilter = '';
+  clinicFilter = '';
   showCompleted = false;
 
   // sort
@@ -163,6 +164,9 @@ export class TherapistPatientsStore {
   setGroupFilter(v: string) {
     this.groupFilter = v;
   }
+  setClinicFilter(v: string) {
+    this.clinicFilter = v;
+  }
   setShowCompleted(v: boolean) {
     this.showCompleted = v;
   }
@@ -177,6 +181,7 @@ export class TherapistPatientsStore {
     this.birthdateFilter = '';
     this.diseaseFilter = '';
     this.groupFilter = '';
+    this.clinicFilter = '';
     this.showCompleted = false;
     this.sortBy = 'ampel';
   }
@@ -542,6 +547,15 @@ export class TherapistPatientsStore {
     return Array.from(groups).sort();
   }
 
+  get clinicOptions(): string[] {
+    const clinics = new Set<string>();
+    this.patients.forEach((p) => {
+      const c = (p as unknown as { clinic?: string | null }).clinic;
+      if (c) clinics.add(c);
+    });
+    return Array.from(clinics).sort();
+  }
+
   get filteredPatients(): PatientType[] {
     let filtered = [...this.patients];
 
@@ -609,6 +623,12 @@ export class TherapistPatientsStore {
     if (this.groupFilter) {
       filtered = filtered.filter(
         (p) => (p as unknown as { study_group?: string | null }).study_group === this.groupFilter
+      );
+    }
+
+    if (this.clinicFilter) {
+      filtered = filtered.filter(
+        (p) => (p as unknown as { clinic?: string | null }).clinic === this.clinicFilter
       );
     }
 

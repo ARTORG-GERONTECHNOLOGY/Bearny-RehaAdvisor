@@ -2,6 +2,7 @@
   "Intervention successfully added": "Intervention successfully added",
   "Filter by Disease": "Filter by Disease",
   "Filter by Group": "Filter by Group",
+  "Filter by Clinic": "Filter by Clinic",
   "Group": "Group",
   "failedCheck": "Failed to check today’s vitals.",
   "failedSave": "Failed to save today’s vitals. Please try again.",

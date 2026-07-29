@@ -113,6 +113,25 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
             </SelectContent>
           </Select>
 
+          <Select
+            value={store.clinicFilter || CLEAR_FILTER_VALUE}
+            onValueChange={(value) =>
+              store.setClinicFilter(value === CLEAR_FILTER_VALUE ? '' : value)
+            }
+          >
+            <SelectTrigger aria-label={String(t('Filter by Clinic'))}>
+              <SelectValue placeholder={String(t('Filter by Clinic'))} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={CLEAR_FILTER_VALUE}>{String(t('Filter by Clinic'))}</SelectItem>
+              {store.clinicOptions.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           {appModeStore.showStudyGroup && (
             <Select
               value={store.groupFilter || CLEAR_FILTER_VALUE}

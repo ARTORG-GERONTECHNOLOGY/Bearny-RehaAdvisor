@@ -2,6 +2,7 @@
   "Intervention successfully added": "Intervention ajoutée avec succès",
   "Filter by Disease": "Filtrer par maladie",
   "Filter by Group": "Filtrer par groupe",
+  "Filter by Clinic": "Filtrer par clinique",
   "Group": "Groupe",
   "failedCheck": "Impossible de vérifier les constantes d’aujourd’hui.",
   "failedSave": "Échec de l’enregistrement des constantes d’aujourd’hui. Veuillez réessayer.",

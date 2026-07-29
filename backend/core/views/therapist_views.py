@@ -504,6 +504,7 @@ def list_therapist_patients(request, therapist_id):
                 "flagged",
                 "flagged_at",
                 "flagged_by",
+                "clinic",
             )
             .no_dereference()
         )
@@ -631,6 +632,7 @@ def list_therapist_patients(request, therapist_id):
                         patient.study_end_date.isoformat() if getattr(patient, "study_end_date", None) else None
                     ),
                     "study_group": getattr(patient, "study_group", None) or None,
+                    "clinic": getattr(patient, "clinic", "") or "",
                     "flagged": bool(getattr(patient, "flagged", False)),
                     "flagged_at": (patient.flagged_at.isoformat() if getattr(patient, "flagged_at", None) else None),
                     "flagged_by": getattr(patient, "flagged_by", "") or "",
