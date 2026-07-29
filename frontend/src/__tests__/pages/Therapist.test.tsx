@@ -23,7 +23,6 @@ jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 jest.mock('@/components/Layout', () => jest.requireActual('@/__mocks__/components/Layout'));
 jest.mock('@/components/common/WelcomeArea', () => () => <div>Mocked Welcome Area</div>);
 jest.mock('../../config/config.json', () => ({
-  RehaInfo: ['< 30 days', '30-60 days', '60-90 days', '> 90 days'],
   patientInfo: {
     sex: ['Male', 'Female'],
   },
@@ -106,7 +105,6 @@ const mockStore = {
   sortKey: 'created' as const,
   sortAsc: false,
   sexFilter: '',
-  durationFilter: '',
   diseaseFilter: '',
   groupFilter: '',
   clinicFilter: '',
@@ -140,17 +138,6 @@ const mockStore = {
       filtered = filtered.filter((p: any) => p.sex === this.sexFilter);
     }
 
-    if (this.durationFilter) {
-      filtered = filtered.filter((p: any) => {
-        const dur = p.duration;
-        if (!Number.isFinite(dur)) return false;
-        if (this.durationFilter === '< 30 days') return dur < 30;
-        if (this.durationFilter === '30-60 days') return dur >= 30 && dur <= 60;
-        if (this.durationFilter === '60-90 days') return dur > 60 && dur <= 90;
-        return dur > 90;
-      });
-    }
-
     if (this.searchTerm.trim()) {
       const term = this.searchTerm.toLowerCase();
       filtered = filtered.filter((p: any) => {
@@ -175,9 +162,6 @@ const mockStore = {
   }),
   setSexFilter: jest.fn((sex: string) => {
     mockStore.sexFilter = sex;
-  }),
-  setDurationFilter: jest.fn((duration: string) => {
-    mockStore.durationFilter = duration;
   }),
   setDiseaseFilter: jest.fn((disease: string) => {
     mockStore.diseaseFilter = disease;
@@ -274,7 +258,6 @@ beforeEach(() => {
   mockStore.selectedDuration = 'All';
   mockStore.searchTerm = '';
   mockStore.sexFilter = '';
-  mockStore.durationFilter = '';
   mockStore.diseaseFilter = '';
   mockStore.clinicFilter = '';
   mockStore.sortBy = 'created';
@@ -346,7 +329,6 @@ describe('Therapist Page', () => {
     mockStore.selectedDuration = 'All';
     mockStore.searchTerm = '';
     mockStore.sexFilter = '';
-    mockStore.durationFilter = '';
     mockStore.diseaseFilter = '';
     mockStore.sortBy = 'created';
     mockStore.errorDetails = null;

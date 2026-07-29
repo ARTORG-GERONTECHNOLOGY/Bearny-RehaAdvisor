@@ -34,7 +34,6 @@ describe('TherapistPatientsStore', () => {
     it('sets each filter field independently', () => {
       store.setSearchTerm('jane');
       store.setSexFilter('Female');
-      store.setDurationFilter('30-60 days');
       store.setBirthdateFilter('2026-01-01');
       store.setDiseaseFilter('Stroke');
       store.setClinicFilter('Inselspital');
@@ -43,7 +42,6 @@ describe('TherapistPatientsStore', () => {
 
       expect(store.searchTerm).toBe('jane');
       expect(store.sexFilter).toBe('Female');
-      expect(store.durationFilter).toBe('30-60 days');
       expect(store.birthdateFilter).toBe('2026-01-01');
       expect(store.diseaseFilter).toBe('Stroke');
       expect(store.clinicFilter).toBe('Inselspital');
@@ -54,7 +52,6 @@ describe('TherapistPatientsStore', () => {
     it('resetFilters clears everything back to defaults', () => {
       store.setSearchTerm('jane');
       store.setSexFilter('Female');
-      store.setDurationFilter('30-60 days');
       store.setBirthdateFilter('2026-01-01');
       store.setDiseaseFilter('Stroke');
       store.setClinicFilter('Inselspital');
@@ -65,7 +62,6 @@ describe('TherapistPatientsStore', () => {
 
       expect(store.searchTerm).toBe('');
       expect(store.sexFilter).toBe('');
-      expect(store.durationFilter).toBe('');
       expect(store.birthdateFilter).toBe('');
       expect(store.diseaseFilter).toBe('');
       expect(store.clinicFilter).toBe('');
@@ -497,32 +493,6 @@ describe('TherapistPatientsStore', () => {
     it('filters by sex', () => {
       store.setSexFilter('Female');
       expect(store.filteredPatients.map((p) => p._id)).toEqual(['p1', 'p3']);
-    });
-
-    it('filters by duration bucket "< 30 days"', () => {
-      store.setDurationFilter('< 30 days');
-      expect(store.filteredPatients.map((p) => p._id)).toEqual(['p1']);
-    });
-
-    it('filters by duration bucket "30-60 days"', () => {
-      store.setDurationFilter('30-60 days');
-      expect(store.filteredPatients.map((p) => p._id)).toEqual(['p2']);
-    });
-
-    it('filters by duration bucket "60-90 days" (none match here)', () => {
-      store.setDurationFilter('60-90 days');
-      expect(store.filteredPatients).toEqual([]);
-    });
-
-    it('filters by the ">90 days" fallback bucket', () => {
-      store.setDurationFilter('> 90 days');
-      expect(store.filteredPatients.map((p) => p._id)).toEqual(['p3']);
-    });
-
-    it('excludes patients with a non-numeric duration', () => {
-      store.patients = [...store.patients, makePatient({ _id: 'p4', duration: 'n/a' })] as any;
-      store.setDurationFilter('< 30 days');
-      expect(store.filteredPatients.map((p) => p._id)).toEqual(['p1']);
     });
 
     it('filters by disease, matching within array diagnoses too', () => {

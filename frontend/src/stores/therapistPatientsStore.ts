@@ -129,7 +129,6 @@ export class TherapistPatientsStore {
   // filters
   searchTerm = '';
   sexFilter = '';
-  durationFilter = '';
   birthdateFilter = '';
   diseaseFilter = '';
   groupFilter = '';
@@ -151,9 +150,6 @@ export class TherapistPatientsStore {
   }
   setSexFilter(v: string) {
     this.sexFilter = v;
-  }
-  setDurationFilter(v: string) {
-    this.durationFilter = v;
   }
   setBirthdateFilter(v: string) {
     this.birthdateFilter = v;
@@ -177,7 +173,6 @@ export class TherapistPatientsStore {
   resetFilters() {
     this.searchTerm = '';
     this.sexFilter = '';
-    this.durationFilter = '';
     this.birthdateFilter = '';
     this.diseaseFilter = '';
     this.groupFilter = '';
@@ -560,19 +555,6 @@ export class TherapistPatientsStore {
     let filtered = [...this.patients];
 
     if (this.sexFilter) filtered = filtered.filter((p) => p.sex === this.sexFilter);
-
-    if (this.durationFilter) {
-      filtered = filtered.filter((p) => {
-        const d = (p as unknown as { duration?: unknown }).duration;
-        const dur = typeof d === 'number' ? d : Number(d);
-        if (!Number.isFinite(dur)) return false;
-
-        if (this.durationFilter === '< 30 days') return dur < 30;
-        if (this.durationFilter === '30-60 days') return dur >= 30 && dur <= 60;
-        if (this.durationFilter === '60-90 days') return dur > 60 && dur <= 90;
-        return dur > 90;
-      });
-    }
 
     if (this.diseaseFilter) {
       filtered = filtered.filter((p) => {

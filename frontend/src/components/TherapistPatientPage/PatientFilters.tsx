@@ -24,13 +24,12 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/in
 type Props = {
   store: TherapistPatientsStore;
   sexOptions: string[];
-  durationOptions: string[];
 };
 
 // Sentinel for the "clear filter" Select item — Radix forbids an empty-string item value.
 const CLEAR_FILTER_VALUE = '__clear__';
 
-const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationOptions }) => {
+const PatientFilters: React.FC<Props> = observer(({ store, sexOptions }) => {
   const { t } = useTranslation();
 
   return (
@@ -70,25 +69,6 @@ const PatientFilters: React.FC<Props> = observer(({ store, sexOptions, durationO
               {sexOptions.map((sex) => (
                 <SelectItem key={sex} value={sex}>
                   {String(t(sex))}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={store.durationFilter || CLEAR_FILTER_VALUE}
-            onValueChange={(value) =>
-              store.setDurationFilter(value === CLEAR_FILTER_VALUE ? '' : value)
-            }
-          >
-            <SelectTrigger aria-label={String(t('Filter by Duration'))}>
-              <SelectValue placeholder={String(t('Filter by Duration'))} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={CLEAR_FILTER_VALUE}>{String(t('Filter by Duration'))}</SelectItem>
-              {durationOptions.map((duration) => (
-                <SelectItem key={duration} value={duration}>
-                  {String(t(duration))}
                 </SelectItem>
               ))}
             </SelectContent>
