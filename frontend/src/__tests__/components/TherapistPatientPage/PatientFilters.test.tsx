@@ -92,6 +92,24 @@ describe('PatientFilters', () => {
     expect(store.durationFilter).toBe('< 30 days');
   });
 
+  it('updates the store when selecting a clinic filter', async () => {
+    const user = userEvent.setup();
+    store.patients = [
+      {
+        _id: 'p1',
+        first_name: 'Jane',
+        name: 'Doe',
+        sex: 'Female',
+        diagnosis: ['Stroke'],
+        clinic: 'Inselspital',
+      },
+    ] as any;
+    renderComponent();
+    await user.click(screen.getByRole('combobox', { name: 'Filter by Clinic' }));
+    await user.click(await screen.findByRole('option', { name: 'Inselspital' }));
+    expect(store.clinicFilter).toBe('Inselspital');
+  });
+
   it('clears the sex filter when selecting the neutral option again', async () => {
     const user = userEvent.setup();
     store.setSexFilter('Male');

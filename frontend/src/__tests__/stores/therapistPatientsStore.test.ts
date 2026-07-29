@@ -37,6 +37,7 @@ describe('TherapistPatientsStore', () => {
       store.setDurationFilter('30-60 days');
       store.setBirthdateFilter('2026-01-01');
       store.setDiseaseFilter('Stroke');
+      store.setClinicFilter('Inselspital');
       store.setShowCompleted(true);
       store.setSortBy('adherence');
 
@@ -45,6 +46,7 @@ describe('TherapistPatientsStore', () => {
       expect(store.durationFilter).toBe('30-60 days');
       expect(store.birthdateFilter).toBe('2026-01-01');
       expect(store.diseaseFilter).toBe('Stroke');
+      expect(store.clinicFilter).toBe('Inselspital');
       expect(store.showCompleted).toBe(true);
       expect(store.sortBy).toBe('adherence');
     });
@@ -55,6 +57,7 @@ describe('TherapistPatientsStore', () => {
       store.setDurationFilter('30-60 days');
       store.setBirthdateFilter('2026-01-01');
       store.setDiseaseFilter('Stroke');
+      store.setClinicFilter('Inselspital');
       store.setShowCompleted(true);
       store.setSortBy('adherence');
 
@@ -65,6 +68,7 @@ describe('TherapistPatientsStore', () => {
       expect(store.durationFilter).toBe('');
       expect(store.birthdateFilter).toBe('');
       expect(store.diseaseFilter).toBe('');
+      expect(store.clinicFilter).toBe('');
       expect(store.showCompleted).toBe(false);
       expect(store.sortBy).toBe('ampel');
     });
@@ -435,6 +439,26 @@ describe('TherapistPatientsStore', () => {
   });
 
   // ------------------------------------------------------------------
+  // clinicOptions
+  // ------------------------------------------------------------------
+  describe('clinicOptions', () => {
+    it('collects unique, sorted clinics across patients', () => {
+      store.patients = [
+        makePatient({ clinic: 'Inselspital' }),
+        makePatient({ clinic: 'Berner Reha Centrum' }),
+        makePatient({ clinic: 'Inselspital' }),
+      ] as any;
+
+      expect(store.clinicOptions).toEqual(['Berner Reha Centrum', 'Inselspital']);
+    });
+
+    it('is empty when no patients have a clinic', () => {
+      store.patients = [makePatient({ clinic: undefined })] as any;
+      expect(store.clinicOptions).toEqual([]);
+    });
+  });
+
+  // ------------------------------------------------------------------
   // filteredPatients
   // ------------------------------------------------------------------
   describe('filteredPatients', () => {
@@ -447,6 +471,7 @@ describe('TherapistPatientsStore', () => {
           sex: 'Female',
           diagnosis: 'Stroke',
           duration: 20,
+          clinic: 'Inselspital',
         }),
         makePatient({
           _id: 'p2',
@@ -455,6 +480,7 @@ describe('TherapistPatientsStore', () => {
           sex: 'Male',
           diagnosis: ['COPD'],
           duration: 45,
+          clinic: 'Berner Reha Centrum',
         }),
         makePatient({
           _id: 'p3',
@@ -463,6 +489,7 @@ describe('TherapistPatientsStore', () => {
           sex: 'Female',
           diagnosis: 'Diabetes',
           duration: 120,
+          clinic: 'Inselspital',
         }),
       ] as any;
     });
@@ -501,6 +528,11 @@ describe('TherapistPatientsStore', () => {
     it('filters by disease, matching within array diagnoses too', () => {
       store.setDiseaseFilter('COPD');
       expect(store.filteredPatients.map((p) => p._id)).toEqual(['p2']);
+    });
+
+    it('filters by clinic', () => {
+      store.setClinicFilter('Inselspital');
+      expect(store.filteredPatients.map((p) => p._id)).toEqual(['p1', 'p3']);
     });
 
     it('excludes patients without a diagnosis when a disease filter is set', () => {
