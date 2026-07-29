@@ -612,7 +612,9 @@ def test_adherence_uses_schedule_when_plan_exists():
 
     adherence_7, adherence_total = _adherence(patient)
     assert adherence_7 == 50
-    assert adherence_total == 100
+    # Orphaned log (now-20) is NOT on a scheduled day, so it must not inflate the
+    # numerator. Only 1 of 2 past scheduled days has a completed log → 50 %.
+    assert adherence_total == 50
 
 
 def test_adherence_falls_back_to_logs_when_no_schedule():

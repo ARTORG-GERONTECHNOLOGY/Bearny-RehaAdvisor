@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from bson import ObjectId
 from dateutil.relativedelta import relativedelta
@@ -420,22 +420,21 @@ def _adherence(patient, lookback_days: int = 7):
     """
     Returns (adherence_7d, adherence_total_until_now) for the patient.
 
-    - Denominator uses scheduled occurrences from RehabilitationPlan.interventions[].dates
-      that fall inside the window (7d) or up to 'now'.
-    - Numerator uses PatientInterventionLogs with status containing 'completed'.
-    - All datetimes (schedule + logs) are normalized to timezone-aware before comparison.
-    - Falls back to completed/(completed+skipped) if no schedule was created for the window.
-    - 'since' is snapped to local midnight of (today - lookback_days) so that sessions
-      scheduled early in the day on the boundary date are not excluded by the exact UTC moment.
+    Denominator: unique scheduled calendar days (not raw slot count — a day
+    with two sessions counts once). Numerator: unique scheduled days that
+    have at least one completed log on that calendar day. Orphaned logs on
+    unscheduled days are not counted. This matches the per-day logic used by
+    the rehabilitation calendar and health view.
+
+    Falls back to raw completed/(completed+skipped) when no plan exists.
+    ‘since’ is snapped to local midnight of (today - lookback_days).
     """
-    now = timezone.now()  # aware
+    now = timezone.now()
     local_tz = timezone.get_current_timezone()
     boundary_date = timezone.localdate(now) - timedelta(days=lookback_days)
     since = timezone.make_aware(datetime.combine(boundary_date, datetime.min.time()), local_tz)
 
-    # ---- helpers ------------------------------------------------------------
     def _to_dt(v):
-        """Accept datetime or ISO string -> datetime (may be naive)."""
         if isinstance(v, datetime):
             return v
         if isinstance(v, str):
@@ -449,7 +448,6 @@ def _adherence(patient, lookback_days: int = 7):
         return None
 
     def _aware(dt: datetime | None) -> datetime | None:
-        """Make a datetime timezone-aware (current TZ; fallback UTC)."""
         if not isinstance(dt, datetime):
             return None
         if timezone.is_naive(dt):
@@ -459,9 +457,9 @@ def _adherence(patient, lookback_days: int = 7):
                 return timezone.make_aware(dt, timezone.utc)
         return dt
 
-    # ---- scheduled dates from the plan -------------------------------------
-    denom_total = 0
-    denom_7 = 0
+    # ---- unique scheduled calendar days from the plan ----------------------
+    sched_days_total: set[date] = set()
+    sched_days_7: set[date] = set()
     plan = RehabilitationPlan.objects(patientId=patient).first()
     if plan:
         for ia in getattr(plan, "interventions", []) or []:
@@ -469,13 +467,20 @@ def _adherence(patient, lookback_days: int = 7):
                 dt = _aware(_to_dt(d))
                 if not dt:
                     continue
+                day = dt.astimezone(local_tz).date()
                 if dt <= now:
-                    denom_total += 1
+                    sched_days_total.add(day)
                 if since <= dt <= now:
-                    denom_7 += 1
+                    sched_days_7.add(day)
 
-    # ---- logs (don’t date-filter in query; normalize per-row) --------------
-    comp_total = comp_7 = 0
+    denom_total = len(sched_days_total)
+    denom_7 = len(sched_days_7)
+
+    # ---- days with at least one completed log ------------------------------
+    comp_days_total: set[date] = set()
+    comp_days_7: set[date] = set()
+    # raw counts kept only for the no-plan fallback
+    comp_raw_total = comp_raw_7 = 0
     skip_total = skip_7 = 0
     for lg in PatientInterventionLogs.objects(userId=patient).only("date", "status"):
         dt = _aware(getattr(lg, "date", None))
@@ -484,28 +489,34 @@ def _adherence(patient, lookback_days: int = 7):
         statuses = {s.lower() for s in (lg.status or [])}
         is_completed = "completed" in statuses
         is_skipped = "skipped" in statuses
-
+        day = dt.astimezone(local_tz).date()
         if dt <= now:
             if is_completed:
-                comp_total += 1
+                comp_days_total.add(day)
+                comp_raw_total += 1
             if is_skipped:
                 skip_total += 1
         if since <= dt <= now:
             if is_completed:
-                comp_7 += 1
+                comp_days_7.add(day)
+                comp_raw_7 += 1
             if is_skipped:
                 skip_7 += 1
 
-    # ---- adherence (fallback to completed/(completed+skipped) when no schedule)
+    # ---- scheduled days that have a completed log (intersection) -----------
+    comp_total = len(sched_days_total & comp_days_total)
+    comp_7 = len(sched_days_7 & comp_days_7)
+
+    # ---- adherence (fallback to raw counts when no schedule exists) --------
     adh_total = (
         round(100 * comp_total / denom_total)
         if denom_total
-        else (round(100 * comp_total / (comp_total + skip_total)) if (comp_total + skip_total) else None)
+        else (round(100 * comp_raw_total / (comp_raw_total + skip_total)) if (comp_raw_total + skip_total) else None)
     )
     adh_7 = (
         round(100 * comp_7 / denom_7)
         if denom_7
-        else (round(100 * comp_7 / (comp_7 + skip_7)) if (comp_7 + skip_7) else None)
+        else (round(100 * comp_raw_7 / (comp_raw_7 + skip_7)) if (comp_raw_7 + skip_7) else None)
     )
 
     return adh_7, adh_total
