@@ -416,9 +416,9 @@ def get_google_health_data(request, patient_id):
 
     except Patient.DoesNotExist:
         return JsonResponse({"error": "Patient not found"}, status=404)
-    except Exception as e:
+    except Exception:
         logger.exception("[get_google_health_data] error")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 @csrf_exempt
@@ -442,6 +442,12 @@ def google_manual_steps(request, patient_id):
         steps = int(steps)
     except (TypeError, ValueError):
         return JsonResponse({"error": "Invalid steps value"}, status=400)
+
+    # Validate date is a proper ISO date string (YYYY-MM-DD) before using in DB query
+    import re as _re
+
+    if not isinstance(date, str) or not _re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        return JsonResponse({"error": "Invalid date format"}, status=400)
 
     patient = _resolve_patient(request, patient_id)
     if not patient:
