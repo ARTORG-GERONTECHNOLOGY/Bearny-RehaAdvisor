@@ -216,7 +216,11 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
               </div>
               <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
             </div>
-            {wearableDevice === 'google_health' ? <GoogleHealthConnectButton /> : <FitbitConnectButton />}
+            {wearableDevice === 'google_health' ? (
+              <GoogleHealthConnectButton />
+            ) : (
+              <FitbitConnectButton />
+            )}
           </div>
         )}
       </div>
