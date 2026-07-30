@@ -1008,6 +1008,8 @@
   "Disconnect": "Loskoppelen",
   "Disconnecting...": "Loskoppelen...",
   "disconnectFitbitConfirm": "Weet u zeker dat u uw Fitbit wilt loskoppelen? Uw activiteitsgegevens worden niet meer bijgewerkt.",
+  "Disconnect Google Health": "Google Health loskoppelen",
+  "disconnectGoogleHealthConfirm": "Weet u zeker dat u Google Health wilt loskoppelen? Uw activiteitsgegevens worden niet meer bijgewerkt.",
   "Fitbit": "Fitbit",
   "Fitness Tracker": "Fitnesstracker",
   "Manual entry": "Handmatige invoer",

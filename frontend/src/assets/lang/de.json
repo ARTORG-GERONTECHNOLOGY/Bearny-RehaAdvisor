@@ -1018,6 +1018,8 @@
   "Disconnect": "Trennen",
   "Disconnecting...": "Wird getrennt...",
   "disconnectFitbitConfirm": "Möchten Sie Ihren Fitbit wirklich trennen? Ihre Aktivitätsdaten werden nicht mehr aktualisiert.",
+  "Disconnect Google Health": "Google Health trennen",
+  "disconnectGoogleHealthConfirm": "Möchten Sie Google Health wirklich trennen? Ihre Aktivitätsdaten werden nicht mehr aktualisiert.",
   "Fitbit": "Fitbit",
   "Fitness Tracker": "Fitness-Tracker",
   "Manual entry": "Manuelle Eingabe",

@@ -1019,6 +1019,8 @@
   "Disconnect": "Déconnecter",
   "Disconnecting...": "Déconnexion en cours...",
   "disconnectFitbitConfirm": "Êtes-vous sûr de vouloir déconnecter votre Fitbit ? Vos données d'activité ne seront plus mises à jour.",
+  "Disconnect Google Health": "Déconnecter Google Health",
+  "disconnectGoogleHealthConfirm": "Êtes-vous sûr de vouloir déconnecter Google Health ? Vos données d'activité ne seront plus mises à jour.",
   "Fitbit": "Fitbit",
   "Fitness Tracker": "Traqueur d'activité",
   "Manual entry": "Saisie manuelle",

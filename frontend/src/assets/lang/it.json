@@ -1018,6 +1018,8 @@
   "Disconnect": "Disconnetti",
   "Disconnecting...": "Disconnessione in corso...",
   "disconnectFitbitConfirm": "Sei sicuro di voler disconnettere il tuo Fitbit? I tuoi dati sull'attività non verranno più aggiornati.",
+  "Disconnect Google Health": "Disconnetti Google Health",
+  "disconnectGoogleHealthConfirm": "Sei sicuro di voler disconnettere Google Health? I tuoi dati sull'attività non verranno più aggiornati.",
   "Fitbit": "Fitbit",
   "Fitness Tracker": "Fitness tracker",
   "Manual entry": "Inserimento manuale",
