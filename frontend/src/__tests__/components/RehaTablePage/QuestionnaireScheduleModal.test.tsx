@@ -429,7 +429,7 @@ describe('QuestionnaireScheduleModal', () => {
       const before = dateInput.value;
       fireEvent.click(dateInput);
       const dayCells = document.querySelectorAll(
-        '.react-datepicker__day:not(.react-datepicker__day--outside-month)'
+        '.react-datepicker__day:not(.react-datepicker__day--outside-month):not(.react-datepicker__day--selected)'
       );
       fireEvent.click(dayCells[dayCells.length - 1]);
       expect(dateInput.value).not.toBe(before);
