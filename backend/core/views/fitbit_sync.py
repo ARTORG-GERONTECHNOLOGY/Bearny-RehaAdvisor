@@ -504,9 +504,7 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
     def wear_time_for(dt: datetime.date) -> int | None:
         dataset = intraday_hr_map.get(dt)
         if dataset:
-            worn_minutes = {
-                entry["time"][:5] for entry in dataset if entry.get("value", 0) > 0
-            }
+            worn_minutes = {entry["time"][:5] for entry in dataset if entry.get("value", 0) > 0}
             if worn_minutes:
                 return len(worn_minutes)
         # Fallback: sum HR zone minutes from the daily summary (handles devices
