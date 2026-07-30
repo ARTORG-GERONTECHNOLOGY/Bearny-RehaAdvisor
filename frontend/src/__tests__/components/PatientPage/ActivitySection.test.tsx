@@ -10,6 +10,14 @@ jest.mock(
     }
 );
 
+jest.mock(
+  '@/components/PatientPage/FitbitStatus',
+  () =>
+    function FitbitConnectButton() {
+      return <div data-testid="fitbit-connect-button">Connect</div>;
+    }
+);
+
 jest.mock('@/components/PatientPage/ProgressIndicator', () =>
   jest.fn(({ current, goal }: { current: number; goal: number }) => (
     <div data-testid="progress-indicator">

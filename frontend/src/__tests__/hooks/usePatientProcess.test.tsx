@@ -4,6 +4,7 @@ import apiClient from '@/api/client';
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { colors } from '@/lib/colors';
 import * as dateFormat from '@/utils/dateFormat';
+import { patientFitbitStore } from '@/stores/patientFitbitStore';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
@@ -32,10 +33,12 @@ describe('usePatientProcess', () => {
     localStorage.clear();
     localStorage.setItem('id', 'patient-123');
     mockedUseRoleAuthGate.mockReturnValue({ isAllowed: true });
+    (patientFitbitStore as any).wearableDevice = 'google_health';
   });
 
   afterEach(() => {
     nowSpy.mockRestore();
+    (patientFitbitStore as any).wearableDevice = 'fitbit';
   });
 
   it('does not fetch when patient auth gate is not allowed', async () => {
