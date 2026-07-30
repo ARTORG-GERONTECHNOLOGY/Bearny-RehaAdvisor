@@ -14,6 +14,25 @@ logger = logging.getLogger(__name__)
 FITBIT_API_URL = "https://api.fitbit.com/1/user/-"
 
 
+def _wear_time_from_hr_zones(hr_zones) -> int | None:
+    """Estimate wear time by summing all HR zone minutes (Out of Range included).
+
+    Used as a fallback when intraday 1-sec data is unavailable (older devices or
+    device not yet synced). Both dict (raw API response) and EmbeddedDocument
+    (stored MongoEngine objects) are handled.
+    """
+    if not hr_zones:
+        return None
+    try:
+        total = sum(
+            int(z.get("minutes", 0) or 0) if isinstance(z, dict) else int(getattr(z, "minutes", 0) or 0)
+            for z in hr_zones
+        )
+        return total if total > 0 else None
+    except Exception:
+        return None
+
+
 def get_valid_access_token(user):
     token = FitbitUserToken.objects.get(user=user)
 
@@ -291,8 +310,9 @@ def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: 
         }
         if dt in max_hr_map:
             update_kwargs["set__max_heart_rate"] = max_hr_map[dt]
-        if dt in wear_time_map:
-            update_kwargs["set__wear_time_minutes"] = wear_time_map[dt]
+        wt = wear_time_map.get(dt) or _wear_time_from_hr_zones(series["heart_rate_zones"].get(dt))
+        if wt is not None:
+            update_kwargs["set__wear_time_minutes"] = wt
 
         FitbitData.objects(user=user, date=dt).update_one(**update_kwargs, upsert=True)
         upserted += 1
@@ -483,12 +503,13 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
 
     def wear_time_for(dt: datetime.date) -> int | None:
         dataset = intraday_hr_map.get(dt)
-        if not dataset:
-            return None
-        worn_minutes = {
-            entry["time"][:5] for entry in dataset if entry.get("value", 0) > 0  # "HH:MM" — unique minute slots
-        }
-        return len(worn_minutes)
+        if dataset:
+            worn_minutes = {entry["time"][:5] for entry in dataset if entry.get("value", 0) > 0}
+            if worn_minutes:
+                return len(worn_minutes)
+        # Fallback: sum HR zone minutes from the daily summary (handles devices
+        # that don't expose intraday 1-sec data but do report daily HR zones).
+        return _wear_time_from_hr_zones(series["heart_rate_zones"].get(dt))
 
     all_dates = set()
     for m in series.values():
