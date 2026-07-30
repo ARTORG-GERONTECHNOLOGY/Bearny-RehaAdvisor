@@ -79,7 +79,11 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
     <Section>
       <div className="flex p-2 pl-4 justify-between w-full">
         <div className="text-lg font-medium text-zinc-500">{t('Todays Activity')}</div>
-        {connected && <Badge variant="section">{t('Fitbit Connected')}</Badge>}
+        {connected && (
+          <Badge variant="section">
+            {t(wearableDevice === 'google_health' ? 'Google Health Connected' : 'Fitbit Connected')}
+          </Badge>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">

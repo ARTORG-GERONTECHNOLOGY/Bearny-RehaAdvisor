@@ -1004,6 +1004,7 @@
   "hint_hrv_empty": "Nenhum dado de variabilidade da frequência cardíaca registado. Esta métrica requer um dispositivo Fitbit compatível (ex. Sense, Charge 5, Versa 3 ou mais recente) usado durante o sono.",
   "Failed to load media, use the link below to open it in a new tab.": "Não foi possível carregar o conteúdo multimédia. Utilize o link abaixo para o abrir num novo separador.",
   "Fitbit Connected": "Fitbit conectado",
+  "Google Health Connected": "Google Health conectado",
   "Connect Fitbit": "Conectar Fitbit",
   "Disconnect Fitbit": "Desconectar Fitbit",
   "Disconnect": "Desconectar",
