@@ -841,6 +841,23 @@ def test_therapist_multiple_clinics_shows_patients_from_all(mongo_mock):
     assert str(p_other.id) not in ids
 
 
+def test_list_therapist_patients_includes_clinic_field(mongo_mock):
+    """Response rows expose the patient's clinic, used by the overview clinic filter."""
+    therapist = _make_therapist("th_clinic_field", ["Inselspital", "Berner Reha Centrum"])
+    p_insel = _make_patient("pat_clinic_field_insel", therapist, "Inselspital")
+    p_bern = _make_patient("pat_clinic_field_bern", therapist, "Berner Reha Centrum")
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    by_id = {row["_id"]: row for row in resp.json()}
+    assert by_id[str(p_insel.id)]["clinic"] == "Inselspital"
+    assert by_id[str(p_bern.id)]["clinic"] == "Berner Reha Centrum"
+
+
 def test_patients_from_same_clinic_visible_across_therapists(mongo_mock):
     """Two therapists at the same clinic both see a patient registered there."""
     therapist_a = _make_therapist("th_a", ["Inselspital"])
