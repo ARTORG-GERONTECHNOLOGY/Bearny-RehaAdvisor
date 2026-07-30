@@ -13,6 +13,8 @@ from core.models import (
     FitbitData,
     FitbitUserToken,
     GeneralFeedback,
+    GoogleHealthData,
+    GoogleHealthUserToken,
     Logs,
     Patient,
     PatientICFRating,
@@ -545,42 +547,74 @@ def list_therapist_patients(request, therapist_id):
             steps_vals, activity_vals, sleep_mins, wear_vals = [], [], [], []
             bp_sys_vals, bp_dia_vals = [], []
             last_worn_date = None
-            has_fitbit_data = False
-            fitbit_docs = (
-                FitbitData.objects(user=user, date__gte=since)
-                .only("steps", "active_minutes", "sleep", "wear_time_minutes", "bp_sys", "bp_dia", "date")
-                .order_by("-date")
-            )
-            for doc in fitbit_docs:
-                has_fitbit_data = True
-                if doc.steps is not None:
-                    steps_vals.append(doc.steps)
-                if doc.active_minutes is not None:
-                    activity_vals.append(doc.active_minutes)
-                if doc.bp_sys is not None:
-                    bp_sys_vals.append(doc.bp_sys)
-                if doc.bp_dia is not None:
-                    bp_dia_vals.append(doc.bp_dia)
-                try:
-                    if doc.sleep and doc.sleep.minutes_asleep is not None:
-                        sleep_mins.append(doc.sleep.minutes_asleep)
-                    elif doc.sleep and doc.sleep.sleep_duration:
-                        sleep_mins.append(doc.sleep.sleep_duration / 60000.0)
-                except Exception:
-                    pass
-                if doc.wear_time_minutes is not None:
-                    wear_vals.append(doc.wear_time_minutes)
-                    if last_worn_date is None:
-                        last_worn_date = doc.date.date() if hasattr(doc.date, "date") else doc.date
+            has_wearable_data = False
+            patient_device = getattr(patient, "wearable_device", None) or "fitbit"
+
+            if patient_device == "google_health":
+                gh_docs = (
+                    GoogleHealthData.objects(user=user, date__gte=since)
+                    .only("steps", "active_minutes", "sleep", "wear_time_minutes", "bp_sys", "bp_dia", "date")
+                    .order_by("-date")
+                )
+                for doc in gh_docs:
+                    has_wearable_data = True
+                    if doc.steps is not None:
+                        steps_vals.append(doc.steps)
+                    if doc.active_minutes is not None:
+                        activity_vals.append(doc.active_minutes)
+                    if getattr(doc, "bp_sys", None) is not None:
+                        bp_sys_vals.append(doc.bp_sys)
+                    if getattr(doc, "bp_dia", None) is not None:
+                        bp_dia_vals.append(doc.bp_dia)
+                    try:
+                        if doc.sleep and doc.sleep.minutes_asleep is not None:
+                            sleep_mins.append(doc.sleep.minutes_asleep)
+                        elif doc.sleep and getattr(doc.sleep, "sleep_duration", None):
+                            sleep_mins.append(doc.sleep.sleep_duration / 60000.0)
+                    except Exception:
+                        pass
+                    if doc.wear_time_minutes is not None:
+                        wear_vals.append(doc.wear_time_minutes)
+                        if last_worn_date is None:
+                            last_worn_date = doc.date.date() if hasattr(doc.date, "date") else doc.date
+
+                gh_token = GoogleHealthUserToken.objects(user=user).first()
+                fitbit_revoked = bool(gh_token and getattr(gh_token, "is_revoked", False))
+                fitbit_no_token = not gh_token and has_wearable_data
+            else:
+                fitbit_docs = (
+                    FitbitData.objects(user=user, date__gte=since)
+                    .only("steps", "active_minutes", "sleep", "wear_time_minutes", "bp_sys", "bp_dia", "date")
+                    .order_by("-date")
+                )
+                for doc in fitbit_docs:
+                    has_wearable_data = True
+                    if doc.steps is not None:
+                        steps_vals.append(doc.steps)
+                    if doc.active_minutes is not None:
+                        activity_vals.append(doc.active_minutes)
+                    if doc.bp_sys is not None:
+                        bp_sys_vals.append(doc.bp_sys)
+                    if doc.bp_dia is not None:
+                        bp_dia_vals.append(doc.bp_dia)
+                    try:
+                        if doc.sleep and doc.sleep.minutes_asleep is not None:
+                            sleep_mins.append(doc.sleep.minutes_asleep)
+                        elif doc.sleep and doc.sleep.sleep_duration:
+                            sleep_mins.append(doc.sleep.sleep_duration / 60000.0)
+                    except Exception:
+                        pass
+                    if doc.wear_time_minutes is not None:
+                        wear_vals.append(doc.wear_time_minutes)
+                        if last_worn_date is None:
+                            last_worn_date = doc.date.date() if hasattr(doc.date, "date") else doc.date
+
+                fitbit_token = FitbitUserToken.objects(user=user).first()
+                fitbit_revoked = bool(fitbit_token and getattr(fitbit_token, "is_revoked", False))
+                fitbit_no_token = not fitbit_token and has_wearable_data
 
             today_date = timezone.now().date()
             days_since_worn = (today_date - last_worn_date).days if last_worn_date else None
-
-            fitbit_token = FitbitUserToken.objects(user=user).first()
-            fitbit_revoked = bool(fitbit_token and getattr(fitbit_token, "is_revoked", False))
-            # True when there is historical data in the window but no (non-revoked) token —
-            # patient needs to reconnect Fitbit.
-            fitbit_no_token = not fitbit_token and has_fitbit_data
 
             biomarker = {
                 "sleep_avg_h": _avg([m / 60.0 for m in sleep_mins]) if sleep_mins else None,

@@ -1012,6 +1012,8 @@
   "Todays Activity": "Activité du jour",
   "Fitbit Connected": "Fitbit connecté",
   "Google Health Connected": "Google Health connecté",
+  "No Google Health data": "Aucune donnée Google Health",
+  "Google Health disconnected — reconnect required": "Google Health déconnecté — reconnexion requise",
   "Connect Fitbit": "Connecter Fitbit",
   "Disconnect Fitbit": "Déconnecter Fitbit",
   "Disconnect": "Déconnecter",
