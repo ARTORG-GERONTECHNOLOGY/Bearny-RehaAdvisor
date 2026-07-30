@@ -199,10 +199,9 @@ test.describe('Summary endpoint routing', () => {
     await page.goto('/patient');
     await ghSummaryReq;
 
-    expect(
-      fitbitSummaryCalled,
-      'should not call /fitbit/summary/ for Google Health patient'
-    ).toBe(false);
+    expect(fitbitSummaryCalled, 'should not call /fitbit/summary/ for Google Health patient').toBe(
+      false
+    );
   });
 });
 
