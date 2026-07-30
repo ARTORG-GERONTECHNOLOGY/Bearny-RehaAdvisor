@@ -10,7 +10,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import permission_classes
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import (
@@ -611,11 +611,9 @@ def google_health_combined_history(request, patient_id):
         return JsonResponse({"error": "Internal Server Error"}, status=500)
 
 
-@csrf_exempt
+@api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def google_health_disconnect(request):
-    if request.method != "DELETE":
-        return JsonResponse({"error": "Method not allowed"}, status=405)
     try:
         user = User.objects(id=request.user.id).first()
     except Exception:
