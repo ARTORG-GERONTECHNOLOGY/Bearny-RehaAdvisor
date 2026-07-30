@@ -6,7 +6,8 @@ import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import { Badge } from '@/components/ui/badge';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
-import FitbitConnectButton from '@/components/PatientPage/GoogleHealthConnectButton';
+import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
+import GoogleHealthConnectButton from '@/components/PatientPage/GoogleHealthConnectButton';
 import ProgressIndicator from '@/components/PatientPage/ProgressIndicator';
 import Section from '@/components/Section';
 import { PatientActivitySectionSkeleton } from '@/components/skeletons/PatientSkeleton';
@@ -36,7 +37,7 @@ interface ActivitySectionProps {
   sleepMinutes?: number | null;
   sleepMinutesGoal?: number | null;
   onOpenManualStepsEntry: () => void;
-  wearableDevice?: 'fitbit' | 'omron' | 'none';
+  wearableDevice?: 'fitbit' | 'omron' | 'google_health' | 'none';
 }
 
 const ActivitySection: React.FC<ActivitySectionProps> = ({
@@ -207,13 +208,15 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
           </div>
         )}
 
-        {!connected && wearableDevice === 'fitbit' && (
+        {!connected && (wearableDevice === 'fitbit' || wearableDevice === 'google_health') && (
           <div className="p-4 rounded-3xl bg-zinc-100 flex gap-1 justify-between items-center">
             <div className="flex flex-col">
-              <div className="font-bold text-lg text-zinc-800">{t('Fitbit')}</div>
+              <div className="font-bold text-lg text-zinc-800">
+                {wearableDevice === 'google_health' ? t('Google Health') : t('Fitbit')}
+              </div>
               <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
             </div>
-            <FitbitConnectButton />
+            {wearableDevice === 'google_health' ? <GoogleHealthConnectButton /> : <FitbitConnectButton />}
           </div>
         )}
       </div>

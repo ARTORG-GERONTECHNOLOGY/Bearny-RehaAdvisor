@@ -177,7 +177,7 @@ const PatientView: React.FC = observer(() => {
 
         <StatusBanner type="success" message={pageSuccess} onClose={dismissPageSuccess} />
         <StatusBanner type="destructive" message={pageError} onClose={dismissPageError} />
-        <ReconnectBanner />
+        {patientFitbitStore.useGoogleHealth && <ReconnectBanner />}
         <ActivitySection
           loading={patientFitbitStore.connected === null || patientFitbitStore.summaryLoading}
           connected={Boolean(patientFitbitStore.connected)}

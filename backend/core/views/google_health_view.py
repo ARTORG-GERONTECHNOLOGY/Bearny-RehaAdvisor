@@ -21,7 +21,7 @@ from core.models import (
     PatientVitals,
     User,
 )
-from core.views.fitbit_view import (
+from core.views.wearable_utils import (
     _default_thresholds,
     _merge_thresholds,
     _resolve_patient,
