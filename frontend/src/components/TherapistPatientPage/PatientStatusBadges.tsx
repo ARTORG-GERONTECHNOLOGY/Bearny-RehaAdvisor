@@ -163,8 +163,7 @@ export const WearBadge: React.FC<Props> = ({ patient }) => {
   }
 
   if (level === 'unknown') {
-    const noDataTip =
-      device === 'google_health' ? t('No Google Health data') : t('No Fitbit data');
+    const noDataTip = device === 'google_health' ? t('No Google Health data') : t('No Fitbit data');
     return (
       <StatusChip label={String(t('Wear'))} level={level} tip={String(noDataTip)}>
         {String(t('No data'))}

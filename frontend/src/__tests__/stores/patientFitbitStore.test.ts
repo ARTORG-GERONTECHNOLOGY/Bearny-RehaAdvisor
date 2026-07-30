@@ -95,7 +95,12 @@ describe('patientFitbitStore', () => {
     // reconnect-banner fields (google_health patients only)
     it('sets needsReconnect=false and daysUntilExpiry=7 for a fresh connection', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({
-        data: { connected: true, needs_reconnect: false, days_until_expiry: 7, wearable_device: 'google_health' },
+        data: {
+          connected: true,
+          needs_reconnect: false,
+          days_until_expiry: 7,
+          wearable_device: 'google_health',
+        },
       });
       await patientFitbitStore.fetchStatus('p1');
       expect(patientFitbitStore.needsReconnect).toBe(false);
@@ -104,7 +109,12 @@ describe('patientFitbitStore', () => {
 
     it('sets needsReconnect=true and daysUntilExpiry=1 at day 6', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({
-        data: { connected: true, needs_reconnect: true, days_until_expiry: 1, wearable_device: 'google_health' },
+        data: {
+          connected: true,
+          needs_reconnect: true,
+          days_until_expiry: 1,
+          wearable_device: 'google_health',
+        },
       });
       await patientFitbitStore.fetchStatus('p1');
       expect(patientFitbitStore.needsReconnect).toBe(true);
@@ -113,7 +123,12 @@ describe('patientFitbitStore', () => {
 
     it('sets daysUntilExpiry=0 when token has expired', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({
-        data: { connected: true, needs_reconnect: true, days_until_expiry: 0, wearable_device: 'google_health' },
+        data: {
+          connected: true,
+          needs_reconnect: true,
+          days_until_expiry: 0,
+          wearable_device: 'google_health',
+        },
       });
       await patientFitbitStore.fetchStatus('p1');
       expect(patientFitbitStore.needsReconnect).toBe(true);
