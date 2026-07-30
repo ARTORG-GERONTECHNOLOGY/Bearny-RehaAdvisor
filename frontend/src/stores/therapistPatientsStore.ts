@@ -129,10 +129,10 @@ export class TherapistPatientsStore {
   // filters
   searchTerm = '';
   sexFilter = '';
-  durationFilter = '';
   birthdateFilter = '';
   diseaseFilter = '';
   groupFilter = '';
+  clinicFilter = '';
   showCompleted = false;
 
   // sort
@@ -151,9 +151,6 @@ export class TherapistPatientsStore {
   setSexFilter(v: string) {
     this.sexFilter = v;
   }
-  setDurationFilter(v: string) {
-    this.durationFilter = v;
-  }
   setBirthdateFilter(v: string) {
     this.birthdateFilter = v;
   }
@@ -162,6 +159,9 @@ export class TherapistPatientsStore {
   }
   setGroupFilter(v: string) {
     this.groupFilter = v;
+  }
+  setClinicFilter(v: string) {
+    this.clinicFilter = v;
   }
   setShowCompleted(v: boolean) {
     this.showCompleted = v;
@@ -173,10 +173,10 @@ export class TherapistPatientsStore {
   resetFilters() {
     this.searchTerm = '';
     this.sexFilter = '';
-    this.durationFilter = '';
     this.birthdateFilter = '';
     this.diseaseFilter = '';
     this.groupFilter = '';
+    this.clinicFilter = '';
     this.showCompleted = false;
     this.sortBy = 'ampel';
   }
@@ -542,23 +542,18 @@ export class TherapistPatientsStore {
     return Array.from(groups).sort();
   }
 
+  get clinicOptions(): string[] {
+    const clinics = new Set<string>();
+    this.patients.forEach((p) => {
+      if (p.clinic) clinics.add(p.clinic);
+    });
+    return Array.from(clinics).sort();
+  }
+
   get filteredPatients(): PatientType[] {
     let filtered = [...this.patients];
 
     if (this.sexFilter) filtered = filtered.filter((p) => p.sex === this.sexFilter);
-
-    if (this.durationFilter) {
-      filtered = filtered.filter((p) => {
-        const d = (p as unknown as { duration?: unknown }).duration;
-        const dur = typeof d === 'number' ? d : Number(d);
-        if (!Number.isFinite(dur)) return false;
-
-        if (this.durationFilter === '< 30 days') return dur < 30;
-        if (this.durationFilter === '30-60 days') return dur >= 30 && dur <= 60;
-        if (this.durationFilter === '60-90 days') return dur > 60 && dur <= 90;
-        return dur > 90;
-      });
-    }
 
     if (this.diseaseFilter) {
       filtered = filtered.filter((p) => {
@@ -577,11 +572,9 @@ export class TherapistPatientsStore {
         const full1 = `${first} ${last}`.trim();
         const full2 = `${last} ${first}`.trim();
 
-        const maybeUsername = (p as unknown as { username?: unknown }).username;
-        const username = typeof maybeUsername === 'string' ? maybeUsername.toLowerCase() : '';
+        const username = typeof p.username === 'string' ? p.username.toLowerCase() : '';
 
-        const maybeId = (p as unknown as { _id?: unknown })._id;
-        const pid = typeof maybeId === 'string' ? maybeId.toLowerCase() : '';
+        const pid = typeof p._id === 'string' ? p._id.toLowerCase() : '';
 
         const maybeCode = (p as unknown as { patient_code?: unknown }).patient_code;
         const pcode = typeof maybeCode === 'string' ? maybeCode.toLowerCase() : '';
@@ -600,8 +593,7 @@ export class TherapistPatientsStore {
 
     if (this.birthdateFilter) {
       filtered = filtered.filter((p) => {
-        const maybeAge = (p as unknown as { age?: unknown }).age;
-        const ageStr = typeof maybeAge === 'string' ? maybeAge : stringifyUnknown(maybeAge);
+        const ageStr = typeof p.age === 'string' ? p.age : stringifyUnknown(p.age);
         return ageStr.slice(0, 10) === this.birthdateFilter;
       });
     }
@@ -610,6 +602,10 @@ export class TherapistPatientsStore {
       filtered = filtered.filter(
         (p) => (p as unknown as { study_group?: string | null }).study_group === this.groupFilter
       );
+    }
+
+    if (this.clinicFilter) {
+      filtered = filtered.filter((p) => p.clinic === this.clinicFilter);
     }
 
     return filtered;

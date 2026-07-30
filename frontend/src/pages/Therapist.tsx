@@ -56,17 +56,12 @@ import { FaPlus } from 'react-icons/fa';
 
 // config typing used on this page
 type AppConfig = {
-  RehaInfo?: unknown;
   patientInfo?: {
     sex?: unknown;
   };
 };
 
 const appCfg = config as unknown as AppConfig;
-
-const durationOptions: string[] = Array.isArray(appCfg?.RehaInfo)
-  ? (appCfg.RehaInfo as unknown[]).map((x) => String(x))
-  : [];
 
 const sexOptions: string[] = Array.isArray(appCfg?.patientInfo?.sex)
   ? (appCfg.patientInfo!.sex as unknown[]).map((x) => String(x))
@@ -248,7 +243,7 @@ const Therapist: React.FC = observer(() => {
           )}
         </div>
 
-        <PatientFilters store={store} sexOptions={sexOptions} durationOptions={durationOptions} />
+        <PatientFilters store={store} sexOptions={sexOptions} />
 
         <h5 className="text-base font-semibold">
           {String(t('Active patients'))} ({activePatients.length})

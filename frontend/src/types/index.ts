@@ -83,6 +83,7 @@ export interface PatientType {
   diagnosis: string[];
   sex: string;
   duration: number;
+  clinic?: string;
   flagged?: boolean;
   flagged_at?: string | null;
   flagged_by?: string;

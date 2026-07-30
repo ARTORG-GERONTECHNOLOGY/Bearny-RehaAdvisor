@@ -37,7 +37,6 @@ jest.mock('@/stores/appModeStore', () => ({
 }));
 
 const sexOptions = ['Male', 'Female'];
-const durationOptions = ['< 30 days', '30-60 days'];
 
 describe('PatientFilters', () => {
   let store: TherapistPatientsStore;
@@ -49,7 +48,7 @@ describe('PatientFilters', () => {
   const renderComponent = () =>
     render(
       <I18nextProvider i18n={i18n}>
-        <PatientFilters store={store} sexOptions={sexOptions} durationOptions={durationOptions} />
+        <PatientFilters store={store} sexOptions={sexOptions} />
       </I18nextProvider>
     );
 
@@ -58,7 +57,6 @@ describe('PatientFilters', () => {
     expect(screen.getByPlaceholderText('Search by name, ID or username')).toBeInTheDocument();
     expect(screen.getByLabelText('Filter by Birth Date')).toBeInTheDocument();
     expect(screen.getByText('Filter by Sex')).toBeInTheDocument();
-    expect(screen.getByText('Filter by Duration')).toBeInTheDocument();
     expect(screen.getByText('Filter by Disease')).toBeInTheDocument();
   });
 
@@ -84,12 +82,45 @@ describe('PatientFilters', () => {
     expect(store.sexFilter).toBe('Male');
   });
 
-  it('updates the store when selecting a duration filter', async () => {
+  it('updates the store when selecting a clinic filter', async () => {
     const user = userEvent.setup();
+    store.patients = [
+      {
+        _id: 'p1',
+        first_name: 'Jane',
+        name: 'Doe',
+        sex: 'Female',
+        diagnosis: ['Stroke'],
+        clinic: 'Inselspital',
+      },
+      {
+        _id: 'p2',
+        first_name: 'John',
+        name: 'Smith',
+        sex: 'Male',
+        diagnosis: ['COPD'],
+        clinic: 'Berner Reha Centrum',
+      },
+    ] as any;
     renderComponent();
-    await user.click(screen.getByRole('combobox', { name: 'Filter by Duration' }));
-    await user.click(await screen.findByRole('option', { name: '< 30 days' }));
-    expect(store.durationFilter).toBe('< 30 days');
+    await user.click(screen.getByRole('combobox', { name: 'Filter by Clinic' }));
+    await user.click(await screen.findByRole('option', { name: 'Inselspital' }));
+    expect(store.clinicFilter).toBe('Inselspital');
+  });
+
+  it('hides the clinic filter when patients belong to a single clinic', () => {
+    store.patients = [
+      {
+        _id: 'p1',
+        first_name: 'Jane',
+        name: 'Doe',
+        sex: 'Female',
+        diagnosis: ['Stroke'],
+        clinic: 'Inselspital',
+      },
+    ] as any;
+    renderComponent();
+    expect(screen.queryByText('Filter by Clinic')).not.toBeInTheDocument();
   });
 
   it('clears the sex filter when selecting the neutral option again', async () => {
