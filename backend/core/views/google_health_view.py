@@ -609,3 +609,19 @@ def google_health_combined_history(request, patient_id):
     except Exception:
         logger.exception("[google_health_combined_history] error")
         return JsonResponse({"error": "Internal Server Error"}, status=500)
+
+
+@csrf_exempt
+@permission_classes([IsAuthenticated])
+def google_health_disconnect(request):
+    if request.method != "DELETE":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    try:
+        user = User.objects(id=request.user.id).first()
+    except Exception:
+        user = None
+    if not user:
+        return JsonResponse({"ok": False, "error": "User not found"}, status=404)
+    deleted = GoogleHealthUserToken.objects(user=user).delete()
+    logger.info("[google_health_disconnect] deleted %s token(s) for user %s", deleted, user.id)
+    return JsonResponse({"ok": True})

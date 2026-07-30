@@ -322,6 +322,11 @@ urlpatterns = [
         google_health_views.google_health_combined_history,
         name="google_health_combined_history",
     ),
+    path(
+        "api/google-health/disconnect/",
+        google_health_views.google_health_disconnect,
+        name="google_health_disconnect",
+    ),
     path("api/auth/get-user-info/<str:user_id>/", auth_views.get_user_info),
     # ICF/EVA Healthslider
     path("api/healthslider/auth/", healthslider_download_auth),
