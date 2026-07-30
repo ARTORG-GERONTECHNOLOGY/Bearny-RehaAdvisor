@@ -44,7 +44,7 @@ function mockStatus(
         last_data: null,
         needs_reconnect: false,
         days_until_expiry: 7,
-        wearable_device: 'fitbit',
+        wearable_device: 'google_health',
         ...overrides,
       }),
     })

@@ -148,54 +148,63 @@ async function loginAsSeededPatient(page: Parameters<typeof test>[0]['page']) {
   await page.reload({ waitUntil: 'networkidle' });
 }
 
+/**
+ * Mock both endpoints that fetchStatus calls:
+ * 1. /google-health/status/ — always called first to read wearable_device
+ * 2. /fitbit/status/        — called for non-google_health patients for connected state
+ */
+async function mockWearableStatus(
+  page: Parameters<typeof test>[0]['page'],
+  device: string,
+  connected = false
+) {
+  await page.route('**/google-health/status/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        connected: device === 'google_health' ? connected : false,
+        has_data: false,
+        last_data: null,
+        needs_reconnect: false,
+        days_until_expiry: null,
+        wearable_device: device,
+      }),
+    });
+  });
+
+  if (device !== 'google_health') {
+    await page.route('**/fitbit/status/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ connected, has_data: false, last_data: null }),
+      });
+    });
+  }
+}
+
 test.describe('Patient page Fitbit connect card visibility', () => {
   test.beforeEach(async ({ page }) => {
     skipUnlessPatient(test);
     await loginAsSeededPatient(page);
   });
 
-  test('hides Fitbit connect card when wearable_device is omron', async ({ page }) => {
+  test('hides connect card when wearable_device is omron', async ({ page }) => {
     skipUnlessPatient(test);
 
-    // Mock the fitbit/status endpoint to return wearable_device=omron
-    await page.route('**/fitbit/status/**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          connected: false,
-          has_data: false,
-          last_data: null,
-          wearable_device: 'omron',
-        }),
-      });
-    });
-
+    await mockWearableStatus(page, 'omron');
     await page.goto('/patient');
     await page.waitForLoadState('networkidle');
 
-    // The Fitbit connect card has "Fitbit" heading and "Fitness Tracker" sub-heading
-    // For an omron patient it must not appear
-    const fitbitConnectSection = page.locator('text=Fitness Tracker');
-    await expect(fitbitConnectSection).not.toBeVisible({ timeout: 5000 });
+    // The connect card shows "Fitness Tracker" sub-heading — must not appear for omron
+    await expect(page.locator('text=Fitness Tracker')).not.toBeVisible({ timeout: 5000 });
   });
 
-  test('hides Fitbit connect card when wearable_device is none', async ({ page }) => {
+  test('hides connect card when wearable_device is none', async ({ page }) => {
     skipUnlessPatient(test);
 
-    await page.route('**/fitbit/status/**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          connected: false,
-          has_data: false,
-          last_data: null,
-          wearable_device: 'none',
-        }),
-      });
-    });
-
+    await mockWearableStatus(page, 'none');
     await page.goto('/patient');
     await page.waitForLoadState('networkidle');
 
@@ -205,23 +214,11 @@ test.describe('Patient page Fitbit connect card visibility', () => {
   test('shows Fitbit connect card for unconnected fitbit patient', async ({ page }) => {
     skipUnlessPatient(test);
 
-    await page.route('**/fitbit/status/**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          connected: false,
-          has_data: false,
-          last_data: null,
-          wearable_device: 'fitbit',
-        }),
-      });
-    });
-
+    await mockWearableStatus(page, 'fitbit', false);
     await page.goto('/patient');
     await page.waitForLoadState('networkidle');
 
-    // The Fitbit connect card should be visible for an unconnected Fitbit patient
     await expect(page.locator('text=Fitness Tracker')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=Fitbit')).toBeVisible({ timeout: 5000 });
   });
 });
