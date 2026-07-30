@@ -443,18 +443,21 @@ def google_manual_steps(request, patient_id):
     except (TypeError, ValueError):
         return JsonResponse({"error": "Invalid steps value"}, status=400)
 
-    # Validate date is a proper ISO date string (YYYY-MM-DD) before using in DB query
-    import re as _re
+    # Parse into a date object and reconstruct the string — this breaks CodeQL's
+    # taint chain from json.loads so the query never receives raw user input.
+    try:
+        from datetime import date as _date_cls
 
-    if not isinstance(date, str) or not _re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        safe_date = _date_cls.fromisoformat(str(date)).isoformat()
+    except (TypeError, ValueError):
         return JsonResponse({"error": "Invalid date format"}, status=400)
 
     patient = _resolve_patient(request, patient_id)
     if not patient:
         return JsonResponse({"error": "Patient not found"}, status=404)
 
-    GoogleHealthData.objects(user=patient.userId, date=date).update_one(set__steps=steps, upsert=True)
-    return JsonResponse({"success": True, "steps": steps, "date": date}, status=200)
+    GoogleHealthData.objects(user=patient.userId, date=safe_date).update_one(set__steps=steps, upsert=True)
+    return JsonResponse({"success": True, "steps": steps, "date": safe_date}, status=200)
 
 
 @csrf_exempt
