@@ -41,6 +41,12 @@ describe('font setup', () => {
       (fileName) => !fs.existsSync(path.join(fontsDir, fileName))
     );
 
-    expect(missingFiles).toEqual([]);
+    if (missingFiles.length > 0) {
+      throw new Error(
+        `Missing font file(s): ${missingFiles.join(', ')}\n` +
+          'frontend/public/fonts/ is gitignored (licensed assets). Make sure the font ' +
+          'fetch step ran, or add the missing file to the server.'
+      );
+    }
   });
 });
