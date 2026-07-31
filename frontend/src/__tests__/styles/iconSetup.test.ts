@@ -8,26 +8,30 @@ describe('icon setup', () => {
 
   const iconImportPattern = /['"]@\/assets\/icons\/([^'"]+\.svg)(?:\?react)?['"]/g;
 
-  const sourceFiles: string[] = [];
-  const collectSourceFiles = (dir: string) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const entryPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        collectSourceFiles(entryPath);
-      } else if (/\.(tsx?|jsx?)$/.test(entry.name)) {
-        sourceFiles.push(entryPath);
+  let importedIcons = new Set<string>();
+
+  beforeAll(() => {
+    const sourceFiles: string[] = [];
+    const collectSourceFiles = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const entryPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          collectSourceFiles(entryPath);
+        } else if (/\.(tsx?|jsx?)$/.test(entry.name)) {
+          sourceFiles.push(entryPath);
+        }
+      }
+    };
+    collectSourceFiles(srcDir);
+
+    importedIcons = new Set<string>();
+    for (const filePath of sourceFiles) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      for (const match of content.matchAll(iconImportPattern)) {
+        importedIcons.add(match[1]);
       }
     }
-  };
-  collectSourceFiles(srcDir);
-
-  const importedIcons = new Set<string>();
-  for (const filePath of sourceFiles) {
-    const content = fs.readFileSync(filePath, 'utf8');
-    for (const match of content.matchAll(iconImportPattern)) {
-      importedIcons.add(match[1]);
-    }
-  }
+  });
 
   it('finds icon imports to check', () => {
     expect(importedIcons.size).toBeGreaterThan(0);
