@@ -3575,10 +3575,13 @@ def get_combined_health_data(request, patient_id):
                     # unified vitals
                     "weight": weight_val,
                     "blood_pressure": bp_obj,
-                    # 🔥 ADD THESE FIELDS (frontend needs them)
+                    # unified vitals + wear time for frontend
                     "weight_kg": weight_val,
                     "bp_sys": bp_obj["systolic"] if bp_obj else None,
                     "bp_dia": bp_obj["diastolic"] if bp_obj else None,
+                    "wear_time_minutes": getattr(entry, "wear_time_minutes", None),
+                    "max_heart_rate": getattr(entry, "max_heart_rate", None),
+                    "active_zone_minutes": getattr(entry, "active_zone_minutes", None),
                 }
             )
 
@@ -3612,6 +3615,12 @@ def get_combined_health_data(request, patient_id):
                         if (man.bp_sys is not None or man.bp_dia is not None)
                         else None
                     ),
+                    "weight_kg": man.weight_kg,
+                    "bp_sys": man.bp_sys,
+                    "bp_dia": man.bp_dia,
+                    "wear_time_minutes": None,
+                    "max_heart_rate": None,
+                    "active_zone_minutes": None,
                 }
             )
 
