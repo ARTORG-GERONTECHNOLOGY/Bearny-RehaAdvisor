@@ -281,6 +281,9 @@ jobs:
           # Allow the Playwright browser (127.0.0.1:4173) to reach the Django
           # dev server (127.0.0.1:8001) without a CORS block.
           echo "CORS_ALLOW_ALL_ORIGINS=true"             >> "$GITHUB_ENV"
+          # Force API requests in E2E specs to hit the local test server, not
+          # whatever VITE_API_URL is set to in the .env file.
+          echo "E2E_API_URL=http://127.0.0.1:8001/api"  >> "$GITHUB_ENV"
 
       - name: Set up Python
         uses: actions/setup-python@v4
