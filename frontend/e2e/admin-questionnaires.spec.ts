@@ -13,7 +13,7 @@ import { expect, test, type APIRequestContext } from '@playwright/test';
 
 import { loginAsAdmin } from './helpers/auth';
 
-const API_BASE = process.env.VITE_API_URL || 'http://127.0.0.1:8001/api';
+const API_BASE = process.env.E2E_API_URL || 'http://127.0.0.1:8001/api';
 
 function creds() {
   return {

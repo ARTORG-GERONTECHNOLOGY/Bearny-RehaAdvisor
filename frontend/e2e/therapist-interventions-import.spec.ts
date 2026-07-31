@@ -19,7 +19,7 @@ import { loginAsTherapist } from './helpers/auth';
 // Helpers
 // ---------------------------------------------------------------------------
 
-const API_BASE = process.env.VITE_API_URL || 'http://127.0.0.1:8001/api';
+const API_BASE = process.env.E2E_API_URL || 'http://127.0.0.1:8001/api';
 
 /** Path to the real COPAIN xlsm file used in import tests. */
 const COPAIN_FILE = path.join(__dirname, '../src/__tests__/test_data/COPAIN_MSK_LINKS_UPLOAD.xlsm');
