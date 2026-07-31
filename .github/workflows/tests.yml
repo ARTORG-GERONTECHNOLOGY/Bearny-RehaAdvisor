@@ -316,6 +316,24 @@ jobs:
           tail -n 200 /tmp/django-e2e.log || true
           exit 1
 
+      - name: Set up SSH for asset download
+        # PROD_HOST / PROD_USERNAME / PROD_SSH_KEY must be repository-level secrets
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.PROD_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Fetch proprietary assets from server
+        run: |
+          mkdir -p frontend/public/fonts frontend/src/assets/icons
+          scp -i ~/.ssh/deploy_key -r \
+            "${{ secrets.PROD_USERNAME }}@${{ secrets.PROD_HOST }}:/home/ubuntu/repos/telerehabapp/frontend/public/fonts/." \
+            frontend/public/fonts/
+          scp -i ~/.ssh/deploy_key -r \
+            "${{ secrets.PROD_USERNAME }}@${{ secrets.PROD_HOST }}:/home/ubuntu/repos/telerehabapp/frontend/src/assets/icons/." \
+            frontend/src/assets/icons/
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
