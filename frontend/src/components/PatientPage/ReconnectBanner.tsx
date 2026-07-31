@@ -11,7 +11,7 @@ const DISMISS_KEY = (id: string) => `reconnect_banner_dismissed_${id}`;
 
 const ReconnectBanner: React.FC = observer(() => {
   const { t } = useTranslation();
-  const patientId = localStorage.getItem('id') || authStore.id || '';
+  const patientId = authStore.getStoredUserId();
   const [dismissed, setDismissed] = useState(
     () => sessionStorage.getItem(DISMISS_KEY(patientId)) === '1'
   );

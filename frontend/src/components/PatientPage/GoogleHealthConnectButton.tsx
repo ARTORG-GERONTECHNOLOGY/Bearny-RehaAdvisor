@@ -9,7 +9,7 @@ import { buildGoogleHealthAuthUrl } from '@/utils/googleHealthAuthUrl';
 
 const GoogleHealthConnectButton: React.FC = observer(() => {
   const { t } = useTranslation();
-  const patientId = useMemo(() => localStorage.getItem('id') || authStore.id, []);
+  const patientId = useMemo(() => authStore.getStoredUserId(), []);
 
   useEffect(() => {
     if (!patientId) return;
