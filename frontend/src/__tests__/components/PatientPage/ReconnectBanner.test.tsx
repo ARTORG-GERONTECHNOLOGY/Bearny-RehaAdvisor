@@ -22,12 +22,19 @@ jest.mock('@/stores/patientFitbitStore', () => ({
 
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
-  default: { id: 'test-patient-id' },
+  default: {
+    id: 'test-patient-id',
+    getStoredUserId: jest.fn(function (this: { id: string }) {
+      return this.id || localStorage.getItem('id') || '';
+    }),
+  },
 }));
 
 jest.mock('@/utils/googleHealthAuthUrl', () => ({
   buildGoogleHealthAuthUrl: (id: string) => `https://accounts.google.com/oauth?state=${id}`,
 }));
+
+const mockAuthStore = jest.requireMock('@/stores/authStore').default as { id: string };
 
 function setStore(needsReconnect: boolean, daysUntilExpiry: number | null) {
   mockStore.needsReconnect = needsReconnect;
@@ -37,6 +44,7 @@ function setStore(needsReconnect: boolean, daysUntilExpiry: number | null) {
 beforeEach(() => {
   setStore(false, null);
   sessionStorage.clear();
+  mockAuthStore.id = 'test-patient-id';
   localStorage.setItem('id', 'test-patient-id');
 });
 
@@ -123,7 +131,18 @@ describe('ReconnectBanner — dismiss behaviour', () => {
     expect(sessionStorage.getItem('reconnect_banner_dismissed_test-patient-id')).toBe('1');
   });
 
-  it('uses localStorage id for the dismiss key when available', () => {
+  it('prefers the authStore id over localStorage for the dismiss key when both are set', () => {
+    localStorage.setItem('id', 'ls-patient-id');
+    mockAuthStore.id = 'test-patient-id';
+    setStore(true, 1);
+    render(<ReconnectBanner />);
+    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
+
+    expect(sessionStorage.getItem('reconnect_banner_dismissed_test-patient-id')).toBe('1');
+  });
+
+  it('falls back to the localStorage id for the dismiss key when authStore id is empty', () => {
+    mockAuthStore.id = '';
     localStorage.setItem('id', 'ls-patient-id');
     setStore(true, 1);
     render(<ReconnectBanner />);

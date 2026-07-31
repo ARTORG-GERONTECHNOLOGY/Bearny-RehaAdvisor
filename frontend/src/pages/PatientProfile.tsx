@@ -6,9 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import Card from '@/components/Card';
-import { Skeleton } from '@/components/ui/skeleton';
-import FitbitConnectButton from '@/components/PatientPage/GoogleHealthConnectButton';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import authStore from '@/stores/authStore';
 import { observer } from 'mobx-react-lite';
 import { Link, useNavigate } from 'react-router-dom';
@@ -24,8 +22,9 @@ import FitbitCard from '@/components/UserProfile/FitbitCard';
 const PatientProfile: React.FC = observer(() => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { isAllowed } = useRoleAuthGate('Patient');
 
-  const patientId = localStorage.getItem('id') || authStore.id || '';
+  const patientId = authStore.getStoredUserId();
   const displayName = authStore.firstName || t('Profile');
 
   const contactEmail =
@@ -56,29 +55,13 @@ const PatientProfile: React.FC = observer(() => {
     navigate('/');
   };
 
-  // Check authentication
   useEffect(() => {
-    let alive = true;
+    if (!isAllowed) return;
 
-    const checkAuth = async () => {
-      await authStore.checkAuthentication();
-
-      if (!alive) return;
-      if (!authStore.isAuthenticated || authStore.userType !== 'Patient') {
-        navigate('/');
-      }
-
-      if (patientId) {
-        patientFitbitStore.fetchStatus(patientId);
-      }
-    };
-
-    checkAuth();
-
-    return () => {
-      alive = false;
-    };
-  }, [navigate]);
+    if (patientId) {
+      patientFitbitStore.fetchStatus(patientId);
+    }
+  }, [isAllowed, patientId]);
 
   return (
     <Layout>
