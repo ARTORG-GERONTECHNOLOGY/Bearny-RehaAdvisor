@@ -6,14 +6,7 @@ from datetime import datetime, timedelta
 from datetime import timezone as dt_tz
 from typing import Any, Dict, List, Optional, Tuple
 
-from core.models import FitbitData, Patient
-
-# GoogleHealthData is introduced by the Google Health migration branch.
-# Import it conditionally so this module works on main before that branch lands.
-try:
-    from core.models import GoogleHealthData as _GoogleHealthData  # type: ignore[attr-defined]
-except ImportError:
-    _GoogleHealthData = None  # type: ignore[assignment,misc]
+from core.models import FitbitData, GoogleHealthData, Patient
 from core.services.redcap_service import (
     RedcapError,
     _parse_invalid_fields,
@@ -80,7 +73,7 @@ def _as_utc(dt: datetime) -> datetime:
 
 
 def _record_date(r) -> Optional[date_type]:
-    """Return the date part of a wearable data record as a datetime.date."""
+    """Return the date part of a wearable data record (FitbitData or GoogleHealthData) as a datetime.date."""
     d = r.date
     if d is None:
         return None
@@ -92,25 +85,18 @@ def _record_date(r) -> Optional[date_type]:
 def _find_first_measurement_date(user) -> Optional[date_type]:
     """Return the earliest calendar date with any wearable data for *user*.
 
-    Checks GoogleHealthData (when available) and FitbitData so patients who
-    migrated from Fitbit to Google Health are not incorrectly rejected.
+    Checks both GoogleHealthData and FitbitData so patients who migrated away
+    from Fitbit (and have no FitbitData) are not incorrectly rejected.
     """
-    dates: List[date_type] = []
+    gh_first = GoogleHealthData.objects(user=user).order_by("date").first()
+    fb_first = FitbitData.objects(user=user).order_by("date").first()
 
-    if _GoogleHealthData is not None:
-        gh = _GoogleHealthData.objects(user=user).order_by("date").first()
-        if gh:
-            d = _record_date(gh)
-            if d:
-                dates.append(d)
+    gh_date = _record_date(gh_first) if gh_first else None
+    fb_date = _record_date(fb_first) if fb_first else None
 
-    fb = FitbitData.objects(user=user).order_by("date").first()
-    if fb:
-        d = _record_date(fb)
-        if d:
-            dates.append(d)
-
-    return min(dates) if dates else None
+    if gh_date and fb_date:
+        return min(gh_date, fb_date)
+    return gh_date or fb_date
 
 
 def _build_period_diagnosis(user, window_start: date_type, window_end: date_type) -> Dict[str, Any]:
@@ -127,9 +113,7 @@ def _build_period_diagnosis(user, window_start: date_type, window_end: date_type
     start_dt = datetime.combine(window_start, datetime.min.time()).replace(tzinfo=dt_tz.utc)
     end_dt = datetime.combine(window_end, datetime.max.time()).replace(tzinfo=dt_tz.utc)
 
-    records: list = []
-    if _GoogleHealthData is not None:
-        records = list(_GoogleHealthData.objects(user=user, date__gte=start_dt, date__lte=end_dt))
+    records = list(GoogleHealthData.objects(user=user, date__gte=start_dt, date__lte=end_dt))
     if not records:
         records = list(FitbitData.objects(user=user, date__gte=start_dt, date__lte=end_dt))
 
@@ -260,14 +244,11 @@ def _summarize_period(
     start_dt = datetime.combine(window_start, datetime.min.time()).replace(tzinfo=dt_tz.utc)
     end_dt = datetime.combine(window_end, datetime.max.time()).replace(tzinfo=dt_tz.utc)
 
-    records = list(
-        FitbitData.objects(
-            user=user,
-            date__gte=start_dt,
-            date__lte=end_dt,
-        ).order_by("date")
-    )
+    # Prefer GoogleHealthData; fall back to FitbitData for users who haven't migrated yet
+    records = list(GoogleHealthData.objects(user=user, date__gte=start_dt, date__lte=end_dt).order_by("date"))
 
+    if not records:
+        records = list(FitbitData.objects(user=user, date__gte=start_dt, date__lte=end_dt).order_by("date"))
     if not records:
         return None
 

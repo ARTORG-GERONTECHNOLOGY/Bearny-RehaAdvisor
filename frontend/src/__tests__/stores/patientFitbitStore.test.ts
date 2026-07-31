@@ -26,6 +26,9 @@ describe('patientFitbitStore', () => {
     patientFitbitStore.summary = null;
     patientFitbitStore.summaryLoading = false;
     patientFitbitStore.error = '';
+    (patientFitbitStore as any).needsReconnect = false;
+    (patientFitbitStore as any).daysUntilExpiry = null;
+    (patientFitbitStore as any).wearableDevice = 'fitbit';
   });
 
   // ------------------------------------------------------------------
@@ -44,15 +47,19 @@ describe('patientFitbitStore', () => {
   // ------------------------------------------------------------------
   describe('fetchStatus', () => {
     it('requests and stores the connected status', async () => {
-      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { connected: true } });
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { connected: true, wearable_device: 'google_health' },
+      });
       await patientFitbitStore.fetchStatus('p1');
-      expect(apiClient.get).toHaveBeenCalledWith('/fitbit/status/p1/');
+      expect(apiClient.get).toHaveBeenCalledWith('/google-health/status/p1/');
       expect(patientFitbitStore.connected).toBe(true);
       expect(patientFitbitStore.statusLoading).toBe(false);
     });
 
     it('coerces a missing/falsy connected field to false', async () => {
-      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: {} });
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { wearable_device: 'google_health' },
+      });
       await patientFitbitStore.fetchStatus('p1');
       expect(patientFitbitStore.connected).toBe(false);
     });
@@ -61,7 +68,7 @@ describe('patientFitbitStore', () => {
       let sawLoadingDuringFetch: boolean | undefined;
       (apiClient.get as jest.Mock).mockImplementationOnce(async () => {
         sawLoadingDuringFetch = patientFitbitStore.statusLoading;
-        return { data: { connected: true } };
+        return { data: { connected: true, wearable_device: 'google_health' } };
       });
       await patientFitbitStore.fetchStatus('p1');
       expect(sawLoadingDuringFetch).toBe(true);
@@ -72,7 +79,7 @@ describe('patientFitbitStore', () => {
       let sawLoadingDuringFetch: boolean | undefined;
       (apiClient.get as jest.Mock).mockImplementationOnce(async () => {
         sawLoadingDuringFetch = patientFitbitStore.statusLoading;
-        return { data: { connected: true } };
+        return { data: { connected: true, wearable_device: 'google_health' } };
       });
       await patientFitbitStore.fetchStatus('p1');
       expect(sawLoadingDuringFetch).toBe(false);
@@ -84,6 +91,58 @@ describe('patientFitbitStore', () => {
       expect(patientFitbitStore.connected).toBe(false);
       expect(patientFitbitStore.statusLoading).toBe(false);
     });
+
+    // reconnect-banner fields (google_health patients only)
+    it('sets needsReconnect=false and daysUntilExpiry=7 for a fresh connection', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: {
+          connected: true,
+          needs_reconnect: false,
+          days_until_expiry: 7,
+          wearable_device: 'google_health',
+        },
+      });
+      await patientFitbitStore.fetchStatus('p1');
+      expect(patientFitbitStore.needsReconnect).toBe(false);
+      expect(patientFitbitStore.daysUntilExpiry).toBe(7);
+    });
+
+    it('sets needsReconnect=true and daysUntilExpiry=1 at day 6', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: {
+          connected: true,
+          needs_reconnect: true,
+          days_until_expiry: 1,
+          wearable_device: 'google_health',
+        },
+      });
+      await patientFitbitStore.fetchStatus('p1');
+      expect(patientFitbitStore.needsReconnect).toBe(true);
+      expect(patientFitbitStore.daysUntilExpiry).toBe(1);
+    });
+
+    it('sets daysUntilExpiry=0 when token has expired', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: {
+          connected: true,
+          needs_reconnect: true,
+          days_until_expiry: 0,
+          wearable_device: 'google_health',
+        },
+      });
+      await patientFitbitStore.fetchStatus('p1');
+      expect(patientFitbitStore.needsReconnect).toBe(true);
+      expect(patientFitbitStore.daysUntilExpiry).toBe(0);
+    });
+
+    it('sets daysUntilExpiry=null when API omits the field (legacy token)', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { connected: true, needs_reconnect: false, wearable_device: 'google_health' },
+      });
+      await patientFitbitStore.fetchStatus('p1');
+      expect(patientFitbitStore.needsReconnect).toBe(false);
+      expect(patientFitbitStore.daysUntilExpiry).toBeNull();
+    });
   });
 
   // ------------------------------------------------------------------
@@ -92,17 +151,25 @@ describe('patientFitbitStore', () => {
   describe('fetchSummary', () => {
     const summaryPayload = { connected: true, last_sync: null, period: { days: 7, daily: [] } };
 
+    beforeEach(() => {
+      (patientFitbitStore as any).wearableDevice = 'google_health';
+    });
+
     it('requests the summary with the given day count', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: summaryPayload });
       await patientFitbitStore.fetchSummary('p1', 14);
-      expect(apiClient.get).toHaveBeenCalledWith('/fitbit/summary/p1/', { params: { days: 14 } });
+      expect(apiClient.get).toHaveBeenCalledWith('/google-health/summary/p1/', {
+        params: { days: 14 },
+      });
       expect(patientFitbitStore.summary).toEqual(summaryPayload);
     });
 
     it('defaults to 7 days', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: summaryPayload });
       await patientFitbitStore.fetchSummary('p1');
-      expect(apiClient.get).toHaveBeenCalledWith('/fitbit/summary/p1/', { params: { days: 7 } });
+      expect(apiClient.get).toHaveBeenCalledWith('/google-health/summary/p1/', {
+        params: { days: 7 },
+      });
     });
 
     it('caches the summary in sessionStorage after a successful fetch', async () => {
@@ -183,15 +250,19 @@ describe('patientFitbitStore', () => {
   // refresh
   // ------------------------------------------------------------------
   describe('refresh', () => {
+    beforeEach(() => {
+      (patientFitbitStore as any).wearableDevice = 'google_health';
+    });
+
     it('fetches status first when connected is unknown, then the summary', async () => {
       (apiClient.get as jest.Mock)
-        .mockResolvedValueOnce({ data: { connected: true } }) // status
+        .mockResolvedValueOnce({ data: { connected: true, wearable_device: 'google_health' } }) // status
         .mockResolvedValueOnce({ data: { period: { days: 7, daily: [] } } }); // summary
 
       await patientFitbitStore.refresh('p1');
 
-      expect(apiClient.get).toHaveBeenNthCalledWith(1, '/fitbit/status/p1/');
-      expect(apiClient.get).toHaveBeenNthCalledWith(2, '/fitbit/summary/p1/', {
+      expect(apiClient.get).toHaveBeenNthCalledWith(1, '/google-health/status/p1/');
+      expect(apiClient.get).toHaveBeenNthCalledWith(2, '/google-health/summary/p1/', {
         params: { days: 7 },
       });
     });
@@ -205,7 +276,9 @@ describe('patientFitbitStore', () => {
       await patientFitbitStore.refresh('p1');
 
       expect(apiClient.get).toHaveBeenCalledTimes(1);
-      expect(apiClient.get).toHaveBeenCalledWith('/fitbit/summary/p1/', { params: { days: 7 } });
+      expect(apiClient.get).toHaveBeenCalledWith('/google-health/summary/p1/', {
+        params: { days: 7 },
+      });
     });
   });
 
@@ -213,6 +286,10 @@ describe('patientFitbitStore', () => {
   // submitManualSteps
   // ------------------------------------------------------------------
   describe('submitManualSteps', () => {
+    beforeEach(() => {
+      (patientFitbitStore as any).wearableDevice = 'google_health';
+    });
+
     it('posts the manual step entry and force-refreshes the summary', async () => {
       (apiClient.post as jest.Mock).mockResolvedValueOnce({});
       (apiClient.get as jest.Mock).mockResolvedValueOnce({
@@ -221,11 +298,13 @@ describe('patientFitbitStore', () => {
 
       await patientFitbitStore.submitManualSteps('p1', '2026-01-05', 4200);
 
-      expect(apiClient.post).toHaveBeenCalledWith('/fitbit/manual_steps/p1/', {
+      expect(apiClient.post).toHaveBeenCalledWith('/google-health/manual_steps/p1/', {
         date: '2026-01-05',
         steps: 4200,
       });
-      expect(apiClient.get).toHaveBeenCalledWith('/fitbit/summary/p1/', { params: { days: 7 } });
+      expect(apiClient.get).toHaveBeenCalledWith('/google-health/summary/p1/', {
+        params: { days: 7 },
+      });
     });
 
     it('clears any existing error before submitting', async () => {

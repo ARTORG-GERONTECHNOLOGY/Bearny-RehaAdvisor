@@ -3,9 +3,17 @@ import ActivitySection from '@/components/PatientPage/ActivitySection';
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 jest.mock(
+  '@/components/PatientPage/GoogleHealthConnectButton',
+  () =>
+    function GoogleHealthConnectButton() {
+      return <div data-testid="fitbit-connect-button">Connect</div>;
+    }
+);
+
+jest.mock(
   '@/components/PatientPage/FitbitStatus',
   () =>
-    function FitbitStatus() {
+    function FitbitConnectButton() {
       return <div data-testid="fitbit-connect-button">Connect</div>;
     }
 );

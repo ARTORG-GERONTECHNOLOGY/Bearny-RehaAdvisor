@@ -577,9 +577,10 @@ def user_profile_view(request, user_id):
                     patient.initial_questionnaire_enabled = bool(raw["initial_questionnaire_enabled"])
                     updated["initial_questionnaire_enabled"] = patient.initial_questionnaire_enabled
 
-                # wearable_device: validated enum
-                if "wearable_device" in raw and raw["wearable_device"] in WEARABLE_DEVICE_CHOICES:
-                    patient.wearable_device = raw["wearable_device"]
+                # wearable_device: validated enum (accept both snake_case and camelCase)
+                device_val = raw.get("wearable_device") or raw.get("wearableDevice")
+                if device_val and device_val in WEARABLE_DEVICE_CHOICES:
+                    patient.wearable_device = device_val
                     updated["wearable_device"] = patient.wearable_device
 
                 user.save()

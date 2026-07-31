@@ -7,11 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
 import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
+import GoogleHealthConnectButton from '@/components/PatientPage/GoogleHealthConnectButton';
 import ProgressIndicator from '@/components/PatientPage/ProgressIndicator';
 import Section from '@/components/Section';
 import { PatientActivitySectionSkeleton } from '@/components/skeletons/PatientSkeleton';
 import Card from '@/components/Card';
-import { formatDurationMinutes } from '@/utils/dateFormat';
 
 interface StepsHistoryItem {
   date: string;
@@ -37,7 +37,7 @@ interface ActivitySectionProps {
   sleepMinutes?: number | null;
   sleepMinutesGoal?: number | null;
   onOpenManualStepsEntry: () => void;
-  wearableDevice?: 'fitbit' | 'omron' | 'none';
+  wearableDevice?: 'fitbit' | 'omron' | 'google_health' | 'none';
 }
 
 const ActivitySection: React.FC<ActivitySectionProps> = ({
@@ -65,7 +65,10 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
 
   const formatMinutesToHM = (minutes?: number | null) => {
     if (!minutes || Number.isNaN(Number(minutes))) return '--';
-    return formatDurationMinutes(Number(minutes), 'min');
+    const total = Math.max(0, Math.round(Number(minutes)));
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
+    return `${hours}h ${mins}min`;
   };
 
   if (loading) {
@@ -76,7 +79,11 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
     <Section>
       <div className="flex p-2 pl-4 justify-between w-full">
         <div className="text-lg font-medium text-zinc-500">{t('Todays Activity')}</div>
-        {connected && <Badge variant="section">{t('Fitbit Connected')}</Badge>}
+        {connected && (
+          <Badge variant="section">
+            {t(wearableDevice === 'google_health' ? 'Google Health Connected' : 'Fitbit Connected')}
+          </Badge>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -205,13 +212,19 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
           </div>
         )}
 
-        {!connected && wearableDevice === 'fitbit' && (
+        {!connected && (wearableDevice === 'fitbit' || wearableDevice === 'google_health') && (
           <div className="p-4 rounded-3xl bg-zinc-100 flex gap-1 justify-between items-center">
             <div className="flex flex-col">
-              <div className="font-bold text-lg text-zinc-800">{t('Fitbit')}</div>
+              <div className="font-bold text-lg text-zinc-800">
+                {wearableDevice === 'google_health' ? t('Google Health') : t('Fitbit')}
+              </div>
               <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
             </div>
-            <FitbitConnectButton />
+            {wearableDevice === 'google_health' ? (
+              <GoogleHealthConnectButton />
+            ) : (
+              <FitbitConnectButton />
+            )}
           </div>
         )}
       </div>

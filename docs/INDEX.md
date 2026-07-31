@@ -4,7 +4,7 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 
 ## 📋 Complete File List
 
-### Core Documentation (16 files)
+### Core Documentation (17 files)
 
 | File | Purpose | Audience | Length |
 |------|---------|----------|--------|
@@ -29,10 +29,11 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 | [CONTRIBUTING_QUICKSTART.md](./CONTRIBUTING_QUICKSTART.md) | First contribution path and review expectations | New Contributors | Quickstart |
 | [15-STUDY_INTEGRATION.md](./15-STUDY_INTEGRATION.md) | REDCap connection, patient import, consent gate, wearables sync | Study Coordinators, DevOps | — |
 | [16-FITBIT_INTEGRATION.md](./16-FITBIT_INTEGRATION.md) | Fitbit OAuth flow, data models, sync paths, API endpoints, rate-limit guard | Backend Developers, DevOps | — |
+| [17-GOOGLE_HEALTH_INTEGRATION.md](./17-GOOGLE_HEALTH_INTEGRATION.md) | Google Health OAuth flow, data models, sync paths, coexistence with Fitbit | Backend Developers, DevOps | — |
 | [13-CODE_STANDARDS.md](./13-CODE_STANDARDS.md) | Code style and best practices | Developers | 15 KB |
 | [14-CI_ENVIRONMENT_CONTRACT.md](./14-CI_ENVIRONMENT_CONTRACT.md) | CI test environment and security contract | DevOps, Backend Developers | 3 KB |
 
-**Total**: ~192 KB of comprehensive documentation
+**Total**: ~200 KB of comprehensive documentation
 
 ## 🎯 Quick Navigation by Role
 
