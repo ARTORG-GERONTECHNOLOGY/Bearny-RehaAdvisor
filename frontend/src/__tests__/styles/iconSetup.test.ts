@@ -42,6 +42,12 @@ describe('icon setup', () => {
       (iconPath) => !fs.existsSync(path.join(iconsDir, iconPath))
     );
 
-    expect(missingIcons).toEqual([]);
+    if (missingIcons.length > 0) {
+      throw new Error(
+        `Missing icon file(s): ${missingIcons.join(', ')}\n` +
+          'frontend/src/assets/icons/ is gitignored (licensed assets). Make sure the icon ' +
+          'fetch step ran, or add the missing file to the server.'
+      );
+    }
   });
 });
