@@ -16,7 +16,7 @@
  *   E2E_PATIENT_ID         — ObjectId of an existing patient to apply the template to
  *
  * The API base URL is read from:
- *   VITE_API_URL  (default: http://127.0.0.1:8001/api)
+ * E2E_API_URL  (default: http://127.0.0.1:8001/api)
  */
 
 import { expect, test, type APIRequestContext } from '@playwright/test';
@@ -27,7 +27,7 @@ import { loginAsTherapist } from './helpers/auth';
 // Config helpers
 // ---------------------------------------------------------------------------
 
-const API_BASE = process.env.VITE_API_URL || 'http://127.0.0.1:8001/api';
+const API_BASE = process.env.E2E_API_URL || 'http://127.0.0.1:8001/api';
 
 function creds() {
   return {
