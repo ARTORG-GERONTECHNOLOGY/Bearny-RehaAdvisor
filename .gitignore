@@ -2,6 +2,13 @@
 coverage/
 mongo_data/
 mongo/tls/
+
+# Proprietary licensed assets — kept on server filesystem, never committed to git
+frontend/public/fonts/
+frontend/src/assets/icons/
+
+# Local nginx host configuration
+backend/nginx_host
 redis/tls/
 nginx/certs/
 nginx/logs/

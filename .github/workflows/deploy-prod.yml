@@ -362,6 +362,23 @@ jobs:
           fi
           echo "Fitbit client ID configured: ${EFFECTIVE}"
 
+      - name: Set up SSH for asset download
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.PROD_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Fetch proprietary assets from server
+        run: |
+          mkdir -p frontend/public/fonts frontend/src/assets/icons
+          scp -i ~/.ssh/deploy_key -r \
+            "${{ secrets.PROD_USERNAME }}@${{ secrets.PROD_HOST }}:/home/ubuntu/repos/telerehabapp/frontend/public/fonts/." \
+            frontend/public/fonts/
+          scp -i ~/.ssh/deploy_key -r \
+            "${{ secrets.PROD_USERNAME }}@${{ secrets.PROD_HOST }}:/home/ubuntu/repos/telerehabapp/frontend/src/assets/icons/." \
+            frontend/src/assets/icons/
+
       - name: Build and push frontend image
         uses: docker/build-push-action@v4
         with:
