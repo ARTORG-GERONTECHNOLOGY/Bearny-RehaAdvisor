@@ -90,7 +90,9 @@ class PatientFitbitStore {
 
   connected: boolean | null = null;
   statusLoading = false;
-  wearableDevice: 'fitbit' | 'omron' | 'none' = 'fitbit';
+  wearableDevice: 'fitbit' | 'omron' | 'google_health' | 'none' = 'fitbit';
+  needsReconnect = false;
+  daysUntilExpiry: number | null = null;
 
   summary: FitbitSummary | null = null;
   summaryLoading = false;
@@ -124,6 +126,10 @@ class PatientFitbitStore {
     return PatientFitbitStore.cache.get<FitbitSummary>(cacheKey);
   }
 
+  get useGoogleHealth(): boolean {
+    return this.wearableDevice === 'google_health';
+  }
+
   clearError() {
     this.error = '';
   }
@@ -132,13 +138,36 @@ class PatientFitbitStore {
     if (this.connected === null) this.statusLoading = true;
     this.error = '';
     try {
-      const { data } = await apiClient.get(`/fitbit/status/${patientId}/`);
-      runInAction(() => {
-        this.connected = !!data?.connected;
-        if (data?.wearable_device && ['fitbit', 'omron', 'none'].includes(data.wearable_device)) {
-          this.wearableDevice = data.wearable_device;
+      // Google Health status returns wearable_device for all patients
+      const { data: ghData } = await apiClient.get(`/google-health/status/${patientId}/`);
+      const device = ghData?.wearable_device;
+      if (device && ['fitbit', 'omron', 'google_health', 'none'].includes(device)) {
+        runInAction(() => {
+          this.wearableDevice = device;
+        });
+      }
+
+      if (device === 'google_health') {
+        runInAction(() => {
+          this.connected = !!ghData?.connected;
+          this.needsReconnect = !!ghData?.needs_reconnect;
+          this.daysUntilExpiry = ghData?.days_until_expiry ?? null;
+        });
+      } else {
+        // Fitbit (or omron/none): fall through to Fitbit status for accurate connected state
+        try {
+          const { data: fbData } = await apiClient.get(`/fitbit/status/${patientId}/`);
+          runInAction(() => {
+            this.connected = !!fbData?.connected;
+            this.needsReconnect = false;
+            this.daysUntilExpiry = null;
+          });
+        } catch {
+          runInAction(() => {
+            this.connected = false;
+          });
         }
-      });
+      }
     } catch {
       runInAction(() => {
         this.connected = false;
@@ -160,8 +189,11 @@ class PatientFitbitStore {
     }
     if (!cached || force) this.summaryLoading = true;
     this.error = '';
+    const base = this.useGoogleHealth ? 'google-health' : 'fitbit';
     try {
-      const { data } = await apiClient.get(`/fitbit/summary/${patientId}/`, { params: { days } });
+      const { data } = await apiClient.get(`/${base}/summary/${patientId}/`, {
+        params: { days },
+      });
       runInAction(() => {
         this.summary = data;
       });
@@ -187,13 +219,15 @@ class PatientFitbitStore {
 
   async submitManualSteps(patientId: string, date: string, steps: number) {
     this.error = '';
-    await apiClient.post(`/fitbit/manual_steps/${patientId}/`, { date, steps });
+    const base = this.useGoogleHealth ? 'google-health' : 'fitbit';
+    await apiClient.post(`/${base}/manual_steps/${patientId}/`, { date, steps });
     await this.fetchSummary(patientId, 7, true);
   }
 
   async disconnect() {
     this.error = '';
-    await apiClient.delete('/fitbit/disconnect/');
+    const base = this.useGoogleHealth ? 'google-health' : 'fitbit';
+    await apiClient.delete(`/${base}/disconnect/`);
     runInAction(() => {
       this.connected = false;
       this.summary = null;

@@ -4,6 +4,7 @@ import apiClient from '@/api/client';
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { colors } from '@/lib/colors';
 import * as dateFormat from '@/utils/dateFormat';
+import { patientFitbitStore } from '@/stores/patientFitbitStore';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
@@ -32,10 +33,12 @@ describe('usePatientProcess', () => {
     localStorage.clear();
     localStorage.setItem('id', 'patient-123');
     mockedUseRoleAuthGate.mockReturnValue({ isAllowed: true });
+    (patientFitbitStore as any).wearableDevice = 'google_health';
   });
 
   afterEach(() => {
     nowSpy.mockRestore();
+    (patientFitbitStore as any).wearableDevice = 'fitbit';
   });
 
   it('does not fetch when patient auth gate is not allowed', async () => {
@@ -66,7 +69,7 @@ describe('usePatientProcess', () => {
         });
       }
 
-      if (url.includes('/fitbit/summary/')) {
+      if (url.includes('/google-health/summary/')) {
         return Promise.resolve({
           data: {
             thresholds: {
@@ -120,7 +123,7 @@ describe('usePatientProcess', () => {
         }),
       })
     );
-    expect(apiClient.get).toHaveBeenNthCalledWith(2, '/fitbit/summary/patient-123/', {
+    expect(apiClient.get).toHaveBeenNthCalledWith(2, '/google-health/summary/patient-123/', {
       params: { days: 7 },
     });
 
@@ -197,7 +200,7 @@ describe('usePatientProcess', () => {
     });
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/fitbit/summary/patient-123/', {
+      expect(apiClient.get).toHaveBeenCalledWith('/google-health/summary/patient-123/', {
         params: { days: 30 },
       });
     });
@@ -213,7 +216,7 @@ describe('usePatientProcess', () => {
       if (url.includes('/patients/health-combined-history/')) {
         return Promise.resolve({ data: { adherence: [] } });
       }
-      if (url.includes('/fitbit/summary/')) {
+      if (url.includes('/google-health/summary/')) {
         return Promise.resolve({
           data: {
             thresholds: {

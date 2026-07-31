@@ -47,6 +47,7 @@ services:
       - 8001:8000
     environment:
       - APP_MODE=dev
+      - REDIS_CA_CERT=/etc/ssl/mongo/ca.crt
     volumes:
       - ./backend/:/app
       - static:/app/static
@@ -54,8 +55,6 @@ services:
       - ./frontend/src/config/:/app/config
       - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
       - /tmp/django-e2e-emails:/tmp/django-e2e-emails
-    environment:
-      - REDIS_CA_CERT=/etc/ssl/mongo/ca.crt
 
     depends_on:
       - db-dev

@@ -123,7 +123,7 @@ def setup_patient_with_plan():
     assignment = InterventionAssignment(
         interventionId=intervention,
         frequency="Daily",
-        dates=[datetime.now() + timedelta(days=i) for i in range(3)],
+        dates=[datetime.now() + timedelta(days=i + 1) for i in range(3)],
     )
     plan = RehabilitationPlan(
         patientId=patient,

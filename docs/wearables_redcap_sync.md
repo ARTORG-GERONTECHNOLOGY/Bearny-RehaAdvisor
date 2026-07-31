@@ -1,6 +1,6 @@
 # Wearables → REDCap Sync
 
-Automatically exports Fitbit wearables data (steps, activity, inactivity, sleep) from the platform into the REDCap **Wearables** instrument for COPAIN and COMPASS patients.
+Automatically exports wearable data (steps, activity, inactivity, sleep) from the platform into the REDCap **Wearables** instrument for COPAIN and COMPASS patients. Both **Fitbit** and **Google Health** patients are supported — the pipeline reads from whichever model has data, preferring `GoogleHealthData` and falling back to `FitbitData` for the same user.
 
 ---
 
@@ -8,7 +8,7 @@ Automatically exports Fitbit wearables data (steps, activity, inactivity, sleep)
 
 For each patient the pipeline:
 
-1. Finds the **first Fitbit measurement date** (the earliest day any data was recorded)
+1. Finds the **first wearable measurement date** — the earliest day any data was recorded in either `GoogleHealthData` or `FitbitData`
 2. Computes two **fixed monitoring windows** relative to that date (baseline: Day 8–28; follow-up: Day 150–180)
 3. Within each window, identifies **valid** activity days (≥ 10 h wear time) and sleep nights (≥ 3 h sleep) — independently
 4. Selects the **earliest** valid days: up to 5 weekdays + 2 weekend days per window
@@ -19,7 +19,7 @@ For each patient the pipeline:
 
 ## Monitoring windows
 
-Both windows are anchored to the **first Fitbit measurement date** (Day 1 = date of the first stored `FitbitData` record), not to `reha_end_date`.
+Both windows are anchored to the **first wearable measurement date** (Day 1 = earliest date in `GoogleHealthData` or `FitbitData`), not to `reha_end_date`.
 
 | Period | REDCap event | Start | End | Rationale |
 |---|---|---|---|---|
@@ -155,7 +155,7 @@ Priority: **API body argument > env var > per-project default**.
 
 ## Prerequisites
 
-1. The patient must have at least one `FitbitData` record (the first date anchors both windows)
+1. The patient must have at least one `FitbitData` or `GoogleHealthData` record (the earliest date anchors both windows)
 2. The patient must have a `project` field set (`COPAIN` or `COMPASS`)
 3. The REDCap API token must have **Data Import/Update** permission
 4. The environment must have the correct token variable set:
@@ -164,7 +164,7 @@ Priority: **API body argument > env var > per-project default**.
    REDCAP_TOKEN_COPAIN=<token>
    ```
 
-> **Note:** `reha_end_date` is no longer required for window calculation. It was previously used as the baseline anchor but the algorithm now uses the first Fitbit measurement date instead.
+> **Note:** `reha_end_date` is no longer required for window calculation. It was previously used as the baseline anchor but the algorithm now uses the first wearable measurement date (from either `GoogleHealthData` or `FitbitData`) instead.
 
 ---
 
