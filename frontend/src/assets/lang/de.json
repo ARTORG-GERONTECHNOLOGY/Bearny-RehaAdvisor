@@ -1001,6 +1001,7 @@
   "Wearable Device": "Wearable-Gerät",
   "fitbit": "Fitbit",
   "omron": "Omron",
+  "google_health": "Dev (Google Health)",
   "none": "Keines",
   "Wear": "Tragen",
   "hint_resting_hr_empty": "Keine Ruheherzfrequenzdaten aufgezeichnet. Stellen Sie sicher, dass das Fitbit-Gerät nachts getragen wird und die Herzfrequenzüberwachung aktiviert ist.",

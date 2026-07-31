@@ -992,6 +992,7 @@
   "Wearable Device": "Wearable-apparaat",
   "fitbit": "Fitbit",
   "omron": "Omron",
+  "google_health": "Dev (Google Health)",
   "none": "Geen",
   "Wear": "Dragen",
   "hint_resting_hr_empty": "Geen rusthartslag geregistreerd. Zorg dat het Fitbit-apparaat 's nachts wordt gedragen en dat hartslagmonitoring is ingeschakeld.",

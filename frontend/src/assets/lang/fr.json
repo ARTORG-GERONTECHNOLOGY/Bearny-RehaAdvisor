@@ -1002,6 +1002,7 @@
   "Wearable Device": "Appareil portable",
   "fitbit": "Fitbit",
   "omron": "Omron",
+  "google_health": "Dev (Google Health)",
   "none": "Aucun",
   "Wear": "Port",
   "hint_resting_hr_empty": "Aucune donnée de fréquence cardiaque au repos enregistrée. Assurez-vous que l'appareil Fitbit est porté pendant la nuit et que la surveillance de la fréquence cardiaque est activée.",

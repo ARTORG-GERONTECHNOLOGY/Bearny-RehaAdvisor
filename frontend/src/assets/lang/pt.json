@@ -996,6 +996,7 @@
   "Wearable Device": "Dispositivo wearable",
   "fitbit": "Fitbit",
   "omron": "Omron",
+  "google_health": "Dev (Google Health)",
   "none": "Nenhum",
   "Wear": "Uso",
   "hint_resting_hr_empty": "Nenhum dado de frequência cardíaca em repouso registado. Certifique-se de que o dispositivo Fitbit é usado durante a noite e que a monitorização da frequência cardíaca está ativada.",

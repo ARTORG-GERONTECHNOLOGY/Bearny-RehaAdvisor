@@ -1001,6 +1001,7 @@
   "Wearable Device": "Wearable Device",
   "fitbit": "Fitbit",
   "omron": "Omron",
+  "google_health": "Dev (Google Health)",
   "none": "None",
   "Wear": "Wear",
   "hint_resting_hr_empty": "No resting heart rate data recorded. Make sure the Fitbit device is worn during sleep and that heart rate monitoring is enabled.",
