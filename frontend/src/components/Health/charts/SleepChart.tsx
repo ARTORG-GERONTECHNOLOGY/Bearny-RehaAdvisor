@@ -5,7 +5,15 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { averageNonNull, eachDateInRange, isInRange, thresholdTier } from '@/utils/healthCharts';
+import { cn } from '@/lib/utils';
+import {
+  averageNonNull,
+  eachDateInRange,
+  formatTickDate,
+  formatTickDuration,
+  isInRange,
+  thresholdTier,
+} from '@/utils/healthCharts';
 import type { ThresholdTier } from '@/utils/healthCharts';
 import { formatDurationMinutes } from '@/utils/dateFormat';
 
@@ -15,9 +23,10 @@ type Props = {
   end?: Date | null;
   goal?: number | null;
   yellowGoal?: number | null;
+  className?: string;
 };
 
-const TIER_COLOR: Record<ThresholdTier, string> = {
+export const TIER_COLOR: Record<ThresholdTier, string> = {
   green: colors.brand,
   yellow: colors.yellow,
   red: colors.pink,
@@ -90,7 +99,7 @@ const formatTimeOfDay = (iso: string) => iso.slice(11, 16);
 // mounts its <svg> once it has measured a size, so callers should query for it at read time
 // (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
 const SleepChart = forwardRef<HTMLDivElement, Props>(
-  ({ data, start, end, goal, yellowGoal }, ref) => {
+  ({ data, start, end, goal, yellowGoal, className }, ref) => {
     const { t } = useTranslation();
 
     const rows = useMemo(() => filterSleepInRange(data, start, end), [data, start, end]);
@@ -107,7 +116,10 @@ const SleepChart = forwardRef<HTMLDivElement, Props>(
       return (
         <div
           ref={ref}
-          className="flex h-24 w-full items-center justify-center text-sm text-zinc-500"
+          className={cn(
+            'flex h-28 w-full items-center justify-center text-sm text-zinc-500',
+            className
+          )}
         >
           {t('No sleep data')}
         </div>
@@ -115,11 +127,27 @@ const SleepChart = forwardRef<HTMLDivElement, Props>(
     }
 
     return (
-      <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
+      <ChartContainer ref={ref} config={chartConfig} className={cn('w-full max-h-28', className)}>
         <BarChart accessibilityLayer data={rows}>
           <CartesianGrid vertical={false} />
-          <YAxis hide domain={[0, (dataMax: number) => Math.max(dataMax, goal ?? 0) * 1.1]} />
-          <XAxis hide dataKey="date" />
+          <YAxis
+            domain={[0, (dataMax: number) => Math.max(dataMax, goal ?? 0) * 1.1]}
+            width={34}
+            tickCount={3}
+            tickFormatter={formatTickDuration}
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 10 }}
+          />
+          <XAxis
+            dataKey="date"
+            tickFormatter={formatTickDate}
+            interval="preserveStartEnd"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={4}
+            tick={{ fontSize: 10 }}
+          />
           <ChartTooltip
             content={
               <ChartTooltipContent

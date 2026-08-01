@@ -107,7 +107,7 @@ const QuestionnaireResultsTable: React.FC<Props> = ({ data, start, end, lang, t 
 
   if (!days.length) {
     return (
-      <div className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
+      <div className="flex h-28 w-full items-center justify-center text-sm text-zinc-500">
         {t('No questionnaire data available.')}
       </div>
     );
@@ -115,7 +115,7 @@ const QuestionnaireResultsTable: React.FC<Props> = ({ data, start, end, lang, t 
 
   return (
     <>
-      <div className="grid grid-cols-7 gap-1 h-24">
+      <div className="grid grid-cols-7 gap-1 h-28">
         {days.map((day) => {
           const hasEntry = !!grouped[day]?.length;
           return (

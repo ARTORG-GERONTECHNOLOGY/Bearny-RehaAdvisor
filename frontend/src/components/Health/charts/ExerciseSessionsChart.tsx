@@ -12,7 +12,13 @@ import {
 } from '@/components/ui/dialog';
 import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTable';
 import type { FitbitEntry } from '@/types/health';
-import { averageNonNull, eachDateInRange, isInRange } from '@/utils/healthCharts';
+import {
+  averageNonNull,
+  eachDateInRange,
+  formatTickDate,
+  formatTickDuration,
+  isInRange,
+} from '@/utils/healthCharts';
 import { formatDurationMinutes } from '@/utils/dateFormat';
 
 type Props = {
@@ -139,7 +145,7 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
 
   if (!hasSessions) {
     return (
-      <div ref={ref} className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
+      <div ref={ref} className="flex h-28 w-full items-center justify-center text-sm text-zinc-500">
         {t('No exercise sessions in this period.')}
       </div>
     );
@@ -147,11 +153,27 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
 
   return (
     <>
-      <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
+      <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-28">
         <BarChart accessibilityLayer data={chartRows}>
           <CartesianGrid vertical={false} />
-          <YAxis hide domain={[0, (dataMax: number) => dataMax * 1.1]} />
-          <XAxis hide dataKey="date" />
+          <YAxis
+            domain={[0, (dataMax: number) => dataMax * 1.1]}
+            width={34}
+            tickCount={3}
+            tickFormatter={formatTickDuration}
+            tickLine={false}
+            axisLine={false}
+            tick={{ fontSize: 10 }}
+          />
+          <XAxis
+            dataKey="date"
+            tickFormatter={formatTickDate}
+            interval="preserveStartEnd"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={4}
+            tick={{ fontSize: 10 }}
+          />
           <ChartTooltip content={<SessionTooltip />} />
           {Array.from({ length: maxSessions }, (_, i) => (
             <Bar

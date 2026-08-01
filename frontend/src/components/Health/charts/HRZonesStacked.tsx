@@ -5,13 +5,21 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/
 import type { ChartConfig } from '@/components/ui/chart';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { averageNonNull, eachDateInRange, isInRange } from '@/utils/healthCharts';
+import { cn } from '@/lib/utils';
+import {
+  averageNonNull,
+  eachDateInRange,
+  formatTickDate,
+  formatTickDuration,
+  isInRange,
+} from '@/utils/healthCharts';
 import { formatDurationMinutes } from '@/utils/dateFormat';
 
 type Props = {
   data: FitbitEntry[];
   start?: Date | null;
   end?: Date | null;
+  className?: string;
 };
 
 const ZONE_KEYS = ['outOfRange', 'fatBurn', 'cardio', 'peak'] as const;
@@ -19,7 +27,7 @@ type ZoneKey = (typeof ZONE_KEYS)[number];
 
 // Out of Range (resting/background) is excluded from the stacked bars
 // It's still tracked in the row data and available via zoneBpmRanges.
-const STACK_ZONE_KEYS = ['fatBurn', 'cardio', 'peak'] as const satisfies readonly ZoneKey[];
+export const STACK_ZONE_KEYS = ['fatBurn', 'cardio', 'peak'] as const satisfies readonly ZoneKey[];
 
 // Maps the Fitbit zone name (as reported by the API) to our internal row key.
 const ZONE_NAME_TO_KEY: Record<string, ZoneKey> = {
@@ -29,14 +37,14 @@ const ZONE_NAME_TO_KEY: Record<string, ZoneKey> = {
   Peak: 'peak',
 };
 
-const ZONE_LABEL_KEY: Record<ZoneKey, string> = {
+export const ZONE_LABEL_KEY: Record<ZoneKey, string> = {
   outOfRange: 'hr_zone_out_of_range',
   fatBurn: 'hr_zone_fat_burn',
   cardio: 'hr_zone_cardio',
   peak: 'hr_zone_peak',
 };
 
-const ZONE_COLOR: Record<ZoneKey, string> = {
+export const ZONE_COLOR: Record<ZoneKey, string> = {
   outOfRange: colors.chartMuted,
   fatBurn: colors.brand,
   cardio: colors.yellow,
@@ -100,7 +108,7 @@ export const filterHRZonesInRange = (
   });
 };
 
-const formatHM = (min: number) => {
+export const formatHM = (min: number) => {
   if (!min || min <= 0) return '0m';
   return formatDurationMinutes(min);
 };
@@ -108,7 +116,7 @@ const formatHM = (min: number) => {
 // The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
 // mounts its <svg> once it has measured a size, so callers should query for it at read time
 // (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
-const HRZonesStacked = forwardRef<HTMLDivElement, Props>(({ data, start, end }, ref) => {
+const HRZonesStacked = forwardRef<HTMLDivElement, Props>(({ data, start, end, className }, ref) => {
   const { t } = useTranslation();
 
   const rows = useMemo(() => filterHRZonesInRange(data, start, end), [data, start, end]);
@@ -135,9 +143,14 @@ const HRZonesStacked = forwardRef<HTMLDivElement, Props>(({ data, start, end }, 
     [t, bpmRanges]
   );
 
+  const emptyClass = cn(
+    'flex h-28 w-full items-center justify-center text-sm text-zinc-500',
+    className
+  );
+
   if (!hasAnyReadings) {
     return (
-      <div ref={ref} className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
+      <div ref={ref} className={emptyClass}>
         {t('No heart rate zone data')}
       </div>
     );
@@ -145,18 +158,34 @@ const HRZonesStacked = forwardRef<HTMLDivElement, Props>(({ data, start, end }, 
 
   if (!hasActiveZoneMinutes) {
     return (
-      <div ref={ref} className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
+      <div ref={ref} className={emptyClass}>
         {t('No time in active heart rate zones')}
       </div>
     );
   }
 
   return (
-    <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
+    <ChartContainer ref={ref} config={chartConfig} className={cn('w-full max-h-28', className)}>
       <BarChart accessibilityLayer data={rows}>
         <CartesianGrid vertical={false} />
-        <YAxis hide domain={[0, (dataMax: number) => dataMax * 1.1]} />
-        <XAxis hide dataKey="date" />
+        <YAxis
+          domain={[0, (dataMax: number) => dataMax * 1.1]}
+          width={34}
+          tickCount={3}
+          tickFormatter={formatTickDuration}
+          tickLine={false}
+          axisLine={false}
+          tick={{ fontSize: 10 }}
+        />
+        <XAxis
+          dataKey="date"
+          tickFormatter={formatTickDate}
+          interval="preserveStartEnd"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={4}
+          tick={{ fontSize: 10 }}
+        />
         <ChartTooltip
           content={
             <ChartTooltipContent

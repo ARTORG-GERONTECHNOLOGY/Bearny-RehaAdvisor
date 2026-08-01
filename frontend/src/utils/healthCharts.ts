@@ -34,6 +34,23 @@ export const toEuroDate = (iso: string | null | undefined): string => {
 
 export const formatDateEU = (d: Date): string => toEuroDate(toLocalYMD(d));
 
+// DD.MM — compact tick label for chart X axes, where a full year would crowd a small card.
+export const formatTickDate = (iso: string | null | undefined): string => {
+  if (!iso) return '';
+  const parts = iso.split('-');
+  if (parts.length < 3) return iso;
+  const [, m, d] = parts;
+  return `${d.padStart(2, '0')}.${m.padStart(2, '0')}`;
+};
+
+// "8h56m" — no space, so Recharts' tick <Text> never word-wraps it onto a clipped second line.
+export const formatTickDuration = (minutes: number): string => {
+  const total = Math.max(0, Math.round(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h > 0 ? `${h}h${m}m` : `${m}m`;
+};
+
 // Fills gaps with null so charts show breaks instead of compressing to just the days with data.
 export const buildDailyRows = <T extends { date: string }, K extends string>(
   data: T[],
