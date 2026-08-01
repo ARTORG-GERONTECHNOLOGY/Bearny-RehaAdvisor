@@ -112,7 +112,7 @@ const QuestionnaireResultsTable: React.FC<Props> = ({ data, start, end, lang, t 
 
   return (
     <>
-      <div className="grid grid-cols-7 gap-1 h-28">
+      <div className="grid grid-cols-7 gap-1 h-28 pb-5">
         {days.map((day) => {
           const hasEntry = !!grouped[day]?.length;
           return (

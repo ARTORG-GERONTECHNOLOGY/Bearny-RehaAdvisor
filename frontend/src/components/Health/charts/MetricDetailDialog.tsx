@@ -38,9 +38,6 @@ type Props<Row extends { date: string }> = {
   columns: MetricDetailColumn<Row>[];
 };
 
-// Generic "card click -> chart + table" detail view shared by all health metric cards.
-// A column's `key` must point at a numeric (or null) field on `Row`; non-numeric fields
-// (e.g. free-text notes) aren't supported since the table cell always renders via `format`.
 const MetricDetailDialog = <Row extends { date: string }>({
   open,
   onOpenChange,
