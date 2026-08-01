@@ -118,7 +118,7 @@ const SleepChart = forwardRef<HTMLDivElement, Props>(
           <CartesianGrid vertical={false} />
           <YAxis
             domain={[0, (dataMax: number) => Math.max(dataMax, goal ?? 0) * 1.1]}
-            {...chartYAxisProps(formatTickDuration, 34)}
+            {...chartYAxisProps(formatTickDuration, 42)}
           />
           <XAxis {...chartXAxisProps} />
           <ChartTooltip

@@ -73,7 +73,7 @@ const WearTimeChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cla
         <YAxis
           // Wear time can't exceed the 1440 minutes in a day
           domain={[0, (dataMax: number) => Math.min(dataMax * 1.1, 1440)]}
-          {...chartYAxisProps(formatTickDuration, 34)}
+          {...chartYAxisProps(formatTickDuration, 42)}
         />
         <XAxis {...chartXAxisProps} />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />

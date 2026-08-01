@@ -167,7 +167,7 @@ const HRZonesStacked = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
         <CartesianGrid vertical={false} />
         <YAxis
           domain={[0, (dataMax: number) => dataMax * 1.1]}
-          {...chartYAxisProps(formatTickDuration, 34)}
+          {...chartYAxisProps(formatTickDuration, 42)}
         />
         <XAxis {...chartXAxisProps} />
         <ChartTooltip

@@ -156,7 +156,7 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
           <CartesianGrid vertical={false} />
           <YAxis
             domain={[0, (dataMax: number) => dataMax * 1.1]}
-            {...chartYAxisProps(formatTickDuration, 34)}
+            {...chartYAxisProps(formatTickDuration, 42)}
           />
           <XAxis {...chartXAxisProps} />
           <ChartTooltip content={<SessionTooltip />} />
