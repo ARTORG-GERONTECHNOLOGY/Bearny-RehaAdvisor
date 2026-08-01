@@ -52,6 +52,12 @@ export const formatTickDuration = (minutes: number): string => {
   return h > 0 ? `${h}h${m}m` : `${m}m`;
 };
 
+// Whole-number tick label, e.g. for bpm or mmHg axes.
+export const formatTickInteger = (v: number): string => `${Math.round(v)}`;
+
+// One-decimal tick label, e.g. for breathing rate or weight axes.
+export const formatTickDecimal = (v: number): string => `${Math.round(v * 10) / 10}`;
+
 // Shared tick styling for every health overview chart's X axis
 export const chartXAxisProps = {
   dataKey: 'date',
@@ -99,6 +105,10 @@ export const averageNonNull = (values: Array<number | null | undefined>): number
   if (!nums.length) return null;
   return nums.reduce((sum, v) => sum + v, 0) / nums.length;
 };
+
+// True when there IS Fitbit data but none of it has this field
+export const deviceNeverReports = <T>(data: T[], accessor: (entry: T) => unknown): boolean =>
+  data.length > 0 && data.every((d) => accessor(d) == null);
 
 // ---------- threshold tiers (green/yellow/red goal coloring) ----------
 export type ThresholdTier = 'green' | 'yellow' | 'red';

@@ -12,6 +12,7 @@ import {
   buildDailyRows,
   chartXAxisProps,
   chartYAxisProps,
+  deviceNeverReports,
   formatTickDuration,
 } from '@/utils/healthCharts';
 
@@ -45,7 +46,7 @@ const WearTimeChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cla
 
   const rows = useMemo(() => filterWearTimeInRange(data, start, end), [data, start, end]);
   const hasReadings = useMemo(() => rows.some((r) => r.wearTime != null), [rows]);
-  const deviceEmpty = data.length > 0 && data.every((d) => d.wear_time_minutes == null);
+  const deviceEmpty = deviceNeverReports(data, (d) => d.wear_time_minutes);
 
   const chartConfig: ChartConfig = useMemo(
     () => ({

@@ -12,6 +12,8 @@ import {
   buildDailyRows,
   chartXAxisProps,
   chartYAxisProps,
+  deviceNeverReports,
+  formatTickDecimal,
 } from '@/utils/healthCharts';
 
 type Props = {
@@ -45,9 +47,7 @@ const BreathingChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
 
   const rows = useMemo(() => filterBreathingInRange(data, start, end), [data, start, end]);
   const hasReadings = useMemo(() => rows.some((r) => r.breathingRate != null), [rows]);
-  // Device-capability hint: some Fitbit devices never report breathing rate. Show the
-  // hint only when there IS Fitbit data, just none of it has this field.
-  const deviceEmpty = data.length > 0 && data.every((d) => d.breathing_rate?.breathingRate == null);
+  const deviceEmpty = deviceNeverReports(data, (d) => d.breathing_rate?.breathingRate);
 
   const chartConfig: ChartConfig = useMemo(
     () => ({
@@ -71,10 +71,7 @@ const BreathingChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
     <ChartContainer ref={ref} config={chartConfig} className={cn('w-full max-h-28', className)}>
       <AreaChart accessibilityLayer data={rows}>
         <CartesianGrid vertical={false} />
-        <YAxis
-          domain={['dataMin - 1', 'dataMax + 1']}
-          {...chartYAxisProps((v) => `${Math.round(v * 10) / 10}`)}
-        />
+        <YAxis domain={['dataMin - 1', 'dataMax + 1']} {...chartYAxisProps(formatTickDecimal)} />
         <XAxis {...chartXAxisProps} />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
         <Area

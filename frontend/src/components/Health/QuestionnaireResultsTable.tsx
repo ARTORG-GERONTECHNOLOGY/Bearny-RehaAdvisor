@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import {
   Dialog,
   DialogContent,
@@ -106,11 +107,7 @@ const QuestionnaireResultsTable: React.FC<Props> = ({ data, start, end, lang, t 
   );
 
   if (!days.length) {
-    return (
-      <div className="flex h-28 w-full items-center justify-center text-sm text-zinc-500">
-        {t('No questionnaire data available.')}
-      </div>
-    );
+    return <ChartEmptyState message={t('No questionnaire data available.')} />;
   }
 
   return (

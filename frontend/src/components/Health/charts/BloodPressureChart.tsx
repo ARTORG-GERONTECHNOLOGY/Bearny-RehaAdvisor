@@ -12,6 +12,7 @@ import {
   chartXAxisProps,
   chartYAxisProps,
   eachDateInRange,
+  formatTickInteger,
   isInRange,
   thresholdTier,
   TIER_COLOR,
@@ -135,7 +136,7 @@ const BloodPressureChart = forwardRef<HTMLDivElement, Props>(
                   (diaYellowMax ?? 0) + 5
                 ),
             ]}
-            {...chartYAxisProps((v) => `${Math.round(v)}`)}
+            {...chartYAxisProps(formatTickInteger)}
           />
           <XAxis {...chartXAxisProps} />
           <ChartTooltip

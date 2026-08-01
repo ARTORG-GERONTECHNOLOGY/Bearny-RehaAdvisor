@@ -12,6 +12,7 @@ import {
   buildDailyRows,
   chartXAxisProps,
   chartYAxisProps,
+  formatTickDecimal,
 } from '@/utils/healthCharts';
 
 type Props = {
@@ -60,10 +61,7 @@ const WeightChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, class
     <ChartContainer ref={ref} config={chartConfig} className={cn('w-full max-h-28', className)}>
       <BarChart accessibilityLayer data={rows}>
         <CartesianGrid vertical={false} />
-        <YAxis
-          domain={['dataMin - 1', 'dataMax + 1']}
-          {...chartYAxisProps((v) => `${Math.round(v * 10) / 10}`)}
-        />
+        <YAxis domain={['dataMin - 1', 'dataMax + 1']} {...chartYAxisProps(formatTickDecimal)} />
         <XAxis {...chartXAxisProps} />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
         <Bar dataKey="weight" fill={colors.brand} />

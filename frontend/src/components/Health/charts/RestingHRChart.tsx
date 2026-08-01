@@ -12,6 +12,8 @@ import {
   buildDailyRows,
   chartXAxisProps,
   chartYAxisProps,
+  deviceNeverReports,
+  formatTickInteger,
 } from '@/utils/healthCharts';
 
 type Props = {
@@ -45,9 +47,7 @@ const RestingHRChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
 
   const rows = useMemo(() => filterRestingHRInRange(data, start, end), [data, start, end]);
   const hasReadings = useMemo(() => rows.some((r) => r.restingHR != null), [rows]);
-  // Device-capability hint: some Fitbit devices never report resting heart rate. Show the
-  // hint only when there IS Fitbit data, just none of it has this field.
-  const deviceEmpty = data.length > 0 && data.every((d) => d.resting_heart_rate == null);
+  const deviceEmpty = deviceNeverReports(data, (d) => d.resting_heart_rate);
 
   const chartConfig: ChartConfig = useMemo(
     () => ({
@@ -71,10 +71,7 @@ const RestingHRChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
     <ChartContainer ref={ref} config={chartConfig} className={cn('w-full max-h-28', className)}>
       <AreaChart accessibilityLayer data={rows}>
         <CartesianGrid vertical={false} />
-        <YAxis
-          domain={['dataMin - 5', 'dataMax + 5']}
-          {...chartYAxisProps((v) => `${Math.round(v)}`)}
-        />
+        <YAxis domain={['dataMin - 5', 'dataMax + 5']} {...chartYAxisProps(formatTickInteger)} />
         <XAxis {...chartXAxisProps} />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
         <Area

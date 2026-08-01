@@ -12,6 +12,7 @@ import {
   buildDailyRows,
   chartXAxisProps,
   chartYAxisProps,
+  formatTickInteger,
   thresholdTier,
   TIER_COLOR,
 } from '@/utils/healthCharts';
@@ -70,7 +71,7 @@ const ActiveMinutesChart = forwardRef<HTMLDivElement, Props>(
           <CartesianGrid vertical={false} />
           <YAxis
             domain={[0, (dataMax: number) => Math.max(dataMax, goal ?? 0) * 1.1]}
-            {...chartYAxisProps((v) => `${Math.round(v)}`)}
+            {...chartYAxisProps(formatTickInteger)}
           />
           <XAxis {...chartXAxisProps} />
           <ChartTooltip content={<ChartTooltipContent hideIndicator />} />

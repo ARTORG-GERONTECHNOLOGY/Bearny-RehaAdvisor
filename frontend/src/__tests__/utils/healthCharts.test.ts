@@ -9,8 +9,11 @@ import {
   formatDateEU,
   formatTickDate,
   formatTickDuration,
+  formatTickInteger,
+  formatTickDecimal,
   chartXAxisProps,
   chartYAxisProps,
+  deviceNeverReports,
   thresholdTier,
   colorFromTier,
   TIER_COLOR,
@@ -113,6 +116,29 @@ describe('averageNonNull', () => {
   });
 });
 
+describe('deviceNeverReports', () => {
+  type Entry = { value: number | null };
+
+  it('is false for an empty array — no data at all is not the same as "never reports"', () => {
+    expect(deviceNeverReports<Entry>([], (d) => d.value)).toBe(false);
+  });
+
+  it('is true when there is data but every entry is missing the field', () => {
+    const data: Entry[] = [{ value: null }, { value: null }];
+    expect(deviceNeverReports(data, (d) => d.value)).toBe(true);
+  });
+
+  it('is false when at least one entry has the field', () => {
+    const data: Entry[] = [{ value: null }, { value: 5 }];
+    expect(deviceNeverReports(data, (d) => d.value)).toBe(false);
+  });
+
+  it('treats 0 as a present value, not a missing one', () => {
+    const data: Entry[] = [{ value: 0 }];
+    expect(deviceNeverReports(data, (d) => d.value)).toBe(false);
+  });
+});
+
 describe('toEuroDate', () => {
   it('converts YYYY-MM-DD to DD.MM.YYYY', () => {
     expect(toEuroDate('2024-03-07')).toBe('07.03.2024');
@@ -176,6 +202,24 @@ describe('formatTickDuration', () => {
 
   it('clamps negative values to 0m', () => {
     expect(formatTickDuration(-5)).toBe('0m');
+  });
+});
+
+describe('formatTickInteger', () => {
+  it('rounds to the nearest whole number', () => {
+    expect(formatTickInteger(72.4)).toBe('72');
+    expect(formatTickInteger(72.6)).toBe('73');
+  });
+});
+
+describe('formatTickDecimal', () => {
+  it('rounds to one decimal place', () => {
+    expect(formatTickDecimal(72.34)).toBe('72.3');
+    expect(formatTickDecimal(72.36)).toBe('72.4');
+  });
+
+  it('drops a trailing .0', () => {
+    expect(formatTickDecimal(72)).toBe('72');
   });
 });
 
