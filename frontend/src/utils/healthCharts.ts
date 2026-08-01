@@ -111,7 +111,7 @@ export const deviceNeverReports = <T>(data: T[], accessor: (entry: T) => unknown
   data.length > 0 && data.every((d) => accessor(d) == null);
 
 // ---------- threshold tiers (green/yellow/red goal coloring) ----------
-export type ThresholdTier = 'green' | 'yellow' | 'red';
+type ThresholdTier = 'green' | 'yellow' | 'red';
 
 // Default green/yellow/red palette shared by every chart that colors by threshold tier.
 export const TIER_COLOR: Record<ThresholdTier, string> = {
@@ -217,4 +217,17 @@ export const scalarCaption = <T>(
   if (!s) return null;
   const body = `avg ${fmtValue(s.avg)} · min ${fmtValue(s.min)} · max ${fmtValue(s.max)}`;
   return opts.label ? `${opts.label}: ${body}` : body;
+};
+
+// Sys/dia pair of scalarCaptions, joined — used by both CSV and PDF export.
+export const bloodPressureCaption = <T extends { sys: number | null; dia: number | null }>(
+  rows: T[],
+  t: (k: string) => string,
+  fmtValue: (v: number) => string
+): string | null => {
+  const parts = [
+    scalarCaption(rows, 'sys', fmtValue, { label: t('Blood pressure systolic') }),
+    scalarCaption(rows, 'dia', fmtValue, { label: t('Blood pressure diastolic') }),
+  ].filter((p): p is string => p != null);
+  return parts.length ? `${parts.join('   |   ')} mmHg` : null;
 };

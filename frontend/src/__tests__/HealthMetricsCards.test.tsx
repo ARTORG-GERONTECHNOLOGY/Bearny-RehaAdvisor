@@ -39,7 +39,6 @@ jest.mock('@/components/Health/charts/HRZonesStacked', () => ({
   default: React.forwardRef(() => <div data-testid="chart-hrzones" />),
   averageActiveHRZoneMinutes: jest.fn(() => null),
   filterHRZonesInRange: jest.fn(() => []),
-  formatHM: jest.fn((min: number) => `${min}m`),
   STACK_ZONE_KEYS: ['fatBurn', 'cardio', 'peak'],
   ZONE_COLOR: { fatBurn: '#0a0', cardio: '#aa0', peak: '#a00' },
   ZONE_LABEL_KEY: {

@@ -21,6 +21,7 @@ import {
   svgToImageDataUrl,
   statsOf,
   scalarCaption,
+  bloodPressureCaption,
 } from '@/utils/healthCharts';
 import * as dateFormat from '@/utils/dateFormat';
 
@@ -372,6 +373,34 @@ describe('scalarCaption', () => {
     ];
     expect(scalarCaption(withZero, 'val', String, { predicate: (v) => v > 0 })).toBe(
       'avg 10 · min 10 · max 10'
+    );
+  });
+});
+
+describe('bloodPressureCaption', () => {
+  type Row = { date: string; sys: number | null; dia: number | null };
+  const t = (k: string) => k;
+
+  it('joins the sys and dia captions and appends the unit once', () => {
+    const rows: Row[] = [
+      { date: '2024-01-01', sys: 120, dia: 80 },
+      { date: '2024-01-02', sys: 130, dia: 90 },
+    ];
+    expect(bloodPressureCaption(rows, t, String)).toBe(
+      'Blood pressure systolic: avg 125 · min 120 · max 130   |   ' +
+        'Blood pressure diastolic: avg 85 · min 80 · max 90 mmHg'
+    );
+  });
+
+  it('returns null when every row is null for both sys and dia', () => {
+    const rows: Row[] = [{ date: '2024-01-01', sys: null, dia: null }];
+    expect(bloodPressureCaption(rows, t, String)).toBeNull();
+  });
+
+  it('includes only whichever of sys/dia has data', () => {
+    const rows: Row[] = [{ date: '2024-01-01', sys: 120, dia: null }];
+    expect(bloodPressureCaption(rows, t, String)).toBe(
+      'Blood pressure systolic: avg 120 · min 120 · max 120 mmHg'
     );
   });
 });

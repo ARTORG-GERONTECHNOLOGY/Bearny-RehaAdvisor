@@ -14,6 +14,7 @@ import {
   formatDateEU,
   statsOf,
   scalarCaption,
+  bloodPressureCaption,
 } from '@/utils/healthCharts';
 import { formatDurationMinutes } from '@/utils/dateFormat';
 import { filterAdherenceInRange } from '@/components/Health/charts/AdherenceLine';
@@ -293,19 +294,8 @@ export const buildHealthPdf = async (
         'restingHR',
         (v) => `${fmt(v)} bpm`
       ),
-    bloodPressure: () => {
-      const rows = filterBloodPressureInRange(store.fitbitData, from, to);
-      const sys = statsOf(rows.map((r) => r.sys).filter((v): v is number => v != null));
-      const dia = statsOf(rows.map((r) => r.dia).filter((v): v is number => v != null));
-      if (!sys && !dia) return null;
-      const parts = [
-        sys &&
-          `${t('Blood pressure systolic')}: avg ${fmt(sys.avg)} · min ${fmt(sys.min)} · max ${fmt(sys.max)}`,
-        dia &&
-          `${t('Blood pressure diastolic')}: avg ${fmt(dia.avg)} · min ${fmt(dia.min)} · max ${fmt(dia.max)}`,
-      ].filter(Boolean);
-      return `${parts.join('   |   ')} mmHg`;
-    },
+    bloodPressure: () =>
+      bloodPressureCaption(filterBloodPressureInRange(store.fitbitData, from, to), t, fmt),
     hrZones: () => {
       const s = statsOf(
         filterHRZonesInRange(store.fitbitData, from, to)

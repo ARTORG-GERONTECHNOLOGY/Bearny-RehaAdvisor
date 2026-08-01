@@ -13,7 +13,6 @@ import WearTimeChart, {
 import HRZonesStacked, {
   averageActiveHRZoneMinutes,
   filterHRZonesInRange,
-  formatHM,
   STACK_ZONE_KEYS,
   ZONE_COLOR,
   ZONE_LABEL_KEY,
@@ -289,7 +288,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
   const avgWearTime = useMetricAvg(averageWearTime, store.fitbitData, start, end);
   const wearTimeRows = useMetricAvg(filterWearTimeInRange, store.fitbitData, start, end);
   const wearTimeColumns: MetricDetailColumn<(typeof wearTimeRows)[number]>[] = [
-    { key: 'wearTime', header: t('Wear Time'), format: (v) => formatDurationMinutes(v) },
+    { key: 'wearTime', header: t('Wear Time'), format: formatDurationMinutes },
   ];
   const wearTimeCard = (
     <MetricCardWithDialog
@@ -450,7 +449,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
     STACK_ZONE_KEYS.map((key) => ({
       key,
       header: t(ZONE_LABEL_KEY[key]),
-      format: formatHM,
+      format: formatDurationMinutes,
       color: () => ZONE_COLOR[key],
     }));
   const hrZonesCard = (

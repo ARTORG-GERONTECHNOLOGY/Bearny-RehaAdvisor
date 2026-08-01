@@ -110,11 +110,6 @@ export const filterHRZonesInRange = (
   });
 };
 
-export const formatHM = (min: number) => {
-  if (!min || min <= 0) return '0m';
-  return formatDurationMinutes(min);
-};
-
 // The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
 // mounts its <svg> once it has measured a size, so callers should query for it at read time
 // (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
@@ -183,7 +178,7 @@ const HRZonesStacked = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
                     {chartConfig[name as ZoneKey]?.label}
                   </span>
                   <span className="font-mono font-medium tabular-nums text-foreground">
-                    {formatHM(value as number)}
+                    {formatDurationMinutes(value as number)}
                   </span>
                 </div>
               )}
