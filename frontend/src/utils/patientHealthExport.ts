@@ -4,9 +4,10 @@ import autoTable from 'jspdf-autotable';
 import type HealthPageStore from '@/stores/healthPageStore';
 
 import { toEuroDate, formatDateEU, statsOf, scalarCaption } from '@/utils/healthCharts';
+import { formatDurationMinutes } from '@/utils/dateFormat';
 import { filterStepsInRange } from '@/components/Health/charts/StepsChart';
 import { filterActiveMinutesInRange } from '@/components/Health/charts/ActiveMinutesChart';
-import { filterSleepInRange, formatSleepDuration } from '@/components/Health/charts/SleepChart';
+import { filterSleepInRange } from '@/components/Health/charts/SleepChart';
 import { filterBloodPressureInRange } from '@/components/Health/charts/BloodPressureChart';
 
 export type PatientExportMetric = 'steps' | 'activeMinutes' | 'sleep' | 'bloodPressure';
@@ -69,7 +70,7 @@ export const buildPatientHealthPdf = (
     {
       key: 'sleep',
       title: t('Sleep Schedule and Duration'),
-      caption: scalarCaption(sleepRows, 'minutesAsleep', formatSleepDuration),
+      caption: scalarCaption(sleepRows, 'minutesAsleep', formatDurationMinutes),
       head: [t('Date'), t('Duration (h)')],
       rows: sleepRows
         .filter((r) => r.minutesAsleep != null)

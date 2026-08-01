@@ -85,8 +85,6 @@ export const averageSleepMinutes = (
   return averageNonNull(filterSleepInRange(data, start, end).map((r) => r.minutesAsleep));
 };
 
-export const formatSleepDuration = (min: number) => formatDurationMinutes(min);
-
 // sleep_start/sleep_end are naive local ISO timestamps (e.g. "2026-01-01T22:00:00.000") —
 // slicing avoids a timezone-shifting Date parse for what's just a clock-time display.
 const formatTimeOfDay = (iso: string) => iso.slice(11, 16);
@@ -133,7 +131,7 @@ const SleepChart = forwardRef<HTMLDivElement, Props>(
                       <div className="flex items-center justify-between gap-4 leading-none">
                         <span className="text-muted-foreground">{t('Asleep')}</span>
                         <span className="font-mono font-medium tabular-nums text-foreground">
-                          {minutesAsleep != null ? formatSleepDuration(minutesAsleep) : '--'}
+                          {minutesAsleep != null ? formatDurationMinutes(minutesAsleep) : '--'}
                         </span>
                       </div>
                       {row.sleepStart && row.sleepEnd && (

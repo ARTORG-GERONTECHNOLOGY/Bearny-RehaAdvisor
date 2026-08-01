@@ -41,7 +41,6 @@ jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next')
 import SleepChart, {
   averageSleepMinutes,
   filterSleepInRange,
-  formatSleepDuration,
 } from '@/components/Health/charts/SleepChart';
 import type { FitbitEntry } from '@/types/health';
 
@@ -233,15 +232,5 @@ describe('averageSleepMinutes', () => {
     const data = [makeEntry('2026-01-01', 420), makeEntry('2026-01-03', 390)];
     const avg = averageSleepMinutes(data, new Date('2026-01-01'), new Date('2026-01-03'));
     expect(avg).toBe(405);
-  });
-});
-
-describe('formatSleepDuration', () => {
-  it('formats minutes into hours and minutes', () => {
-    expect(formatSleepDuration(450)).toBe('7h 30m');
-  });
-
-  it('formats sub-hour durations as minutes only', () => {
-    expect(formatSleepDuration(45)).toBe('45m');
   });
 });

@@ -5,7 +5,6 @@ import type { HealthPageStore } from '@/stores/healthPageStore';
 import SleepChart, {
   averageSleepMinutes,
   filterSleepInRange,
-  formatSleepDuration,
 } from '@/components/Health/charts/SleepChart';
 import WearTimeChart, {
   averageWearTime,
@@ -290,14 +289,14 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
   const avgWearTime = useMetricAvg(averageWearTime, store.fitbitData, start, end);
   const wearTimeRows = useMetricAvg(filterWearTimeInRange, store.fitbitData, start, end);
   const wearTimeColumns: MetricDetailColumn<(typeof wearTimeRows)[number]>[] = [
-    { key: 'wearTime', header: t('Wear Time (min)'), format: (v) => formatDurationMinutes(v) },
+    { key: 'wearTime', header: t('Wear Time'), format: (v) => formatDurationMinutes(v) },
   ];
   const wearTimeCard = (
     <MetricCardWithDialog
       t={t}
       icon={WearTimeIcon}
       label={t('Wear Time')}
-      value={avgWearTime != null ? `${Math.round(avgWearTime)} ${t('min')}` : '--'}
+      value={avgWearTime != null ? formatDurationMinutes(avgWearTime) : '--'}
       emptyMessage={t('No wear time data')}
       start={start}
       end={end}
@@ -633,7 +632,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
     {
       key: 'minutesAsleep',
       header: t('Asleep'),
-      format: formatSleepDuration,
+      format: formatDurationMinutes,
       color: colorFromTier(
         store.thresholds.sleep_green_min,
         store.thresholds.sleep_yellow_min,
@@ -646,7 +645,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
       t={t}
       icon={SleepIcon}
       label={t('Sleep')}
-      value={avgSleepMinutes != null ? formatSleepDuration(avgSleepMinutes) : '--'}
+      value={avgSleepMinutes != null ? formatDurationMinutes(avgSleepMinutes) : '--'}
       emptyMessage={t('No sleep data')}
       start={start}
       end={end}
@@ -658,7 +657,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
           t={t}
           goal={store.thresholds.sleep_green_min}
           yellowGoal={store.thresholds.sleep_yellow_min}
-          format={formatSleepDuration}
+          format={formatDurationMinutes}
         />
       }
       renderChart={(className, ref) => (

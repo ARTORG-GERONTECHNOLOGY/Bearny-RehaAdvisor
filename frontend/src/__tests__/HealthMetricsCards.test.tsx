@@ -14,7 +14,6 @@ jest.mock('@/components/Health/charts/SleepChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-sleep" />),
   averageSleepMinutes: jest.fn(() => null),
-  formatSleepDuration: jest.fn((min: number) => `${min}m`),
   filterSleepInRange: jest.fn(() => []),
 }));
 jest.mock('@/components/Health/charts/WearTimeChart', () => ({
@@ -225,7 +224,7 @@ describe('HealthMetricsCards – formatted values when averages are present', ()
     render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
 
     expect(screen.getByText('82%')).toBeInTheDocument();
-    expect(screen.getByText('620 min')).toBeInTheDocument();
+    expect(screen.getByText('10h 20m')).toBeInTheDocument();
     expect(screen.getByText('62 bpm')).toBeInTheDocument();
     expect(screen.getByText('121/80 mmHg')).toBeInTheDocument();
     expect(screen.getByText('46 min')).toBeInTheDocument();
@@ -233,7 +232,7 @@ describe('HealthMetricsCards – formatted values when averages are present', ()
     expect(screen.getByText('38 min')).toBeInTheDocument();
     expect(screen.getByText('72.3 weightunit')).toBeInTheDocument();
     expect(screen.getByText('53 min')).toBeInTheDocument();
-    expect(screen.getByText('430m')).toBeInTheDocument();
+    expect(screen.getByText('7h 10m')).toBeInTheDocument();
     expect(screen.getByText('15.3 / min')).toBeInTheDocument();
   });
 });

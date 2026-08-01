@@ -15,6 +15,7 @@ import {
   statsOf,
   scalarCaption,
 } from '@/utils/healthCharts';
+import { formatDurationMinutes } from '@/utils/dateFormat';
 import { filterAdherenceInRange } from '@/components/Health/charts/AdherenceLine';
 import { filterWearTimeInRange } from '@/components/Health/charts/WearTimeChart';
 import { filterRestingHRInRange } from '@/components/Health/charts/RestingHRChart';
@@ -24,7 +25,7 @@ import { filterStepsInRange } from '@/components/Health/charts/StepsChart';
 import { filterActiveMinutesInRange } from '@/components/Health/charts/ActiveMinutesChart';
 import { filterWeightInRange } from '@/components/Health/charts/WeightChart';
 import { filterExerciseInRange } from '@/components/Health/charts/ExerciseSessionsChart';
-import { filterSleepInRange, formatSleepDuration } from '@/components/Health/charts/SleepChart';
+import { filterSleepInRange } from '@/components/Health/charts/SleepChart';
 import { filterBreathingInRange } from '@/components/Health/charts/BreathingChart';
 
 // ─────────────────────────────────────────────────────────
@@ -343,7 +344,7 @@ export const buildHealthPdf = async (
       scalarCaption(
         filterSleepInRange(store.fitbitData, from, to),
         'minutesAsleep',
-        formatSleepDuration
+        formatDurationMinutes
       ),
     breathing: () =>
       scalarCaption(
