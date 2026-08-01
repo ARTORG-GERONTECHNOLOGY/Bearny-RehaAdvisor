@@ -123,6 +123,20 @@ export const thresholdTier = (
   return reachedYellow ? 'yellow' : 'red';
 };
 
+// Curries thresholdTier into a value → color lookup, for coloring a detail table cell
+// by which tier (green/yellow/red) it falls into.
+export const colorFromTier =
+  (
+    green: number | null | undefined,
+    yellow: number | null | undefined,
+    higherIsBetter: boolean,
+    palette: Record<ThresholdTier, string>
+  ) =>
+  (value: number | null): string | undefined => {
+    const tier = thresholdTier(value, green, yellow, higherIsBetter);
+    return tier ? palette[tier] : undefined;
+  };
+
 // Worst (most severe) of several tiers, ignoring nulls. Used when a single day is
 // judged by more than one metric (e.g. blood pressure's systolic + diastolic readings).
 export const worstTier = (...tiers: (ThresholdTier | null)[]): ThresholdTier | null =>

@@ -7,7 +7,12 @@ import {
   averageNonNull,
   toEuroDate,
   formatDateEU,
+  formatTickDate,
+  formatTickDuration,
+  chartXAxisProps,
+  chartYAxisProps,
   thresholdTier,
+  colorFromTier,
   worstTier,
   svgToImageDataUrl,
   statsOf,
@@ -140,6 +145,66 @@ describe('formatDateEU', () => {
   });
 });
 
+describe('formatTickDate', () => {
+  it('converts YYYY-MM-DD to DD.MM', () => {
+    expect(formatTickDate('2024-03-07')).toBe('07.03');
+  });
+
+  it('returns an empty string for null/undefined input', () => {
+    expect(formatTickDate(null)).toBe('');
+    expect(formatTickDate(undefined)).toBe('');
+  });
+
+  it('returns the input unchanged when it has no date-like structure', () => {
+    expect(formatTickDate('notadate')).toBe('notadate');
+  });
+});
+
+describe('formatTickDuration', () => {
+  it('formats sub-hour durations as just minutes', () => {
+    expect(formatTickDuration(45)).toBe('45m');
+  });
+
+  it('formats durations of an hour or more as hours and minutes', () => {
+    expect(formatTickDuration(536)).toBe('8h56m');
+  });
+
+  it('rounds fractional minutes', () => {
+    expect(formatTickDuration(59.6)).toBe('1h0m');
+  });
+
+  it('clamps negative values to 0m', () => {
+    expect(formatTickDuration(-5)).toBe('0m');
+  });
+});
+
+describe('chartXAxisProps', () => {
+  it('formats ticks with formatTickDate and disables the axis line/ticks', () => {
+    expect(chartXAxisProps.dataKey).toBe('date');
+    expect(chartXAxisProps.tickFormatter).toBe(formatTickDate);
+    expect(chartXAxisProps.interval).toBe('preserveStartEnd');
+    expect(chartXAxisProps.tickLine).toBe(false);
+    expect(chartXAxisProps.axisLine).toBe(false);
+  });
+});
+
+describe('chartYAxisProps', () => {
+  it('defaults to a width of 30 and uses the given tick formatter', () => {
+    const fmt = (v: number) => `${v}`;
+    const props = chartYAxisProps(fmt);
+    expect(props.width).toBe(30);
+    expect(props.tickFormatter).toBe(fmt);
+    expect(props.tickCount).toBe(3);
+    expect(props.tickLine).toBe(false);
+    expect(props.axisLine).toBe(false);
+  });
+
+  it('accepts a custom width', () => {
+    const props = chartYAxisProps((v: number) => `${v}`, 34);
+    expect(props.width).toBe(34);
+  });
+});
+
 describe('thresholdTier', () => {
   it('returns null when there is no value', () => {
     expect(thresholdTier(null, 30, 20, true)).toBeNull();
@@ -184,6 +249,22 @@ describe('thresholdTier', () => {
     it('is red above the yellow threshold', () => {
       expect(thresholdTier(140, 129, 139, false)).toBe('red');
     });
+  });
+});
+
+describe('colorFromTier', () => {
+  const palette = { green: '#0a0', yellow: '#aa0', red: '#a00' };
+
+  it('looks up the palette color for the tier the value falls into', () => {
+    const toColor = colorFromTier(30, 20, true, palette);
+    expect(toColor(40)).toBe('#0a0');
+    expect(toColor(25)).toBe('#aa0');
+    expect(toColor(10)).toBe('#a00');
+  });
+
+  it('returns undefined when there is no value to classify', () => {
+    const toColor = colorFromTier(30, 20, true, palette);
+    expect(toColor(null)).toBeUndefined();
   });
 });
 
