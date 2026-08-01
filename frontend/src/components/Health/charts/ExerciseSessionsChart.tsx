@@ -167,6 +167,7 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
               stackId="sessions"
               fill={sessionColor(i)}
               cursor="pointer"
+              activeBar={{ fillOpacity: 0.7 }}
               onClick={(barData: any) => {
                 const day = barData?.date ?? barData?.payload?.date;
                 if (day) setSelectedDate(day);
