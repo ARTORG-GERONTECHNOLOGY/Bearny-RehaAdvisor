@@ -240,12 +240,12 @@ const BloodPressureGoalLegend: React.FC<{
     <>
       {hasGreen && (
         <Badge variant="dashboard-success">
-          {`${t('Goal')}: ≤${fmt(sysGreenMax)}/${fmt(diaGreenMax)}`}
+          {`${t('Goal')}: ≤${fmt(sysGreenMax)}/${fmt(diaGreenMax)} mmHg`}
         </Badge>
       )}
       {hasYellow && (
         <Badge variant="dashboard-warning">
-          {`${t('Fair')}: ≤${fmt(sysYellowMax)}/${fmt(diaYellowMax)}`}
+          {`${t('Fair')}: ≤${fmt(sysYellowMax)}/${fmt(diaYellowMax)} mmHg`}
         </Badge>
       )}
     </>
@@ -377,7 +377,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
     {
       key: 'sys',
       header: t('Blood pressure systolic'),
-      format: (v) => `${Math.round(v)}`,
+      format: (v) => `${Math.round(v)} mmHg`,
       color: colorFromTier(
         store.thresholds.bp_sys_green_max,
         store.thresholds.bp_sys_yellow_max,
@@ -387,7 +387,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
     {
       key: 'dia',
       header: t('Blood pressure diastolic'),
-      format: (v) => `${Math.round(v)}`,
+      format: (v) => `${Math.round(v)} mmHg`,
       color: colorFromTier(
         store.thresholds.bp_dia_green_max,
         store.thresholds.bp_dia_yellow_max,
