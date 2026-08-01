@@ -6,7 +6,6 @@ import SleepChart, {
   averageSleepMinutes,
   filterSleepInRange,
   formatSleepDuration,
-  TIER_COLOR as SLEEP_TIER_COLOR,
 } from '@/components/Health/charts/SleepChart';
 import WearTimeChart, {
   averageWearTime,
@@ -35,7 +34,6 @@ import StepsChart, {
 import ActiveMinutesChart, {
   averageActiveMinutes,
   filterActiveMinutesInRange,
-  TIER_COLOR as ACTIVE_MINUTES_TIER_COLOR,
 } from '@/components/Health/charts/ActiveMinutesChart';
 import RestingHRChart, {
   averageRestingHR,
@@ -48,7 +46,6 @@ import BreathingChart, {
 import BloodPressureChart, {
   averageBloodPressure,
   filterBloodPressureInRange,
-  TIER_COLOR as BP_TIER_COLOR,
 } from '@/components/Health/charts/BloodPressureChart';
 import ExerciseSessionsChart, {
   averageExerciseMinutes,
@@ -384,8 +381,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
       color: colorFromTier(
         store.thresholds.bp_sys_green_max,
         store.thresholds.bp_sys_yellow_max,
-        false,
-        BP_TIER_COLOR
+        false
       ),
     },
     {
@@ -395,8 +391,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
       color: colorFromTier(
         store.thresholds.bp_dia_green_max,
         store.thresholds.bp_dia_yellow_max,
-        false,
-        BP_TIER_COLOR
+        false
       ),
     },
   ];
@@ -542,8 +537,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
       color: colorFromTier(
         store.thresholds.active_minutes_green,
         store.thresholds.active_minutes_yellow,
-        true,
-        ACTIVE_MINUTES_TIER_COLOR
+        true
       ),
     },
   ];
@@ -643,8 +637,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
       color: colorFromTier(
         store.thresholds.sleep_green_min,
         store.thresholds.sleep_yellow_min,
-        true,
-        SLEEP_TIER_COLOR
+        true
       ),
     },
   ];

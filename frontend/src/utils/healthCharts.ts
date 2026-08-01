@@ -1,4 +1,5 @@
 // src/utils/healthCharts.ts
+import { colors } from '@/lib/colors';
 import { toLocalYMD } from '@/utils/dateFormat';
 
 // `start`/`end` are always constructed as local calendar dates (e.g. `new Date(y, m, d)`).
@@ -102,6 +103,13 @@ export const averageNonNull = (values: Array<number | null | undefined>): number
 // ---------- threshold tiers (green/yellow/red goal coloring) ----------
 export type ThresholdTier = 'green' | 'yellow' | 'red';
 
+// Default green/yellow/red palette shared by every chart that colors by threshold tier.
+export const TIER_COLOR: Record<ThresholdTier, string> = {
+  green: colors.brand,
+  yellow: colors.yellow,
+  red: colors.pink,
+};
+
 const TIER_SEVERITY: Record<ThresholdTier, number> = { green: 0, yellow: 1, red: 2 };
 
 // Classifies a value against a green ("good") and yellow ("caution") threshold.
@@ -126,15 +134,10 @@ export const thresholdTier = (
 // Curries thresholdTier into a value → color lookup, for coloring a detail table cell
 // by which tier (green/yellow/red) it falls into.
 export const colorFromTier =
-  (
-    green: number | null | undefined,
-    yellow: number | null | undefined,
-    higherIsBetter: boolean,
-    palette: Record<ThresholdTier, string>
-  ) =>
+  (green: number | null | undefined, yellow: number | null | undefined, higherIsBetter: boolean) =>
   (value: number | null): string | undefined => {
     const tier = thresholdTier(value, green, yellow, higherIsBetter);
-    return tier ? palette[tier] : undefined;
+    return tier ? TIER_COLOR[tier] : undefined;
   };
 
 // Worst (most severe) of several tiers, ignoring nulls. Used when a single day is

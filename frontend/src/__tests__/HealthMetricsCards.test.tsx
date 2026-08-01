@@ -4,8 +4,6 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
 // ── Chart sub-components use d3/SVG – replace with testid stubs ───────────────
-const TIER_COLOR_STUB = { green: '#0a0', yellow: '#aa0', red: '#a00' };
-
 jest.mock('@/components/Health/charts/AdherenceLine', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-adherence" />),
@@ -18,7 +16,6 @@ jest.mock('@/components/Health/charts/SleepChart', () => ({
   averageSleepMinutes: jest.fn(() => null),
   formatSleepDuration: jest.fn((min: number) => `${min}m`),
   filterSleepInRange: jest.fn(() => []),
-  TIER_COLOR: TIER_COLOR_STUB,
 }));
 jest.mock('@/components/Health/charts/WearTimeChart', () => ({
   __esModule: true,
@@ -69,14 +66,12 @@ jest.mock('@/components/Health/charts/ActiveMinutesChart', () => ({
   default: React.forwardRef(() => <div data-testid="chart-activeminutes" />),
   averageActiveMinutes: jest.fn(() => null),
   filterActiveMinutesInRange: jest.fn(() => []),
-  TIER_COLOR: TIER_COLOR_STUB,
 }));
 jest.mock('@/components/Health/charts/BloodPressureChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-bloodpressure" />),
   averageBloodPressure: jest.fn(() => ({ sys: null, dia: null })),
   filterBloodPressureInRange: jest.fn(() => []),
-  TIER_COLOR: TIER_COLOR_STUB,
 }));
 jest.mock('@/components/Health/charts/ExerciseSessionsChart', () => ({
   __esModule: true,

@@ -15,8 +15,8 @@ import {
   formatTickDuration,
   isInRange,
   thresholdTier,
+  TIER_COLOR,
 } from '@/utils/healthCharts';
-import type { ThresholdTier } from '@/utils/healthCharts';
 import { formatDurationMinutes } from '@/utils/dateFormat';
 
 type Props = {
@@ -26,12 +26,6 @@ type Props = {
   goal?: number | null;
   yellowGoal?: number | null;
   className?: string;
-};
-
-export const TIER_COLOR: Record<ThresholdTier, string> = {
-  green: colors.brand,
-  yellow: colors.yellow,
-  red: colors.pink,
 };
 
 type SleepRow = {

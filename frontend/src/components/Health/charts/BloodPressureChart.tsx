@@ -14,9 +14,9 @@ import {
   eachDateInRange,
   isInRange,
   thresholdTier,
+  TIER_COLOR,
   worstTier,
 } from '@/utils/healthCharts';
-import type { ThresholdTier } from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
@@ -27,12 +27,6 @@ type Props = {
   sysYellowMax?: number | null;
   diaYellowMax?: number | null;
   className?: string;
-};
-
-export const TIER_COLOR: Record<ThresholdTier, string> = {
-  green: colors.brand,
-  yellow: colors.yellow,
-  red: colors.pink,
 };
 
 type BloodPressureRow = { date: string; sys: number | null; dia: number | null };

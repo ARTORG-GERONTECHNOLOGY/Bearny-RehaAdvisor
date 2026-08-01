@@ -13,6 +13,7 @@ import {
   chartYAxisProps,
   thresholdTier,
   colorFromTier,
+  TIER_COLOR,
   worstTier,
   svgToImageDataUrl,
   statsOf,
@@ -253,17 +254,15 @@ describe('thresholdTier', () => {
 });
 
 describe('colorFromTier', () => {
-  const palette = { green: '#0a0', yellow: '#aa0', red: '#a00' };
-
-  it('looks up the palette color for the tier the value falls into', () => {
-    const toColor = colorFromTier(30, 20, true, palette);
-    expect(toColor(40)).toBe('#0a0');
-    expect(toColor(25)).toBe('#aa0');
-    expect(toColor(10)).toBe('#a00');
+  it('looks up the TIER_COLOR palette entry for the tier the value falls into', () => {
+    const toColor = colorFromTier(30, 20, true);
+    expect(toColor(40)).toBe(TIER_COLOR.green);
+    expect(toColor(25)).toBe(TIER_COLOR.yellow);
+    expect(toColor(10)).toBe(TIER_COLOR.red);
   });
 
   it('returns undefined when there is no value to classify', () => {
-    const toColor = colorFromTier(30, 20, true, palette);
+    const toColor = colorFromTier(30, 20, true);
     expect(toColor(null)).toBeUndefined();
   });
 });
