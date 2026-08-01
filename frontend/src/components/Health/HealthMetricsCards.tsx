@@ -131,7 +131,7 @@ const MetricCard: React.FC<{
 );
 
 // Taller than the card preview
-const DETAIL_CHART_CLASS = 'h-80 max-h-80';
+const DETAIL_CHART_CLASS = 'h-64 max-h-64';
 
 // Pairs a MetricCard with its click-to-expand detail dialog
 const MetricCardWithDialog = <Row extends { date: string }>({
