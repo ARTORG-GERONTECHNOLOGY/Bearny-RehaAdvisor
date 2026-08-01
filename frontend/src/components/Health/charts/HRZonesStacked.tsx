@@ -3,13 +3,15 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
 import { cn } from '@/lib/utils';
 import {
   averageNonNull,
+  chartXAxisProps,
+  chartYAxisProps,
   eachDateInRange,
-  formatTickDate,
   formatTickDuration,
   isInRange,
 } from '@/utils/healthCharts';
@@ -143,24 +145,19 @@ const HRZonesStacked = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
     [t, bpmRanges]
   );
 
-  const emptyClass = cn(
-    'flex h-28 w-full items-center justify-center text-sm text-zinc-500',
-    className
-  );
-
   if (!hasAnyReadings) {
     return (
-      <div ref={ref} className={emptyClass}>
-        {t('No heart rate zone data')}
-      </div>
+      <ChartEmptyState ref={ref} message={t('No heart rate zone data')} className={className} />
     );
   }
 
   if (!hasActiveZoneMinutes) {
     return (
-      <div ref={ref} className={emptyClass}>
-        {t('No time in active heart rate zones')}
-      </div>
+      <ChartEmptyState
+        ref={ref}
+        message={t('No time in active heart rate zones')}
+        className={className}
+      />
     );
   }
 
@@ -170,22 +167,9 @@ const HRZonesStacked = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
         <CartesianGrid vertical={false} />
         <YAxis
           domain={[0, (dataMax: number) => dataMax * 1.1]}
-          width={34}
-          tickCount={3}
-          tickFormatter={formatTickDuration}
-          tickLine={false}
-          axisLine={false}
-          tick={{ fontSize: 10 }}
+          {...chartYAxisProps(formatTickDuration, 34)}
         />
-        <XAxis
-          dataKey="date"
-          tickFormatter={formatTickDate}
-          interval="preserveStartEnd"
-          tickLine={false}
-          axisLine={false}
-          tickMargin={4}
-          tick={{ fontSize: 10 }}
-        />
+        <XAxis {...chartXAxisProps} />
         <ChartTooltip
           content={
             <ChartTooltipContent

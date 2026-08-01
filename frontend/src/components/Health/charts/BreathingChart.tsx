@@ -3,10 +3,16 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
 import { cn } from '@/lib/utils';
-import { averageNonNull, buildDailyRows, formatTickDate } from '@/utils/healthCharts';
+import {
+  averageNonNull,
+  buildDailyRows,
+  chartXAxisProps,
+  chartYAxisProps,
+} from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
@@ -52,18 +58,12 @@ const BreathingChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
 
   if (!hasReadings) {
     return (
-      <div
+      <ChartEmptyState
         ref={ref}
-        className={cn(
-          'flex h-28 w-full flex-col items-center justify-center gap-1 text-center',
-          className
-        )}
-      >
-        <span className="text-sm text-zinc-500">{t('No breathing rate data')}</span>
-        {deviceEmpty && (
-          <span className="text-xs text-zinc-500">{t('hint_breathing_rate_empty')}</span>
-        )}
-      </div>
+        message={t('No breathing rate data')}
+        hint={deviceEmpty ? t('hint_breathing_rate_empty') : undefined}
+        className={className}
+      />
     );
   }
 
@@ -73,22 +73,9 @@ const BreathingChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
         <CartesianGrid vertical={false} />
         <YAxis
           domain={['dataMin - 1', 'dataMax + 1']}
-          width={30}
-          tickCount={3}
-          tickFormatter={(v: number) => `${Math.round(v * 10) / 10}`}
-          tickLine={false}
-          axisLine={false}
-          tick={{ fontSize: 10 }}
+          {...chartYAxisProps((v) => `${Math.round(v * 10) / 10}`)}
         />
-        <XAxis
-          dataKey="date"
-          tickFormatter={formatTickDate}
-          interval="preserveStartEnd"
-          tickLine={false}
-          axisLine={false}
-          tickMargin={4}
-          tick={{ fontSize: 10 }}
-        />
+        <XAxis {...chartXAxisProps} />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
         <Area
           type="monotone"

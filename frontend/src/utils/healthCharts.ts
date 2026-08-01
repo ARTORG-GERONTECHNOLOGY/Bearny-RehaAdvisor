@@ -51,6 +51,27 @@ export const formatTickDuration = (minutes: number): string => {
   return h > 0 ? `${h}h${m}m` : `${m}m`;
 };
 
+// Shared tick styling for every health overview chart's X axis
+export const chartXAxisProps = {
+  dataKey: 'date',
+  tickFormatter: formatTickDate,
+  interval: 'preserveStartEnd' as const,
+  tickLine: false,
+  axisLine: false,
+  tickMargin: 4,
+  tick: { fontSize: 10 },
+};
+
+// Shared tick styling for a chart's Y axis
+export const chartYAxisProps = (tickFormatter: (value: number) => string, width = 30) => ({
+  width,
+  tickCount: 3,
+  tickFormatter,
+  tickLine: false,
+  axisLine: false,
+  tick: { fontSize: 10 },
+});
+
 // Fills gaps with null so charts show breaks instead of compressing to just the days with data.
 export const buildDailyRows = <T extends { date: string }, K extends string>(
   data: T[],

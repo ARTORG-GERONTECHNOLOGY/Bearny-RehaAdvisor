@@ -3,10 +3,16 @@ import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from 
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
 import { cn } from '@/lib/utils';
-import { averageNonNull, buildDailyRows, formatTickDate } from '@/utils/healthCharts';
+import {
+  averageNonNull,
+  buildDailyRows,
+  chartXAxisProps,
+  chartYAxisProps,
+} from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
@@ -51,17 +57,7 @@ const StepsChart = forwardRef<HTMLDivElement, Props>(
     );
 
     if (!hasReadings) {
-      return (
-        <div
-          ref={ref}
-          className={cn(
-            'flex h-28 w-full items-center justify-center text-sm text-zinc-500',
-            className
-          )}
-        >
-          {t('No steps data')}
-        </div>
-      );
+      return <ChartEmptyState ref={ref} message={t('No steps data')} className={className} />;
     }
 
     return (
@@ -70,22 +66,9 @@ const StepsChart = forwardRef<HTMLDivElement, Props>(
           <CartesianGrid vertical={false} />
           <YAxis
             domain={[0, (dataMax: number) => Math.max(dataMax, goal ?? 0) * 1.1]}
-            width={30}
-            tickCount={3}
-            tickFormatter={formatStepsTick}
-            tickLine={false}
-            axisLine={false}
-            tick={{ fontSize: 10 }}
+            {...chartYAxisProps(formatStepsTick)}
           />
-          <XAxis
-            dataKey="date"
-            tickFormatter={formatTickDate}
-            interval="preserveStartEnd"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={4}
-            tick={{ fontSize: 10 }}
-          />
+          <XAxis {...chartXAxisProps} />
           <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
           {goal != null && (
             <ReferenceLine

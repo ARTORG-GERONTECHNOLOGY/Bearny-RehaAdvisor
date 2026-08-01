@@ -3,13 +3,15 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
 import { cn } from '@/lib/utils';
 import {
   averageNonNull,
   buildDailyRows,
-  formatTickDate,
+  chartXAxisProps,
+  chartYAxisProps,
   formatTickDuration,
 } from '@/utils/healthCharts';
 
@@ -54,16 +56,12 @@ const WearTimeChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cla
 
   if (!hasReadings) {
     return (
-      <div
+      <ChartEmptyState
         ref={ref}
-        className={cn(
-          'flex h-28 w-full flex-col items-center justify-center gap-1 text-center',
-          className
-        )}
-      >
-        <span className="text-sm text-zinc-500">{t('No wear time data')}</span>
-        {deviceEmpty && <span className="text-xs text-zinc-500">{t('hint_wear_time_empty')}</span>}
-      </div>
+        message={t('No wear time data')}
+        hint={deviceEmpty ? t('hint_wear_time_empty') : undefined}
+        className={className}
+      />
     );
   }
 
@@ -73,22 +71,9 @@ const WearTimeChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cla
         <CartesianGrid vertical={false} />
         <YAxis
           domain={[0, (dataMax: number) => dataMax * 1.1]}
-          width={34}
-          tickCount={3}
-          tickFormatter={formatTickDuration}
-          tickLine={false}
-          axisLine={false}
-          tick={{ fontSize: 10 }}
+          {...chartYAxisProps(formatTickDuration, 34)}
         />
-        <XAxis
-          dataKey="date"
-          tickFormatter={formatTickDate}
-          interval="preserveStartEnd"
-          tickLine={false}
-          axisLine={false}
-          tickMargin={4}
-          tick={{ fontSize: 10 }}
-        />
+        <XAxis {...chartXAxisProps} />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
         <Bar dataKey="wearTime" fill={colors.brand} />
       </BarChart>

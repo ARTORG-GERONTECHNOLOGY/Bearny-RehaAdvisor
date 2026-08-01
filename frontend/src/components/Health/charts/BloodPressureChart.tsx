@@ -3,13 +3,15 @@ import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'rec
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
 import { cn } from '@/lib/utils';
 import {
   averageNonNull,
+  chartXAxisProps,
+  chartYAxisProps,
   eachDateInRange,
-  formatTickDate,
   isInRange,
   thresholdTier,
   worstTier,
@@ -119,15 +121,7 @@ const BloodPressureChart = forwardRef<HTMLDivElement, Props>(
 
     if (!hasReadings) {
       return (
-        <div
-          ref={ref}
-          className={cn(
-            'flex h-28 w-full items-center justify-center text-sm text-zinc-500',
-            className
-          )}
-        >
-          {t('No blood pressure data')}
-        </div>
+        <ChartEmptyState ref={ref} message={t('No blood pressure data')} className={className} />
       );
     }
 
@@ -147,22 +141,9 @@ const BloodPressureChart = forwardRef<HTMLDivElement, Props>(
                   (diaYellowMax ?? 0) + 5
                 ),
             ]}
-            width={30}
-            tickCount={3}
-            tickFormatter={(v: number) => `${Math.round(v)}`}
-            tickLine={false}
-            axisLine={false}
-            tick={{ fontSize: 10 }}
+            {...chartYAxisProps((v) => `${Math.round(v)}`)}
           />
-          <XAxis
-            dataKey="date"
-            tickFormatter={formatTickDate}
-            interval="preserveStartEnd"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={4}
-            tick={{ fontSize: 10 }}
-          />
+          <XAxis {...chartXAxisProps} />
           <ChartTooltip
             content={
               <ChartTooltipContent

@@ -210,14 +210,6 @@ const useMetricAvg = <T, R>(
   end: Date
 ): R => useMemo(() => fn(data, start, end), [fn, data, start, end]);
 
-// Every metric card that opens a detail dialog shares this "chart + table" pattern
-const useMetricRows = <T, R>(
-  fn: (data: T[], start?: Date | null, end?: Date | null) => R[],
-  data: T[],
-  start: Date,
-  end: Date
-): R[] => useMemo(() => fn(data, start, end), [fn, data, start, end]);
-
 // Shared green/yellow/red threshold coloring for a detail table cell
 const colorFromTier =
   (
@@ -301,11 +293,11 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
     end
   );
 
-  const adherenceRows = useMetricRows(filterAdherenceInRange, store.adherenceData, start, end);
-  const wearTimeRows = useMetricRows(filterWearTimeInRange, store.fitbitData, start, end);
-  const restingHRRows = useMetricRows(filterRestingHRInRange, store.fitbitData, start, end);
-  const bloodPressureRows = useMetricRows(filterBloodPressureInRange, store.fitbitData, start, end);
-  const hrZoneRows = useMetricRows(filterHRZonesInRange, store.fitbitData, start, end);
+  const adherenceRows = useMetricAvg(filterAdherenceInRange, store.adherenceData, start, end);
+  const wearTimeRows = useMetricAvg(filterWearTimeInRange, store.fitbitData, start, end);
+  const restingHRRows = useMetricAvg(filterRestingHRInRange, store.fitbitData, start, end);
+  const bloodPressureRows = useMetricAvg(filterBloodPressureInRange, store.fitbitData, start, end);
+  const hrZoneRows = useMetricAvg(filterHRZonesInRange, store.fitbitData, start, end);
   // A day the device never reported and a day with genuinely zero active minutes both come
   // back as 0 — treat 0 as "no data" here so the table doesn't fill up with all-zero rows.
   const hrZoneDialogRows = useMemo(
@@ -318,11 +310,11 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
       })),
     [hrZoneRows]
   );
-  const stepsRows = useMetricRows(filterStepsInRange, store.fitbitData, start, end);
-  const activeMinutesRows = useMetricRows(filterActiveMinutesInRange, store.fitbitData, start, end);
-  const weightRows = useMetricRows(filterWeightInRange, store.fitbitData, start, end);
-  const sleepRows = useMetricRows(filterSleepInRange, store.fitbitData, start, end);
-  const breathingRows = useMetricRows(filterBreathingInRange, store.fitbitData, start, end);
+  const stepsRows = useMetricAvg(filterStepsInRange, store.fitbitData, start, end);
+  const activeMinutesRows = useMetricAvg(filterActiveMinutesInRange, store.fitbitData, start, end);
+  const weightRows = useMetricAvg(filterWeightInRange, store.fitbitData, start, end);
+  const sleepRows = useMetricAvg(filterSleepInRange, store.fitbitData, start, end);
+  const breathingRows = useMetricAvg(filterBreathingInRange, store.fitbitData, start, end);
 
   const adherenceColumns: MetricDetailColumn<(typeof adherenceRows)[number]>[] = [
     { key: 'pct', header: t('Adherence (%)'), format: (v) => `${Math.round(v)}%` },

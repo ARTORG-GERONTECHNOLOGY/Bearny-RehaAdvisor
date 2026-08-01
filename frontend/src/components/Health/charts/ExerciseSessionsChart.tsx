@@ -3,6 +3,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import {
   Dialog,
   DialogContent,
@@ -14,8 +15,9 @@ import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTa
 import type { FitbitEntry } from '@/types/health';
 import {
   averageNonNull,
+  chartXAxisProps,
+  chartYAxisProps,
   eachDateInRange,
-  formatTickDate,
   formatTickDuration,
   isInRange,
 } from '@/utils/healthCharts';
@@ -144,11 +146,7 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
   }, [selectedDate]);
 
   if (!hasSessions) {
-    return (
-      <div ref={ref} className="flex h-28 w-full items-center justify-center text-sm text-zinc-500">
-        {t('No exercise sessions in this period.')}
-      </div>
-    );
+    return <ChartEmptyState ref={ref} message={t('No exercise sessions in this period.')} />;
   }
 
   return (
@@ -158,22 +156,9 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
           <CartesianGrid vertical={false} />
           <YAxis
             domain={[0, (dataMax: number) => dataMax * 1.1]}
-            width={34}
-            tickCount={3}
-            tickFormatter={formatTickDuration}
-            tickLine={false}
-            axisLine={false}
-            tick={{ fontSize: 10 }}
+            {...chartYAxisProps(formatTickDuration, 34)}
           />
-          <XAxis
-            dataKey="date"
-            tickFormatter={formatTickDate}
-            interval="preserveStartEnd"
-            tickLine={false}
-            axisLine={false}
-            tickMargin={4}
-            tick={{ fontSize: 10 }}
-          />
+          <XAxis {...chartXAxisProps} />
           <ChartTooltip content={<SessionTooltip />} />
           {Array.from({ length: maxSessions }, (_, i) => (
             <Bar

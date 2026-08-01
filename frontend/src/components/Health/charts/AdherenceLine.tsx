@@ -3,11 +3,17 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import type { AdherenceEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
 import { cn } from '@/lib/utils';
 import { toLocalYMD } from '@/utils/dateFormat';
-import { averageNonNull, buildDailyRows, formatTickDate } from '@/utils/healthCharts';
+import {
+  averageNonNull,
+  buildDailyRows,
+  chartXAxisProps,
+  chartYAxisProps,
+} from '@/utils/healthCharts';
 
 type Props = {
   data: AdherenceEntry[];
@@ -57,40 +63,15 @@ const AdherenceLine = forwardRef<HTMLDivElement, Props>(({ data, start, end, cla
   );
 
   if (!hasReadings) {
-    return (
-      <div
-        ref={ref}
-        className={cn(
-          'flex h-28 w-full items-center justify-center text-sm text-zinc-500',
-          className
-        )}
-      >
-        {t('No adherence data')}
-      </div>
-    );
+    return <ChartEmptyState ref={ref} message={t('No adherence data')} className={className} />;
   }
 
   return (
     <ChartContainer ref={ref} config={chartConfig} className={cn('w-full max-h-28', className)}>
       <AreaChart accessibilityLayer data={rows}>
         <CartesianGrid vertical={false} />
-        <YAxis
-          domain={[0, 100]}
-          width={30}
-          tickCount={3}
-          tickLine={false}
-          axisLine={false}
-          tick={{ fontSize: 10 }}
-        />
-        <XAxis
-          dataKey="date"
-          tickFormatter={formatTickDate}
-          interval="preserveStartEnd"
-          tickLine={false}
-          axisLine={false}
-          tickMargin={4}
-          tick={{ fontSize: 10 }}
-        />
+        <YAxis domain={[0, 100]} {...chartYAxisProps((v) => `${v}`)} />
+        <XAxis {...chartXAxisProps} />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
         <Area
           type="monotone"
