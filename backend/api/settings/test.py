@@ -28,6 +28,4 @@ REST_FRAMEWORK = {
 # requires @pytest.mark.django_db on every test that hits the refresh endpoint.
 # Blacklisting is a production-only concern; token rotation still works via
 # ROTATE_REFRESH_TOKENS=True.
-INSTALLED_APPS = [  # noqa: F405
-    app for app in INSTALLED_APPS if app != "rest_framework_simplejwt.token_blacklist"
-]
+INSTALLED_APPS = [app for app in INSTALLED_APPS if app != "rest_framework_simplejwt.token_blacklist"]  # noqa: F405
