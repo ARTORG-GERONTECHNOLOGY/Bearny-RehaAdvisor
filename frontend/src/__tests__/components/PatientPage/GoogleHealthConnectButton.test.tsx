@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import GoogleHealthConnectButton from '@/components/PatientPage/GoogleHealthConnectButton';
 
 const mockFetchStatus = jest.fn();
@@ -78,15 +78,25 @@ describe('GoogleHealthConnectButton', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders a Google Health authorize link when disconnected', async () => {
+  it('renders a Connect button when disconnected and navigates to Google OAuth on click', async () => {
     mockAuthId = '';
     localStorage.setItem('id', 'patient-77');
+    const assignMock = jest.fn();
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, set href(url: string) { assignMock(url); } },
+      writable: true,
+    });
+
     render(<GoogleHealthConnectButton />);
 
-    const link = await screen.findByRole('link');
-    expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', expect.stringContaining('accounts.google.com'));
-    expect(link).toHaveAttribute('href', expect.stringContaining('state=patient-77'));
-    expect(screen.getByRole('button', { name: 'Connect Google Health' })).toBeInTheDocument();
+    const button = screen.getByRole('button', { name: /connect google health/i });
+    expect(button).toBeInTheDocument();
+
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('accounts.google.com'));
+      expect(assignMock).toHaveBeenCalledWith(expect.stringContaining('state=patient-77'));
+    });
   });
 });
