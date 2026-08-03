@@ -4,7 +4,7 @@ export const isRecord = (v: unknown): v is UnknownRecord => typeof v === 'object
 
 export const isString = (v: unknown): v is string => typeof v === 'string';
 
-// Coerces to a plain object, or {} if `v` isn't one.
+// Coerces to an indexable object (including arrays), or {} if `v` isn't one.
 export const asRecord = (v: unknown): UnknownRecord => (isRecord(v) ? v : {});
 
 // Coerces to a string, or `fallback` (default '') if `v` isn't one.

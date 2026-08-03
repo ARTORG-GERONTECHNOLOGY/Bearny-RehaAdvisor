@@ -520,23 +520,23 @@ const PatientInterventionDetail: React.FC = observer(() => {
   }, [selectedRec, selectedLibraryItem]);
 
   // Track time spent on this intervention detail page
+  const viewDateParam = searchParams.get('date') || '';
   useEffect(() => {
     const openedAt = Date.now();
-    const date = searchParams.get('date') || '';
     return () => {
       const seconds = Math.round((Date.now() - openedAt) / 1000);
       if (seconds < 2 || !patientId || !interventionId) return;
       apiClient
         .post(`/patients/vitals/intervention-view/${patientId}/`, {
           intervention_id: interventionId,
-          date,
+          date: viewDateParam,
           seconds_viewed: seconds,
         })
         .catch(() => {
           /* best-effort, no noise */
         });
     };
-  }, [patientId, interventionId, searchParams]);
+  }, [patientId, interventionId, viewDateParam]);
 
   // keep translations in sync with effectiveItem
   useEffect(() => {
