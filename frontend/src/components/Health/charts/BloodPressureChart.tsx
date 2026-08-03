@@ -3,16 +3,21 @@ import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'rec
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
+import { cn } from '@/lib/utils';
 import {
   averageNonNull,
+  chartXAxisProps,
+  chartYAxisProps,
   eachDateInRange,
+  formatTickInteger,
   isInRange,
   thresholdTier,
+  TIER_COLOR,
   worstTier,
 } from '@/utils/healthCharts';
-import type { ThresholdTier } from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
@@ -22,12 +27,7 @@ type Props = {
   diaGreenMax?: number | null;
   sysYellowMax?: number | null;
   diaYellowMax?: number | null;
-};
-
-const TIER_COLOR: Record<ThresholdTier, string> = {
-  green: colors.brand,
-  yellow: colors.yellow,
-  red: colors.pink,
+  className?: string;
 };
 
 type BloodPressureRow = { date: string; sys: number | null; dia: number | null };
@@ -86,7 +86,7 @@ const toBandRows = (rows: BloodPressureRow[]): BandRow[] =>
 // mounts its <svg> once it has measured a size, so callers should query for it at read time
 // (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
 const BloodPressureChart = forwardRef<HTMLDivElement, Props>(
-  ({ data, start, end, sysGreenMax, diaGreenMax, sysYellowMax, diaYellowMax }, ref) => {
+  ({ data, start, end, sysGreenMax, diaGreenMax, sysYellowMax, diaYellowMax, className }, ref) => {
     const { t } = useTranslation();
 
     const rows = useMemo(
@@ -116,21 +116,15 @@ const BloodPressureChart = forwardRef<HTMLDivElement, Props>(
 
     if (!hasReadings) {
       return (
-        <div
-          ref={ref}
-          className="flex h-24 w-full items-center justify-center text-sm text-zinc-500"
-        >
-          {t('No blood pressure data')}
-        </div>
+        <ChartEmptyState ref={ref} message={t('No blood pressure data')} className={className} />
       );
     }
 
     return (
-      <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
+      <ChartContainer ref={ref} config={chartConfig} className={cn('w-full max-h-28', className)}>
         <AreaChart accessibilityLayer data={rows}>
           <CartesianGrid vertical={false} />
           <YAxis
-            hide
             domain={[
               0,
               (dataMax: number) =>
@@ -142,8 +136,9 @@ const BloodPressureChart = forwardRef<HTMLDivElement, Props>(
                   (diaYellowMax ?? 0) + 5
                 ),
             ]}
+            {...chartYAxisProps(formatTickInteger)}
           />
-          <XAxis hide dataKey="date" />
+          <XAxis {...chartXAxisProps} />
           <ChartTooltip
             content={
               <ChartTooltipContent

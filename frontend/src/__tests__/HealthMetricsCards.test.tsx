@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
 // ── Chart sub-components use d3/SVG – replace with testid stubs ───────────────
@@ -7,52 +8,68 @@ jest.mock('@/components/Health/charts/AdherenceLine', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-adherence" />),
   averageAdherencePct: jest.fn(() => null),
+  filterAdherenceInRange: jest.fn(() => []),
 }));
 jest.mock('@/components/Health/charts/SleepChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-sleep" />),
   averageSleepMinutes: jest.fn(() => null),
-  formatSleepDuration: jest.fn((min: number) => `${min}m`),
+  filterSleepInRange: jest.fn(() => []),
 }));
 jest.mock('@/components/Health/charts/WearTimeChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-weartime" />),
   averageWearTime: jest.fn(() => null),
+  filterWearTimeInRange: jest.fn(() => []),
 }));
 jest.mock('@/components/Health/charts/RestingHRChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-restinghr" />),
   averageRestingHR: jest.fn(() => null),
+  filterRestingHRInRange: jest.fn(() => []),
 }));
 jest.mock('@/components/Health/charts/BreathingChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-breathing" />),
   averageBreathingRate: jest.fn(() => null),
+  filterBreathingInRange: jest.fn(() => []),
 }));
 jest.mock('@/components/Health/charts/HRZonesStacked', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-hrzones" />),
   averageActiveHRZoneMinutes: jest.fn(() => null),
+  filterHRZonesInRange: jest.fn(() => []),
+  STACK_ZONE_KEYS: ['fatBurn', 'cardio', 'peak'],
+  ZONE_COLOR: { fatBurn: '#0a0', cardio: '#aa0', peak: '#a00' },
+  ZONE_LABEL_KEY: {
+    fatBurn: 'hr_zone_fat_burn',
+    cardio: 'hr_zone_cardio',
+    peak: 'hr_zone_peak',
+  },
 }));
 jest.mock('@/components/Health/charts/WeightChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-weight" />),
   averageWeight: jest.fn(() => null),
+  filterWeightInRange: jest.fn(() => []),
 }));
 jest.mock('@/components/Health/charts/StepsChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-steps" />),
   averageSteps: jest.fn(() => null),
+  filterStepsInRange: jest.fn(() => []),
 }));
 jest.mock('@/components/Health/charts/ActiveMinutesChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-activeminutes" />),
   averageActiveMinutes: jest.fn(() => null),
+  filterActiveMinutesInRange: jest.fn(() => []),
 }));
 jest.mock('@/components/Health/charts/BloodPressureChart', () => ({
   __esModule: true,
   default: React.forwardRef(() => <div data-testid="chart-bloodpressure" />),
   averageBloodPressure: jest.fn(() => ({ sys: null, dia: null })),
+  filterBloodPressureInRange: jest.fn(() => []),
 }));
 jest.mock('@/components/Health/charts/ExerciseSessionsChart', () => ({
   __esModule: true,
@@ -206,7 +223,7 @@ describe('HealthMetricsCards – formatted values when averages are present', ()
     render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
 
     expect(screen.getByText('82%')).toBeInTheDocument();
-    expect(screen.getByText('620 min')).toBeInTheDocument();
+    expect(screen.getByText('10h 20m')).toBeInTheDocument();
     expect(screen.getByText('62 bpm')).toBeInTheDocument();
     expect(screen.getByText('121/80 mmHg')).toBeInTheDocument();
     expect(screen.getByText('46 min')).toBeInTheDocument();
@@ -214,7 +231,37 @@ describe('HealthMetricsCards – formatted values when averages are present', ()
     expect(screen.getByText('38 min')).toBeInTheDocument();
     expect(screen.getByText('72.3 weightunit')).toBeInTheDocument();
     expect(screen.getByText('53 min')).toBeInTheDocument();
-    expect(screen.getByText('430m')).toBeInTheDocument();
+    expect(screen.getByText('7h 10m')).toBeInTheDocument();
     expect(screen.getByText('15.3 / min')).toBeInTheDocument();
+  });
+});
+
+describe('HealthMetricsCards – cards with no data are not clickable', () => {
+  afterEach(() => {
+    jest
+      .requireMock('@/components/Health/charts/StepsChart')
+      .filterStepsInRange.mockReturnValue([]);
+  });
+
+  it('has no clickable cards when every metric has no data', () => {
+    render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
+
+  it('makes a card clickable — and its detail dialog reachable — once it has data', async () => {
+    const user = userEvent.setup();
+    jest
+      .requireMock('@/components/Health/charts/StepsChart')
+      .filterStepsInRange.mockReturnValue([{ date: '2024-01-08', steps: 8234 }]);
+
+    render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
+
+    const buttons = screen.getAllByRole('button');
+    expect(buttons).toHaveLength(1);
+
+    await user.click(buttons[0]);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    // Card label + dialog title + the detail table's "Steps" column header.
+    expect(screen.getAllByText('Steps')).toHaveLength(3);
   });
 });

@@ -3,14 +3,24 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { averageNonNull, buildDailyRows } from '@/utils/healthCharts';
+import { cn } from '@/lib/utils';
+import {
+  averageNonNull,
+  buildDailyRows,
+  chartXAxisProps,
+  chartYAxisProps,
+  deviceNeverReports,
+  formatTickInteger,
+} from '@/utils/healthCharts';
 
 type Props = {
   data: FitbitEntry[];
   start?: Date | null;
   end?: Date | null;
+  className?: string;
 };
 
 type RestingHRRow = { date: string; restingHR: number | null };
@@ -32,14 +42,12 @@ export const averageRestingHR = (
 // The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
 // mounts its <svg> once it has measured a size, so callers should query for it at read time
 // (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
-const RestingHRChart = forwardRef<HTMLDivElement, Props>(({ data, start, end }, ref) => {
+const RestingHRChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, className }, ref) => {
   const { t } = useTranslation();
 
   const rows = useMemo(() => filterRestingHRInRange(data, start, end), [data, start, end]);
   const hasReadings = useMemo(() => rows.some((r) => r.restingHR != null), [rows]);
-  // Device-capability hint: some Fitbit devices never report resting heart rate. Show the
-  // hint only when there IS Fitbit data, just none of it has this field.
-  const deviceEmpty = data.length > 0 && data.every((d) => d.resting_heart_rate == null);
+  const deviceEmpty = deviceNeverReports(data, (d) => d.resting_heart_rate);
 
   const chartConfig: ChartConfig = useMemo(
     () => ({
@@ -50,22 +58,21 @@ const RestingHRChart = forwardRef<HTMLDivElement, Props>(({ data, start, end }, 
 
   if (!hasReadings) {
     return (
-      <div
+      <ChartEmptyState
         ref={ref}
-        className="flex h-24 w-full flex-col items-center justify-center gap-1 text-center"
-      >
-        <span className="text-sm text-zinc-500">{t('No resting heart rate data')}</span>
-        {deviceEmpty && <span className="text-xs text-zinc-500">{t('hint_resting_hr_empty')}</span>}
-      </div>
+        message={t('No resting heart rate data')}
+        hint={deviceEmpty ? t('hint_resting_hr_empty') : undefined}
+        className={className}
+      />
     );
   }
 
   return (
-    <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
+    <ChartContainer ref={ref} config={chartConfig} className={cn('w-full max-h-28', className)}>
       <AreaChart accessibilityLayer data={rows}>
         <CartesianGrid vertical={false} />
-        <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
-        <XAxis hide dataKey="date" />
+        <YAxis domain={['dataMin - 5', 'dataMax + 5']} {...chartYAxisProps(formatTickInteger)} />
+        <XAxis {...chartXAxisProps} />
         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
         <Area
           type="monotone"

@@ -7,11 +7,21 @@ import {
   averageNonNull,
   toEuroDate,
   formatDateEU,
+  formatTickDate,
+  formatTickDuration,
+  formatTickInteger,
+  formatTickDecimal,
+  chartXAxisProps,
+  chartYAxisProps,
+  deviceNeverReports,
   thresholdTier,
+  colorFromTier,
+  TIER_COLOR,
   worstTier,
   svgToImageDataUrl,
   statsOf,
   scalarCaption,
+  bloodPressureCaption,
 } from '@/utils/healthCharts';
 import * as dateFormat from '@/utils/dateFormat';
 
@@ -107,6 +117,29 @@ describe('averageNonNull', () => {
   });
 });
 
+describe('deviceNeverReports', () => {
+  type Entry = { value: number | null };
+
+  it('is false for an empty array — no data at all is not the same as "never reports"', () => {
+    expect(deviceNeverReports<Entry>([], (d) => d.value)).toBe(false);
+  });
+
+  it('is true when there is data but every entry is missing the field', () => {
+    const data: Entry[] = [{ value: null }, { value: null }];
+    expect(deviceNeverReports(data, (d) => d.value)).toBe(true);
+  });
+
+  it('is false when at least one entry has the field', () => {
+    const data: Entry[] = [{ value: null }, { value: 5 }];
+    expect(deviceNeverReports(data, (d) => d.value)).toBe(false);
+  });
+
+  it('treats 0 as a present value, not a missing one', () => {
+    const data: Entry[] = [{ value: 0 }];
+    expect(deviceNeverReports(data, (d) => d.value)).toBe(false);
+  });
+});
+
 describe('toEuroDate', () => {
   it('converts YYYY-MM-DD to DD.MM.YYYY', () => {
     expect(toEuroDate('2024-03-07')).toBe('07.03.2024');
@@ -137,6 +170,84 @@ describe('formatDateEU', () => {
 
     expect(spy).toHaveBeenCalledWith(d);
     spy.mockRestore();
+  });
+});
+
+describe('formatTickDate', () => {
+  it('converts YYYY-MM-DD to DD.MM', () => {
+    expect(formatTickDate('2024-03-07')).toBe('07.03');
+  });
+
+  it('returns an empty string for null/undefined input', () => {
+    expect(formatTickDate(null)).toBe('');
+    expect(formatTickDate(undefined)).toBe('');
+  });
+
+  it('returns the input unchanged when it has no date-like structure', () => {
+    expect(formatTickDate('notadate')).toBe('notadate');
+  });
+});
+
+describe('formatTickDuration', () => {
+  it('formats sub-hour durations as just minutes', () => {
+    expect(formatTickDuration(45)).toBe('45m');
+  });
+
+  it('formats durations of an hour or more as hours and minutes', () => {
+    expect(formatTickDuration(536)).toBe('8h56m');
+  });
+
+  it('rounds fractional minutes', () => {
+    expect(formatTickDuration(59.6)).toBe('1h0m');
+  });
+
+  it('clamps negative values to 0m', () => {
+    expect(formatTickDuration(-5)).toBe('0m');
+  });
+});
+
+describe('formatTickInteger', () => {
+  it('rounds to the nearest whole number', () => {
+    expect(formatTickInteger(72.4)).toBe('72');
+    expect(formatTickInteger(72.6)).toBe('73');
+  });
+});
+
+describe('formatTickDecimal', () => {
+  it('rounds to one decimal place', () => {
+    expect(formatTickDecimal(72.34)).toBe('72.3');
+    expect(formatTickDecimal(72.36)).toBe('72.4');
+  });
+
+  it('drops a trailing .0', () => {
+    expect(formatTickDecimal(72)).toBe('72');
+  });
+});
+
+describe('chartXAxisProps', () => {
+  it('formats ticks with formatTickDate and disables the axis line/ticks', () => {
+    expect(chartXAxisProps.dataKey).toBe('date');
+    expect(chartXAxisProps.tickFormatter).toBe(formatTickDate);
+    expect(chartXAxisProps.interval).toBe('preserveStartEnd');
+    expect(chartXAxisProps.tickLine).toBe(false);
+    expect(chartXAxisProps.axisLine).toBe(false);
+  });
+});
+
+describe('chartYAxisProps', () => {
+  it('defaults to a width of 30 and uses the given tick formatter', () => {
+    const fmt = (v: number) => `${v}`;
+    const props = chartYAxisProps(fmt);
+    expect(props.width).toBe(30);
+    expect(props.tickFormatter).toBe(fmt);
+    expect(props.tickCount).toBe(3);
+    expect(props.tickLine).toBe(false);
+    expect(props.axisLine).toBe(false);
+  });
+
+  it('accepts a custom width', () => {
+    const props = chartYAxisProps((v: number) => `${v}`, 34);
+    expect(props.width).toBe(34);
   });
 });
 
@@ -184,6 +295,20 @@ describe('thresholdTier', () => {
     it('is red above the yellow threshold', () => {
       expect(thresholdTier(140, 129, 139, false)).toBe('red');
     });
+  });
+});
+
+describe('colorFromTier', () => {
+  it('looks up the TIER_COLOR palette entry for the tier the value falls into', () => {
+    const toColor = colorFromTier(30, 20, true);
+    expect(toColor(40)).toBe(TIER_COLOR.green);
+    expect(toColor(25)).toBe(TIER_COLOR.yellow);
+    expect(toColor(10)).toBe(TIER_COLOR.red);
+  });
+
+  it('returns undefined when there is no value to classify', () => {
+    const toColor = colorFromTier(30, 20, true);
+    expect(toColor(null)).toBeUndefined();
   });
 });
 
@@ -248,6 +373,34 @@ describe('scalarCaption', () => {
     ];
     expect(scalarCaption(withZero, 'val', String, { predicate: (v) => v > 0 })).toBe(
       'avg 10 · min 10 · max 10'
+    );
+  });
+});
+
+describe('bloodPressureCaption', () => {
+  type Row = { date: string; sys: number | null; dia: number | null };
+  const t = (k: string) => k;
+
+  it('joins the sys and dia captions and appends the unit once', () => {
+    const rows: Row[] = [
+      { date: '2024-01-01', sys: 120, dia: 80 },
+      { date: '2024-01-02', sys: 130, dia: 90 },
+    ];
+    expect(bloodPressureCaption(rows, t, String)).toBe(
+      'Blood pressure systolic: avg 125 · min 120 · max 130   |   ' +
+        'Blood pressure diastolic: avg 85 · min 80 · max 90 mmHg'
+    );
+  });
+
+  it('returns null when every row is null for both sys and dia', () => {
+    const rows: Row[] = [{ date: '2024-01-01', sys: null, dia: null }];
+    expect(bloodPressureCaption(rows, t, String)).toBeNull();
+  });
+
+  it('includes only whichever of sys/dia has data', () => {
+    const rows: Row[] = [{ date: '2024-01-01', sys: 120, dia: null }];
+    expect(bloodPressureCaption(rows, t, String)).toBe(
+      'Blood pressure systolic: avg 120 · min 120 · max 120 mmHg'
     );
   });
 });

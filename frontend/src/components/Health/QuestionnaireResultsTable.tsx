@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import {
   Dialog,
   DialogContent,
@@ -106,16 +107,12 @@ const QuestionnaireResultsTable: React.FC<Props> = ({ data, start, end, lang, t 
   );
 
   if (!days.length) {
-    return (
-      <div className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
-        {t('No questionnaire data available.')}
-      </div>
-    );
+    return <ChartEmptyState message={t('No questionnaire data available.')} />;
   }
 
   return (
     <>
-      <div className="grid grid-cols-7 gap-1 h-24">
+      <div className="grid grid-cols-7 gap-1 h-28 pb-5">
         {days.map((day) => {
           const hasEntry = !!grouped[day]?.length;
           return (

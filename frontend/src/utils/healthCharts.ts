@@ -1,4 +1,5 @@
 // src/utils/healthCharts.ts
+import { colors } from '@/lib/colors';
 import { toLocalYMD } from '@/utils/dateFormat';
 
 // `start`/`end` are always constructed as local calendar dates (e.g. `new Date(y, m, d)`).
@@ -34,6 +35,50 @@ export const toEuroDate = (iso: string | null | undefined): string => {
 
 export const formatDateEU = (d: Date): string => toEuroDate(toLocalYMD(d));
 
+// DD.MM — compact tick label for chart X axes, where a full year would crowd a small card.
+export const formatTickDate = (iso: string | null | undefined): string => {
+  if (!iso) return '';
+  const parts = iso.split('-');
+  if (parts.length < 3) return iso;
+  const [, m, d] = parts;
+  return `${d.padStart(2, '0')}.${m.padStart(2, '0')}`;
+};
+
+// "8h56m" — no space, so Recharts' tick <Text> never word-wraps it onto a clipped second line.
+export const formatTickDuration = (minutes: number): string => {
+  const total = Math.max(0, Math.round(minutes));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h > 0 ? `${h}h${m}m` : `${m}m`;
+};
+
+// Whole-number tick label, e.g. for bpm or mmHg axes.
+export const formatTickInteger = (v: number): string => `${Math.round(v)}`;
+
+// One-decimal tick label, e.g. for breathing rate or weight axes.
+export const formatTickDecimal = (v: number): string => `${Math.round(v * 10) / 10}`;
+
+// Shared tick styling for every health overview chart's X axis
+export const chartXAxisProps = {
+  dataKey: 'date',
+  tickFormatter: formatTickDate,
+  interval: 'preserveStartEnd' as const,
+  tickLine: false,
+  axisLine: false,
+  tickMargin: 4,
+  tick: { fontSize: 10 },
+};
+
+// Shared tick styling for a chart's Y axis
+export const chartYAxisProps = (tickFormatter: (value: number) => string, width = 30) => ({
+  width,
+  tickCount: 3,
+  tickFormatter,
+  tickLine: false,
+  axisLine: false,
+  tick: { fontSize: 10 },
+});
+
 // Fills gaps with null so charts show breaks instead of compressing to just the days with data.
 export const buildDailyRows = <T extends { date: string }, K extends string>(
   data: T[],
@@ -61,8 +106,19 @@ export const averageNonNull = (values: Array<number | null | undefined>): number
   return nums.reduce((sum, v) => sum + v, 0) / nums.length;
 };
 
+// True when there IS Fitbit data but none of it has this field
+export const deviceNeverReports = <T>(data: T[], accessor: (entry: T) => unknown): boolean =>
+  data.length > 0 && data.every((d) => accessor(d) == null);
+
 // ---------- threshold tiers (green/yellow/red goal coloring) ----------
-export type ThresholdTier = 'green' | 'yellow' | 'red';
+type ThresholdTier = 'green' | 'yellow' | 'red';
+
+// Default green/yellow/red palette shared by every chart that colors by threshold tier.
+export const TIER_COLOR: Record<ThresholdTier, string> = {
+  green: colors.brand,
+  yellow: colors.yellow,
+  red: colors.pink,
+};
 
 const TIER_SEVERITY: Record<ThresholdTier, number> = { green: 0, yellow: 1, red: 2 };
 
@@ -84,6 +140,15 @@ export const thresholdTier = (
   const reachedYellow = yellow != null && (higherIsBetter ? value >= yellow : value <= yellow);
   return reachedYellow ? 'yellow' : 'red';
 };
+
+// Curries thresholdTier into a value → color lookup, for coloring a detail table cell
+// by which tier (green/yellow/red) it falls into.
+export const colorFromTier =
+  (green: number | null | undefined, yellow: number | null | undefined, higherIsBetter: boolean) =>
+  (value: number | null): string | undefined => {
+    const tier = thresholdTier(value, green, yellow, higherIsBetter);
+    return tier ? TIER_COLOR[tier] : undefined;
+  };
 
 // Worst (most severe) of several tiers, ignoring nulls. Used when a single day is
 // judged by more than one metric (e.g. blood pressure's systolic + diastolic readings).
@@ -152,4 +217,17 @@ export const scalarCaption = <T>(
   if (!s) return null;
   const body = `avg ${fmtValue(s.avg)} · min ${fmtValue(s.min)} · max ${fmtValue(s.max)}`;
   return opts.label ? `${opts.label}: ${body}` : body;
+};
+
+// Sys/dia pair of scalarCaptions, joined — used by both CSV and PDF export.
+export const bloodPressureCaption = <T extends { sys: number | null; dia: number | null }>(
+  rows: T[],
+  t: (k: string) => string,
+  fmtValue: (v: number) => string
+): string | null => {
+  const parts = [
+    scalarCaption(rows, 'sys', fmtValue, { label: t('Blood pressure systolic') }),
+    scalarCaption(rows, 'dia', fmtValue, { label: t('Blood pressure diastolic') }),
+  ].filter((p): p is string => p != null);
+  return parts.length ? `${parts.join('   |   ')} mmHg` : null;
 };

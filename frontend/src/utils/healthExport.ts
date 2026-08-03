@@ -14,7 +14,9 @@ import {
   formatDateEU,
   statsOf,
   scalarCaption,
+  bloodPressureCaption,
 } from '@/utils/healthCharts';
+import { formatDurationMinutes } from '@/utils/dateFormat';
 import { filterAdherenceInRange } from '@/components/Health/charts/AdherenceLine';
 import { filterWearTimeInRange } from '@/components/Health/charts/WearTimeChart';
 import { filterRestingHRInRange } from '@/components/Health/charts/RestingHRChart';
@@ -24,7 +26,7 @@ import { filterStepsInRange } from '@/components/Health/charts/StepsChart';
 import { filterActiveMinutesInRange } from '@/components/Health/charts/ActiveMinutesChart';
 import { filterWeightInRange } from '@/components/Health/charts/WeightChart';
 import { filterExerciseInRange } from '@/components/Health/charts/ExerciseSessionsChart';
-import { filterSleepInRange, formatSleepDuration } from '@/components/Health/charts/SleepChart';
+import { filterSleepInRange } from '@/components/Health/charts/SleepChart';
 import { filterBreathingInRange } from '@/components/Health/charts/BreathingChart';
 
 // ─────────────────────────────────────────────────────────
@@ -292,19 +294,8 @@ export const buildHealthPdf = async (
         'restingHR',
         (v) => `${fmt(v)} bpm`
       ),
-    bloodPressure: () => {
-      const rows = filterBloodPressureInRange(store.fitbitData, from, to);
-      const sys = statsOf(rows.map((r) => r.sys).filter((v): v is number => v != null));
-      const dia = statsOf(rows.map((r) => r.dia).filter((v): v is number => v != null));
-      if (!sys && !dia) return null;
-      const parts = [
-        sys &&
-          `${t('Blood pressure systolic')}: avg ${fmt(sys.avg)} · min ${fmt(sys.min)} · max ${fmt(sys.max)}`,
-        dia &&
-          `${t('Blood pressure diastolic')}: avg ${fmt(dia.avg)} · min ${fmt(dia.min)} · max ${fmt(dia.max)}`,
-      ].filter(Boolean);
-      return `${parts.join('   |   ')} mmHg`;
-    },
+    bloodPressure: () =>
+      bloodPressureCaption(filterBloodPressureInRange(store.fitbitData, from, to), t, fmt),
     hrZones: () => {
       const s = statsOf(
         filterHRZonesInRange(store.fitbitData, from, to)
@@ -343,7 +334,7 @@ export const buildHealthPdf = async (
       scalarCaption(
         filterSleepInRange(store.fitbitData, from, to),
         'minutesAsleep',
-        formatSleepDuration
+        formatDurationMinutes
       ),
     breathing: () =>
       scalarCaption(

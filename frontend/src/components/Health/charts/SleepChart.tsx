@@ -3,10 +3,20 @@ import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, XAxis, YAxis } from 
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import type { FitbitEntry } from '@/types/health';
 import { colors } from '@/lib/colors';
-import { averageNonNull, eachDateInRange, isInRange, thresholdTier } from '@/utils/healthCharts';
-import type { ThresholdTier } from '@/utils/healthCharts';
+import { cn } from '@/lib/utils';
+import {
+  averageNonNull,
+  chartXAxisProps,
+  chartYAxisProps,
+  eachDateInRange,
+  formatTickDuration,
+  isInRange,
+  thresholdTier,
+  TIER_COLOR,
+} from '@/utils/healthCharts';
 import { formatDurationMinutes } from '@/utils/dateFormat';
 
 type Props = {
@@ -15,12 +25,7 @@ type Props = {
   end?: Date | null;
   goal?: number | null;
   yellowGoal?: number | null;
-};
-
-const TIER_COLOR: Record<ThresholdTier, string> = {
-  green: colors.brand,
-  yellow: colors.yellow,
-  red: colors.pink,
+  className?: string;
 };
 
 type SleepRow = {
@@ -80,8 +85,6 @@ export const averageSleepMinutes = (
   return averageNonNull(filterSleepInRange(data, start, end).map((r) => r.minutesAsleep));
 };
 
-export const formatSleepDuration = (min: number) => formatDurationMinutes(min);
-
 // sleep_start/sleep_end are naive local ISO timestamps (e.g. "2026-01-01T22:00:00.000") —
 // slicing avoids a timezone-shifting Date parse for what's just a clock-time display.
 const formatTimeOfDay = (iso: string) => iso.slice(11, 16);
@@ -90,7 +93,7 @@ const formatTimeOfDay = (iso: string) => iso.slice(11, 16);
 // mounts its <svg> once it has measured a size, so callers should query for it at read time
 // (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
 const SleepChart = forwardRef<HTMLDivElement, Props>(
-  ({ data, start, end, goal, yellowGoal }, ref) => {
+  ({ data, start, end, goal, yellowGoal, className }, ref) => {
     const { t } = useTranslation();
 
     const rows = useMemo(() => filterSleepInRange(data, start, end), [data, start, end]);
@@ -104,22 +107,18 @@ const SleepChart = forwardRef<HTMLDivElement, Props>(
     );
 
     if (!hasReadings) {
-      return (
-        <div
-          ref={ref}
-          className="flex h-24 w-full items-center justify-center text-sm text-zinc-500"
-        >
-          {t('No sleep data')}
-        </div>
-      );
+      return <ChartEmptyState ref={ref} message={t('No sleep data')} className={className} />;
     }
 
     return (
-      <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
+      <ChartContainer ref={ref} config={chartConfig} className={cn('w-full max-h-28', className)}>
         <BarChart accessibilityLayer data={rows}>
           <CartesianGrid vertical={false} />
-          <YAxis hide domain={[0, (dataMax: number) => Math.max(dataMax, goal ?? 0) * 1.1]} />
-          <XAxis hide dataKey="date" />
+          <YAxis
+            domain={[0, (dataMax: number) => Math.max(dataMax, goal ?? 0) * 1.1]}
+            {...chartYAxisProps(formatTickDuration, 42)}
+          />
+          <XAxis {...chartXAxisProps} />
           <ChartTooltip
             content={
               <ChartTooltipContent
@@ -132,7 +131,7 @@ const SleepChart = forwardRef<HTMLDivElement, Props>(
                       <div className="flex items-center justify-between gap-4 leading-none">
                         <span className="text-muted-foreground">{t('Asleep')}</span>
                         <span className="font-mono font-medium tabular-nums text-foreground">
-                          {minutesAsleep != null ? formatSleepDuration(minutesAsleep) : '--'}
+                          {minutesAsleep != null ? formatDurationMinutes(minutesAsleep) : '--'}
                         </span>
                       </div>
                       {row.sleepStart && row.sleepEnd && (

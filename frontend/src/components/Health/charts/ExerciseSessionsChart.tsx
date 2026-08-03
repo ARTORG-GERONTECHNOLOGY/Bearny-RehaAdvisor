@@ -3,6 +3,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
+import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,14 @@ import {
 } from '@/components/ui/dialog';
 import ExerciseSessionsTable from '@/components/Health/charts/ExerciseSessionsTable';
 import type { FitbitEntry } from '@/types/health';
-import { averageNonNull, eachDateInRange, isInRange } from '@/utils/healthCharts';
+import {
+  averageNonNull,
+  chartXAxisProps,
+  chartYAxisProps,
+  eachDateInRange,
+  formatTickDuration,
+  isInRange,
+} from '@/utils/healthCharts';
 import { formatDurationMinutes } from '@/utils/dateFormat';
 
 type Props = {
@@ -138,20 +146,19 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
   }, [selectedDate]);
 
   if (!hasSessions) {
-    return (
-      <div ref={ref} className="flex h-24 w-full items-center justify-center text-sm text-zinc-500">
-        {t('No exercise sessions in this period.')}
-      </div>
-    );
+    return <ChartEmptyState ref={ref} message={t('No exercise sessions in this period.')} />;
   }
 
   return (
     <>
-      <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-24">
+      <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-28">
         <BarChart accessibilityLayer data={chartRows}>
           <CartesianGrid vertical={false} />
-          <YAxis hide domain={[0, (dataMax: number) => dataMax * 1.1]} />
-          <XAxis hide dataKey="date" />
+          <YAxis
+            domain={[0, (dataMax: number) => dataMax * 1.1]}
+            {...chartYAxisProps(formatTickDuration, 42)}
+          />
+          <XAxis {...chartXAxisProps} />
           <ChartTooltip content={<SessionTooltip />} />
           {Array.from({ length: maxSessions }, (_, i) => (
             <Bar
@@ -160,6 +167,7 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
               stackId="sessions"
               fill={sessionColor(i)}
               cursor="pointer"
+              activeBar={{ fillOpacity: 0.7 }}
               onClick={(barData: any) => {
                 const day = barData?.date ?? barData?.payload?.date;
                 if (day) setSelectedDate(day);

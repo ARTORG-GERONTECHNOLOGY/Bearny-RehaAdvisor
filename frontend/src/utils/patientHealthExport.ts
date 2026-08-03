@@ -3,10 +3,16 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type HealthPageStore from '@/stores/healthPageStore';
 
-import { toEuroDate, formatDateEU, statsOf, scalarCaption } from '@/utils/healthCharts';
+import {
+  toEuroDate,
+  formatDateEU,
+  scalarCaption,
+  bloodPressureCaption,
+} from '@/utils/healthCharts';
+import { formatDurationMinutes } from '@/utils/dateFormat';
 import { filterStepsInRange } from '@/components/Health/charts/StepsChart';
 import { filterActiveMinutesInRange } from '@/components/Health/charts/ActiveMinutesChart';
-import { filterSleepInRange, formatSleepDuration } from '@/components/Health/charts/SleepChart';
+import { filterSleepInRange } from '@/components/Health/charts/SleepChart';
 import { filterBloodPressureInRange } from '@/components/Health/charts/BloodPressureChart';
 
 export type PatientExportMetric = 'steps' | 'activeMinutes' | 'sleep' | 'bloodPressure';
@@ -34,19 +40,6 @@ export const buildPatientHealthPdf = (
   const sleepRows = filterSleepInRange(store.fitbitData, from, to);
   const bpRows = filterBloodPressureInRange(store.fitbitData, from, to);
 
-  const bpCaption = (): string | null => {
-    const sys = statsOf(bpRows.map((r) => r.sys).filter((v): v is number => v != null));
-    const dia = statsOf(bpRows.map((r) => r.dia).filter((v): v is number => v != null));
-    if (!sys && !dia) return null;
-    const parts = [
-      sys &&
-        `${t('Blood pressure systolic')}: avg ${fmt(sys.avg)} · min ${fmt(sys.min)} · max ${fmt(sys.max)}`,
-      dia &&
-        `${t('Blood pressure diastolic')}: avg ${fmt(dia.avg)} · min ${fmt(dia.min)} · max ${fmt(dia.max)}`,
-    ].filter(Boolean);
-    return `${parts.join('   |   ')} mmHg`;
-  };
-
   const sections: Section[] = [
     {
       key: 'steps',
@@ -69,7 +62,7 @@ export const buildPatientHealthPdf = (
     {
       key: 'sleep',
       title: t('Sleep Schedule and Duration'),
-      caption: scalarCaption(sleepRows, 'minutesAsleep', formatSleepDuration),
+      caption: scalarCaption(sleepRows, 'minutesAsleep', formatDurationMinutes),
       head: [t('Date'), t('Duration (h)')],
       rows: sleepRows
         .filter((r) => r.minutesAsleep != null)
@@ -78,7 +71,7 @@ export const buildPatientHealthPdf = (
     {
       key: 'bloodPressure',
       title: t('Blood pressure'),
-      caption: bpCaption(),
+      caption: bloodPressureCaption(bpRows, t, fmt),
       head: [t('Date'), t('Systolic (mmHg)'), t('Diastolic (mmHg)')],
       rows: bpRows
         .filter((r) => r.sys != null || r.dia != null)
