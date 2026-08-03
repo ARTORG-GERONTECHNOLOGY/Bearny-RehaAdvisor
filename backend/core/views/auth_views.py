@@ -23,8 +23,6 @@ from django.views.decorators.csrf import csrf_exempt
 from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
-
-from core.throttles import LoginRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.models import (
@@ -39,6 +37,7 @@ from core.models import (
     User,
 )
 from core.tasks import fetch_fitbit_data_async
+from core.throttles import LoginRateThrottle
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.config import WEARABLE_DEVICE_CHOICES, config
 from utils.scheduling import _expand_dates
