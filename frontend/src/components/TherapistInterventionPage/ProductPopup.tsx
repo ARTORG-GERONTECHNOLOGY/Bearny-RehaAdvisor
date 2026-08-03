@@ -18,6 +18,7 @@ import {
   getAllMedia,
   getMediaBadge,
   getPlayableUrl,
+  type InterventionMedia,
 } from '@/utils/interventions';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import TemplateAssignModal from '@/components/TherapistInterventionPage/TemplateAssignModal';
@@ -27,11 +28,8 @@ import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 import { ButtonGroup } from '@/components/ui/button-group';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
+import { isRecord, isString, asString, type UnknownRecord } from '@/utils/typeGuards';
 
-type UnknownRecord = Record<string, unknown>;
-const isRecord = (v: unknown): v is UnknownRecord => typeof v === 'object' && v !== null;
-const isString = (v: unknown): v is string => typeof v === 'string';
-const asString = (v: unknown): string => (isString(v) ? v : '');
 const norm = (v: unknown) => asString(v).trim();
 const asBool = (v: unknown) => (typeof v === 'boolean' ? v : Boolean(v));
 
@@ -40,18 +38,6 @@ type Props = {
   item: unknown;
   handleClose: () => void;
   tagColors: Record<string, string>;
-};
-
-// minimal, FE-friendly media type
-export type InterventionMedia = {
-  kind: 'external' | 'file';
-  media_type: 'audio' | 'video' | 'image' | 'pdf' | 'website' | 'app' | 'streaming' | 'text';
-  provider?: string | null;
-  title?: string | null;
-  url?: string | null;
-  embed_url?: string | null;
-  file_path?: string | null;
-  mime?: string | null;
 };
 
 type LangOpt = { language: string; title?: string | null };
@@ -410,11 +396,11 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
   );
 
   const effectiveMediaList: InterventionMedia[] = useMemo(() => {
-    return effectiveItem ? (getAllMedia(effectiveItem) as InterventionMedia[]) : [];
+    return effectiveItem ? getAllMedia(effectiveItem) : [];
   }, [effectiveItem]);
 
   const effectiveMediaBadge = useMemo(() => {
-    return getMediaBadge(effectiveMediaList as unknown as InterventionMedia[]);
+    return getMediaBadge(effectiveMediaList);
   }, [effectiveMediaList]);
 
   const renderOneMedia = (m: InterventionMedia, idx: number) => {

@@ -14,15 +14,21 @@ import {
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { translateText } from '@/utils/translate';
-import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
+import { isHttpUrl } from '@/utils/urlUtils';
 import { PlayableMedia } from '@/components/common/PlayableMedia';
-import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
 import {
+  generateTagColors,
+  getTaxonomyTags,
   getBadgeVariantFromIntervention,
   getMediaBadge,
   getMediaTypeLabelFromIntervention,
   getTagColor,
+  guessMediaTypeFromFilePath,
+  guessMediaTypeFromUrl,
+  guessProvider,
+  type InterventionMedia,
 } from '@/utils/interventions';
+import { asArray, asArrayOrWrap } from '@/utils/typeGuards';
 import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
 import { Button } from '@/components/ui/button';
@@ -35,76 +41,17 @@ type Props = {
   handleClose: () => void;
 };
 
-// minimal media type
-export type InterventionMedia = {
-  kind: 'external' | 'file';
-  media_type: 'audio' | 'video' | 'image' | 'pdf' | 'website' | 'app' | 'streaming' | 'text';
-  provider?: string | null;
-  title?: string | null;
-  url?: string | null;
-  embed_url?: string | null;
-  file_path?: string | null;
-  file_url?: string | null;
-  mime?: string | null;
-  thumbnail?: string | null;
-  media_slot?: number | null;
-};
-
 type LangOpt = { language: string; title?: string | null };
 
 // ---------- helpers ----------
 const asStr = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
-const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const uniq = (xs: string[]) => Array.from(new Set(xs.filter(Boolean)));
 
 const norm = (v: any) => (typeof v === 'string' ? v.trim() : '');
 const lower = (v: any) => norm(v).toLowerCase();
 
-const isSpotify = (u: string) => matchesHost(u, 'spotify.com');
-const isYouTube = (u: string) => matchesHost(u, 'youtube.com', 'youtu.be');
-const isVimeo = (u: string) => matchesHost(u, 'vimeo.com');
-const isSoundCloud = (u: string) => matchesHost(u, 'soundcloud.com');
-
-const guessMediaTypeFromUrl = (u: string): InterventionMedia['media_type'] => {
-  const url = lower(u);
-  if (isSpotify(url)) return 'streaming';
-  if (isYouTube(url) || isVimeo(url)) return 'video';
-  if (isSoundCloud(url)) return 'audio';
-  if (url.match(/\.(mp3|wav|m4a|ogg|webm)(\?|$)/)) return 'audio';
-  if (url.match(/\.(mp4|mov|m4v|webm)(\?|$)/)) return 'video';
-  if (url.match(/\.(pdf)(\?|$)/)) return 'pdf';
-  if (url.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/)) return 'image';
-  return 'website';
-};
-
-const guessProvider = (u: string) => {
-  const url = lower(u);
-  if (isSpotify(url)) return 'spotify';
-  if (isYouTube(url)) return 'youtube';
-  if (isSoundCloud(url)) return 'soundcloud';
-  if (isVimeo(url)) return 'vimeo';
-  return 'website';
-};
-
-const guessMediaTypeFromFilePath = (p: string): InterventionMedia['media_type'] => {
-  const path = lower(p);
-  if (path.match(/\.(mp3|wav|m4a|ogg|webm)$/)) return 'audio';
-  if (path.match(/\.(mp4|mov|m4v|webm)$/)) return 'video';
-  if (path.endsWith('.pdf')) return 'pdf';
-  if (path.match(/\.(png|jpg|jpeg|gif|webp)$/)) return 'image';
-  return 'text';
-};
-
-// Harden: accept array | object | string
-const asArray = <T,>(v: unknown): T[] => {
-  if (Array.isArray(v)) return v as T[];
-  if (!v) return [];
-  if (typeof v === 'object') return [v as T];
-  return [];
-};
-
 const getAllMedia = (item: any): InterventionMedia[] => {
-  const rawMedia = asArray<any>(item?.media);
+  const rawMedia = asArrayOrWrap<any>(item?.media);
 
   if (rawMedia.length) {
     return rawMedia
@@ -197,10 +144,10 @@ const getMetaTags = (item: any): string[] => {
   const aim = asStr(src?.aim || src?.benefitFor).trim();
   if (aim) out.push(aim);
 
-  out.push(...asArr<string>(src?.topic).map(asStr));
-  out.push(...asArr<string>(src?.where).map(asStr));
-  out.push(...asArr<string>(src?.setting).map(asStr));
-  out.push(...asArr<string>(src?.keywords).map(asStr));
+  out.push(...asArray<string>(src?.topic).map(asStr));
+  out.push(...asArray<string>(src?.where).map(asStr));
+  out.push(...asArray<string>(src?.setting).map(asStr));
+  out.push(...asArray<string>(src?.keywords).map(asStr));
 
   const ct = asStr(item?.content_type || src?.content_type).trim();
   if (ct) out.push(ct);

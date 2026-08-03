@@ -8,6 +8,7 @@ import type React from 'react';
 
 import interventionsConfig from '@/config/interventions.json';
 import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
+import { isRecord, asString, asArray } from '@/utils/typeGuards';
 
 import EducationIcon from '@/assets/icons/interventions/education.svg?react';
 import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
@@ -69,15 +70,7 @@ export type InterventionMedia = {
 
 /** ---------------- tiny type helpers ---------------- */
 
-type UnknownRecord = Record<string, unknown>;
-
-const isRecord = (v: unknown): v is UnknownRecord => typeof v === 'object' && v !== null;
-
 const get = (obj: unknown, key: string): unknown => (isRecord(obj) ? obj[key] : undefined);
-
-const asString = (v: unknown): string => (typeof v === 'string' ? v : '');
-
-const asArray = <T = unknown>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
 const norm = (v: unknown) => asString(v).trim();
 const lower = (v: unknown) => norm(v).toLowerCase();

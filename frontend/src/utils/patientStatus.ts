@@ -1,6 +1,7 @@
 // src/utils/patientStatus.ts
 import type { PatientType } from '@/types';
 import { formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
+import { asRecord } from '@/utils/typeGuards';
 
 export type Traffic = 'good' | 'warn' | 'bad' | 'unknown';
 
@@ -47,9 +48,6 @@ type BioLike = {
   fitbit_revoked?: unknown;
   fitbit_no_token?: unknown;
 };
-
-const asRecord = (v: unknown): Record<string, unknown> =>
-  v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
 
 export const toNum = (v: unknown): number | null => {
   if (typeof v === 'number') return Number.isFinite(v) ? v : null;

@@ -127,7 +127,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                 <DatePicker
                   id="ir-effective-from"
                   selected={store.effectiveFrom}
-                  onChange={(d) => (store.effectiveFrom = d as Date)}
+                  onChange={(d: Date | null) => (store.effectiveFrom = d)}
                   className={datePickerInputClassName}
                   portalId="datepicker-portal"
                   popperClassName="!z-[60] !pointer-events-auto"
@@ -140,7 +140,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                 <DatePicker
                   id="ir-start-date"
                   selected={store.startDateCreate}
-                  onChange={(d) => (store.startDateCreate = d as Date)}
+                  onChange={(d: Date | null) => (store.startDateCreate = d)}
                   className={datePickerInputClassName}
                   portalId="datepicker-portal"
                   popperClassName="!z-[60] !pointer-events-auto"
@@ -248,7 +248,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                     {store.endOption === 'date' && (
                       <DatePicker
                         selected={store.endDate}
-                        onChange={(d) => (store.endDate = d as Date)}
+                        onChange={(d: Date | null) => (store.endDate = d)}
                         className={datePickerInputClassName}
                         portalId="datepicker-portal"
                         popperClassName="!z-[60] !pointer-events-auto"

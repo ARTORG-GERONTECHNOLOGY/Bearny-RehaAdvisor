@@ -14,7 +14,8 @@
  * falls back to it when the primary _id lookup fails.
  */
 
-import { RehabTableStore, extractApiError } from '@/stores/rehabTableStore';
+import { RehabTableStore } from '@/stores/rehabTableStore';
+import { extractApiError } from '@/utils/apiErrorMessages';
 import { toLocalYMD } from '@/utils/dateFormat';
 
 // ---------------------------------------------------------------------------

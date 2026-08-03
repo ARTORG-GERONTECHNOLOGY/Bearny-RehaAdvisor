@@ -3,6 +3,7 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { PatientComment, PatientType } from '@/types';
+import { extractApiErrorWithDetails, toStr } from '@/utils/apiErrorMessages';
 
 export type SortKey =
   | 'ampel'
@@ -22,70 +23,6 @@ export type RedcapCandidate = {
 };
 
 const redcapKey = (c: RedcapCandidate) => `${c.project}::${(c.identifier || '').trim()}`;
-
-// ---- typed error helpers (no `any`) ----
-type ApiErrorResponse = {
-  data?: {
-    error?: string;
-    message?: string;
-    detail?: string;
-    details?: unknown;
-    field_errors?: Record<string, unknown>;
-    non_field_errors?: unknown;
-    success?: boolean;
-  };
-};
-
-type ApiErrorLike = {
-  response?: ApiErrorResponse;
-  message?: string;
-};
-
-const joinIfArray = (v: unknown): string => (Array.isArray(v) ? v.map(String).join(' ') : '');
-
-const stringifyUnknown = (v: unknown): string => {
-  if (v == null) return '';
-  if (typeof v === 'string') return v;
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
-  try {
-    return JSON.stringify(v);
-  } catch {
-    return String(v);
-  }
-};
-
-const fieldErrorsToText = (fieldErrors: unknown): string => {
-  if (!fieldErrors || typeof fieldErrors !== 'object') return '';
-  const entries = Object.entries(fieldErrors as Record<string, unknown>);
-  return entries
-    .map(([k, v]) => {
-      const text = Array.isArray(v) ? v.map(String).join(' ') : stringifyUnknown(v);
-      return `${k}: ${text}`;
-    })
-    .join(' | ');
-};
-
-const extractApiMessage = (
-  err: unknown,
-  fallback: string
-): { message: string; details: string | null } => {
-  const e = err as ApiErrorLike;
-  const api = e?.response?.data;
-
-  const nonField = joinIfArray(api?.non_field_errors);
-  const fieldText = fieldErrorsToText(api?.field_errors);
-
-  const message = api?.message || api?.error || api?.detail || nonField || e?.message || fallback;
-
-  const details =
-    typeof api?.details === 'string'
-      ? api.details
-      : api?.details != null
-        ? stringifyUnknown(api.details)
-        : fieldText || null;
-
-  return { message: String(message), details: details ? String(details) : null };
-};
 
 export class TherapistPatientsStore {
   patients: PatientType[] = [];
@@ -263,7 +200,7 @@ export class TherapistPatientsStore {
         this.importedKeys = nextImported;
       });
     } catch (err: unknown) {
-      const { message } = extractApiMessage(err, t('Failed to fetch REDCap patients.'));
+      const { message } = extractApiErrorWithDetails(err, t('Failed to fetch REDCap patients.'));
       runInAction(() => {
         this.redcapError = message;
       });
@@ -311,7 +248,7 @@ export class TherapistPatientsStore {
       // optionally refresh candidates list too (keeps UI accurate)
       await this.fetchRedcapCandidates(t);
     } catch (err: unknown) {
-      const { message } = extractApiMessage(err, t('Failed to import patient.'));
+      const { message } = extractApiErrorWithDetails(err, t('Failed to import patient.'));
       runInAction(() => {
         this.redcapError = message;
       });
@@ -349,7 +286,7 @@ export class TherapistPatientsStore {
         }
       });
     } catch (err: unknown) {
-      const { message } = extractApiMessage(err, t('Failed to update flag.'));
+      const { message } = extractApiErrorWithDetails(err, t('Failed to update flag.'));
       runInAction(() => {
         this.error = message;
       });
@@ -401,7 +338,7 @@ export class TherapistPatientsStore {
         this.comments = Array.isArray(data.comments) ? data.comments : [];
       });
     } catch (err: unknown) {
-      const { message } = extractApiMessage(err, t('Failed to load comments.'));
+      const { message } = extractApiErrorWithDetails(err, t('Failed to load comments.'));
       runInAction(() => {
         this.commentsError = message;
       });
@@ -429,7 +366,7 @@ export class TherapistPatientsStore {
         this.newCommentText = '';
       });
     } catch (err: unknown) {
-      const { message } = extractApiMessage(err, t('Failed to add comment.'));
+      const { message } = extractApiErrorWithDetails(err, t('Failed to add comment.'));
       runInAction(() => {
         this.commentsError = message;
       });
@@ -467,21 +404,10 @@ export class TherapistPatientsStore {
           non_field_errors?: unknown;
         };
 
-        const nonField = joinIfArray(p.non_field_errors);
-        const fieldText = fieldErrorsToText(p.field_errors);
-
-        const message =
-          (typeof p.message === 'string' && p.message) ||
-          (typeof p.error === 'string' && p.error) ||
-          nonField ||
-          t('Failed to fetch patients. Please try again later.');
-
-        const details =
-          typeof p.details === 'string'
-            ? p.details
-            : p.details != null
-              ? stringifyUnknown(p.details)
-              : fieldText || null;
+        const { message, details } = extractApiErrorWithDetails(
+          { response: { data: p } },
+          t('Failed to fetch patients. Please try again later.')
+        );
 
         runInAction(() => {
           this.error = message;
@@ -505,7 +431,7 @@ export class TherapistPatientsStore {
         this.patients = sorted;
       });
     } catch (err: unknown) {
-      const { message, details } = extractApiMessage(
+      const { message, details } = extractApiErrorWithDetails(
         err,
         t('Failed to fetch patients. Please try again later.')
       );
@@ -593,7 +519,7 @@ export class TherapistPatientsStore {
 
     if (this.birthdateFilter) {
       filtered = filtered.filter((p) => {
-        const ageStr = typeof p.age === 'string' ? p.age : stringifyUnknown(p.age);
+        const ageStr = typeof p.age === 'string' ? p.age : toStr(p.age);
         return ageStr.slice(0, 10) === this.birthdateFilter;
       });
     }

@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { PatientPopupStore, PatientThresholds } from '@/stores/patientPopupStore';
+import { PatientPopupStore } from '@/stores/patientPopupStore';
 import ThresholdHistory from '@/components/TherapistPatientPage/ThresholdHistory';
+import type { PatientThresholds } from '@/utils/thresholds';
 import { Badge } from '@/components/ui/badge';
 
 export interface ThresholdFieldGroup {

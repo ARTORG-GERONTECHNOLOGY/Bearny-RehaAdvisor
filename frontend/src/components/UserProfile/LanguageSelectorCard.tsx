@@ -8,32 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import flagDe from '@/assets/flags/de.png';
-import flagFr from '@/assets/flags/fr.png';
-import flagEn from '@/assets/flags/gb.png';
-import flagIt from '@/assets/flags/it.png';
-import flagPt from '@/assets/flags/pt.png';
-import flagNl from '@/assets/flags/be.png';
-
-const languages = ['de', 'fr', 'en', 'it', 'pt', 'nl'] as const;
-
-const flagMap: Record<string, string> = {
-  en: flagEn,
-  de: flagDe,
-  fr: flagFr,
-  it: flagIt,
-  pt: flagPt,
-  nl: flagNl,
-};
-
-const languageNames: Record<string, string> = {
-  en: 'English',
-  de: 'Deutsch',
-  fr: 'Français',
-  it: 'Italiano',
-  pt: 'Português',
-  nl: 'Nederlands',
-};
+import { SUPPORTED_LANGUAGES, LANGUAGE_FLAGS, LANGUAGE_NAMES } from '@/constants/languages';
 
 export default function LanguageSelectorCard() {
   const { t, i18n } = useTranslation();
@@ -53,13 +28,13 @@ export default function LanguageSelectorCard() {
         </SelectTrigger>
         <SelectContent className="bg-zinc-50 rounded-3xl p-1">
           <SelectGroup>
-            {languages.map((l) => (
+            {SUPPORTED_LANGUAGES.map((l) => (
               <SelectItem key={l} value={l}>
                 <span className="flex items-center gap-1">
                   <span className="font-bold text-lg leading-6 text-zinc-800">
-                    {languageNames[l]}
+                    {LANGUAGE_NAMES[l]}
                   </span>
-                  <img src={flagMap[l]} alt="" className="h-4 w-4 rounded-full" />
+                  <img src={LANGUAGE_FLAGS[l]} alt="" className="h-4 w-4 rounded-full" />
                 </span>
               </SelectItem>
             ))}

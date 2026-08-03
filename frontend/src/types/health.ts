@@ -5,6 +5,14 @@ export interface HeartRateZone {
   max?: number;
 }
 
+export interface ExerciseSession {
+  name: string;
+  duration: number;
+  heartRateZones?: HeartRateZone[];
+  averageHeartRate?: number;
+  calories?: number;
+}
+
 export interface FitbitEntry {
   date: string; // YYYY-MM-DD
   steps?: number;
@@ -23,7 +31,7 @@ export interface FitbitEntry {
   };
   wear_time_minutes?: number;
   heart_rate_zones?: HeartRateZone[];
-  exercise?: { name: string; duration: number }[];
+  exercise?: { sessions: ExerciseSession[] };
   bp_sys?: number | null;
   bp_dia?: number | null;
   weight_kg?: number | null;

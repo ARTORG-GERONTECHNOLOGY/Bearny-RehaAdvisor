@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 
 import apiClient from '@/api/client';
-import { extractApiError } from '@/stores/rehabTableStore';
+import { extractApiError } from '@/utils/apiErrorMessages';
 import { toLocalYMD } from '@/utils/dateFormat';
 
 import QuestionnairePanel from '@/components/RehaTablePage/QuestionnairePanel';

@@ -362,7 +362,7 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
                 <DatePicker
                   id="q-effective-from"
                   selected={effectiveFrom}
-                  onChange={(d) => setEffectiveFrom(d as Date)}
+                  onChange={(d: Date | null) => setEffectiveFrom(d)}
                   className={datePickerInputClassName}
                   portalId="datepicker-portal"
                   popperClassName="!z-[60] !pointer-events-auto"
@@ -378,7 +378,7 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
                 <DatePicker
                   id="q-start-date"
                   selected={startDateCreate}
-                  onChange={(d) => setStartDateCreate(d as Date)}
+                  onChange={(d: Date | null) => setStartDateCreate(d)}
                   className={datePickerInputClassName}
                   portalId="datepicker-portal"
                   popperClassName="!z-[60] !pointer-events-auto"
@@ -476,7 +476,7 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
                 {endOption === 'date' && (
                   <DatePicker
                     selected={endDate}
-                    onChange={(d) => setEndDate(d as Date)}
+                    onChange={(d: Date | null) => setEndDate(d)}
                     className={datePickerInputClassName}
                     portalId="datepicker-portal"
                     popperClassName="!z-[60] !pointer-events-auto"

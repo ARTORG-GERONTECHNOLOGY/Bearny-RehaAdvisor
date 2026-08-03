@@ -3,6 +3,7 @@ import { makeAutoObservable, reaction, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import { SessionCache } from '@/utils/sessionCache';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
+import { isRecord, asString, type UnknownRecord } from '@/utils/typeGuards';
 import type { InterventionTypeTh } from '@/types';
 
 export type LibraryMode = 'patient' | 'therapist';
@@ -30,12 +31,6 @@ type FetchOptions = {
   lang?: string;
 };
 
-type UnknownRec = Record<string, unknown>;
-
-const isRecord = (v: unknown): v is UnknownRec => typeof v === 'object' && v !== null;
-
-const asString = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
-
 const normalizeList = (data: unknown): unknown[] => {
   if (Array.isArray(data)) return data;
   if (isRecord(data)) {
@@ -53,11 +48,11 @@ const isPrivate = (x: unknown): boolean => {
   return Boolean(v);
 };
 
-const normalizeIntervention = (raw: unknown): UnknownRec => {
+const normalizeIntervention = (raw: unknown): UnknownRecord => {
   if (!isRecord(raw)) return {};
 
-  // clone as UnknownRec
-  const n: UnknownRec = { ...raw };
+  // clone as UnknownRecord
+  const n: UnknownRecord = { ...raw };
 
   // unify id
   const id = n.id ?? n._id ?? n.pk;

@@ -103,27 +103,6 @@ const FeedbackPopup: React.FC<Props> = ({
       });
   }, [questions, currentLang]);
 
-  // show a safe sheet even if there are no questions
-  if (show && normalizedQuestions.length === 0) {
-    return (
-      <Sheet open={show} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent side="bottom" className="flex flex-col">
-          <SheetHeader>
-            <SheetTitle>{t('Feedback')}</SheetTitle>
-          </SheetHeader>
-          <div className="flex-1">
-            <Alert variant="info" className="mb-0">
-              {t('No feedback questions available.')}
-            </Alert>
-          </div>
-          <SheetFooter>
-            <Button onClick={onClose}>{t('Close')}</Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
   const [showingIntro, setShowingIntro] = useState(() => Boolean(description?.trim()));
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -500,6 +479,27 @@ const FeedbackPopup: React.FC<Props> = ({
       </div>
     );
   };
+
+  // show a safe sheet even if there are no questions
+  if (!currentQuestion) {
+    return (
+      <Sheet open={show} onOpenChange={(open) => !open && onClose()}>
+        <SheetContent side="bottom" className="flex flex-col">
+          <SheetHeader>
+            <SheetTitle>{t('Feedback')}</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1">
+            <Alert variant="info" className="mb-0">
+              {t('No feedback questions available.')}
+            </Alert>
+          </div>
+          <SheetFooter>
+            <Button onClick={onClose}>{t('Close')}</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet

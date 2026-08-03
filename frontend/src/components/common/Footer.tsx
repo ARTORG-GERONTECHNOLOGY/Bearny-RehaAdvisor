@@ -10,12 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-import flagDe from '@/assets/flags/de.png';
-import flagFr from '@/assets/flags/fr.png';
-import flagEn from '@/assets/flags/gb.png';
-import flagIt from '@/assets/flags/it.png';
-import flagPt from '@/assets/flags/pt.png';
-import flagNl from '@/assets/flags/be.png';
+import { SUPPORTED_LANGUAGES, LANGUAGE_FLAGS } from '@/constants/languages';
 import Container from '@/components/Container';
 
 const Footer: FunctionComponent = () => {
@@ -23,17 +18,6 @@ const Footer: FunctionComponent = () => {
 
   const [showPwaInstall, setShowPwaInstall] = useState(false);
   const isAppInstalled = useIsStandalone();
-
-  const languages = ['de', 'fr', 'en', 'it', 'pt', 'nl'] as const;
-
-  const flagMap: Record<string, string> = {
-    en: flagEn,
-    de: flagDe,
-    fr: flagFr,
-    it: flagIt,
-    pt: flagPt,
-    nl: flagNl,
-  };
 
   const lang = (i18n.resolvedLanguage ?? i18n.language ?? 'en').slice(0, 2);
 
@@ -85,13 +69,13 @@ const Footer: FunctionComponent = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="p-0 border-none bg-transparent" aria-label={t('Language')}>
-                    <img src={flagMap[lang]} className="h-5" alt="" />
+                    <img src={LANGUAGE_FLAGS[lang]} className="h-5" alt="" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {languages.map((l) => (
+                  {SUPPORTED_LANGUAGES.map((l) => (
                     <DropdownMenuItem key={l} onClick={() => handleLanguageChange(l)}>
-                      <img src={flagMap[l]} className="h-5" alt="" />
+                      <img src={LANGUAGE_FLAGS[l]} className="h-5" alt="" />
                       {l.toUpperCase()}
                     </DropdownMenuItem>
                   ))}

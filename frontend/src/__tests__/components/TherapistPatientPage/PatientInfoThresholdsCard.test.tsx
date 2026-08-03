@@ -1,7 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import PatientInfoThresholdsCard from '@/components/TherapistPatientPage/PatientInfoThresholdsCard';
-import { PatientPopupStore, PatientThresholds } from '@/stores/patientPopupStore';
+import { PatientPopupStore } from '@/stores/patientPopupStore';
+import type { PatientThresholds } from '@/utils/thresholds';
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 

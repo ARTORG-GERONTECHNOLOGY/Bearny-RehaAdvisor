@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
+import { extractBackendMessage, getApiErrorMessage } from '@/utils/apiErrorMessages';
 
 interface PatientPopupProps {
   patient_id: PatientType;
@@ -107,16 +108,14 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
       }
 
       // Backend responded with error (success=false)
-      setError(res.data.message || t('Failed to submit questionnaire.'));
+      setError(extractBackendMessage(res.data) || t('Failed to submit questionnaire.'));
       setFieldErrors(res.data.field_errors || {});
       setNonFieldErrors(res.data.non_field_errors || []);
       setDetails(res.data.details || null);
     } catch (err: any) {
       const backend = err?.response?.data;
 
-      setError(
-        backend?.message || backend?.error || err?.message || t('An unexpected error occurred.')
-      );
+      setError(getApiErrorMessage(err, t('An unexpected error occurred.')));
 
       setFieldErrors(backend?.field_errors || {});
       setNonFieldErrors(backend?.non_field_errors || []);

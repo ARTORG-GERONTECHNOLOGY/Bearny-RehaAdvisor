@@ -97,7 +97,7 @@ const ExportModal: React.FC<Props> = ({
             <Label>{t('From')}</Label>
             <DatePicker
               selected={from}
-              onChange={(d) => setFrom(d)}
+              onChange={(d: Date | null) => setFrom(d)}
               className={datePickerInputClassName}
               portalId="datepicker-portal"
               popperClassName="!z-[60] !pointer-events-auto"
@@ -108,7 +108,7 @@ const ExportModal: React.FC<Props> = ({
             <Label>{t('To')}</Label>
             <DatePicker
               selected={to}
-              onChange={(d) => setTo(d)}
+              onChange={(d: Date | null) => setTo(d)}
               className={datePickerInputClassName}
               portalId="datepicker-portal"
               popperClassName="!z-[60] !pointer-events-auto"

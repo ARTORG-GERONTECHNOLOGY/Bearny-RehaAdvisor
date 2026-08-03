@@ -2,6 +2,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import * as Sentry from '@sentry/react';
 import apiClient from '../api/client';
+import { asArray } from '@/utils/typeGuards';
 
 type Translation = { language: string; text: string };
 type PossibleAnswer = { key: string; translations: Translation[] };
@@ -20,8 +21,6 @@ export type NormalizedQuestion = {
   translations: Translation[];
   possibleAnswers: PossibleAnswer[];
 };
-
-const asArray = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
 const asTranslations = (v: unknown): Translation[] => {
   const arr = asArray<any>(v);
