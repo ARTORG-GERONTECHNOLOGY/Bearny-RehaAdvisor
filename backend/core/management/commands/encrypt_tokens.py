@@ -49,8 +49,4 @@ class Command(BaseCommand):
                 errors += 1
                 logger.error("%s token %s failed: %s", label, tok.id, exc)
 
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"{label}: {ok} encrypted, {skipped} skipped, {errors} errors"
-            )
-        )
+        self.stdout.write(self.style.SUCCESS(f"{label}: {ok} encrypted, {skipped} skipped, {errors} errors"))
