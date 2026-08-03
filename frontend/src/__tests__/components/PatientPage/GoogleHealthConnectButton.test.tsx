@@ -83,7 +83,12 @@ describe('GoogleHealthConnectButton', () => {
     localStorage.setItem('id', 'patient-77');
     const assignMock = jest.fn();
     Object.defineProperty(window, 'location', {
-      value: { ...window.location, set href(url: string) { assignMock(url); } },
+      value: {
+        ...window.location,
+        set href(url: string) {
+          assignMock(url);
+        },
+      },
       writable: true,
     });
 
