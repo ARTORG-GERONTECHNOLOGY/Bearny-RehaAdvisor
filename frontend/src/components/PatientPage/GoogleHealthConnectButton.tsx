@@ -25,7 +25,7 @@ const GoogleHealthConnectButton: React.FC = observer(() => {
     setConnecting(true);
     try {
       const authUrl = await buildGoogleHealthAuthUrl(patientId);
-      window.location.href = authUrl;
+      window.location.assign(authUrl);
     } catch {
       setConnecting(false);
     }
