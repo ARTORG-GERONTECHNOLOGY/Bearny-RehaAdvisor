@@ -96,7 +96,7 @@ const PrivacyPolicy: React.FC = () => {
           </li>
           <li>
             <strong>fitness.body.read</strong> — Body weight data. Tracked alongside other health
-            metrics where clinically relevant to the patient's rehabilitation outcome.
+            metrics where clinically relevant to the patient&apos;s rehabilitation outcome.
           </li>
           <li>
             <strong>fitness.oxygen_saturation.read</strong> — Blood oxygen saturation (SpO2). An
@@ -132,7 +132,7 @@ const PrivacyPolicy: React.FC = () => {
           </li>
         </ul>
         <p>
-          You can revoke Bearny's access to your Google Health data at any time via your Google
+          You can revoke Bearny&apos;s access to your Google Health data at any time via your Google
           Account permissions page, or by contacting us to request deletion of stored data.
         </p>
       </div>

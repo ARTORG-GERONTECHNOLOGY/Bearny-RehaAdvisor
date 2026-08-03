@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { getInterventionDateStatusClass } from '@/utils/interventions';
+import { asArray } from '@/utils/typeGuards';
 
 type AnyObj = Record<string, any>;
 
@@ -30,8 +31,6 @@ const safeT = (t: any, key: string) => {
   return typeof v === 'string' ? v : key;
 };
 
-const asArray = (v: any) => (Array.isArray(v) ? v : []);
-
 const formatDateTime = (iso: string) => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -46,7 +45,7 @@ const formatDateTime = (iso: string) => {
 
 // very defensive language pick
 const pickTranslation = (translations: any[], preferredLang: string) => {
-  const arr = asArray(translations);
+  const arr = asArray<any>(translations);
   return (
     arr.find((tr: any) => tr?.language === preferredLang)?.text ||
     arr.find((tr: any) => tr?.language === 'en')?.text ||
@@ -64,7 +63,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
   const { t, i18n } = useTranslation();
   const userLang = i18n.language || 'en';
 
-  const allDates = useMemo(() => asArray(intervention?.dates), [intervention]);
+  const allDates = useMemo(() => asArray<any>(intervention?.dates), [intervention]);
 
   const [onlyWithFeedback, setOnlyWithFeedback] = useState(true);
 
@@ -88,7 +87,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
 
   const answeredCount = useMemo(() => {
     return allDates.reduce((acc: number, d: any) => {
-      const fbCount = asArray(d?.feedback).length;
+      const fbCount = asArray<any>(d?.feedback).length;
       const hasVideo = !!d?.video?.video_url;
       // treat either Q-feedback or video feedback as "answered"
       return acc + (fbCount > 0 || hasVideo ? 1 : 0);
@@ -98,7 +97,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
   const visibleDates = useMemo(() => {
     if (!onlyWithFeedback) return allDates;
     return allDates.filter((d: any) => {
-      const fbCount = asArray(d?.feedback).length;
+      const fbCount = asArray<any>(d?.feedback).length;
       const hasVideo = !!d?.video?.video_url;
       return fbCount > 0 || hasVideo;
     });
@@ -112,7 +111,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
     if (selectedIdx >= visibleDates.length) setSelectedIdx(0);
   }, [visibleDates.length, selectedIdx]);
 
-  const feedback = asArray(selected?.feedback);
+  const feedback = asArray<any>(selected?.feedback);
 
   const title = intervention?.title || safeT(t, 'Intervention');
 
@@ -159,7 +158,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                   <div className="flex flex-col gap-1">
                     {visibleDates.map((d: any, idx: number) => {
                       const st = String(d?.status || '').toLowerCase();
-                      const fbCount = asArray(d?.feedback).length;
+                      const fbCount = asArray<any>(d?.feedback).length;
                       const hasVid = !!d?.video?.video_url;
                       const isActive = idx === selectedIdx;
 
@@ -234,7 +233,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                             const q = fb?.question;
                             const qText = pickTranslation(q?.translations, userLang);
 
-                            const answers = asArray(fb?.answer);
+                            const answers = asArray<any>(fb?.answer);
                             const answerText = answers
                               .map((a: any) => pickTranslation(a?.translations, userLang) || a?.key)
                               .filter(Boolean)

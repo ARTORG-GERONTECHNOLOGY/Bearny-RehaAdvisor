@@ -8,8 +8,9 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { PatientThresholds, ThresholdHistoryItem } from '@/stores/patientPopupStore';
+import { ThresholdHistoryItem } from '@/stores/patientPopupStore';
 import { formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
+import type { PatientThresholds } from '@/utils/thresholds';
 
 function formatThresholdSnapshot(th: Partial<PatientThresholds>, t: (k: string) => string): string {
   if (!th || Object.keys(th).length === 0) return '—';

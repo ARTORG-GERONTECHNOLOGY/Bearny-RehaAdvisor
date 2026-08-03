@@ -400,7 +400,15 @@ const AdminDashboard: React.FC = observer(() => {
     fetchInterventions();
     fetchQuestionnaires();
     fetchExportClinics();
-  }, [isAllowed, store, t]);
+  }, [
+    isAllowed,
+    store,
+    t,
+    fetchChangeRequests,
+    fetchInterventions,
+    fetchQuestionnaires,
+    fetchExportClinics,
+  ]);
 
   const getTherapistIdFromEntry = (entry: any) => {
     return entry.therapistId || entry.therapist_id || entry.therapist || '';

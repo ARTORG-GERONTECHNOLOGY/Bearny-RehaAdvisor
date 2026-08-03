@@ -3,51 +3,15 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import { SessionCache } from '@/utils/sessionCache';
 import type { FitbitEntry, QuestionnaireEntry, ViewMode, AdherenceEntry } from '@/types/health';
+import {
+  DEFAULT_THRESHOLDS,
+  normalizeThresholds,
+  type PatientThresholds,
+} from '@/utils/thresholds';
+import { isRecord, type UnknownRecord } from '@/utils/typeGuards';
+import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
-export type PatientThresholds = {
-  steps_goal: number;
-
-  active_minutes_green: number;
-  active_minutes_yellow: number;
-
-  sleep_green_min: number;
-  sleep_yellow_min: number;
-
-  bp_sys_green_max: number;
-  bp_sys_yellow_max: number;
-  bp_dia_green_max: number;
-  bp_dia_yellow_max: number;
-};
-
-type UnknownRecord = Record<string, unknown>;
-
-const isRecord = (v: unknown): v is UnknownRecord => typeof v === 'object' && v !== null;
-const isString = (v: unknown): v is string => typeof v === 'string';
 const isArray = Array.isArray;
-
-const getString = (v: unknown): string | null => (isString(v) ? v : null);
-
-const extractApiErrorMessage = (err: unknown, fallback: string): string => {
-  // axios-like shape: err.response.data.{error|message|detail}
-  if (isRecord(err)) {
-    const resp = err['response'];
-    if (isRecord(resp)) {
-      const data = resp['data'];
-      if (isRecord(data)) {
-        const msg =
-          getString(data['error']) ||
-          getString(data['message']) ||
-          getString(data['detail']) ||
-          getString(data['details']);
-        if (msg && msg.trim()) return msg.trim();
-      }
-    }
-
-    const msg = getString(err['message']);
-    if (msg && msg.trim()) return msg.trim();
-  }
-  return fallback;
-};
 
 type CombinedHealthResponseRaw = {
   fitbit?: unknown;
@@ -61,41 +25,6 @@ type ThresholdsResponseRaw =
       history?: unknown;
     }
   | unknown;
-
-const DEFAULT_THRESHOLDS: PatientThresholds = {
-  steps_goal: 10000,
-  active_minutes_green: 30,
-  active_minutes_yellow: 20,
-  sleep_green_min: 7 * 60,
-  sleep_yellow_min: 6 * 60,
-  bp_sys_green_max: 129,
-  bp_sys_yellow_max: 139,
-  bp_dia_green_max: 84,
-  bp_dia_yellow_max: 89,
-};
-
-const n = (v: unknown, fallback: number) => {
-  const x = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : Number.NaN;
-  return Number.isFinite(x) ? x : fallback;
-};
-
-const normalizeThresholds = (raw: unknown): PatientThresholds => {
-  const t = isRecord(raw) ? raw : {};
-  return {
-    steps_goal: n(t['steps_goal'], DEFAULT_THRESHOLDS.steps_goal),
-
-    active_minutes_green: n(t['active_minutes_green'], DEFAULT_THRESHOLDS.active_minutes_green),
-    active_minutes_yellow: n(t['active_minutes_yellow'], DEFAULT_THRESHOLDS.active_minutes_yellow),
-
-    sleep_green_min: n(t['sleep_green_min'], DEFAULT_THRESHOLDS.sleep_green_min),
-    sleep_yellow_min: n(t['sleep_yellow_min'], DEFAULT_THRESHOLDS.sleep_yellow_min),
-
-    bp_sys_green_max: n(t['bp_sys_green_max'], DEFAULT_THRESHOLDS.bp_sys_green_max),
-    bp_sys_yellow_max: n(t['bp_sys_yellow_max'], DEFAULT_THRESHOLDS.bp_sys_yellow_max),
-    bp_dia_green_max: n(t['bp_dia_green_max'], DEFAULT_THRESHOLDS.bp_dia_green_max),
-    bp_dia_yellow_max: n(t['bp_dia_yellow_max'], DEFAULT_THRESHOLDS.bp_dia_yellow_max),
-  };
-};
 
 // ---- Fitbit normalize helpers (exercise sessions shape) ----
 type FitbitExerciseSessions = { sessions: unknown[] };
@@ -277,7 +206,7 @@ export class HealthPageStore {
       });
     } catch (err: unknown) {
       runInAction(() => {
-        this.thresholdsError = extractApiErrorMessage(err, t('Failed to load thresholds.'));
+        this.thresholdsError = getApiErrorMessage(err, t('Failed to load thresholds.'));
         // keep defaults so charts still work
         this.thresholds = this.thresholds || normalizeThresholds(DEFAULT_THRESHOLDS);
       });
@@ -339,7 +268,7 @@ export class HealthPageStore {
         this.fitbitData = [];
         this.questionnaireData = [];
         this.adherenceData = [];
-        this.error = extractApiErrorMessage(err, t('Failed to load health data.'));
+        this.error = getApiErrorMessage(err, t('Failed to load health data.'));
       });
     } finally {
       runInAction(() => {

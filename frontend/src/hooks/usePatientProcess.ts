@@ -4,6 +4,7 @@ import authStore from '@/stores/authStore';
 import { healthPageStore } from '@/stores/healthPageStore';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
 import { colors } from '@/lib/colors';
+import { TIER_COLOR } from '@/utils/healthCharts';
 import { toISODateUTC, toLocalYMD, formatDurationMinutes } from '@/utils/dateFormat';
 
 export type ProcessFilter = 'week' | 'month';
@@ -119,16 +120,16 @@ const formatMinutesToHM = (minutes: number | null) =>
 
 const minColor = (value: number | null, green: number | null, yellow: number | null): string => {
   if (green === null || value === null) return colors.chartMuted;
-  if (value >= green) return colors.brand;
-  if (yellow !== null && value >= yellow) return colors.yellow;
-  return colors.pink;
+  if (value >= green) return TIER_COLOR.green;
+  if (yellow !== null && value >= yellow) return TIER_COLOR.yellow;
+  return TIER_COLOR.red;
 };
 
 const maxColor = (value: number | null, green: number | null, yellow: number | null): string => {
   if (green === null || value === null) return colors.chartMuted;
-  if (value <= green) return colors.brand;
-  if (yellow !== null && value <= yellow) return colors.yellow;
-  return colors.pink;
+  if (value <= green) return TIER_COLOR.green;
+  if (yellow !== null && value <= yellow) return TIER_COLOR.yellow;
+  return TIER_COLOR.red;
 };
 
 export const getDateWindow = (filter: ProcessFilter) => {

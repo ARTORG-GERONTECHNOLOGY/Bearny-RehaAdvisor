@@ -2,6 +2,8 @@ import { makeAutoObservable, reaction, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import { SessionCache } from '@/utils/sessionCache';
 import { translateText } from '@/utils/translate';
+import { asArray } from '@/utils/typeGuards';
+import { extractApiErrorWithDetails } from '@/utils/apiErrorMessages';
 import { format } from 'date-fns';
 
 export type InterventionMeta = {
@@ -49,8 +51,6 @@ export type PatientRec = {
   titleLang?: string;
   descLang?: string;
 };
-
-const asArray = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
 const upsertCompletionDate = (dates: string[] | undefined, dateKey: string) => {
   const base = Array.isArray(dates) ? dates : [];
@@ -135,8 +135,7 @@ class PatientInterventionsStore {
           const title = String(row?.intervention_title || meta?.title || '');
           const desc = String(row?.description || meta?.description || '');
 
-          const t1 = await translateText(title);
-          const t2 = await translateText(desc);
+          const [t1, t2] = await Promise.all([translateText(title), translateText(desc)]);
 
           return {
             intervention_id: String(row?.intervention_id || meta?._id || ''),
@@ -166,11 +165,11 @@ class PatientInterventionsStore {
       runInAction(() => {
         this.items = translated;
       });
-    } catch (err: any) {
-      const backend = err?.response?.data;
+    } catch (err: unknown) {
+      const { message, details } = extractApiErrorWithDetails(err, 'An unexpected error occurred.');
       runInAction(() => {
-        this.error = backend?.error || err?.message || 'An unexpected error occurred.';
-        this.errorDetails = backend?.details || null;
+        this.error = message;
+        this.errorDetails = details;
       });
     } finally {
       runInAction(() => {

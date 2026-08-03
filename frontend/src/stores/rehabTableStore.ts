@@ -5,85 +5,12 @@ import authStore from '@/stores/authStore';
 import { filterInterventions } from '@/utils/filterUtils';
 import { translateText } from '@/utils/translate';
 import { toLocalYMD } from '@/utils/dateFormat';
+import { extractApiError, toStr } from '@/utils/apiErrorMessages';
 import config from '@/config/config.json';
 import type { Intervention } from '@/types';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 type TypeMap = Record<string, string>;
-
-// -------------------- Typed “unknown-first” helpers (no any) --------------------
-
-type ApiErrorResponseData = {
-  message?: unknown;
-  error?: unknown;
-  detail?: unknown;
-  details?: unknown;
-  field_errors?: unknown;
-  non_field_errors?: unknown;
-};
-
-type ApiErrorLike = {
-  response?: { data?: ApiErrorResponseData };
-  message?: unknown;
-};
-
-const toStr = (v: unknown): string => {
-  if (v == null) return '';
-  if (typeof v === 'string') return v;
-  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
-  try {
-    return JSON.stringify(v);
-  } catch {
-    return String(v);
-  }
-};
-
-const joinArray = (v: unknown): string =>
-  Array.isArray(v)
-    ? v
-        .map((x) => toStr(x))
-        .filter(Boolean)
-        .join(' ')
-    : '';
-
-const fieldErrorsToText = (v: unknown): string => {
-  if (!v || typeof v !== 'object') return '';
-  return Object.entries(v as Record<string, unknown>)
-    .map(([field, msgs]) => {
-      if (Array.isArray(msgs)) return msgs.map((m) => `${field}: ${toStr(m)}`).join(' ');
-      if (msgs) return `${field}: ${toStr(msgs)}`;
-      return '';
-    })
-    .filter(Boolean)
-    .join(' ');
-};
-
-export const extractApiError = (e: unknown, fallback: string): string => {
-  const err = e as ApiErrorLike;
-  const api = err?.response?.data;
-
-  if (!api) return fallback;
-
-  const pieces: string[] = [];
-
-  const msg = toStr(api.message).trim();
-  if (msg) pieces.push(msg);
-
-  const nonField = joinArray(api.non_field_errors).trim();
-  if (nonField) pieces.push(nonField);
-
-  const fieldText = fieldErrorsToText(api.field_errors).trim();
-  if (fieldText) pieces.push(fieldText);
-
-  const apiErr = toStr(api.error).trim();
-  if (apiErr) pieces.push(apiErr);
-
-  const details = toStr(api.details ?? api.detail).trim();
-  if (details) pieces.push(details);
-
-  const text = pieces.join(' ').trim();
-  return text || fallback;
-};
 
 // -------------------- Domain types --------------------
 

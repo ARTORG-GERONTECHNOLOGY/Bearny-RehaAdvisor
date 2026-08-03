@@ -22,6 +22,7 @@ import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryS
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { translateText } from '@/utils/translate';
 import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
+import { asRecord, asArrayOrWrap } from '@/utils/typeGuards';
 
 import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import CircleHalfCheckIcon from '@/assets/icons/circle-half-dotted-check-fill.svg?react';
@@ -59,16 +60,6 @@ const asStr = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : Stri
 const norm = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 const lower = (v: unknown) => norm(v).toLowerCase();
 
-const asRecord = (v: unknown): Record<string, unknown> =>
-  typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
-
-const asArray = <T,>(v: unknown): T[] => {
-  if (Array.isArray(v)) return v as T[];
-  if (!v) return [];
-  if (typeof v === 'object') return [v as T];
-  return [];
-};
-
 const isSpotify = (u: string) => matchesHost(u, 'spotify.com');
 const isYouTube = (u: string) => matchesHost(u, 'youtube.com', 'youtu.be');
 const isVimeo = (u: string) => matchesHost(u, 'vimeo.com');
@@ -105,7 +96,7 @@ const guessMediaTypeFromFilePath = (p: string): InterventionMedia['media_type'] 
 };
 
 const getAllMedia = (item: any): InterventionMedia[] => {
-  const rawMedia = asArray<Record<string, unknown>>(item?.media);
+  const rawMedia = asArrayOrWrap<Record<string, unknown>>(item?.media);
 
   if (rawMedia.length) {
     return rawMedia
@@ -315,7 +306,6 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const patientId = authStore.getStoredUserId();
-  const viewOpenedAt = useRef<number>(Date.now());
   const mediaRef = useRef<HTMLDivElement>(null);
 
   const { isAllowed } = useRoleAuthGate('Patient');
@@ -485,10 +475,10 @@ const PatientInterventionDetail: React.FC = observer(() => {
         language: asStr(intervention.language) || '',
         external_id: asStr(intervention.external_id) || '',
         provider: asStr(intervention.provider) || '',
-        media: asArray<unknown>(intervention.media).length
-          ? asArray<unknown>(intervention.media)
+        media: asArrayOrWrap<unknown>(intervention.media).length
+          ? asArrayOrWrap<unknown>(intervention.media)
           : (selectedRec.media as unknown[]) || [],
-        available_languages: asArray<string>(intervention.available_languages),
+        available_languages: asArrayOrWrap<string>(intervention.available_languages),
         intervention,
         is_private: Boolean(intervention.is_private),
         link: asStr(intervention.link) || '',
@@ -500,8 +490,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
     if (selectedLibraryItem) {
       const intervention = asRecord(selectedLibraryItem);
-      const aims = asArray<string>(intervention.aims);
-      const benefitFor = asArray<string>(intervention.benefitFor);
+      const aims = asArrayOrWrap<string>(intervention.aims);
+      const benefitFor = asArrayOrWrap<string>(intervention.benefitFor);
       const primaryAim = asStr(intervention.aim) || aims[0] || benefitFor[0] || '';
 
       return {
@@ -512,8 +502,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
         language: asStr(intervention.language) || '',
         external_id: asStr(intervention.external_id) || '',
         provider: asStr(intervention.provider) || '',
-        media: asArray<unknown>(intervention.media),
-        available_languages: asArray<string>(intervention.available_languages),
+        media: asArrayOrWrap<unknown>(intervention.media),
+        available_languages: asArrayOrWrap<string>(intervention.available_languages),
         intervention: {
           ...intervention,
           aim: primaryAim,
@@ -531,11 +521,11 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
   // Track time spent on this intervention detail page
   useEffect(() => {
-    const openedAt = viewOpenedAt.current;
+    const openedAt = Date.now();
+    const date = searchParams.get('date') || '';
     return () => {
       const seconds = Math.round((Date.now() - openedAt) / 1000);
       if (seconds < 2 || !patientId || !interventionId) return;
-      const date = searchParams.get('date') || '';
       apiClient
         .post(`/patients/vitals/intervention-view/${patientId}/`, {
           intervention_id: interventionId,
@@ -546,7 +536,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
           /* best-effort, no noise */
         });
     };
-  }, []);
+  }, [patientId, interventionId, searchParams]);
 
   // keep translations in sync with effectiveItem
   useEffect(() => {

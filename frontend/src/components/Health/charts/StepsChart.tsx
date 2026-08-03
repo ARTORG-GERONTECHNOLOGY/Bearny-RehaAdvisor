@@ -12,6 +12,8 @@ import {
   buildDailyRows,
   chartXAxisProps,
   chartYAxisProps,
+  thresholdTier,
+  TIER_COLOR,
 } from '@/utils/healthCharts';
 
 type Props = {
@@ -79,18 +81,10 @@ const StepsChart = forwardRef<HTMLDivElement, Props>(
             />
           )}
           <Bar dataKey="steps">
-            {rows.map((row, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={
-                  row.steps == null
-                    ? 'transparent'
-                    : goal == null || row.steps >= goal
-                      ? colors.brand
-                      : colors.pink
-                }
-              />
-            ))}
+            {rows.map((row, index) => {
+              const tier = thresholdTier(row.steps, goal, null, true);
+              return <Cell key={`cell-${index}`} fill={tier ? TIER_COLOR[tier] : 'transparent'} />;
+            })}
           </Bar>
         </BarChart>
       </ChartContainer>

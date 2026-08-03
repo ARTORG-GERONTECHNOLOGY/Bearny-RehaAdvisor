@@ -1,21 +1,7 @@
-import { patientFitbitStore, mergeThresholds } from '@/stores/patientFitbitStore';
+import { patientFitbitStore } from '@/stores/patientFitbitStore';
 import apiClient from '@/api/client';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
-
-describe('mergeThresholds', () => {
-  it('fills in defaults for missing fields', () => {
-    const merged = mergeThresholds({ steps_goal: 5000 });
-    expect(merged.steps_goal).toBe(5000);
-    expect(merged.sleep_green_min).toBe(7 * 60);
-  });
-
-  it('returns all defaults when given nothing', () => {
-    const merged = mergeThresholds();
-    expect(merged.steps_goal).toBe(10000);
-    expect(merged.bp_dia_yellow_max).toBe(89);
-  });
-});
 
 describe('patientFitbitStore', () => {
   beforeEach(() => {

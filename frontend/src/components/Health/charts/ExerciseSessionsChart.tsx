@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
 import ChartEmptyState from '@/components/Health/charts/ChartEmptyState';
+import { colors } from '@/lib/colors';
 import {
   Dialog,
   DialogContent,
@@ -32,7 +33,7 @@ type Props = {
 type Session = { name: string; duration: number };
 type ExerciseRow = { date: string; total: number | null; sessions: Session[] };
 
-const SESSION_COLORS = ['#00956C', '#32ad82', '#4cc196'];
+const SESSION_COLORS = [colors.brand, '#32ad82', '#4cc196'];
 const sessionColor = (index: number) => SESSION_COLORS[index % SESSION_COLORS.length];
 
 const sessionDurationMinutes = (session: { duration?: number }): number =>
@@ -49,7 +50,7 @@ export const filterExerciseInRange = (
       .filter((d) => isInRange(d.date, start, end))
       .map((d) => {
         const sessions: Session[] = (d.exercise?.sessions || [])
-          .map((s: any) => ({ name: s?.name || '', duration: sessionDurationMinutes(s) }))
+          .map((s) => ({ name: s?.name || '', duration: sessionDurationMinutes(s) }))
           .filter((s) => s.duration > 0);
         return [d.date, sessions];
       })

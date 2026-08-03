@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { getInterventionDateStatusClass } from '@/utils/interventions';
+import { asArray } from '@/utils/typeGuards';
 
 type AnyObj = Record<string, any>;
 
@@ -27,17 +28,15 @@ const safeT = (t: any, key: string) => {
   return typeof v === 'string' ? v : key;
 };
 
-const asArray = (v: any) => (Array.isArray(v) ? v : []);
-
 const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, patientData }) => {
   const { t } = useTranslation();
 
   const stats = useMemo(() => {
     const id = intervention?._id;
     const assigned =
-      asArray(patientData?.interventions).find((x: any) => x?._id === id) || intervention;
+      asArray<any>(patientData?.interventions).find((x: any) => x?._id === id) || intervention;
 
-    const dates = asArray(assigned?.dates);
+    const dates = asArray<any>(assigned?.dates);
 
     let completed = 0;
     let missed = 0;
@@ -54,7 +53,7 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
       else if (st === 'today') today += 1;
       else upcoming += 1;
 
-      feedbackCount += asArray(d?.feedback).length;
+      feedbackCount += asArray<any>(d?.feedback).length;
       if (d?.video?.video_url) videoCount += 1;
     });
 

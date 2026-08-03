@@ -1,18 +1,7 @@
 import { makeAutoObservable, reaction, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import { SessionCache } from '@/utils/sessionCache';
-
-export type Thresholds = {
-  steps_goal: number;
-  active_minutes_green: number;
-  active_minutes_yellow: number;
-  sleep_green_min: number;
-  sleep_yellow_min: number;
-  bp_sys_green_max: number;
-  bp_sys_yellow_max: number;
-  bp_dia_green_max: number;
-  bp_dia_yellow_max: number;
-};
+import { type PatientThresholds } from '@/utils/thresholds';
 
 export type AzmBreakdown = {
   fat_burn?: number | null;
@@ -35,7 +24,7 @@ export type DailyRow = {
 export type FitbitSummary = {
   connected: boolean;
   last_sync: string | null;
-  thresholds?: Partial<Thresholds>;
+  thresholds?: Partial<PatientThresholds>;
   today?: {
     steps?: number;
     active_minutes?: number;
@@ -67,23 +56,6 @@ export type FitbitSummary = {
     daily: DailyRow[];
   };
 };
-
-const DEFAULT_THRESHOLDS: Thresholds = {
-  steps_goal: 10000,
-  active_minutes_green: 30,
-  active_minutes_yellow: 20,
-  sleep_green_min: 7 * 60,
-  sleep_yellow_min: 6 * 60,
-  bp_sys_green_max: 129,
-  bp_sys_yellow_max: 139,
-  bp_dia_green_max: 84,
-  bp_dia_yellow_max: 89,
-};
-
-export const mergeThresholds = (api?: Partial<Thresholds>): Thresholds => ({
-  ...DEFAULT_THRESHOLDS,
-  ...(api || {}),
-});
 
 class PatientFitbitStore {
   private static cache = new SessionCache('patientFitbitStore');

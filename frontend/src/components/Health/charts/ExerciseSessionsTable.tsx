@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FitbitEntry } from '@/types/health';
+import { FitbitEntry, HeartRateZone } from '@/types/health';
 import { isInRange } from '@/utils/healthCharts';
 import { formatDurationMs } from '@/utils/dateFormat';
 import {
@@ -22,7 +22,7 @@ const formatDurationHM = (ms?: number | null): string => {
   return formatDurationMs(ms);
 };
 
-const getPeakZone = (zones?: any[]): { range: string | null; minutes: number | null } => {
+const getPeakZone = (zones?: HeartRateZone[]): { range: string | null; minutes: number | null } => {
   if (!Array.isArray(zones)) return { range: null, minutes: null };
 
   const peak = zones.find((z) => z.name?.toLowerCase() === 'peak');
@@ -54,7 +54,7 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, date }) => {
       .forEach((d) => {
         const sessions = d.exercise?.sessions || [];
 
-        sessions.forEach((s: any) => {
+        sessions.forEach((s) => {
           const peak = getPeakZone(s.heartRateZones);
 
           result.push({

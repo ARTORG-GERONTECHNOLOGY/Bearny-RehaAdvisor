@@ -29,12 +29,7 @@ import Section from '@/components/Section';
 import { PatientInterventionsLibrarySectionsSkeleton } from '@/components/skeletons/PatientInterventionsLibrarySkeleton';
 
 import { getTypeIcon, getContentTypeIcon } from '@/utils/interventions';
-import flagDe from '@/assets/flags/de.png';
-import flagFr from '@/assets/flags/fr.png';
-import flagEn from '@/assets/flags/gb.png';
-import flagIt from '@/assets/flags/it.png';
-import flagPt from '@/assets/flags/pt.png';
-import flagNl from '@/assets/flags/be.png';
+import { LANGUAGE_FLAGS, LANGUAGE_NAMES } from '@/constants/languages';
 import { Badge } from '@/components/ui/badge';
 import ArrowRightIcon from '@/assets/icons/arrow-right-fill.svg?react';
 import EducationIcon from '@/assets/icons/interventions/education.svg?react';
@@ -62,27 +57,9 @@ type OptionItem = {
   Icon: React.ComponentType<{ className?: string }> | null;
 };
 
-const flagMap: Record<string, string> = {
-  en: flagEn,
-  de: flagDe,
-  fr: flagFr,
-  it: flagIt,
-  pt: flagPt,
-  nl: flagNl,
-};
-
-const languageNames: Record<string, string> = {
-  en: 'English',
-  de: 'Deutsch',
-  fr: 'Français',
-  it: 'Italiano',
-  pt: 'Português',
-  nl: 'Nederlands',
-};
-
 const getLanguageIcon = (value: string): React.ComponentType<{ className?: string }> | null => {
   const lang = value.trim().toLowerCase();
-  const src = flagMap[lang];
+  const src = LANGUAGE_FLAGS[lang];
   if (!src) return null;
   const FlagIcon = ({ className }: { className?: string }) => (
     <img src={src} className={`${className ?? ''} rounded-full object-cover`} alt={lang} />
@@ -449,7 +426,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       getLanguageIcon
     ).map((opt) => ({
       ...opt,
-      label: languageNames[opt.value.toLowerCase()] ?? opt.value.toUpperCase(),
+      label: LANGUAGE_NAMES[opt.value.toLowerCase()] ?? opt.value.toUpperCase(),
     }));
   }, [sourceItems]);
 

@@ -4,6 +4,12 @@ import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { toLocalYMD, formatLocaleDate } from '@/utils/dateFormat';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
+import {
+  DEFAULT_THRESHOLDS,
+  normalizeThresholds,
+  mergeThresholds,
+  type PatientThresholds,
+} from '@/utils/thresholds';
 
 export type ValueSource = 'manual' | 'redcap' | 'empty';
 export type SelectOption = { value: string; label: string };
@@ -45,39 +51,12 @@ const localDatetimeInputToISO = (v: string) => {
 // -------------------------
 // Threshold types
 // -------------------------
-export type PatientThresholds = {
-  steps_goal: number;
-
-  active_minutes_green: number;
-  active_minutes_yellow: number;
-
-  sleep_green_min: number;
-  sleep_yellow_min: number;
-
-  bp_sys_green_max: number;
-  bp_sys_yellow_max: number;
-  bp_dia_green_max: number;
-  bp_dia_yellow_max: number;
-};
-
 export type ThresholdHistoryItem = {
   effective_from: string | null; // ISO
   changed_at?: string | null; // ISO (optional)
   changed_by?: string | null;
   reason?: string | null;
   thresholds: Partial<PatientThresholds>;
-};
-
-const DEFAULT_THRESHOLDS: PatientThresholds = {
-  steps_goal: 10000,
-  active_minutes_green: 30,
-  active_minutes_yellow: 20,
-  sleep_green_min: 7 * 60,
-  sleep_yellow_min: 6 * 60,
-  bp_sys_green_max: 129,
-  bp_sys_yellow_max: 139,
-  bp_dia_green_max: 84,
-  bp_dia_yellow_max: 89,
 };
 
 const isEmptyValue = (v: any) =>
@@ -92,41 +71,6 @@ const deepEqualJSON = (a: any, b: any) => {
   } catch {
     return false;
   }
-};
-
-const normalizeNum = (v: any, fallback: number) => {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return fallback;
-  return n;
-};
-
-const normalizeThresholds = (t: any): PatientThresholds => {
-  const src = t || {};
-  return {
-    steps_goal: normalizeNum(src.steps_goal, DEFAULT_THRESHOLDS.steps_goal),
-
-    active_minutes_green: normalizeNum(
-      src.active_minutes_green,
-      DEFAULT_THRESHOLDS.active_minutes_green
-    ),
-    active_minutes_yellow: normalizeNum(
-      src.active_minutes_yellow,
-      DEFAULT_THRESHOLDS.active_minutes_yellow
-    ),
-
-    sleep_green_min: normalizeNum(src.sleep_green_min, DEFAULT_THRESHOLDS.sleep_green_min),
-    sleep_yellow_min: normalizeNum(src.sleep_yellow_min, DEFAULT_THRESHOLDS.sleep_yellow_min),
-
-    bp_sys_green_max: normalizeNum(src.bp_sys_green_max, DEFAULT_THRESHOLDS.bp_sys_green_max),
-    bp_sys_yellow_max: normalizeNum(src.bp_sys_yellow_max, DEFAULT_THRESHOLDS.bp_sys_yellow_max),
-    bp_dia_green_max: normalizeNum(src.bp_dia_green_max, DEFAULT_THRESHOLDS.bp_dia_green_max),
-    bp_dia_yellow_max: normalizeNum(src.bp_dia_yellow_max, DEFAULT_THRESHOLDS.bp_dia_yellow_max),
-  };
-};
-
-const mergeThresholds = (base: PatientThresholds, patch: Partial<PatientThresholds>) => {
-  const next = { ...base, ...(patch || {}) };
-  return normalizeThresholds(next);
 };
 
 // -------------------------
