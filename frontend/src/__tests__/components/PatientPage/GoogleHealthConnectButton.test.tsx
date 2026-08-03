@@ -81,16 +81,19 @@ describe('GoogleHealthConnectButton', () => {
   it('renders a Connect button when disconnected and navigates to Google OAuth on click', async () => {
     mockAuthId = '';
     localStorage.setItem('id', 'patient-77');
+
+    // jsdom does not allow Object.defineProperty on window.location (non-configurable).
+    // Delete it first so we can assign a plain writable object with an href spy.
     const assignMock = jest.fn();
-    Object.defineProperty(window, 'location', {
-      value: {
-        ...window.location,
-        set href(url: string) {
-          assignMock(url);
-        },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (window as any).location;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).location = {
+      href: '',
+      set href(url: string) {
+        assignMock(url);
       },
-      writable: true,
-    });
+    };
 
     render(<GoogleHealthConnectButton />);
 
