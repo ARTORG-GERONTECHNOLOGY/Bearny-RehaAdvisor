@@ -316,6 +316,10 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
 
+      - name: Apply Django migrations
+        working-directory: backend
+        run: python manage.py migrate --run-syncdb
+
       - name: Seed E2E test users
         working-directory: backend
         run: python manage.py seed_e2e
