@@ -21,8 +21,14 @@ import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore'
 import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { translateText } from '@/utils/translate';
-import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
+import { isHttpUrl } from '@/utils/urlUtils';
 import { asRecord, asArrayOrWrap } from '@/utils/typeGuards';
+import {
+  guessMediaTypeFromFilePath,
+  guessMediaTypeFromUrl,
+  guessProvider,
+  type InterventionMedia,
+} from '@/utils/interventions';
 
 import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import CircleHalfCheckIcon from '@/assets/icons/circle-half-dotted-check-fill.svg?react';
@@ -38,20 +44,6 @@ import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';
 import RescheduleInterventionSheet from '@/components/PatientPage/RescheduleInterventionSheet';
 import Card from '@/components/Card';
 
-type InterventionMedia = {
-  kind: 'external' | 'file';
-  media_type: 'audio' | 'video' | 'image' | 'pdf' | 'website' | 'app' | 'streaming' | 'text';
-  provider?: string | null;
-  title?: string | null;
-  url?: string | null;
-  embed_url?: string | null;
-  file_path?: string | null;
-  file_url?: string | null;
-  mime?: string | null;
-  thumbnail?: string | null;
-  media_slot?: number | null;
-};
-
 type NormalizedMedia = Omit<InterventionMedia, 'kind'> & {
   kind: string;
 };
@@ -59,41 +51,6 @@ type NormalizedMedia = Omit<InterventionMedia, 'kind'> & {
 const asStr = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
 const norm = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 const lower = (v: unknown) => norm(v).toLowerCase();
-
-const isSpotify = (u: string) => matchesHost(u, 'spotify.com');
-const isYouTube = (u: string) => matchesHost(u, 'youtube.com', 'youtu.be');
-const isVimeo = (u: string) => matchesHost(u, 'vimeo.com');
-const isSoundCloud = (u: string) => matchesHost(u, 'soundcloud.com');
-
-const guessMediaTypeFromUrl = (u: string): InterventionMedia['media_type'] => {
-  const url = lower(u);
-  if (isSpotify(url)) return 'streaming';
-  if (isYouTube(url) || isVimeo(url)) return 'video';
-  if (isSoundCloud(url)) return 'audio';
-  if (url.match(/\.(mp3|wav|m4a|ogg|webm)(\?|$)/)) return 'audio';
-  if (url.match(/\.(mp4|mov|m4v|webm)(\?|$)/)) return 'video';
-  if (url.match(/\.(pdf)(\?|$)/)) return 'pdf';
-  if (url.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/)) return 'image';
-  return 'website';
-};
-
-const guessProvider = (u: string) => {
-  const url = lower(u);
-  if (isSpotify(url)) return 'spotify';
-  if (isYouTube(url)) return 'youtube';
-  if (isSoundCloud(url)) return 'soundcloud';
-  if (isVimeo(url)) return 'vimeo';
-  return 'website';
-};
-
-const guessMediaTypeFromFilePath = (p: string): InterventionMedia['media_type'] => {
-  const path = lower(p);
-  if (path.match(/\.(mp3|wav|m4a|ogg|webm)$/)) return 'audio';
-  if (path.match(/\.(mp4|mov|m4v|webm)$/)) return 'video';
-  if (path.endsWith('.pdf')) return 'pdf';
-  if (path.match(/\.(png|jpg|jpeg|gif|webp)$/)) return 'image';
-  return 'text';
-};
 
 const getAllMedia = (item: any): InterventionMedia[] => {
   const rawMedia = asArrayOrWrap<Record<string, unknown>>(item?.media);
