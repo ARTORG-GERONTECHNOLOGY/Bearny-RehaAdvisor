@@ -24,7 +24,7 @@ def _fernet():
     if not key:
         raise RuntimeError(
             "FIELD_ENCRYPTION_KEY is not set. "
-            "Generate one with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+            'Generate one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
         )
     return Fernet(key.encode() if isinstance(key, str) else key)
 
