@@ -8,6 +8,7 @@ from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from core.models import User
+from core.throttles import LoginRateThrottle
 
 
 class MongoTokenRefreshSerializer(TokenRefreshSerializer):
@@ -75,6 +76,7 @@ class MongoTokenRefreshView(TokenRefreshView):
     """Use the Mongo-aware refresh serializer for /api/auth/token/refresh/."""
 
     serializer_class = MongoTokenRefreshSerializer
+    throttle_classes = [LoginRateThrottle]
 
     def finalize_response(self, request, response, *args, **kwargs):
         response = super().finalize_response(request, response, *args, **kwargs)
