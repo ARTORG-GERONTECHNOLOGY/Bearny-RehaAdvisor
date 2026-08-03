@@ -21,6 +21,7 @@ from mongoengine import (
     StringField,
 )
 
+from core.encrypted_field import EncryptedStringField
 from utils.config import WEARABLE_DEVICE_CHOICES, config
 
 all_diagnoses = [
@@ -56,8 +57,8 @@ class User(Document):
 
 class FitbitUserToken(Document):
     user = ReferenceField(User, required=True, unique=True)
-    access_token = StringField(required=True, max_length=2048)
-    refresh_token = StringField(required=True, max_length=2048)
+    access_token = EncryptedStringField(required=True, max_length=4096)
+    refresh_token = EncryptedStringField(required=True, max_length=4096)
     expires_at = DateTimeField()
     fitbit_user_id = StringField(required=True)
     last_fetched_at = DateTimeField()
@@ -168,8 +169,8 @@ class FitbitData(Document):
 
 class GoogleHealthUserToken(Document):
     user = ReferenceField(User, required=True, unique=True)
-    access_token = StringField(required=True, max_length=2048)
-    refresh_token = StringField(required=True, max_length=2048)
+    access_token = EncryptedStringField(required=True, max_length=4096)
+    refresh_token = EncryptedStringField(required=True, max_length=4096)
     expires_at = DateTimeField()
     google_user_id = StringField()  # Google "sub" claim
     connected_at = DateTimeField()  # set on every successful auth code exchange
