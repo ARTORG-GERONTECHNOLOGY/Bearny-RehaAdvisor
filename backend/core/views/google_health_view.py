@@ -1,8 +1,11 @@
 # core/views/google_health_view.py
 import json
 import logging
+import secrets
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 
+import redis
 import requests
 from bson import ObjectId
 from django.conf import settings
@@ -53,6 +56,28 @@ from core.views.google_health_sync import fetch_google_health_today_for_user
 
 logger = logging.getLogger(__name__)
 
+_OAUTH_NONCE_TTL = 600  # seconds — 10 minutes
+
+
+def _get_redis_client():
+    """Return a Redis client built from the Celery broker URL."""
+    url = getattr(settings, "CELERY_BROKER_URL", "redis://redis:6379/0")
+    parsed = urlparse(url)
+    use_ssl = parsed.scheme == "rediss"
+    ssl_ca_certs = getattr(settings, "BROKER_USE_SSL", {})
+    if isinstance(ssl_ca_certs, dict):
+        ssl_ca_certs = ssl_ca_certs.get("ssl_ca_certs")
+    return redis.Redis(
+        host=parsed.hostname,
+        port=parsed.port or 6379,
+        db=int((parsed.path or "/0").lstrip("/") or 0),
+        password=parsed.password,
+        ssl=use_ssl,
+        ssl_ca_certs=ssl_ca_certs if use_ssl else None,
+        socket_connect_timeout=3,
+    )
+
+
 _GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 _GOOGLE_SCOPES = " ".join(
@@ -72,10 +97,36 @@ def _sleep_minutes(entry: GoogleHealthData) -> int:
         return 0
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def google_health_auth_init(request):
+    """Generate a one-time nonce for the OAuth CSRF state parameter.
+
+    The frontend calls this before redirecting to Google, stores the returned
+    nonce as ``state=<nonce>:<patientId>`` in the auth URL, and the callback
+    validates the nonce against Redis before accepting the authorization code.
+    """
+    patient_id = request.GET.get("patientId", "")
+    if not patient_id:
+        return JsonResponse({"error": "patientId required"}, status=400)
+
+    nonce = secrets.token_urlsafe(32)
+    try:
+        rc = _get_redis_client()
+        rc.set(f"oauth_nonce:{nonce}", patient_id, ex=_OAUTH_NONCE_TTL)
+    except Exception:
+        logger.exception("[google_health_auth_init] Redis unavailable; falling back to no-nonce")
+        # If Redis is down, log and continue — a missing nonce is validated
+        # in the callback, which will still reject unknown state values.
+        pass
+
+    return JsonResponse({"nonce": nonce})
+
+
 @csrf_exempt
 def google_health_callback(request):
     code = request.GET.get("code")
-    state = request.GET.get("state")  # carries the user/patient id from frontend
+    state = request.GET.get("state", "")  # format: "<nonce>:<patientId>"
 
     if not code:
         return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=missing_code")
@@ -83,8 +134,32 @@ def google_health_callback(request):
     if not state:
         return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=unauthorized")
 
+    # Validate the CSRF nonce stored in Redis.
+    # State format: "<nonce>:<patientId>" (patientId may contain colons if a
+    # legacy plain ObjectId was passed — we split on the first colon only).
+    if ":" in state:
+        nonce, patient_id_from_state = state.split(":", 1)
+        try:
+            rc = _get_redis_client()
+            stored = rc.get(f"oauth_nonce:{nonce}")
+            if stored is None:
+                logger.warning("[google_health_callback] nonce not found or expired: %s", nonce)
+                return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=unauthorized")
+            if stored.decode() != patient_id_from_state:
+                logger.warning("[google_health_callback] nonce/patientId mismatch")
+                return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=unauthorized")
+            rc.delete(f"oauth_nonce:{nonce}")  # one-time use
+            user_id_str = patient_id_from_state
+        except Exception:
+            logger.exception("[google_health_callback] Redis error during nonce validation")
+            return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=error")
+    else:
+        # Legacy path: state is a plain patientId (no nonce) — reject for security.
+        logger.warning("[google_health_callback] state missing nonce component, rejecting")
+        return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=unauthorized")
+
     try:
-        user_id = ObjectId(state)
+        user_id = ObjectId(user_id_str)
         user = User.objects.get(id=user_id)
     except Exception as e:
         logger.exception("[google_health_callback] invalid user: %s", e)
@@ -629,6 +704,13 @@ def google_health_disconnect(request):
         user = None
     if not user:
         return JsonResponse({"ok": False, "error": "User not found"}, status=404)
-    deleted = GoogleHealthUserToken.objects(user=user).delete()
-    logger.info("[google_health_disconnect] deleted %s token(s) for user %s", deleted, user.id)
+
+    deleted_tokens = GoogleHealthUserToken.objects(user=user).delete()
+    logger.info("[google_health_disconnect] deleted %s token(s) for user %s", deleted_tokens, user.id)
+
+    # Delete all stored health data for this user on disconnect (GDPR / data minimisation).
+    # Data is re-fetched from Google Health whenever the user reconnects.
+    deleted_data = GoogleHealthData.objects(user=user).delete()
+    logger.info("[google_health_disconnect] deleted %s health records for user %s", deleted_data, user.id)
+
     return JsonResponse({"ok": True})
