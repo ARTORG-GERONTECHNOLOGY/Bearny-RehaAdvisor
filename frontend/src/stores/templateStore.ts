@@ -36,7 +36,7 @@ class TemplateStore {
       runInAction(() => {
         this.templates = res.data.templates;
       });
-    } catch (e: any) {
+    } catch (e) {
       runInAction(() => {
         this.error = getApiErrorMessage(e, 'Failed to load templates.');
       });

@@ -242,7 +242,7 @@ export class PatientPopupStore {
         this.passwordConfirm = '';
       });
       return true;
-    } catch (err: any) {
+    } catch (err) {
       runInAction(() => {
         this.passwordError = getApiErrorMessage(err, t('Failed to reset password.'));
       });
@@ -420,7 +420,7 @@ export class PatientPopupStore {
 
       await this.fetchRedcapIfPossible(t);
       await this.fetchThresholds(t);
-    } catch (err: any) {
+    } catch (err) {
       runInAction(() => {
         this.error = getApiErrorMessage(err, t('Failed to load patient.'));
       });
@@ -474,7 +474,7 @@ export class PatientPopupStore {
         this.redcapRecordId = rec || this.redcapRecordId;
         this.redcapPatId = pid || this.redcapPatId;
       });
-    } catch (err: any) {
+    } catch (err) {
       const api = err?.response?.data;
       runInAction(() => {
         this.redcapRows = [];
@@ -512,7 +512,7 @@ export class PatientPopupStore {
         this.thresholdReason = '';
         this.thresholdEffectiveFromISO = null;
       });
-    } catch (err: any) {
+    } catch (err) {
       runInAction(() => {
         this.thresholds = this.thresholds || normalizeThresholds(DEFAULT_THRESHOLDS);
         this.thresholdsHistory = this.thresholdsHistory || [];
@@ -546,7 +546,7 @@ export class PatientPopupStore {
 
       await this.fetchThresholds(t);
       return true;
-    } catch (err: any) {
+    } catch (err) {
       runInAction(() => {
         this.thresholdsError = getApiErrorMessage(err, t('Failed to save thresholds.'));
       });
@@ -642,7 +642,7 @@ export class PatientPopupStore {
       });
 
       return true;
-    } catch (err: any) {
+    } catch (err) {
       runInAction(() => {
         this.error = getApiErrorMessage(err, t('Failed to save patient.'));
       });
@@ -663,7 +663,7 @@ export class PatientPopupStore {
       // NOTE: adjust endpoint if yours differs
       await apiClient.delete(`/users/${this.patientId}/profile/`);
       return true;
-    } catch (err: any) {
+    } catch (err) {
       runInAction(() => {
         this.error = getApiErrorMessage(err, t('Failed to delete patient.'));
       });
@@ -700,10 +700,10 @@ export class PatientPopupStore {
       if (force) body.force = true;
       const res = await apiClient.post(`/wearables/sync-to-redcap/${this.patientId}/`, body);
       runInAction(() => {
-        this.wearablesSyncPeriods = (res.data as any)?.periods ?? {};
-        this.wearablesSyncFirstDate = (res.data as any)?.first_measurement_date ?? null;
+        this.wearablesSyncPeriods = res.data?.periods ?? {};
+        this.wearablesSyncFirstDate = res.data?.first_measurement_date ?? null;
       });
-    } catch (err: any) {
+    } catch (err) {
       const code: string | undefined = err?.response?.data?.code;
       runInAction(() => {
         this.wearablesSyncError = code

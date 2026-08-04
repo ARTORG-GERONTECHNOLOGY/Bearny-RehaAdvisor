@@ -268,7 +268,7 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
         }
 
         setError(t('Failed to save questionnaire schedule.'));
-      } catch (e: any) {
+      } catch (e) {
         const parsed = extractApiError(e, t('Something went wrong.'));
         setError(parsed.message);
         if (parsed.fieldErrors && Object.keys(parsed.fieldErrors).length) {

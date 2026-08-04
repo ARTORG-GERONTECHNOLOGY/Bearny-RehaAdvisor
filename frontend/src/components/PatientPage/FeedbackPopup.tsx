@@ -210,7 +210,7 @@ const FeedbackPopup: React.FC<Props> = ({
 
   const requestMicrophonePermission = async () => {
     try {
-      const permission: any = await (navigator as any).permissions.query({ name: 'microphone' });
+      const permission: any = await navigator.permissions.query({ name: 'microphone' });
       if (permission.state === 'denied') {
         setMicPermissionDenied(true);
         return false;
@@ -270,7 +270,7 @@ const FeedbackPopup: React.FC<Props> = ({
     setError(null);
 
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    if (previewRef.current) previewRef.current.srcObject = stream as any;
+    if (previewRef.current) previewRef.current.srcObject = stream;
 
     setCountdown(10);
     let sec = 10;
@@ -297,7 +297,7 @@ const FeedbackPopup: React.FC<Props> = ({
         recorder.onstop = () => {
           stream.getTracks().forEach((track) => track.stop());
           try {
-            if (previewRef.current) previewRef.current.srcObject = null as any;
+            if (previewRef.current) previewRef.current.srcObject = null;
           } catch {
             /* empty */
           }
@@ -373,7 +373,7 @@ const FeedbackPopup: React.FC<Props> = ({
         const answer = answers[key];
 
         if (answer instanceof Blob) {
-          const isVideo = (answer as any).type?.startsWith('video/');
+          const isVideo = answer.type?.startsWith('video/');
           formData.append(isVideo ? `${key}_video` : key, answer, `${key}.webm`);
         } else if (typeof answer === 'string' || typeof answer === 'number') {
           formData.append(key, answer.toString());

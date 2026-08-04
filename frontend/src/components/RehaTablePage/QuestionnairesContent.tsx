@@ -199,7 +199,7 @@ const QuestionnairesContent: React.FC<QuestionnairesContentProps> = ({ patientId
           removeQ,
           openBuilder: () => setQBuilderOpen(true),
         }}
-        t={t as any}
+        t={t}
       />
 
       <QuestionnaireScheduleModal

@@ -41,7 +41,7 @@ class PatientUiStore {
   }
 
   setSelectedDate(d: Date) {
-    const nd = d instanceof Date ? d : new Date(d as any);
+    const nd = d instanceof Date ? d : new Date(d);
     if (Number.isNaN(nd.getTime())) return;
     this.selectedDate = nd;
     writeSelectedDate(nd);

@@ -99,13 +99,13 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   const [registered, setRegistered] = useState(false);
   const [patientId, setPatientId] = useState<string | null>(null);
 
-  const formSteps = (config as any).PatientForm;
-  const specialityDiagnosisMap: Record<string, string[]> = (config as any).patientInfo.functionPat;
+  const formSteps = config.PatientForm;
+  const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo.functionPat;
 
   // Flat label map used to build readable error banners: { fieldName → label key }
   const fieldLabelMap = useMemo<Record<string, string>>(() => {
     const map: Record<string, string> = {};
-    (formSteps as any[]).forEach((s: any) => {
+    formSteps.forEach((s: any) => {
       s.fields.forEach((f: any) => {
         map[f.name] = f.label;
       });
@@ -244,8 +244,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   };
 
   // ---- handlers ----
-  const clinicProjectsMap: Record<string, string[]> =
-    (config as any).therapistInfo?.clinic_projects || {};
+  const clinicProjectsMap: Record<string, string[]> = config.therapistInfo?.clinic_projects || {};
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
@@ -308,7 +307,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
     const currentStep = formSteps[step];
 
     currentStep.fields.forEach((field: any) => {
-      const value = formData[field.name] as any;
+      const value = formData[field.name];
       const isEmpty =
         value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
       if (field.required && isEmpty) {
@@ -421,7 +420,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
         setRegistered(true);
         setPatientId(response.data?.id || null);
       }
-    } catch (error: any) {
+    } catch (error) {
       const payload: BackendErrorPayload | any = error?.response?.data;
       const { banner, fieldErrs } = prettifyServerErrors(payload || error?.message || error);
 
@@ -438,8 +437,8 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
         // Navigate to the first step that contains one of the errored fields
         // so the highlighted field is actually visible
         const firstErrField = Object.keys(fieldErrs)[0];
-        for (let i = 0; i < (formSteps as any[]).length; i++) {
-          if ((formSteps[i] as any).fields.some((f: any) => f.name === firstErrField)) {
+        for (let i = 0; i < formSteps.length; i++) {
+          if (formSteps[i].fields.some((f: any) => f.name === firstErrField)) {
             setStep(i);
             break;
           }

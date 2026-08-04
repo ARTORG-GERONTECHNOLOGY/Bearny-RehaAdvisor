@@ -95,7 +95,7 @@ const InterventionCalendar: React.FC<Props> = ({
     const planItems = Array.isArray(patientData?.interventions) ? patientData.interventions : [];
     const out: CalendarEvent[] = [];
 
-    for (const it of planItems as any[]) {
+    for (const it of planItems) {
       const dates: DateEntry[] = Array.isArray(it?.dates) ? it.dates : [];
       const durationMinRaw = Number(it?.duration);
       const durationMin =

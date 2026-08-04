@@ -548,7 +548,7 @@ const TherapistRecomendations: React.FC = observer(() => {
       }
 
       fetchTemplates(templateDiag, templateHorizon, activeTemplateId || undefined);
-    } catch (e: any) {
+    } catch (e) {
       const data = e?.response?.data || {};
       const base =
         (Array.isArray(data.non_field_errors) && data.non_field_errors.join(' ')) ||

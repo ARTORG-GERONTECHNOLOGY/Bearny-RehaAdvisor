@@ -75,7 +75,7 @@ export default function DownloadsPage() {
     try {
       await axios.post('/api/healthslider/auth/', { password: authPassword, email: authEmail });
       setStep('code');
-    } catch (e: any) {
+    } catch (e) {
       setAuthError(getApiErrorMessage(e, 'Authentication failed'));
     } finally {
       setAuthLoading(false);
@@ -89,7 +89,7 @@ export default function DownloadsPage() {
       const res = await axios.post('/api/healthslider/auth/verify/', { code: authCode });
       sessionStorage.setItem('healthslider_token', res.data.token);
       setHlsToken(res.data.token);
-    } catch (e: any) {
+    } catch (e) {
       setAuthError(getApiErrorMessage(e, 'Invalid code'));
     } finally {
       setAuthLoading(false);

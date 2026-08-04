@@ -130,8 +130,8 @@ export class PatientQuestionnairesStore {
       });
 
       const data = res?.data ?? {};
-      const rawQuestions = Array.isArray((data as any)?.questions)
-        ? (data as any).questions
+      const rawQuestions = Array.isArray(data?.questions)
+        ? data.questions
         : Array.isArray(data)
           ? data
           : [];
@@ -144,7 +144,7 @@ export class PatientQuestionnairesStore {
         this.feedbackQuestions = normalized;
         this.showFeedbackPopup = true;
       });
-    } catch (e: any) {
+    } catch (e) {
       Sentry.captureException(e, {
         extra: { context: 'openInterventionFeedback', patientId, interventionId },
       });
@@ -167,8 +167,8 @@ export class PatientQuestionnairesStore {
       });
 
       const data = res?.data ?? {};
-      const rawQuestions = Array.isArray((data as any)?.questions)
-        ? (data as any).questions
+      const rawQuestions = Array.isArray(data?.questions)
+        ? data.questions
         : Array.isArray(data)
           ? data
           : [];
@@ -177,15 +177,14 @@ export class PatientQuestionnairesStore {
         .map(normalizeQuestion)
         .filter((q) => q.questionKey);
 
-      const description =
-        typeof (data as any)?.description === 'string' ? (data as any).description : '';
+      const description = typeof data?.description === 'string' ? data.description : '';
 
       runInAction(() => {
         this.healthQuestions = normalized;
         this.healthDescription = description;
         this.showHealthPopup = normalized.length > 0;
       });
-    } catch (e: any) {
+    } catch (e) {
       Sentry.captureException(e, { extra: { context: 'loadHealthQuestionnaire', patientId } });
     }
   }
@@ -193,11 +192,11 @@ export class PatientQuestionnairesStore {
   async checkInitialQuestionnaire(patientId: string) {
     try {
       const res = await apiClient.get(`users/${patientId}/initial-questionaire/`);
-      const requires = Boolean((res?.data as any)?.requires_questionnaire);
+      const requires = Boolean(res?.data?.requires_questionnaire);
       runInAction(() => {
         this.showInitialPopup = requires;
       });
-    } catch (e: any) {
+    } catch (e) {
       Sentry.captureException(e, { extra: { context: 'checkInitialQuestionnaire', patientId } });
     }
   }

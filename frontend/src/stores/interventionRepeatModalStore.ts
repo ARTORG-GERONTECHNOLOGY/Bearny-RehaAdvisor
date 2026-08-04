@@ -51,7 +51,7 @@ export class InterventionRepeatModalStore {
     this.mode = mode;
 
     this.interval = defaults?.interval ?? 1;
-    this.unit = (defaults?.unit as any) ?? 'day';
+    this.unit = defaults?.unit ?? 'day';
     this.selectedDays = defaults?.selectedDays ?? [];
 
     this.endOption = defaults?.end?.type ?? 'never';
@@ -231,7 +231,7 @@ export class InterventionRepeatModalStore {
       }
 
       this.error = i18nT('Failed to add intervention.');
-    } catch (err: any) {
+    } catch (err) {
       const api = err?.response?.data;
       const fErrs = api?.field_errors
         ? Object.entries(api.field_errors).flatMap(([field, arr]) =>

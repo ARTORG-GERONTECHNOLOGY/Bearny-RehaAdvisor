@@ -143,17 +143,17 @@ export const buildHealthCsvBlob = (
   if (selections.restingHR)
     csv += emitScalar(
       'Resting Heart Rate',
-      fitIn.map((d) => ({ date: d.date, val: (d as any).resting_heart_rate }))
+      fitIn.map((d) => ({ date: d.date, val: d.resting_heart_rate }))
     );
   if (selections.steps)
     csv += emitScalar(
       'Steps',
-      fitIn.map((d) => ({ date: d.date, val: (d as any).steps }))
+      fitIn.map((d) => ({ date: d.date, val: d.steps }))
     );
   if (selections.activeMinutes)
     csv += emitScalar(
       'Active Minutes',
-      fitIn.map((d) => ({ date: d.date, val: (d as any).active_minutes }))
+      fitIn.map((d) => ({ date: d.date, val: d.active_minutes }))
     );
   if (selections.breathing)
     csv += emitScalar(
@@ -185,7 +185,7 @@ export const buildHealthCsvBlob = (
   if (selections.hrZones) {
     const rows: (string | number)[][] = [];
     fitIn.forEach((d) =>
-      ((d as any).heart_rate_zones || []).forEach((z: any) => {
+      (d.heart_rate_zones || []).forEach((z: any) => {
         rows.push([toEuroDate(d.date.slice(0, 10)), z.name, z.minutes, z.min ?? '', z.max ?? '']);
       })
     );
@@ -568,7 +568,7 @@ export const buildHealthPdf = async (
     const maxW = pageW - 60;
     const maxH = pageH - imgStartY - 30;
 
-    const vb = (svg as any).viewBox?.baseVal;
+    const vb = svg.viewBox?.baseVal;
     const sW = vb?.width || 800;
     const sH = vb?.height || 300;
     const scale = Math.min(maxW / sW, maxH / sH);

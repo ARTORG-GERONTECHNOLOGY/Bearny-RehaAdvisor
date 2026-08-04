@@ -671,7 +671,7 @@ export default function HealthSlider() {
 
       setTestMode(false);
       setMicError('');
-    } catch (e: any) {
+    } catch (e) {
       console.error('[HealthSlider] getUserMedia error', e);
 
       const name = e?.name || 'UnknownError';
@@ -729,7 +729,7 @@ export default function HealthSlider() {
 
         try {
           startItemRecorder();
-        } catch (e: any) {
+        } catch (e) {
           setRecorderWarning(
             `Mikrofon nicht mehr verfügbar (${e?.message || e}). Antworten können weiterhin ohne Aufnahme abgegeben werden.`
           );
@@ -752,7 +752,7 @@ export default function HealthSlider() {
         setTimeout(() => {
           try {
             startItemRecorder();
-          } catch (e: any) {
+          } catch (e) {
             setRecorderWarning(
               `Mikrofon nicht mehr verfügbar (${e?.message || e}). Antworten können weiterhin ohne Aufnahme abgegeben werden.`
             );
@@ -765,7 +765,7 @@ export default function HealthSlider() {
         setShowSummary(true);
         stopAll();
       }
-    } catch (e: any) {
+    } catch (e) {
       const meta = {
         participantId: patientId,
         sessionId: sessionIdRef.current,
@@ -785,7 +785,7 @@ export default function HealthSlider() {
 
       try {
         startItemRecorder();
-      } catch (e: any) {
+      } catch (e) {
         setRecorderWarning(
           `Mikrofon nicht mehr verfügbar (${e?.message || e}). Antworten können weiterhin ohne Aufnahme abgegeben werden.`
         );

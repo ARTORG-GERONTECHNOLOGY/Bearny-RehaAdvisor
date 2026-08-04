@@ -112,7 +112,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
       setFieldErrors(res.data.field_errors || {});
       setNonFieldErrors(res.data.non_field_errors || []);
       setDetails(res.data.details || null);
-    } catch (err: any) {
+    } catch (err) {
       const backend = err?.response?.data;
 
       setError(getApiErrorMessage(err, t('An unexpected error occurred.')));
@@ -149,7 +149,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
             placeholder={t('Select options')}
             value={(fieldValue || []).map((val: string) => ({ value: val, label: t(val) }))}
             onChange={(selected) => handleMultiSelectChange(selected, field.be_name)}
-            styles={selectStyles as any}
+            styles={selectStyles}
             menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
             aria-invalid={!!errors?.length}
           />

@@ -267,7 +267,7 @@ const TemplateAssignModal: React.FC<Props> = ({
       } else {
         setError(t('Failed to save template assignment.'));
       }
-    } catch (e: any) {
+    } catch (e) {
       applyBackendErrors(e?.response?.data || {});
     } finally {
       setSubmitting(false);

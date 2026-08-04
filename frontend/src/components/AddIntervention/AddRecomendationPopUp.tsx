@@ -525,7 +525,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
         }
 
         applyBackendErrors(res.data);
-      } catch (err: any) {
+      } catch (err) {
         if (axios.isAxiosError(err) && err.response?.data) {
           applyBackendErrors(err.response.data);
         } else {

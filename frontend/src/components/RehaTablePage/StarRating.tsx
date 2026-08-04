@@ -68,8 +68,8 @@ const StarRating: React.FC<StarRatingProps> = ({
  */
 export const getRatingFromDateEntry = (dateEntry: { feedback?: any[] }): number | null => {
   const fbs = Array.isArray(dateEntry.feedback) ? dateEntry.feedback : [];
-  for (const fb of fbs as any[]) {
-    const answers = Array.isArray(fb?.answer) ? (fb.answer as any[]) : [];
+  for (const fb of fbs) {
+    const answers = Array.isArray(fb?.answer) ? fb.answer : [];
     for (const answer of answers) {
       const translations = Array.isArray(answer?.translations) ? answer.translations : [];
       const isStar = translations.some((tr: any) => String(tr?.text || '').includes('★'));

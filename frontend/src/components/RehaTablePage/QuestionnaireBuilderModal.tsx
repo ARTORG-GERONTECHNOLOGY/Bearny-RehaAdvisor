@@ -121,7 +121,7 @@ const QuestionnaireBuilderModal: React.FC<Props> = ({ show, onHide, onSuccess })
       onSuccess?.();
       reset();
       onHide();
-    } catch (e: any) {
+    } catch (e) {
       setError(getApiErrorMessage(e, t('Failed to create questionnaire.')));
     } finally {
       setSubmitting(false);

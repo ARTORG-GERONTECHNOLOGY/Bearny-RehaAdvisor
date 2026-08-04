@@ -245,7 +245,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
         setSubmitting(false);
         onHide();
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error('apply_template error:', e?.response?.data || e);
       applyErrors(e?.response?.data || {});
       setSubmitting(false);

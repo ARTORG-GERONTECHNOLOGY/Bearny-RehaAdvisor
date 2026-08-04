@@ -224,7 +224,7 @@ class AuthStore {
       await this.fetchAndStoreUserInfo(this.id);
 
       Sentry.logger.info('User logged in', { userId: this.id, userType: this.userType });
-    } catch (err: any) {
+    } catch (err) {
       runInAction(() => {
         this.setLoginError(getApiErrorMessage(err, 'Login failed'));
         this.isAuthenticated = false;

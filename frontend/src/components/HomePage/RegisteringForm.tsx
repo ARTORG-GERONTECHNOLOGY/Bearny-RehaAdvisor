@@ -462,7 +462,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
         const message = extractServerMessage(res.data, t('Registration failed.'));
         setFormError(message);
       }
-    } catch (err: any) {
+    } catch (err) {
       const status = err?.response?.status;
       const data = err?.response?.data;
 

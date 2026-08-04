@@ -58,7 +58,7 @@ const RescheduleInterventionSheet: React.FC<RescheduleInterventionSheetProps> = 
     try {
       await onSubmit(newDate);
       onClose();
-    } catch (e: any) {
+    } catch (e) {
       const backendMessage = e?.response?.data?.message;
       setError(backendMessage || (e instanceof Error ? e.message : t('failedReschedule')));
     } finally {

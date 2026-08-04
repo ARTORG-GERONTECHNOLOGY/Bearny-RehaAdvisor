@@ -81,7 +81,7 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
       } else {
         setError(t('Unsupported account type.'));
       }
-    } catch (err: any) {
+    } catch (err) {
       handleApiError(err, authStore);
       setError(err?.message || t('Login failed. Please try again.'));
     } finally {
@@ -106,7 +106,7 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
       } else {
         setError(t('Verification failed. Please try again.'));
       }
-    } catch (err: any) {
+    } catch (err) {
       const backendMsg = extractBackendMessage(err?.response?.data);
       setError(backendMsg ? t(backendMsg) : t('Verification failed. Please try again.'));
     }

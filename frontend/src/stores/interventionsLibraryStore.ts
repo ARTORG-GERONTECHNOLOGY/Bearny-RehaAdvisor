@@ -120,8 +120,8 @@ const normalizeIntervention = (raw: unknown): UnknownRecord => {
   n.setting = Array.isArray(n.setting) ? n.setting : [];
 
   // star rating aggregation from backend
-  n.avg_rating = typeof (n as any).avg_rating === 'number' ? (n as any).avg_rating : null;
-  n.rating_count = typeof (n as any).rating_count === 'number' ? (n as any).rating_count : 0;
+  n.avg_rating = typeof n.avg_rating === 'number' ? n.avg_rating : null;
+  n.rating_count = typeof n.rating_count === 'number' ? n.rating_count : 0;
 
   return n;
 };

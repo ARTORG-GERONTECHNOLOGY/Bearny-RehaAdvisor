@@ -88,7 +88,7 @@ export class InterventionsImportStore {
         // Accept either {created,updated,...} or {result:{...}}
         this.result = (res.data?.result ?? res.data ?? null) as ImportResult;
       });
-    } catch (e: any) {
+    } catch (e) {
       const message = getFriendlyApiErrorMessage(e, {
         fallback: i18nT('Import failed. Please try again.'),
         payloadTooLarge: i18nT(

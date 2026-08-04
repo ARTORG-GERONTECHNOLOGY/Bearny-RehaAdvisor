@@ -14,7 +14,7 @@ interface PatientInfoProfileCardProps {
 }
 
 const getContactsFields = (store: PatientPopupStore): PatientFieldConfig[] => {
-  const clinicProjects = (config as any).therapistInfo?.clinic_projects || {};
+  const clinicProjects = config.therapistInfo?.clinic_projects || {};
   return [
     { be_name: 'last_online_contact', label: 'Last online visit', type: 'date', readOnly: true },
     { be_name: 'last_clinic_visit', label: 'Last clinic visit', type: 'date' },
@@ -75,7 +75,7 @@ const PatientInfoProfileCard: React.FC<PatientInfoProfileCardProps> = observer((
             )}
           </div>
 
-          {(config as any).PatientForm.map((section: any, idx: number) => (
+          {config.PatientForm.map((section: any, idx: number) => (
             <div key={idx} className="mb-4">
               <Separator className="mb-4" />
               <div className="mb-2">{t(section.title)}</div>

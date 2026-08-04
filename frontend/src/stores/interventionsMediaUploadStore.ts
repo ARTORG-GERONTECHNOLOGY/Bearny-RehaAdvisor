@@ -109,7 +109,7 @@ export class InterventionsMediaUploadStore {
       runInAction(() => {
         this.results = allResults.length > 0 ? allResults : null;
       });
-    } catch (e: any) {
+    } catch (e) {
       const message = getFriendlyApiErrorMessage(e, {
         fallback: i18nT('Upload failed. Please try again.'),
         payloadTooLarge: i18nT(
