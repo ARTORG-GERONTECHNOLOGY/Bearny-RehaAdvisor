@@ -52,7 +52,7 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
     try {
       await onSubmit(Number(weightInput), entryDate);
       onClose();
-    } catch (e) {
+    } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t('failedSave'));
     } finally {
       setIsSubmitting(false);

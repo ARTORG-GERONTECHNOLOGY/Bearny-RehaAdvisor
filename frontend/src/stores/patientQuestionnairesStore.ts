@@ -144,7 +144,7 @@ export class PatientQuestionnairesStore {
         this.feedbackQuestions = normalized;
         this.showFeedbackPopup = true;
       });
-    } catch (e) {
+    } catch (e: unknown) {
       Sentry.captureException(e, {
         extra: { context: 'openInterventionFeedback', patientId, interventionId },
       });
@@ -184,7 +184,7 @@ export class PatientQuestionnairesStore {
         this.healthDescription = description;
         this.showHealthPopup = normalized.length > 0;
       });
-    } catch (e) {
+    } catch (e: unknown) {
       Sentry.captureException(e, { extra: { context: 'loadHealthQuestionnaire', patientId } });
     }
   }
@@ -196,7 +196,7 @@ export class PatientQuestionnairesStore {
       runInAction(() => {
         this.showInitialPopup = requires;
       });
-    } catch (e) {
+    } catch (e: unknown) {
       Sentry.captureException(e, { extra: { context: 'checkInitialQuestionnaire', patientId } });
     }
   }

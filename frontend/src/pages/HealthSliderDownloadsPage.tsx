@@ -75,7 +75,7 @@ export default function DownloadsPage() {
     try {
       await axios.post('/api/healthslider/auth/', { password: authPassword, email: authEmail });
       setStep('code');
-    } catch (e) {
+    } catch (e: unknown) {
       setAuthError(getApiErrorMessage(e, 'Authentication failed'));
     } finally {
       setAuthLoading(false);
@@ -89,7 +89,7 @@ export default function DownloadsPage() {
       const res = await axios.post('/api/healthslider/auth/verify/', { code: authCode });
       sessionStorage.setItem('healthslider_token', res.data.token);
       setHlsToken(res.data.token);
-    } catch (e) {
+    } catch (e: unknown) {
       setAuthError(getApiErrorMessage(e, 'Invalid code'));
     } finally {
       setAuthLoading(false);
@@ -184,7 +184,7 @@ export default function DownloadsPage() {
             headers: authHeaders(),
           });
           zipData[fileName] = new Uint8Array(audioRes.data);
-        } catch (e) {
+        } catch (e: unknown) {
           console.error('Audio download failed', item.id, e);
         }
       }

@@ -68,7 +68,7 @@ export function useNotifications() {
         });
         console.log('[Notifications] Periodic sync registered for twice-weekly reminders');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('[Notifications] Failed to register periodic sync:', error);
     }
   };
@@ -81,7 +81,7 @@ export function useNotifications() {
         await registration.periodicSync.unregister('twice-weekly-reminder');
         console.log('[Notifications] Periodic sync unregistered');
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('[Notifications] Failed to unregister periodic sync:', error);
     }
   };

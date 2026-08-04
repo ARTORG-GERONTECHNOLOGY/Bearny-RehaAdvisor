@@ -40,7 +40,7 @@ export function usePatientHealthExport(patientId: string | null) {
       const doc = buildPatientHealthPdf(store, from, to, selections, t);
       doc.save(`HealthData_${toLocalYMD(from)}_to_${toLocalYMD(to)}.pdf`);
       setShowModal(false);
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t('Failed to export health data.'));
     } finally {
       setExporting(false);

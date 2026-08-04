@@ -173,7 +173,7 @@ class AuthStore {
           localStorage.setItem('project', this.project);
         }
       });
-    } catch (err) {
+    } catch (err: unknown) {
       console.warn('Failed to fetch user info:', err);
     }
   }
@@ -224,7 +224,7 @@ class AuthStore {
       await this.fetchAndStoreUserInfo(this.id);
 
       Sentry.logger.info('User logged in', { userId: this.id, userType: this.userType });
-    } catch (err) {
+    } catch (err: unknown) {
       runInAction(() => {
         this.setLoginError(getApiErrorMessage(err, 'Login failed'));
         this.isAuthenticated = false;

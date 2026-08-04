@@ -48,7 +48,7 @@ const ManualStepsSheet: React.FC<ManualStepsSheetProps> = ({
     try {
       await onSubmit(Number(stepsInput));
       onClose();
-    } catch (e) {
+    } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t('Failed to save steps. Please try again.'));
     } finally {
       setIsSubmitting(false);

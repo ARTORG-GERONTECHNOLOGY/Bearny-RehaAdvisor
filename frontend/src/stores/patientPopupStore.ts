@@ -242,7 +242,7 @@ export class PatientPopupStore {
         this.passwordConfirm = '';
       });
       return true;
-    } catch (err) {
+    } catch (err: unknown) {
       runInAction(() => {
         this.passwordError = getApiErrorMessage(err, t('Failed to reset password.'));
       });
@@ -420,7 +420,7 @@ export class PatientPopupStore {
 
       await this.fetchRedcapIfPossible(t);
       await this.fetchThresholds(t);
-    } catch (err) {
+    } catch (err: unknown) {
       runInAction(() => {
         this.error = getApiErrorMessage(err, t('Failed to load patient.'));
       });
@@ -512,7 +512,7 @@ export class PatientPopupStore {
         this.thresholdReason = '';
         this.thresholdEffectiveFromISO = null;
       });
-    } catch (err) {
+    } catch (err: unknown) {
       runInAction(() => {
         this.thresholds = this.thresholds || normalizeThresholds(DEFAULT_THRESHOLDS);
         this.thresholdsHistory = this.thresholdsHistory || [];
@@ -546,7 +546,7 @@ export class PatientPopupStore {
 
       await this.fetchThresholds(t);
       return true;
-    } catch (err) {
+    } catch (err: unknown) {
       runInAction(() => {
         this.thresholdsError = getApiErrorMessage(err, t('Failed to save thresholds.'));
       });
@@ -642,7 +642,7 @@ export class PatientPopupStore {
       });
 
       return true;
-    } catch (err) {
+    } catch (err: unknown) {
       runInAction(() => {
         this.error = getApiErrorMessage(err, t('Failed to save patient.'));
       });
@@ -663,7 +663,7 @@ export class PatientPopupStore {
       // NOTE: adjust endpoint if yours differs
       await apiClient.delete(`/users/${this.patientId}/profile/`);
       return true;
-    } catch (err) {
+    } catch (err: unknown) {
       runInAction(() => {
         this.error = getApiErrorMessage(err, t('Failed to delete patient.'));
       });

@@ -388,7 +388,7 @@ const FeedbackPopup: React.FC<Props> = ({
 
       forceStopAllMedia();
       onClose();
-    } catch (e) {
+    } catch (e: unknown) {
       console.error('Error submitting feedback:', e);
       setError(String(t('Error submitting feedback. Please try again.')));
     } finally {

@@ -104,7 +104,7 @@ const QuestionnairesContent: React.FC<QuestionnairesContentProps> = ({ patientId
         questions: Array.isArray(q.questions) ? q.questions : [],
       }));
       setQuestionnaires(items);
-    } catch (e) {
+    } catch (e: unknown) {
       setQuestionnaires([]);
       setError(extractApiError(e, String(t('Failed to load questionnaires.'))));
     }
@@ -117,7 +117,7 @@ const QuestionnairesContent: React.FC<QuestionnairesContentProps> = ({ patientId
       const res = await apiClient.get(`/questionnaires/patient/${patientId}/`);
       const arr = Array.isArray(res.data) ? res.data : [];
       setAssignedQuestionnaires(arr as QAssigned[]);
-    } catch (e) {
+    } catch (e: unknown) {
       setAssignedQuestionnaires([]);
       setError(extractApiError(e, String(t('Failed to load patient questionnaires.'))));
     }
@@ -165,7 +165,7 @@ const QuestionnairesContent: React.FC<QuestionnairesContentProps> = ({ patientId
           questionnaireId: qid,
         });
         await fetchAssignedQuestionnaires();
-      } catch (e) {
+      } catch (e: unknown) {
         setError(extractApiError(e, String(t('Failed to remove questionnaire.'))));
       }
     },

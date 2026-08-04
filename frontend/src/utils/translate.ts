@@ -93,7 +93,7 @@ async function performTranslate(text: string, target: string): Promise<Translate
       translatedText: data.translatedText,
       detectedSourceLanguage,
     };
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('[translateText] Error:', err);
     return {
       translatedText: text,

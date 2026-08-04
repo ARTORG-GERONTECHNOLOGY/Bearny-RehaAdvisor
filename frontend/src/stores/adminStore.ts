@@ -13,7 +13,7 @@ class AdminStore {
     try {
       const response = await apiClient.get('/admin/pending-users');
       this.pendingEntries = response.data.pending_users; // ✅ Correct mapping
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to fetch pending entries:', err);
       this.error = 'Failed to fetch pending entries. Please try again later.';
     }
@@ -23,7 +23,7 @@ class AdminStore {
     try {
       await apiClient.post('/admin/accept-user/', { userId: entryId });
       this.fetchPendingEntries(); // refresh the list after acceptance
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error accepting entry:', err);
       this.error = 'Failed to accept entry. Please try again later.';
     }
@@ -33,7 +33,7 @@ class AdminStore {
     try {
       await apiClient.post('/admin/decline-user/', { userId: entryId });
       this.fetchPendingEntries(); // refresh the list after decline
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error declining entry:', err);
       this.error = 'Failed to decline entry. Please try again later.';
     }

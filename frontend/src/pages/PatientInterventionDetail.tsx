@@ -391,7 +391,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
           }
         }
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Toggle completed failed:', err);
     } finally {
       setBusyKey(null);

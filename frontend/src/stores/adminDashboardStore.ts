@@ -33,7 +33,7 @@ export class AdminDashboardStore {
 
     try {
       await adminStore.fetchPendingEntries();
-    } catch (err) {
+    } catch (err: unknown) {
       // eslint-disable-next-line no-console
       console.error('Error fetching pending entries:', err);
       runInAction(() => {
@@ -50,7 +50,7 @@ export class AdminDashboardStore {
     this.error = null;
     try {
       await adminStore.acceptEntry(entryId);
-    } catch (err) {
+    } catch (err: unknown) {
       // eslint-disable-next-line no-console
       console.error('Error accepting entry:', err);
       runInAction(() => {
@@ -68,7 +68,7 @@ export class AdminDashboardStore {
       runInAction(() => {
         this.closeDeclineConfirm();
       });
-    } catch (err) {
+    } catch (err: unknown) {
       // eslint-disable-next-line no-console
       console.error('Error declining entry:', err);
       runInAction(() => {

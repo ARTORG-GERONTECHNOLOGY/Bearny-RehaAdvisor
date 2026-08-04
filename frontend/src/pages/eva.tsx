@@ -120,7 +120,7 @@ export default function HealthSlider() {
             rawAnswers
           );
         }
-      } catch (e) {
+      } catch (e: unknown) {
         corrupted = true;
         console.warn(
           '[HealthSlider] Corrupted localStorage JSON for survey_answers:',

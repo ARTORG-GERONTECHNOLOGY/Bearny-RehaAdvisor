@@ -65,7 +65,7 @@ class PatientVitalsStore {
         this.successMsg = "Today's vitals were saved successfully.";
         this.exists = true; // hide prompt after saving
       });
-    } catch (e) {
+    } catch (e: unknown) {
       Sentry.captureException(e, { extra: { context: 'patientVitalsStore.submit', userId } });
       runInAction(() => {
         this.error = getApiErrorMessage(e, "Failed to save today's vitals. Please try again.");

@@ -139,7 +139,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
     if (!validateProfile()) return;
     try {
       await userProfileStore.updateProfile(formData as any);
-    } catch (err) {
+    } catch (err: unknown) {
       setError(getApiErrorMessage(err, t('Update failed')));
     }
   };
@@ -189,7 +189,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
         )
       );
       setHasPending(true);
-    } catch (err) {
+    } catch (err: unknown) {
       setReqError(getApiErrorMessage(err, t('Failed to submit request.')));
     } finally {
       setReqSubmitting(false);

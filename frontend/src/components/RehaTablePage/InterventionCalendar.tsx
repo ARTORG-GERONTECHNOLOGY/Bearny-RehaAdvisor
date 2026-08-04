@@ -199,7 +199,7 @@ const InterventionCalendar: React.FC<Props> = ({
               start
             );
             if (ok === false) return;
-          } catch (err) {
+          } catch (err: unknown) {
             console.error('Failed to reschedule intervention:', err);
           } finally {
             setPendingMove(null);

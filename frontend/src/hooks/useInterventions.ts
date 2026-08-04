@@ -71,7 +71,7 @@ export const useInterventions = (date: Date) => {
           dateKey,
           i18n.language
         );
-      } catch (e) {
+      } catch (e: unknown) {
         console.error('[openFeedbackFor] failed:', e);
         try {
           patientQuestionnairesStore.closeFeedback();
@@ -102,7 +102,7 @@ export const useInterventions = (date: Date) => {
         if (res?.completed) {
           void openFeedbackFor(rec.intervention_id, res.dateKey);
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Toggle completed failed:', err);
         setBusyKey(null);
       }

@@ -215,7 +215,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
         setTherapistPatients(patientOptions);
         setPatientsLoaded(true);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Failed to fetch patients:', err);
         setPatientsLoadError(t('Failed to fetch patients.'));
         setTherapistPatients([]);
@@ -525,7 +525,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
         }
 
         applyBackendErrors(res.data);
-      } catch (err) {
+      } catch (err: unknown) {
         if (axios.isAxiosError(err) && err.response?.data) {
           applyBackendErrors(err.response.data);
         } else {

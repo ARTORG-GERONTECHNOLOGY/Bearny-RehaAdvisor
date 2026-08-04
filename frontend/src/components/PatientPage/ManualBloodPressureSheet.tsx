@@ -55,7 +55,7 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
     try {
       await onSubmit(Number(bpSysInput), Number(bpDiaInput), entryDate);
       onClose();
-    } catch (e) {
+    } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t('failedSave'));
     } finally {
       setIsSubmitting(false);
