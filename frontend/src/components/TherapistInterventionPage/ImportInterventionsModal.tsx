@@ -366,10 +366,10 @@ const ImportInterventionsModal: React.FC<Props> = observer(({ show, onHide, onSu
                     {(() => {
                       const errorsCount =
                         r.errors_count ??
-                        (r.errors || []).filter((e: any) => e.severity !== 'warning').length;
+                        (r.errors || []).filter((e) => e.severity !== 'warning').length;
                       const warningsCount =
                         r.warnings ??
-                        (r.errors || []).filter((e: any) => e.severity === 'warning').length;
+                        (r.errors || []).filter((e) => e.severity === 'warning').length;
                       return (
                         <>
                           {errorsCount > 0 && (

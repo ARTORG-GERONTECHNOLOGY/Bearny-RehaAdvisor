@@ -85,13 +85,13 @@ interface InterventionLeftPanelProps {
 }
 
 /** ───────────────── helpers (new model) ───────────────── */
-const norm = (v: any) => (typeof v === 'string' ? v.trim() : '');
-const lower = (v: any) => norm(v).toLowerCase();
+const norm = (v) => (typeof v === 'string' ? v.trim() : '');
+const lower = (v) => norm(v).toLowerCase();
 
 const sameText = (a: string, b: string) =>
   lower(a).replace(/\s+/g, ' ') === lower(b).replace(/\s+/g, ' ');
 
-const toLangList = (x: any): string[] => {
+const toLangList = (x): string[] => {
   if (Array.isArray(x)) return x.map((v) => String(v).trim().toLowerCase()).filter(Boolean);
   return [];
 };
@@ -166,7 +166,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
   };
 
   const renderInterventionCard = (
-    intervention: any,
+    intervention,
     opts: {
       inAllTab?: boolean;
       showScheduleAgain?: boolean;
@@ -183,7 +183,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
     const patientHasIntervention = patientInterventionsById.get(intervention._id) || null;
     const assigned = !!patientHasIntervention;
     const hasFuture =
-      patientHasIntervention?.dates?.some((d: any) => new Date(d.datetime) > new Date()) || false;
+      patientHasIntervention?.dates?.some((d) => new Date(d.datetime) > new Date()) || false;
 
     const langs = toLangList(intervention?.available_languages);
     const langLabel = String(intervention?.language || '').toUpperCase();
@@ -451,7 +451,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                   label: t(tag),
                 }))}
                 value={tagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
-                onChange={(opts) => setTagFilter((opts || []).map((opt: any) => opt.value))}
+                onChange={(opts) => setTagFilter((opts || []).map((opt) => opt.value))}
                 placeholder={t('Filter by Tags')}
                 styles={selectStyles}
                 menuPortalTarget={document.body}
@@ -467,7 +467,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                   label: t(b),
                 }))}
                 value={benefitForFilter.map((b) => ({ value: b, label: t(b) }))}
-                onChange={(opts) => setBenefitForFilter((opts || []).map((opt: any) => opt.value))}
+                onChange={(opts) => setBenefitForFilter((opts || []).map((opt) => opt.value))}
                 placeholder={t('Filter by Benefit')}
                 styles={selectStyles}
                 menuPortalTarget={document.body}
@@ -480,7 +480,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                 isMulti
                 options={languageOptions}
                 value={languageFilter.map((l) => ({ value: l, label: l.toUpperCase() }))}
-                onChange={(opts) => setLanguageFilter((opts || []).map((opt: any) => opt.value))}
+                onChange={(opts) => setLanguageFilter((opts || []).map((opt) => opt.value))}
                 placeholder={t('Filter by Language')}
                 styles={selectStyles}
                 menuPortalTarget={document.body}
@@ -522,7 +522,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
             {activeItems.length === 0 ? (
               <div className="text-zinc-500">{t('No active interventions.')}</div>
             ) : (
-              activeItems.map((it: any) => renderInterventionCard(it))
+              activeItems.map((it) => renderInterventionCard(it))
             )}
           </CardContent>
         </Card>
@@ -538,7 +538,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
             {pastItems.length === 0 ? (
               <div className="text-zinc-500">{t('No past interventions.')}</div>
             ) : (
-              pastItems.map((it: any) => renderInterventionCard(it, { showScheduleAgain: true }))
+              pastItems.map((it) => renderInterventionCard(it, { showScheduleAgain: true }))
             )}
           </CardContent>
         </Card>
@@ -556,7 +556,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
               {visibleItems.length === 0 ? (
                 <div className="text-zinc-500">{t('No interventions match the filters.')}</div>
               ) : (
-                visibleItems.map((it: any) => renderInterventionCard(it, { inAllTab: true }))
+                visibleItems.map((it) => renderInterventionCard(it, { inAllTab: true }))
               )}
             </div>
           </CardContent>

@@ -33,9 +33,8 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const { t } = useTranslation();
 
   // Config-driven steps & maps
-  const formSteps = (config as any).TherapistForm;
-  const specialityDiagnosisMap: Record<string, string[]> =
-    (config as any).patientInfo?.functionPat || {};
+  const formSteps = config.TherapistForm;
+  const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo?.functionPat || {};
 
   const therapistInfo = (config as any).therapistInfo || {};
   const therapistSpecializations: string[] = therapistInfo.specializations || [];
@@ -321,7 +320,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     const newErrors: Record<string, string> = {};
     const fields = formSteps[step]?.fields || [];
 
-    fields.forEach((field: any) => {
+    fields.forEach((field) => {
       const val = formData[field.name];
 
       if (field.required && (!val || (Array.isArray(val) && val.length === 0))) {
@@ -329,35 +328,35 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       }
     });
 
-    if (fields.some((f: any) => f.name === 'phone')) {
+    if (fields.some((f) => f.name === 'phone')) {
       const phone = String(formData.phone || '');
       if (phone && !/^\d{8,15}$/.test(phone)) {
         newErrors.phone = t('Invalid phone number. Enter 8-15 digits only.');
       }
     }
 
-    if (fields.some((f: any) => f.name === 'email')) {
+    if (fields.some((f) => f.name === 'email')) {
       const email = String(formData.email || '');
       if (email && !isValidEmailStrict(email)) {
         newErrors.email = t('Invalid email address.');
       }
     }
 
-    if (fields.some((f: any) => f.name === 'firstName')) {
+    if (fields.some((f) => f.name === 'firstName')) {
       const fn = String(formData.firstName || '');
       if (fn && !isValidHumanName(fn)) {
         newErrors.firstName = t('Please enter a valid first name.');
       }
     }
 
-    if (fields.some((f: any) => f.name === 'lastName')) {
+    if (fields.some((f) => f.name === 'lastName')) {
       const ln = String(formData.lastName || '');
       if (ln && !isValidHumanName(ln)) {
         newErrors.lastName = t('Please enter a valid last name.');
       }
     }
 
-    if (fields.some((f: any) => f.name === 'password')) {
+    if (fields.some((f) => f.name === 'password')) {
       const pwd = String(formData.password || '');
       if (!pwdRegex.test(pwd)) {
         newErrors.password = t(
@@ -370,7 +369,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     }
 
     // ✅ NEW: projects validation only when field is present in step
-    if (fields.some((f: any) => f.name === 'projects')) {
+    if (fields.some((f) => f.name === 'projects')) {
       const clinics = Array.isArray(formData.clinic) ? (formData.clinic as string[]) : [];
       const projects = Array.isArray(formData.projects) ? (formData.projects as string[]) : [];
 
@@ -401,8 +400,8 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
     // Navigate to the first step that has an errored field
     const firstErrField = Object.keys(mapped)[0];
     if (firstErrField) {
-      for (let i = 0; i < (formSteps as any[]).length; i++) {
-        if ((formSteps[i] as any).fields.some((f: any) => f.name === firstErrField)) {
+      for (let i = 0; i < formSteps.length; i++) {
+        if (formSteps[i].fields.some((f) => f.name === firstErrField)) {
           setStep(i);
           break;
         }
@@ -415,7 +414,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       .join(' — ');
   };
 
-  const extractServerMessage = (data: any, fallback: string): string => {
+  const extractServerMessage = (data, fallback: string): string => {
     if (typeof data === 'string') return t(data);
     if (data && typeof data === 'object') {
       if (typeof data.error === 'string') return t(data.error);
@@ -426,7 +425,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       }
       for (const v of Object.values(data)) {
         if (typeof v === 'string') return t(v);
-        if (Array.isArray(v) && v.length) return t(String((v as any[])[0]));
+        if (Array.isArray(v) && v.length) return t(String(v[0]));
       }
     }
     return fallback;
@@ -578,7 +577,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
             <fieldset disabled={loading || !!successMsg}>
               <h4 className="text-lg font-semibold mb-3">{t(formSteps[step]?.title)}</h4>
 
-              {currentFields.map((field: any) => {
+              {currentFields.map((field) => {
                 const isRequired = !!field.required;
                 const labelText = (
                   <>

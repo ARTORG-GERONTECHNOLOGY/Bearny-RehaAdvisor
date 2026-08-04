@@ -158,18 +158,18 @@ export const buildHealthCsvBlob = (
   if (selections.breathing)
     csv += emitScalar(
       'Breathing Rate',
-      fitIn.map((d: any) => ({ date: d.date, val: d.breathing_rate?.breathingRate }))
+      fitIn.map((d) => ({ date: d.date, val: d.breathing_rate?.breathingRate }))
     );
   if (selections.wearTime)
     csv += emitScalar(
       'Wear Time (min)',
-      fitIn.map((d: any) => ({ date: d.date, val: d.wear_time_minutes }))
+      fitIn.map((d) => ({ date: d.date, val: d.wear_time_minutes }))
     );
 
   if (selections.sleep) {
     const rows = fitIn
-      .filter((d: any) => d.sleep?.sleep_duration != null)
-      .map((d: any) => {
+      .filter((d) => d.sleep?.sleep_duration != null)
+      .map((d) => {
         const h = (d.sleep.sleep_duration / 3600000).toFixed(2);
         return [
           toEuroDate(d.date.slice(0, 10)),
@@ -185,7 +185,7 @@ export const buildHealthCsvBlob = (
   if (selections.hrZones) {
     const rows: (string | number)[][] = [];
     fitIn.forEach((d) =>
-      (d.heart_rate_zones || []).forEach((z: any) => {
+      (d.heart_rate_zones || []).forEach((z) => {
         rows.push([toEuroDate(d.date.slice(0, 10)), z.name, z.minutes, z.min ?? '', z.max ?? '']);
       })
     );
@@ -195,16 +195,16 @@ export const buildHealthCsvBlob = (
 
   if (selections.weight) {
     const rows = fitIn
-      .filter((d: any) => d.weight_kg != null)
-      .map((d: any) => [toEuroDate(d.date.slice(0, 10)), d.weight_kg as number])
+      .filter((d) => d.weight_kg != null)
+      .map((d) => [toEuroDate(d.date.slice(0, 10)), d.weight_kg as number])
       .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
     if (rows.length) csv += emitRows2(['Date', 'Weight (kg)'], rows);
   }
 
   if (selections.bloodPressure) {
     const rows = fitIn
-      .filter((d: any) => d.bp_sys != null || d.bp_dia != null)
-      .map((d: any) => [
+      .filter((d) => d.bp_sys != null || d.bp_dia != null)
+      .map((d) => [
         toEuroDate(d.date.slice(0, 10)),
         d.bp_sys != null ? d.bp_sys : '',
         d.bp_dia != null ? d.bp_dia : '',
@@ -217,7 +217,7 @@ export const buildHealthCsvBlob = (
     const rows: (string | number | null)[][] = [];
     fitIn.forEach((d: any) => {
       const sessions = d.exercise?.sessions || [];
-      sessions.forEach((s: any) => {
+      sessions.forEach((s) => {
         const durMin = s.duration != null ? (s.duration as number) / 60000 : null;
         rows.push([
           toEuroDate(d.date.slice(0, 10)),

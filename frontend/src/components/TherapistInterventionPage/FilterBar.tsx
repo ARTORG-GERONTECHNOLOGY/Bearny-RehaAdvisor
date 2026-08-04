@@ -224,7 +224,7 @@ const FilterBar: React.FC<Props> = ({
   );
 
   return (
-    <div ref={rootRef as any} aria-label={t('Filter Interventions')}>
+    <div ref={rootRef} aria-label={t('Filter Interventions')}>
       {/* top row */}
       <div className="flex items-center gap-2">
         <Field className="grow">

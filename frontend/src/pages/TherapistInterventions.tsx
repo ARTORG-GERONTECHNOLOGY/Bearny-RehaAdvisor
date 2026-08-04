@@ -63,7 +63,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/in
 import { SearchIcon } from 'lucide-react';
 
 // ---------------- Template helpers (unchanged logic, moved out of render) ----------------
-const normalizeSegment = (segOrSchedule: any) => {
+const normalizeSegment = (segOrSchedule) => {
   const raw = segOrSchedule?.schedule ? segOrSchedule.schedule : segOrSchedule || {};
   const start_day = segOrSchedule?.from_day ?? raw.start_day ?? 1;
   const end_day = raw.end_day ?? segOrSchedule?.end_day;
@@ -80,14 +80,14 @@ const normalizeSegment = (segOrSchedule: any) => {
 
 const getSegments = (it: TemplateItem) => {
   const segs = (it as any).segments;
-  if (Array.isArray(segs) && segs.length) return segs.map((s: any) => normalizeSegment(s));
-  const s = normalizeSegment((it as any).schedule);
+  if (Array.isArray(segs) && segs.length) return segs.map((s) => normalizeSegment(s));
+  const s = normalizeSegment(it.schedule);
   return [s];
 };
 
 const countOccurrencesInRange = (it: TemplateItem, fromDay: number, toDay?: number) => {
-  const occ = (it as any).occurrences || [];
-  return occ.filter((o: any) => o.day >= fromDay && (toDay ? o.day <= toDay : true)).length;
+  const occ = it.occurrences || [];
+  return occ.filter((o) => o.day >= fromDay && (toDay ? o.day <= toDay : true)).length;
 };
 
 const defaultLibraryFilters: LibraryFiltersState = {
@@ -397,7 +397,7 @@ const TherapistRecomendations: React.FC = observer(() => {
         const q = new URLSearchParams();
         if (diag) q.set('diagnosis', diag);
 
-        let res: any;
+        let res;
         if (namedId) {
           q.set('horizon_days', String(horizon || 84));
           res = await apiClient.get<TemplatePayload>(
@@ -713,7 +713,7 @@ const TherapistRecomendations: React.FC = observer(() => {
     [templateItemsByIntervention, templateDiag]
   );
 
-  const segmentSummary = (seg: any, it: TemplateItem) => {
+  const segmentSummary = (seg, it: TemplateItem) => {
     const daysStr =
       Array.isArray(seg.selectedDays) && seg.selectedDays.length
         ? ` • ${seg.selectedDays.join(', ')}`

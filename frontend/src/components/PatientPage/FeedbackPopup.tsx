@@ -210,7 +210,7 @@ const FeedbackPopup: React.FC<Props> = ({
 
   const requestMicrophonePermission = async () => {
     try {
-      const permission: any = await navigator.permissions.query({ name: 'microphone' });
+      const permission = await navigator.permissions.query({ name: 'microphone' });
       if (permission.state === 'denied') {
         setMicPermissionDenied(true);
         return false;

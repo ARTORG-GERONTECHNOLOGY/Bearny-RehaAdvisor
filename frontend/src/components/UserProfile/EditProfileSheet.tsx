@@ -237,7 +237,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
                         : []
                       ).map((val: string) => ({ value: val, label: t(val) }))}
                       onChange={(selected) =>
-                        handleMultiSelectChange(selected as any, resolveDataKey(field.be_name))
+                        handleMultiSelectChange(selected, resolveDataKey(field.be_name))
                       }
                       placeholder={t('Select...')}
                     />
@@ -361,7 +361,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
                 isDisabled={reqSubmitting}
                 options={allClinics.map((c) => ({ value: c, label: c }))}
                 value={reqClinics.map((c) => ({ value: c, label: c }))}
-                onChange={handleReqClinicsChange as any}
+                onChange={handleReqClinicsChange}
               />
 
               <div>
@@ -371,7 +371,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
                   isDisabled={reqSubmitting}
                   options={allowedProjectsForReq.map((p) => ({ value: p, label: p }))}
                   value={reqProjects.map((p) => ({ value: p, label: p }))}
-                  onChange={handleReqProjectsChange as any}
+                  onChange={handleReqProjectsChange}
                   placeholder={
                     reqClinics.length
                       ? t('Choose...')

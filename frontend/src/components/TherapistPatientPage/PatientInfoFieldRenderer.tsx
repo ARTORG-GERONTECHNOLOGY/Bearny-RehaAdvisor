@@ -91,7 +91,7 @@ const PatientInfoFieldRenderer: React.FC<PatientInfoFieldRendererProps> = observ
     }
 
     if (field.type === 'multi-select') {
-      const currentValues: string[] = (manualValue || []) as any;
+      const currentValues: string[] = manualValue || [];
       const options =
         key === 'diagnosis' && store.formData.function?.length
           ? store.formData.function.flatMap((spec: string) =>

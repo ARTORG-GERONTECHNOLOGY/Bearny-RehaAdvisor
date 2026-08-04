@@ -81,13 +81,13 @@ const PatientInfoProfileCard: React.FC<PatientInfoProfileCardProps> = observer((
               <div className="mb-2">{t(section.title)}</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {section.fields
-                  .filter((f: any) => !['password', 'repeatPassword'].includes(f.name))
+                  .filter((f) => !['password', 'repeatPassword'].includes(f.name))
                   .filter(
-                    (f: any) =>
+                    (f) =>
                       !appModeStore.hidePiiFields ||
                       !['firstName', 'lastName', 'email', 'phone', 'age'].includes(f.name)
                   )
-                  .map((field: any, index: number) => (
+                  .map((field, index: number) => (
                     <div key={`${section.title}-${field.be_name}-${index}`}>
                       <PatientInfoFieldRenderer store={store} field={field} />
                     </div>

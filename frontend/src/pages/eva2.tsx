@@ -866,10 +866,10 @@ export default function HealthSlider() {
     el.addEventListener('touchcancel', onTouchEnd);
 
     return () => {
-      el.removeEventListener('touchstart', onTouchStart as any);
-      el.removeEventListener('touchmove', onTouchMove as any);
-      el.removeEventListener('touchend', onTouchEnd as any);
-      el.removeEventListener('touchcancel', onTouchEnd as any);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
     };
   }, [handleSliderMove, saving]);
 

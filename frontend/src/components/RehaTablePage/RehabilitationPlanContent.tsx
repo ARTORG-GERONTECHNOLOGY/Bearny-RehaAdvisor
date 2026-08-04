@@ -38,7 +38,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
     useEffect(() => {
       if (!patientId) return;
       store.setUserLang(i18n.language || 'en');
-      store.initForPatient(patientId, t as any);
+      store.initForPatient(patientId, t);
 
       return () => {
         store.dispose();
@@ -52,7 +52,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
     }, [i18n.language]);
 
     const refreshAfterScheduleChange = async () => {
-      await Promise.all([store.fetchAll(t as any), store.fetchInts(t as any)]);
+      await Promise.all([store.fetchAll(t), store.fetchInts(t)]);
       store.patientData = (store as any).mergePlanWithCatalog(
         store.patientData,
         store.allInterventions
@@ -109,11 +109,11 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                   showStats: store.showStats,
                   openFeedbackBrowser: store.openFeedbackBrowser,
                   handleModifyIntervention: store.openModifyIntervention,
-                  handleDeleteExercise: (id: string) => store.deleteExercise(id, t as any),
+                  handleDeleteExercise: (id: string) => store.deleteExercise(id, t),
                   handleAddIntervention: store.openAddIntervention,
                 }}
-                patientData={store.patientData as any}
-                t={t as any}
+                patientData={store.patientData}
+                t={t}
               />
             )}
           </div>
@@ -144,7 +144,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
               </CardHeader>
               <CardContent className="rehaCalendarWrap">
                 <InterventionCalendar
-                  patientData={store.patientData as any}
+                  patientData={store.patientData}
                   titleMap={store.titleMap}
                   onSelectIntervention={store.handleExerciseClick}
                   onSelectFeedback={store.openFeedbackBrowser}
@@ -166,7 +166,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
         {store.showInfoInterventionModal && store.selectedExerciseFromPlan && (
           <PatientInterventionPopUp
             show
-            item={store.selectedExerciseFromPlan as any}
+            item={store.selectedExerciseFromPlan}
             handleClose={store.closeInfoModal}
           />
         )}
@@ -177,7 +177,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
             show
             onHide={store.closeRepeatModal}
             mode={store.repeatMode}
-            intervention={store.selectedExerciseFromPlan as any}
+            intervention={store.selectedExerciseFromPlan}
             defaults={store.modifyDefaults}
             patient={store.patientIdForCalls}
             therapistId={authStore.id || undefined}
@@ -192,8 +192,8 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
           <InterventionStatsModal
             show
             onHide={store.closeStatsModal}
-            intervention={store.selectedExerciseFromPlan as any}
-            patientData={store.patientData as any}
+            intervention={store.selectedExerciseFromPlan}
+            patientData={store.patientData}
           />
         )}
 
@@ -202,7 +202,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
           <InterventionFeedbackModal
             show
             onHide={store.closeFeedbackBrowser}
-            intervention={store.feedbackBrowserIntervention as any}
+            intervention={store.feedbackBrowserIntervention}
             initialDatetime={store.feedbackInitialDatetime ?? undefined}
           />
         )}

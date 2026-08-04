@@ -105,8 +105,8 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
   // Flat label map used to build readable error banners: { fieldName → label key }
   const fieldLabelMap = useMemo<Record<string, string>>(() => {
     const map: Record<string, string> = {};
-    formSteps.forEach((s: any) => {
-      s.fields.forEach((f: any) => {
+    formSteps.forEach((s) => {
+      s.fields.forEach((f) => {
         map[f.name] = f.label;
       });
     });
@@ -306,7 +306,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
     const newErrors: Record<string, string> = {};
     const currentStep = formSteps[step];
 
-    currentStep.fields.forEach((field: any) => {
+    currentStep.fields.forEach((field) => {
       const value = formData[field.name];
       const isEmpty =
         value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
@@ -321,19 +321,19 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
 
     if (
       formData.email &&
-      currentStep.fields.some((f: any) => f.name === 'email') &&
+      currentStep.fields.some((f) => f.name === 'email') &&
       !isValidEmail(formData.email as string)
     ) {
       newErrors.email = t('Invalid email format.');
     }
 
-    if (currentStep.fields.some((f: any) => f.name === 'password')) {
+    if (currentStep.fields.some((f) => f.name === 'password')) {
       if (formData.password !== formData.repeatPassword) {
         newErrors.repeatPassword = t('Passwords do not match.');
       }
     }
 
-    if (currentStep.fields.some((f: any) => f.name === 'age')) {
+    if (currentStep.fields.some((f) => f.name === 'age')) {
       const val = String(formData.age || '');
       if (val) {
         if (!isValidDate(val)) {
@@ -349,7 +349,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
       }
     }
 
-    if (currentStep.fields.some((f: any) => f.name === 'rehaEndDate')) {
+    if (currentStep.fields.some((f) => f.name === 'rehaEndDate')) {
       const val = String(formData.rehaEndDate || '');
       if (val) {
         if (!isValidDate(val)) {
@@ -363,7 +363,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
       }
     }
 
-    if (currentStep.fields.some((f: any) => f.name === 'studyEndDate')) {
+    if (currentStep.fields.some((f) => f.name === 'studyEndDate')) {
       const val = String(formData.studyEndDate || '');
       if (val) {
         if (!isValidDate(val)) {
@@ -379,7 +379,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
 
     // Validate that selected diagnoses match the chosen specialities
     if (
-      currentStep.fields.some((f: any) => f.name === 'diagnosis') &&
+      currentStep.fields.some((f) => f.name === 'diagnosis') &&
       (formData.diagnosis as string[]).length > 0 &&
       (formData.function as string[]).length > 0
     ) {
@@ -438,7 +438,7 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
         // so the highlighted field is actually visible
         const firstErrField = Object.keys(fieldErrs)[0];
         for (let i = 0; i < formSteps.length; i++) {
-          if (formSteps[i].fields.some((f: any) => f.name === firstErrField)) {
+          if (formSteps[i].fields.some((f) => f.name === firstErrField)) {
             setStep(i);
             break;
           }

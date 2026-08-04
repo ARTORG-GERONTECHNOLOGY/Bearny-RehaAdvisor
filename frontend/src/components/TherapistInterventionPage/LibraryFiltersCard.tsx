@@ -29,13 +29,14 @@ export type LibraryFiltersState = {
 };
 
 type Props = {
-  t: any;
+  t;
   filters: LibraryFiltersState;
   onChange: (next: LibraryFiltersState) => void;
   onReset: () => void;
 };
 
-const uniq = (arr: any[]) => Array.from(new Set((arr || []).map((x) => String(x)).filter(Boolean)));
+const uniq = (arr: unknown[]) =>
+  Array.from(new Set((arr || []).map((x) => String(x)).filter(Boolean)));
 
 const ALL_CONTENT_TYPES = '__all__';
 
@@ -98,7 +99,7 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
               options={diagnosisOptions}
               value={(filters.diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
               onChange={(opts) =>
-                onChange({ ...filters, diagnosisFilter: (opts || []).map((o: any) => o.value) })
+                onChange({ ...filters, diagnosisFilter: (opts || []).map((o) => o.value) })
               }
               placeholder={t('Filter by Primary Diagnosis')}
             />
@@ -113,7 +114,7 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
                 label: l.toUpperCase(),
               }))}
               onChange={(opts) =>
-                onChange({ ...filters, languageFilter: (opts || []).map((o: any) => o.value) })
+                onChange({ ...filters, languageFilter: (opts || []).map((o) => o.value) })
               }
               placeholder={t('Filter by Language')}
             />
@@ -151,7 +152,7 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
               options={aimsOptions}
               value={(filters.aimsFilter || []).map((a) => ({ value: a, label: t(a) }))}
               onChange={(opts) =>
-                onChange({ ...filters, aimsFilter: (opts || []).map((o: any) => o.value) })
+                onChange({ ...filters, aimsFilter: (opts || []).map((o) => o.value) })
               }
               placeholder={t('Filter by Aims')}
             />
@@ -163,7 +164,7 @@ const LibraryFiltersCard: React.FC<Props> = ({ t, filters, onChange, onReset }) 
               options={tagOptions}
               value={(filters.tagFilter || []).map((tag) => ({ value: tag, label: t(tag) }))}
               onChange={(opts) =>
-                onChange({ ...filters, tagFilter: (opts || []).map((o: any) => o.value) })
+                onChange({ ...filters, tagFilter: (opts || []).map((o) => o.value) })
               }
               placeholder={t('Filter by Tags')}
             />

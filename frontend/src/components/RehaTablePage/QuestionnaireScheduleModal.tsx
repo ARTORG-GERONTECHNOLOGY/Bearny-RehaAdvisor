@@ -126,7 +126,7 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
       if (!show) return;
 
       setInterval(defaults?.interval ?? 1);
-      setUnit((defaults?.unit as any) ?? 'week');
+      setUnit(defaults?.unit ?? 'week');
       setSelectedDays(defaults?.selectedDays ?? []);
       setEndOption(defaults?.end?.type ?? 'never');
       setEndDate(defaults?.end?.date ? new Date(defaults.end.date) : null);

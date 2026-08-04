@@ -193,7 +193,7 @@ export class RehabTableStore {
         // When matched via external_id (not _id), adopt the catalog's _id so
         // all downstream _id-based lookups (hasFutureDates, InterventionLeftPanel)
         // resolve correctly.
-        ...(extIdFallback ? { _id: (extIdFallback as any)._id as string } : {}),
+        ...(extIdFallback ? { _id: extIdFallback._id as string } : {}),
         title:
           (typeof p.title === 'string' && p.title) ||
           (typeof full?.title === 'string' ? full.title : '') ||

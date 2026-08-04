@@ -355,9 +355,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
     const withContentType =
       contentTypeFilter.length > 0
-        ? base.filter((it: any) =>
-            contentTypeFilter.includes(String(it?.content_type || '').trim())
-          )
+        ? base.filter((it) => contentTypeFilter.includes(String(it?.content_type || '').trim()))
         : base;
 
     const withAims =
@@ -368,7 +366,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
           })
         : withContentType;
 
-    const withDuration = withAims.filter((it: any) => {
+    const withDuration = withAims.filter((it) => {
       const duration = Number(it?.duration);
       if (isNaN(duration)) return false;
 

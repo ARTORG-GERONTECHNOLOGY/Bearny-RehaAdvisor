@@ -20,21 +20,21 @@ export type SelectOption = { value: string; label: string };
 // datetime-local helpers (Europe/Zurich-friendly)
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-export const toDateInput = (v: any) => {
+export const toDateInput = (v) => {
   if (!v) return '';
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return '';
   return toLocalYMD(d);
 };
 
-export const toDisplayDate = (v: any) => {
+export const toDisplayDate = (v) => {
   if (!v) return '';
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return String(v);
   return formatLocaleDate(d);
 };
 
-const toLocalDatetimeInput = (isoOrDate: any) => {
+const toLocalDatetimeInput = (isoOrDate) => {
   if (!isoOrDate) return '';
   const d = new Date(isoOrDate);
   if (Number.isNaN(d.getTime())) return '';
@@ -59,13 +59,13 @@ export type ThresholdHistoryItem = {
   thresholds: Partial<PatientThresholds>;
 };
 
-const isEmptyValue = (v: any) =>
+const isEmptyValue = (v) =>
   v === undefined ||
   v === null ||
   (typeof v === 'string' && v.trim() === '') ||
   (Array.isArray(v) && v.length === 0);
 
-const deepEqualJSON = (a: any, b: any) => {
+const deepEqualJSON = (a, b) => {
   try {
     return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
   } catch {
@@ -76,8 +76,8 @@ const deepEqualJSON = (a: any, b: any) => {
 // -------------------------
 // Profile dirty-check helpers
 // -------------------------
-const stripVolatileProfileFields = (obj: any) => {
-  const o: any = { ...(obj || {}) };
+const stripVolatileProfileFields = (obj) => {
+  const o = { ...(obj || {}) };
 
   // server-managed / volatile
   delete o.updatedAt;
@@ -96,7 +96,7 @@ const stripVolatileProfileFields = (obj: any) => {
   return o;
 };
 
-const stableJSON = (obj: any) => {
+const stableJSON = (obj) => {
   try {
     return JSON.stringify(obj ?? null);
   } catch {
@@ -117,7 +117,7 @@ export class PatientPopupStore {
   isEditing = false;
 
   // patient data
-  rawPatient: any = null;
+  rawPatient = null;
 
   // manualData = what is stored in Mongo (manual / editable)
   manualData: any = {};
@@ -135,7 +135,7 @@ export class PatientPopupStore {
   redcapDag: string | null = null;
 
   // redcap rows fetched live
-  redcapRows: any[] = [];
+  redcapRows = [];
   // flattened view for table
   redcapFlat: Record<string, any> = {};
 
@@ -338,7 +338,7 @@ export class PatientPopupStore {
   /**
    * Manual preferred, fallback to REDCap.
    */
-  getDisplayValue(key: string): any {
+  getDisplayValue(key: string) {
     const manual = this.manualData?.[key];
     const hasManual =
       manual !== undefined &&
@@ -353,7 +353,7 @@ export class PatientPopupStore {
   // -------------------------
   // Form editing helpers
   // -------------------------
-  setField(key: string, value: any) {
+  setField(key: string, value) {
     this.formData = { ...(this.formData || {}), [key]: value };
   }
 
@@ -368,7 +368,7 @@ export class PatientPopupStore {
     this.formData = { ...(this.formData || {}), [key]: v };
   }
 
-  arrayToDisplay(v: any) {
+  arrayToDisplay(v) {
     if (!v) return '';
     if (Array.isArray(v)) return v.filter(Boolean).join(', ');
     return String(v);
@@ -458,7 +458,7 @@ export class PatientPopupStore {
       const matches = Array.isArray(payload.matches) ? payload.matches : [];
       const firstMatch = matches[0] || null;
 
-      const rows: any[] = firstMatch?.rows && Array.isArray(firstMatch.rows) ? firstMatch.rows : [];
+      const rows = firstMatch?.rows && Array.isArray(firstMatch.rows) ? firstMatch.rows : [];
       const project = firstMatch?.project ? String(firstMatch.project) : this.redcapProject || null;
 
       const flat = rows.length ? { ...(rows[0] || {}) } : {};

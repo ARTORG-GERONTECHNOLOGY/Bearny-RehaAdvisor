@@ -56,8 +56,8 @@ const getAllMedia = (item): InterventionMedia[] => {
   if (rawMedia.length) {
     return rawMedia
       .map((m) => ({
-        kind: (m.kind || '') as any,
-        media_type: (m.media_type || m.mediaType || 'website') as any,
+        kind: m.kind || '',
+        media_type: m.media_type || m.mediaType || 'website',
         provider: m.provider ?? null,
         title: m.title ?? null,
         url: m.url ?? null,
@@ -356,7 +356,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
   }, [effectiveItem]);
 
   // media badge color same logic as therapist list
-  const interventionForBadges = (effectiveItem?.intervention ?? effectiveItem) as any;
+  const interventionForBadges = effectiveItem?.intervention ?? effectiveItem;
   const mediaVariant = getBadgeVariantFromIntervention(interventionForBadges);
   const mediaLabel = getMediaTypeLabelFromIntervention(interventionForBadges);
 
@@ -621,7 +621,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
               <div className="md:col-span-6">
                 <div className="flex items-center justify-between">
                   <h5 className="text-base font-semibold mb-0">{t('Media')}</h5>
-                  <Badge variant={effectiveMediaBadge.variant as any}>
+                  <Badge variant={effectiveMediaBadge.variant}>
                     {t(effectiveMediaBadge.label)}
                   </Badge>
                 </div>

@@ -448,7 +448,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
         })),
       };
 
-      setFormData(cleaned as any);
+      setFormData(cleaned);
 
       const { valid, errors: found } = validateForm();
       if (!valid) {
@@ -707,7 +707,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       value={inputFromOptions.filter((o) =>
                         (formData.inputFrom || []).includes(o.value)
                       )}
-                      onChange={(opts) => handleMultiChange('inputFrom', opts as any)}
+                      onChange={(opts) => handleMultiChange('inputFrom', opts)}
                     />
                   </Field>
                 </div>
@@ -777,7 +777,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       placeholder={t('Select...')}
                       options={aimsOptions}
                       value={aimsOptions.filter((o) => (formData.aims || []).includes(o.value))}
-                      onChange={(opts) => handleMultiChange('aims', opts as any)}
+                      onChange={(opts) => handleMultiChange('aims', opts)}
                     />
                   </Field>
                 </div>
@@ -791,7 +791,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       placeholder={t('Select...')}
                       options={topicsOptions}
                       value={topicsOptions.filter((o) => (formData.topics || []).includes(o.value))}
-                      onChange={(opts) => handleMultiChange('topics', opts as any)}
+                      onChange={(opts) => handleMultiChange('topics', opts)}
                     />
                   </Field>
                 </div>
@@ -931,7 +931,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       placeholder={t('Select...')}
                       options={whereOptions}
                       value={whereOptions.filter((o) => (formData.where || []).includes(o.value))}
-                      onChange={(opts) => handleMultiChange('where', opts as any)}
+                      onChange={(opts) => handleMultiChange('where', opts)}
                     />
                   </Field>
                 </div>
@@ -947,7 +947,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       value={settingOptions.filter((o) =>
                         (formData.setting || []).includes(o.value)
                       )}
-                      onChange={(opts) => handleMultiChange('setting', opts as any)}
+                      onChange={(opts) => handleMultiChange('setting', opts)}
                     />
                   </Field>
                 </div>
