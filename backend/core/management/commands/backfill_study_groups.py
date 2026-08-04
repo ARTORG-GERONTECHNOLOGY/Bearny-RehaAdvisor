@@ -78,15 +78,18 @@ class Command(BaseCommand):
         # ── 1. Find candidate patients ────────────────────────────────────────
         qs = Patient.objects(__raw__={"redcap_record_id": {"$exists": True, "$nin": [None, ""]}})
         if not update_all:
-            qs = qs.filter(__raw__={"$or": [
-                {"study_group": None},
-                {"study_group": {"$exists": False}},
-            ]})
+            qs = qs.filter(
+                __raw__={
+                    "$or": [
+                        {"study_group": None},
+                        {"study_group": {"$exists": False}},
+                    ]
+                }
+            )
         if project_filter:
             qs = qs.filter(redcap_project=project_filter)
 
-        patients = list(qs.only("id", "redcap_record_id", "redcap_project", "study_group",
-                                "first_name", "name"))
+        patients = list(qs.only("id", "redcap_record_id", "redcap_project", "study_group", "first_name", "name"))
 
         if not patients:
             self.stdout.write("No patients to update.")
@@ -111,9 +114,7 @@ class Command(BaseCommand):
         for project, pt_list in by_project.items():
             token = get_redcap_token_for_project(project)
             if not token:
-                self.stderr.write(
-                    f"  SKIP project '{project}' — no REDCAP_TOKEN_{project.upper()} in env"
-                )
+                self.stderr.write(f"  SKIP project '{project}' — no REDCAP_TOKEN_{project.upper()} in env")
                 total_skipped += len(pt_list)
                 continue
 
@@ -167,8 +168,7 @@ class Command(BaseCommand):
 
                 if new_sg is None:
                     self.stdout.write(
-                        f"  SKIP {label} (record {rid}) — "
-                        f"rando_res not found in REDCap (field may be empty)"
+                        f"  SKIP {label} (record {rid}) — " f"rando_res not found in REDCap (field may be empty)"
                     )
                     total_skipped += 1
                     continue
@@ -179,10 +179,7 @@ class Command(BaseCommand):
                     continue
 
                 action = "SET" if not old_sg else "UPDATE"
-                self.stdout.write(
-                    f"  {action} {label} (record {rid}): "
-                    f"{repr(old_sg)} → {repr(new_sg)}"
-                )
+                self.stdout.write(f"  {action} {label} (record {rid}): " f"{repr(old_sg)} → {repr(new_sg)}")
 
                 if not dry_run:
                     try:
@@ -196,8 +193,4 @@ class Command(BaseCommand):
 
         # ── 5. Summary ────────────────────────────────────────────────────────
         verb = "Would update" if dry_run else "Updated"
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"\n{verb} {total_updated} patient(s). Skipped {total_skipped}."
-            )
-        )
+        self.stdout.write(self.style.SUCCESS(f"\n{verb} {total_updated} patient(s). Skipped {total_skipped}."))
