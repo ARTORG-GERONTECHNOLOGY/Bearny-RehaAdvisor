@@ -21,7 +21,7 @@ from django.utils import timezone
 from django.utils.html import strip_tags
 from django.views.decorators.csrf import csrf_exempt
 from mongoengine.queryset.visitor import Q
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -37,6 +37,7 @@ from core.models import (
     User,
 )
 from core.tasks import fetch_fitbit_data_async
+from core.throttles import LoginRateThrottle
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.config import WEARABLE_DEVICE_CHOICES, config
 from utils.scheduling import _expand_dates
@@ -488,6 +489,7 @@ def generate_random_password(length=12):
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@throttle_classes([LoginRateThrottle])
 def reset_password_view(request):
     try:
         data = json.loads(request.body)

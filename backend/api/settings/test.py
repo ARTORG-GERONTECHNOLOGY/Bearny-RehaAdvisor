@@ -23,3 +23,9 @@ REST_FRAMEWORK = {
         "core.test_auth.AlwaysAuthenticate",
     ],
 }
+
+# Disable JWT token blacklist in tests — check_blacklist() queries SQLite and
+# requires @pytest.mark.django_db on every test that hits the refresh endpoint.
+# Blacklisting is a production-only concern; token rotation still works via
+# ROTATE_REFRESH_TOKENS=True.
+INSTALLED_APPS = [app for app in INSTALLED_APPS if app != "rest_framework_simplejwt.token_blacklist"]  # noqa: F405

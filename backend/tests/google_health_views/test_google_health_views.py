@@ -188,8 +188,17 @@ def test_status_includes_wearable_device_field():
 # ---------------------------------------------------------------------------
 
 
+def _mock_redis_for_nonce(nonce, patient_id):
+    """Return a mock Redis client that validates a pre-stored nonce."""
+    mock_rc = MagicMock()
+    mock_rc.get.return_value = str(patient_id).encode()
+    mock_rc.delete.return_value = 1
+    return mock_rc
+
+
 @patch("core.views.google_health_view.requests.post")
-def test_callback_sets_connected_at_on_success(mock_post):
+@patch("core.views.google_health_view._get_redis_client")
+def test_callback_sets_connected_at_on_success(mock_redis, mock_post):
     from core.models import GoogleHealthUserToken, User
 
     user = User(
@@ -200,6 +209,8 @@ def test_callback_sets_connected_at_on_success(mock_post):
         isActive=True,
     ).save()
 
+    nonce = "testnonce123"
+    mock_redis.return_value = _mock_redis_for_nonce(nonce, user.id)
     mock_post.return_value = MagicMock(
         status_code=200,
         json=lambda: {
@@ -210,7 +221,7 @@ def test_callback_sets_connected_at_on_success(mock_post):
         },
     )
 
-    resp = client.get(f"/api/google-health/callback/?code=testcode&state={user.id}")
+    resp = client.get(f"/api/google-health/callback/?code=testcode&state={nonce}:{user.id}")
     assert resp.status_code == 302
 
     token = GoogleHealthUserToken.objects(user=user).first()
@@ -220,7 +231,8 @@ def test_callback_sets_connected_at_on_success(mock_post):
 
 
 @patch("core.views.google_health_view.requests.post")
-def test_callback_clears_is_revoked_on_reconnect(mock_post):
+@patch("core.views.google_health_view._get_redis_client")
+def test_callback_clears_is_revoked_on_reconnect(mock_redis, mock_post):
     from core.models import GoogleHealthUserToken, User
 
     user = User(
@@ -242,6 +254,8 @@ def test_callback_clears_is_revoked_on_reconnect(mock_post):
         connected_at=timezone.now() - timedelta(days=8),
     ).save()
 
+    nonce = "testnonce456"
+    mock_redis.return_value = _mock_redis_for_nonce(nonce, user.id)
     mock_post.return_value = MagicMock(
         status_code=200,
         json=lambda: {
@@ -252,7 +266,7 @@ def test_callback_clears_is_revoked_on_reconnect(mock_post):
         },
     )
 
-    client.get(f"/api/google-health/callback/?code=testcode&state={user.id}")
+    client.get(f"/api/google-health/callback/?code=testcode&state={nonce}:{user.id}")
 
     token = GoogleHealthUserToken.objects(user=user).first()
     assert token.is_revoked is False

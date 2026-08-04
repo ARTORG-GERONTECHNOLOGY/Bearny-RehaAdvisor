@@ -15,6 +15,7 @@ const ReconnectBanner: React.FC = observer(() => {
   const [dismissed, setDismissed] = useState(
     () => sessionStorage.getItem(DISMISS_KEY(patientId)) === '1'
   );
+  const [reconnecting, setReconnecting] = useState(false);
 
   if (dismissed || !patientFitbitStore.needsReconnect) return null;
 
@@ -24,6 +25,17 @@ const ReconnectBanner: React.FC = observer(() => {
   const handleDismiss = () => {
     sessionStorage.setItem(DISMISS_KEY(patientId), '1');
     setDismissed(true);
+  };
+
+  const handleReconnect = async () => {
+    if (!patientId || reconnecting) return;
+    setReconnecting(true);
+    try {
+      const authUrl = await buildGoogleHealthAuthUrl(patientId);
+      window.location.href = authUrl;
+    } catch {
+      setReconnecting(false);
+    }
   };
 
   return (
@@ -40,11 +52,14 @@ const ReconnectBanner: React.FC = observer(() => {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <a href={buildGoogleHealthAuthUrl(patientId)}>
-          <Button size="sm" className="bg-yellow hover:bg-yellow/90 text-white rounded-2xl">
-            {t('Reconnect')}
-          </Button>
-        </a>
+        <Button
+          size="sm"
+          className="bg-yellow hover:bg-yellow/90 text-white rounded-2xl"
+          onClick={handleReconnect}
+          disabled={reconnecting}
+        >
+          {t('Reconnect')}
+        </Button>
         <button
           onClick={handleDismiss}
           aria-label="Dismiss"

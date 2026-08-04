@@ -31,7 +31,8 @@ jest.mock('@/stores/authStore', () => ({
 }));
 
 jest.mock('@/utils/googleHealthAuthUrl', () => ({
-  buildGoogleHealthAuthUrl: (id: string) => `https://accounts.google.com/oauth?state=${id}`,
+  buildGoogleHealthAuthUrl: (id: string) =>
+    Promise.resolve(`https://accounts.google.com/oauth?state=${id}`),
 }));
 
 const mockAuthStore = jest.requireMock('@/stores/authStore').default as { id: string };
@@ -102,13 +103,11 @@ describe('ReconnectBanner — expired message (days = 0)', () => {
   });
 });
 
-describe('ReconnectBanner — reconnect link', () => {
-  it('renders a Reconnect link pointing to the Google OAuth URL', () => {
+describe('ReconnectBanner — reconnect button', () => {
+  it('renders a Reconnect button', () => {
     setStore(true, 1);
     render(<ReconnectBanner />);
-    const link = screen.getByRole('link', { name: /reconnect/i });
-    expect(link).toHaveAttribute('href', expect.stringContaining('accounts.google.com'));
-    expect(link).toHaveAttribute('href', expect.stringContaining('test-patient-id'));
+    expect(screen.getByRole('button', { name: /reconnect/i })).toBeInTheDocument();
   });
 });
 

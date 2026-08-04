@@ -362,8 +362,15 @@ def fitbit_disconnect(request):
         user = None
     if not user:
         return JsonResponse({"ok": False, "error": "User not found"}, status=404)
-    deleted = FitbitUserToken.objects(user=user).delete()
-    logger.info("[fitbit_disconnect] deleted %s token(s) for user %s", deleted, user.id)
+
+    deleted_tokens = FitbitUserToken.objects(user=user).delete()
+    logger.info("[fitbit_disconnect] deleted %s token(s) for user %s", deleted_tokens, user.id)
+
+    # Delete all stored health data for this user on disconnect (GDPR / data minimisation).
+    # Data is re-fetched from Fitbit whenever the user reconnects.
+    deleted_data = FitbitData.objects(user=user).delete()
+    logger.info("[fitbit_disconnect] deleted %s health records for user %s", deleted_data, user.id)
+
     return JsonResponse({"ok": True})
 
 

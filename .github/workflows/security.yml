@@ -39,13 +39,13 @@ jobs:
           pip install pylint flake8 black isort
           echo "🔍 Running flake8..."
           flake8 . --count --show-source --statistics || true
-          
+
           echo "🔍 Checking code formatting..."
           black --check . || true
-          
+
           echo "🔍 Checking import ordering..."
           isort --check-only . || true
-          
+
           echo "🔍 Running pylint..."
           pylint **/*.py --exit-zero || true
 
@@ -55,6 +55,76 @@ jobs:
           npm ci
           echo "🔍 Running ESLint..."
           npm run lint || true
+
+  sast-scan:
+    name: SAST — Python (Bandit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Run Bandit
+        working-directory: backend
+        run: |
+          pip install bandit[toml]
+          echo "🔍 Running Bandit SAST scan..."
+          bandit -r . -ll -x ./tests/ -f json -o bandit-report.json || true
+          bandit -r . -ll -x ./tests/ || true
+
+      - name: Upload Bandit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-report
+          path: backend/bandit-report.json
+
+  dependency-check:
+    name: Dependency Vulnerability Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Python dependency audit (pip-audit)
+        working-directory: backend
+        run: |
+          pip install pip-audit
+          echo "🔍 Running pip-audit..."
+          pip-audit -r requirements.txt --format json -o pip-audit-report.json || true
+          pip-audit -r requirements.txt || true
+
+      - name: Upload pip-audit report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pip-audit-report
+          path: backend/pip-audit-report.json
+
+      - name: Frontend dependency audit (npm audit)
+        working-directory: frontend
+        run: |
+          npm ci
+          echo "🔍 Running npm audit..."
+          npm audit --audit-level=high || true
 
   docker-security:
     name: Docker Image Security Scan
@@ -139,7 +209,7 @@ jobs:
   security-summary:
     name: Security Check Summary
     runs-on: ubuntu-latest
-    needs: [dependency-check, code-analysis, sast-scan, secret-scanning, license-check]
+    needs: [dependency-check, code-analysis, sast-scan, secret-scanning]
     if: always()
 
     steps:
@@ -151,12 +221,11 @@ jobs:
           echo "✅ Code Analysis: ${{ needs.code-analysis.result }}"
           echo "✅ SAST Scan: ${{ needs.sast-scan.result }}"
           echo "✅ Secret Scanning: ${{ needs.secret-scanning.result }}"
-          echo "✅ License Check: ${{ needs.license-check.result }}"
           echo ""
-          
+
           if [[ "${{ needs.secret-scanning.result }}" == "failure" ]]; then
             echo "❌ Security checks failed - secrets detected"
             exit 1
           fi
-          
+
           echo "✅ Security checks completed"

@@ -295,6 +295,7 @@ urlpatterns = [
         name="health_combined_history",
     ),
     # Google Health API
+    path("api/google-health/auth-init/", google_health_views.google_health_auth_init, name="google_health_auth_init"),
     path("api/google-health/callback/", google_health_views.google_health_callback, name="google_health_callback"),
     path(
         "api/google-health/status/<str:patient_id>/",

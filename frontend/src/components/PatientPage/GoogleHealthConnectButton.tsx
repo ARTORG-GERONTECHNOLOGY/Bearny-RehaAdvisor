@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
 import authStore from '@/stores/authStore';
@@ -10,6 +10,7 @@ import { buildGoogleHealthAuthUrl } from '@/utils/googleHealthAuthUrl';
 const GoogleHealthConnectButton: React.FC = observer(() => {
   const { t } = useTranslation();
   const patientId = useMemo(() => authStore.getStoredUserId(), []);
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
     if (!patientId) return;
@@ -19,15 +20,22 @@ const GoogleHealthConnectButton: React.FC = observer(() => {
   if (patientFitbitStore.connected === null) return null;
   if (patientFitbitStore.connected) return null;
 
-  const authUrl = buildGoogleHealthAuthUrl(patientId ?? '');
+  const handleConnect = async () => {
+    if (!patientId || connecting) return;
+    setConnecting(true);
+    try {
+      const authUrl = await buildGoogleHealthAuthUrl(patientId);
+      window.location.assign(authUrl);
+    } catch {
+      setConnecting(false);
+    }
+  };
 
   return (
-    <a href={authUrl} className="no-underline">
-      <Button>
-        {t('Connect Google Health')}
-        <ConnectionIcon />
-      </Button>
-    </a>
+    <Button onClick={handleConnect} disabled={connecting}>
+      {t('Connect Google Health')}
+      <ConnectionIcon />
+    </Button>
   );
 });
 
