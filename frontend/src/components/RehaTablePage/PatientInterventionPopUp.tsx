@@ -602,7 +602,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {/* content type badge should match therapist colors */}
-                  <Badge variant={mediaVariant as any} aria-label={t('Media type')}>
+                  <Badge variant={mediaVariant} aria-label={t('Media type')}>
                     {t(mediaLabel, { defaultValue: mediaLabel })}
                   </Badge>
 

@@ -26,7 +26,7 @@ import Card from '@/components/Card';
 import { FieldGroup } from '@/components/ui/field';
 import { Badge } from '@/components/ui/badge';
 
-const therapistInfo = (config as any).therapistInfo || {};
+const therapistInfo = config.therapistInfo ?? ({} as typeof config.therapistInfo);
 const allClinics: string[] = Object.keys(therapistInfo.clinic_projects || {});
 const allProjects: string[] = therapistInfo.projects || [];
 const allSpecializations: string[] = therapistInfo.specializations || [];
@@ -73,21 +73,23 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
   const saving = userProfileStore.saving;
 
   const fields = useMemo(() => {
-    return (config as any).TherapistForm.flatMap((section) => section.fields).filter(
-      (field) =>
-        ![
-          'password',
-          'repeatPassword',
-          'oldPassword',
-          'newPassword',
-          'confirmPassword',
-          'userType',
-          'User Type:',
-          // clinic and projects are handled separately via the request flow
-          'clinic',
-          'projects',
-        ].includes(field.be_name)
-    );
+    return (config.TherapistForm as any[])
+      .flatMap((section) => section.fields)
+      .filter(
+        (field) =>
+          ![
+            'password',
+            'repeatPassword',
+            'oldPassword',
+            'newPassword',
+            'confirmPassword',
+            'userType',
+            'User Type:',
+            // clinic and projects are handled separately via the request flow
+            'clinic',
+            'projects',
+          ].includes(field.be_name)
+      );
   }, []);
 
   const handleChange = (

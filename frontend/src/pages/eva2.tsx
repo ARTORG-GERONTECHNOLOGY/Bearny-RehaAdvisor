@@ -479,7 +479,8 @@ export default function HealthSlider() {
   /** --- keep handleRecorderErrorRef current so onerror always sees fresh state --- */
   useEffect(() => {
     handleRecorderErrorRef.current = (e: Event) => {
-      const errMsg = (e as any)?.error?.message || 'Unbekannter Aufnahme-Fehler';
+      const errMsg =
+        (e as unknown as { error?: DOMException })?.error?.message || 'Unbekannter Aufnahme-Fehler';
       const partialBlob =
         chunksRef.current.length > 0
           ? new Blob(chunksRef.current, { type: mimeRef.current || 'audio/webm' })

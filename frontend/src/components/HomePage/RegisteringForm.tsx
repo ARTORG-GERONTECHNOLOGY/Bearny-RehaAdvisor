@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Alert } from '@/components/ui/alert';
 
 interface FormDataShape {
-  [key: string]: any; // string | string[]
+  [key: string]: string | string[];
 }
 
 interface RegisterFormProps {
@@ -36,7 +36,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
   const formSteps = config.TherapistForm;
   const specialityDiagnosisMap: Record<string, string[]> = config.patientInfo?.functionPat || {};
 
-  const therapistInfo = (config as any).therapistInfo || {};
+  const therapistInfo = config.therapistInfo ?? ({} as typeof config.therapistInfo);
   const therapistSpecializations: string[] = therapistInfo.specializations || [];
   const therapistClinics: string[] = Object.keys(therapistInfo.clinic_projects || {});
   const allProjects: string[] = therapistInfo.projects || [];
@@ -725,7 +725,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
                             const next = { ...prev };
 
                             if (field.name === 'email' && formData.email) {
-                              if (!isValidEmailStrict(formData.email))
+                              if (!isValidEmailStrict(String(formData.email)))
                                 next.email = t('Invalid email address.');
                               else delete next.email;
                             }

@@ -416,7 +416,7 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
                 />
               </div>
               <div className="sm:col-span-4">
-                <Select value={unit} onValueChange={(v) => setUnit(v as any)}>
+                <Select value={unit} onValueChange={(v) => setUnit(v as 'day' | 'week' | 'month')}>
                   <SelectTrigger id="q-repeat-unit">
                     <SelectValue />
                   </SelectTrigger>
@@ -456,7 +456,7 @@ const QuestionnaireScheduleModal: React.FC<Props> = observer(
               <FieldLabel>{t('Ends')}</FieldLabel>
               <RadioGroup
                 value={endOption}
-                onValueChange={(v) => setEndOption(v as any)}
+                onValueChange={(v) => setEndOption(v as 'never' | 'date' | 'count')}
                 disabled={submitting}
                 aria-label={t('End options')}
                 className="flex flex-col gap-2"

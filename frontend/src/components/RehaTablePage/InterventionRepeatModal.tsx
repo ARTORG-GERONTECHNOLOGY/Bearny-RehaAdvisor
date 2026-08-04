@@ -194,7 +194,10 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                     />
                   </div>
                   <div className="sm:col-span-4">
-                    <Select value={store.unit} onValueChange={(v) => (store.unit = v as any)}>
+                    <Select
+                      value={store.unit}
+                      onValueChange={(v) => (store.unit = v as 'day' | 'week' | 'month')}
+                    >
                       <SelectTrigger id="ir-repeat-unit">
                         <SelectValue />
                       </SelectTrigger>
@@ -230,7 +233,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
                   <FieldLabel>{t('Ends')}</FieldLabel>
                   <RadioGroup
                     value={store.endOption}
-                    onValueChange={(v) => (store.endOption = v as any)}
+                    onValueChange={(v) => (store.endOption = v as 'never' | 'date' | 'count')}
                     className="flex flex-col gap-2"
                   >
                     <div className="flex items-center gap-2">

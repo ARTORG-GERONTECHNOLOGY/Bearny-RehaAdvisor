@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
@@ -414,12 +414,12 @@ const AdminDashboard: React.FC = observer(() => {
     return entry.therapistId || entry.therapist_id || entry.therapist || '';
   };
 
-  const renderBadges = (items: string[], variant: string) => {
+  const renderBadges = (items: string[], variant: BadgeProps['variant']) => {
     if (!items?.length) return <span className="text-muted-foreground">—</span>;
     return (
       <div className="flex flex-wrap gap-1">
         {items.map((x) => (
-          <Badge key={x} variant={variant as any}>
+          <Badge key={x} variant={variant}>
             {x}
           </Badge>
         ))}

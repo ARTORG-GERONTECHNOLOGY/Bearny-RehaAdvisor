@@ -9,6 +9,7 @@ import type React from 'react';
 import interventionsConfig from '@/config/interventions.json';
 import { isHttpUrl, matchesHost } from '@/utils/urlUtils';
 import { isRecord, asString, asArray } from '@/utils/typeGuards';
+import type { BadgeProps } from '@/components/ui/badge';
 
 import EducationIcon from '@/assets/icons/interventions/education.svg?react';
 import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
@@ -318,7 +319,7 @@ export function getMediaTypeLabelFromIntervention(item?: unknown): string {
 }
 
 /** Badge variant derived from PRIMARY media item. */
-export function getBadgeVariantFromIntervention(item?: unknown): string {
+export function getBadgeVariantFromIntervention(item?: unknown): BadgeProps['variant'] {
   const m = getPrimaryMedia(item);
   if (!m) return 'dashboard';
 
