@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { observer } from 'mobx-react-lite';
 
 import WelcomeArea from '@/components/common/WelcomeArea';

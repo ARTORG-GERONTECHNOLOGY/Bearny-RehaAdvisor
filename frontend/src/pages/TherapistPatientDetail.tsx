@@ -4,7 +4,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { ChartColumn, Calendar, BookUser, FileQuestion, LucideIcon } from 'lucide-react';
 import ArrowLeftIcon from '@/assets/icons/arrow-left-fill.svg?react';
 import { useTherapistPatientDetail } from '@/hooks/useTherapistPatientDetail';

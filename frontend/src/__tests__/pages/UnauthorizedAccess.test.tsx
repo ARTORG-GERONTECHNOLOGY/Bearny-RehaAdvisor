@@ -6,8 +6,8 @@ import '@testing-library/jest-dom';
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom');
+jest.mock('react-router', () => {
+  const actual = jest.requireActual('react-router');
   return { ...actual, useNavigate: () => mockNavigate };
 });
 

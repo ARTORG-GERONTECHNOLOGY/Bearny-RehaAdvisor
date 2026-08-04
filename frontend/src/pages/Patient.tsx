@@ -1,7 +1,7 @@
 // src/pages/PatientView.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 

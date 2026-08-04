@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import authStore from '@/stores/authStore';
 import apiClient from '@/api/client';
 import handleApiError from '@/utils/errorHandler';

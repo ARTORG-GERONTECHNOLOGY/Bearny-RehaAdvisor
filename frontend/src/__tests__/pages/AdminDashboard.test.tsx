@@ -1,7 +1,7 @@
 // ✅ Mock navigate before anything else
 const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom');
+jest.mock('react-router', () => {
+  const actual = jest.requireActual('react-router');
   return {
     ...actual,
     useNavigate: () => mockNavigate,
@@ -82,7 +82,7 @@ jest.mock('@/stores/authStore', () => ({
 
 import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import AdminDashboard from '@/pages/AdminDashboard';
 import '@testing-library/jest-dom';
 

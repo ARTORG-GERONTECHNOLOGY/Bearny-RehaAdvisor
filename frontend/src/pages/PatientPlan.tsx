@@ -8,7 +8,7 @@ import { patientInterventionsStore } from '@/stores/patientInterventionsStore';
 import { startOfWeek, addDays, format, isToday, endOfWeek } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import authStore from '@/stores/authStore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { observer } from 'mobx-react-lite';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import FeedbackPopup from '@/components/PatientPage/FeedbackPopup';

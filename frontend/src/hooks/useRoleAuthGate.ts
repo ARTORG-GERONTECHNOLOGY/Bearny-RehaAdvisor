@@ -1,6 +1,6 @@
 // src/hooks/useRoleAuthGate.ts
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import authStore, { UserRole } from '@/stores/authStore';
 
 // Checks auth once on mount, redirects away if the user isn't authenticated as `role`.

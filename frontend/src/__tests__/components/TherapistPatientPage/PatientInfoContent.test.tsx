@@ -1,5 +1,5 @@
 import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import PatientInfoContent from '@/components/TherapistPatientPage/PatientInfoContent';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '../../../../i18n';
@@ -29,8 +29,8 @@ jest.mock('@/components/ui/skeleton', () => ({
 }));
 
 const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom');
+jest.mock('react-router', () => {
+  const actual = jest.requireActual('react-router');
   return {
     ...actual,
     useNavigate: () => mockNavigate,

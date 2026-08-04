@@ -1,6 +1,6 @@
 // src/pages/UnauthorizedAccess.tsx
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';
