@@ -850,22 +850,18 @@ def register_view(request):
 
             try:
                 patient.save()
-            except Exception as e:
+            except Exception:
                 logger.exception("Patient save failed.")
                 rollback()
-                return _err("Patient creation failed.", status=400, non_field_errors=[str(e)])
+                return _err("Patient creation failed.", status=400)
 
             # create rehab plan; if fails -> rollback patient + user
             try:
                 ok = create_rehab_plan(patient, pat_therapist)
-            except Exception as e:
+            except Exception:
                 logger.exception("create_rehab_plan crashed.")
                 rollback()
-                return _err(
-                    "Rehabilitation plan creation failed.",
-                    status=500,
-                    non_field_errors=[str(e)],
-                )
+                return _err("Rehabilitation plan creation failed.", status=500)
 
             if not ok:
                 rollback()
@@ -932,10 +928,10 @@ def register_view(request):
 
             try:
                 therapist.save()
-            except Exception as e:
+            except Exception:
                 logger.exception("Therapist save failed.")
                 rollback()
-                return _err("Therapist creation failed.", status=400, non_field_errors=[str(e)])
+                return _err("Therapist creation failed.", status=400)
 
             # Notify all admin users that a new therapist is awaiting approval
             _notify_admins_new_therapist(user, therapist)
@@ -953,10 +949,10 @@ def register_view(request):
         # If you later create other docs here, follow the same rollback pattern.
         return JsonResponse({"success": True, "message": "Admin added"}, status=200)
 
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error in register_view")
         rollback()
-        return _err("Internal server error", status=500, non_field_errors=[str(e)])
+        return _err("Internal server error.", status=500)
 
 
 def generate_code(length=6):

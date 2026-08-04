@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import datetime, timedelta
+from urllib.parse import quote
 
 import requests
 from bson import ObjectId
@@ -397,7 +398,10 @@ def fitbit_callback(request):
             getattr(settings, "FITBIT_REDIRECT_URI", "NOT SET"),
             getattr(settings, "FITBIT_CLIENT_ID", "NOT SET") or "EMPTY",
         )
-        return redirect(f"{settings.FRONTEND_URL}/patient" f"?fitbit_status=auth_error&fitbit_error={fitbit_error}")
+        return redirect(
+            f"{settings.FRONTEND_URL}/patient"
+            f"?fitbit_status=auth_error&fitbit_error={quote(fitbit_error, safe='')}"
+        )
 
     code = request.GET.get("code")
     state = request.GET.get("state")  # carries patient_id from frontend

@@ -76,10 +76,10 @@ _FIELD_MESSAGES = {
 def _describe_validation_error(e: MongoValidationError) -> str:
     errors = getattr(e, "errors", {}) or {}
     if not errors:
-        return str(e)
+        return "Validation error. Check server logs for details."
     parts = []
     for field, detail in errors.items():
-        parts.append(_FIELD_MESSAGES.get(field) or f"'{field}' is required or invalid ({detail}).")
+        parts.append(_FIELD_MESSAGES.get(field) or f"'{field}' is required or invalid.")
     return " ".join(parts)
 
 
