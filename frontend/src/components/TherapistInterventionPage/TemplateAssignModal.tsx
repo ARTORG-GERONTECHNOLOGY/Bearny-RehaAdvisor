@@ -144,7 +144,7 @@ const TemplateAssignModal: React.FC<Props> = ({
   ]);
 
   /* ---------------- ERROR HANDLER ---------------- */
-  const applyBackendErrors = (data) => {
+  const applyBackendErrors = (data: any) => {
     const fe: ErrorMap = {};
 
     if (data?.field_errors) {

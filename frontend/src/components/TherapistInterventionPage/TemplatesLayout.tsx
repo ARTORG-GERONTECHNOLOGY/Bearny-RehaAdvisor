@@ -28,7 +28,7 @@ type Props = {
 
   translatedTitles: Record<string, { title: string; lang: string | null }>;
   getSegments: (it: TemplateItem) => any[];
-  segmentSummary: (seg, it: TemplateItem) => string;
+  segmentSummary: (seg: any, it: TemplateItem) => string;
 
   onTemplateItemClick: (it: TemplateItem) => void;
   onModifyTemplate: (it: TemplateItem) => void;

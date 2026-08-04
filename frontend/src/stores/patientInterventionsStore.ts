@@ -20,7 +20,7 @@ export type InterventionMeta = {
   setting?: string[];
   duration_bucket?: string;
   keywords?: string[];
-  media?;
+  media?: any[];
   preview_img?: string;
   is_private?: boolean;
 };
@@ -40,7 +40,7 @@ export type PatientRec = {
   // media/preview (legacy still used by UI)
   duration?: number;
   preview_img?: string;
-  media?;
+  media?: any[];
 
   // full intervention object (from backend)
   intervention?: InterventionMeta;

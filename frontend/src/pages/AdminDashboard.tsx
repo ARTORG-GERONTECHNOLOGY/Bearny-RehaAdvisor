@@ -410,7 +410,7 @@ const AdminDashboard: React.FC = observer(() => {
     fetchExportClinics,
   ]);
 
-  const getTherapistIdFromEntry = (entry) => {
+  const getTherapistIdFromEntry = (entry: any) => {
     return entry.therapistId || entry.therapist_id || entry.therapist || '';
   };
 
@@ -452,7 +452,7 @@ const AdminDashboard: React.FC = observer(() => {
   }, [allowedClinicsForSelectedProjects]);
 
   const openAccessModal = useCallback(
-    async (entry) => {
+    async (entry: any) => {
       setAccessError(null);
       setAccessSuccess(null);
 

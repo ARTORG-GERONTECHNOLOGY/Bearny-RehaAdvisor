@@ -66,13 +66,13 @@ const StarRating: React.FC<StarRatingProps> = ({
  * The backend serialises without questionKey, but star answers always have
  * translations containing the ★ character (e.g. "★★★☆☆ (3/5)").
  */
-export const getRatingFromDateEntry = (dateEntry: { feedback? }): number | null => {
+export const getRatingFromDateEntry = (dateEntry: { feedback?: any[] }): number | null => {
   const fbs = Array.isArray(dateEntry.feedback) ? dateEntry.feedback : [];
   for (const fb of fbs) {
     const answers = Array.isArray(fb?.answer) ? fb.answer : [];
     for (const answer of answers) {
       const translations = Array.isArray(answer?.translations) ? answer.translations : [];
-      const isStar = translations.some((tr) => String(tr?.text || '').includes('★'));
+      const isStar = translations.some((tr: any) => String(tr?.text || '').includes('★'));
       if (isStar) {
         const n = Number(answer?.key);
         if (!isNaN(n) && n >= 1 && n <= 5) return n;

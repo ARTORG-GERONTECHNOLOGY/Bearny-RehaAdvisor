@@ -85,13 +85,13 @@ interface InterventionLeftPanelProps {
 }
 
 /** ───────────────── helpers (new model) ───────────────── */
-const norm = (v) => (typeof v === 'string' ? v.trim() : '');
-const lower = (v) => norm(v).toLowerCase();
+const norm = (v: any) => (typeof v === 'string' ? v.trim() : '');
+const lower = (v: any) => norm(v).toLowerCase();
 
 const sameText = (a: string, b: string) =>
   lower(a).replace(/\s+/g, ' ') === lower(b).replace(/\s+/g, ' ');
 
-const toLangList = (x): string[] => {
+const toLangList = (x: any): string[] => {
   if (Array.isArray(x)) return x.map((v) => String(v).trim().toLowerCase()).filter(Boolean);
   return [];
 };
@@ -166,7 +166,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
   };
 
   const renderInterventionCard = (
-    intervention,
+    intervention: any,
     opts: {
       inAllTab?: boolean;
       showScheduleAgain?: boolean;

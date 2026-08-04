@@ -101,7 +101,7 @@ const defaultFormData = {
 };
 
 // -------------------- HELPERS --------------------
-const cleanStr = (v) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : v);
+const cleanStr = (v: any) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : v);
 const uniqueStrings = (arr: string[]) => Array.from(new Set((arr || []).filter(Boolean)));
 
 const isValidUrlHttp = (raw: string) => {
@@ -208,7 +208,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
         const { data } = await apiClient.get(`/therapists/${therapistId}/patients/`);
         const arr = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-        const patientOptions = arr.map((p) => ({
+        const patientOptions = arr.map((p: any) => ({
           id: p._id,
           name: p.patient_code,
         }));
@@ -288,7 +288,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
       setError('');
     };
 
-    const handleMultiChange = (field: keyof typeof formData, selected) => {
+    const handleMultiChange = (field: keyof typeof formData, selected: any[]) => {
       setFormData((prev) => ({
         ...prev,
         [field]: uniqueStrings((selected || []).map((opt) => opt.value)),
@@ -393,7 +393,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
     };
 
     /* ---------------- BACKEND ERROR HANDLER ---------------- */
-    const applyBackendErrors = (data) => {
+    const applyBackendErrors = (data: any) => {
       if (!data) return;
 
       const fieldErrors: ErrorMap = {};
@@ -707,7 +707,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       value={inputFromOptions.filter((o) =>
                         (formData.inputFrom || []).includes(o.value)
                       )}
-                      onChange={(opts) => handleMultiChange('inputFrom', opts)}
+                      onChange={(opts) => handleMultiChange('inputFrom', opts as any)}
                     />
                   </Field>
                 </div>
@@ -777,7 +777,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       placeholder={t('Select...')}
                       options={aimsOptions}
                       value={aimsOptions.filter((o) => (formData.aims || []).includes(o.value))}
-                      onChange={(opts) => handleMultiChange('aims', opts)}
+                      onChange={(opts) => handleMultiChange('aims', opts as any)}
                     />
                   </Field>
                 </div>
@@ -791,7 +791,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       placeholder={t('Select...')}
                       options={topicsOptions}
                       value={topicsOptions.filter((o) => (formData.topics || []).includes(o.value))}
-                      onChange={(opts) => handleMultiChange('topics', opts)}
+                      onChange={(opts) => handleMultiChange('topics', opts as any)}
                     />
                   </Field>
                 </div>
@@ -931,7 +931,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       placeholder={t('Select...')}
                       options={whereOptions}
                       value={whereOptions.filter((o) => (formData.where || []).includes(o.value))}
-                      onChange={(opts) => handleMultiChange('where', opts)}
+                      onChange={(opts) => handleMultiChange('where', opts as any)}
                     />
                   </Field>
                 </div>
@@ -947,7 +947,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       value={settingOptions.filter((o) =>
                         (formData.setting || []).includes(o.value)
                       )}
-                      onChange={(opts) => handleMultiChange('setting', opts)}
+                      onChange={(opts) => handleMultiChange('setting', opts as any)}
                     />
                   </Field>
                 </div>

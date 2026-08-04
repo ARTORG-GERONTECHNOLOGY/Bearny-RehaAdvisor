@@ -48,31 +48,31 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
   const [details, setDetails] = useState<string | null>(null);
 
   const selectStyles = {
-    control: (base, state) => ({
+    control: (base: any, state: any) => ({
       ...base,
       minHeight: CONTROL_HEIGHT,
       height: CONTROL_HEIGHT,
       boxShadow: state.isFocused ? '0 0 0 0.2rem rgba(13,110,253,.25)' : base.boxShadow,
       borderColor: state.isFocused ? '#86b7fe' : base.borderColor,
     }),
-    valueContainer: (base) => ({
+    valueContainer: (base: any) => ({
       ...base,
       height: CONTROL_HEIGHT,
       padding: '0 8px',
       display: 'flex',
       alignItems: 'center',
     }),
-    input: (base) => ({
+    input: (base: any) => ({
       ...base,
       margin: 0,
       padding: 0,
     }),
-    indicatorsContainer: (base) => ({
+    indicatorsContainer: (base: any) => ({
       ...base,
       height: CONTROL_HEIGHT,
     }),
     // Radix Dialog sets pointerEvents:'none' on body; re-enable for react-select's portalled menu.
-    menuPortal: (base) => ({ ...base, zIndex: 9999, pointerEvents: 'auto' }),
+    menuPortal: (base: any) => ({ ...base, zIndex: 9999, pointerEvents: 'auto' }),
   };
 
   const handleChange = (
@@ -123,7 +123,7 @@ const PatientQuestionaire: React.FC<PatientPopupProps> = ({ patient_id, show, ha
     }
   };
 
-  const renderField = (field) => {
+  const renderField = (field: any) => {
     const fieldValue = formData[field.be_name] || '';
     const errors = fieldErrors[field.be_name];
 

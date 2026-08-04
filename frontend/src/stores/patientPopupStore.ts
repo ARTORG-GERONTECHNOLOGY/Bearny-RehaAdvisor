@@ -20,21 +20,21 @@ export type SelectOption = { value: string; label: string };
 // datetime-local helpers (Europe/Zurich-friendly)
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
-export const toDateInput = (v) => {
+export const toDateInput = (v: any) => {
   if (!v) return '';
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return '';
   return toLocalYMD(d);
 };
 
-export const toDisplayDate = (v) => {
+export const toDisplayDate = (v: any) => {
   if (!v) return '';
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return String(v);
   return formatLocaleDate(d);
 };
 
-const toLocalDatetimeInput = (isoOrDate) => {
+const toLocalDatetimeInput = (isoOrDate: any) => {
   if (!isoOrDate) return '';
   const d = new Date(isoOrDate);
   if (Number.isNaN(d.getTime())) return '';
@@ -59,13 +59,13 @@ export type ThresholdHistoryItem = {
   thresholds: Partial<PatientThresholds>;
 };
 
-const isEmptyValue = (v) =>
+const isEmptyValue = (v: any) =>
   v === undefined ||
   v === null ||
   (typeof v === 'string' && v.trim() === '') ||
   (Array.isArray(v) && v.length === 0);
 
-const deepEqualJSON = (a, b) => {
+const deepEqualJSON = (a: any, b: any) => {
   try {
     return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
   } catch {
@@ -76,8 +76,8 @@ const deepEqualJSON = (a, b) => {
 // -------------------------
 // Profile dirty-check helpers
 // -------------------------
-const stripVolatileProfileFields = (obj) => {
-  const o = { ...(obj || {}) };
+const stripVolatileProfileFields = (obj: any) => {
+  const o: any = { ...(obj || {}) };
 
   // server-managed / volatile
   delete o.updatedAt;
@@ -96,7 +96,7 @@ const stripVolatileProfileFields = (obj) => {
   return o;
 };
 
-const stableJSON = (obj) => {
+const stableJSON = (obj: any) => {
   try {
     return JSON.stringify(obj ?? null);
   } catch {
@@ -117,7 +117,7 @@ export class PatientPopupStore {
   isEditing = false;
 
   // patient data
-  rawPatient = null;
+  rawPatient: any = null;
 
   // manualData = what is stored in Mongo (manual / editable)
   manualData: any = {};
@@ -135,7 +135,7 @@ export class PatientPopupStore {
   redcapDag: string | null = null;
 
   // redcap rows fetched live
-  redcapRows = [];
+  redcapRows: any[] = [];
   // flattened view for table
   redcapFlat: Record<string, any> = {};
 
@@ -353,7 +353,7 @@ export class PatientPopupStore {
   // -------------------------
   // Form editing helpers
   // -------------------------
-  setField(key: string, value) {
+  setField(key: string, value: any) {
     this.formData = { ...(this.formData || {}), [key]: value };
   }
 
@@ -368,7 +368,7 @@ export class PatientPopupStore {
     this.formData = { ...(this.formData || {}), [key]: v };
   }
 
-  arrayToDisplay(v) {
+  arrayToDisplay(v: any) {
     if (!v) return '';
     if (Array.isArray(v)) return v.filter(Boolean).join(', ');
     return String(v);

@@ -66,7 +66,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
     if (!show) return;
     apiClient
       .get('therapist/access-change-request/')
-      .then((res) => setHasPending(Boolean(res?.data?.hasPending)))
+      .then((res: any) => setHasPending(Boolean(res?.data?.hasPending)))
       .catch(() => {});
   }, [show]);
 
@@ -110,7 +110,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
     setFormData((prev) => ({ ...prev, [field]: values }));
   };
 
-  const resolveOptions = (field): string[] => {
+  const resolveOptions = (field: any): string[] => {
     if (field.be_name === 'specialisation') return allSpecializations;
     return Array.isArray(field.options) ? field.options : [];
   };

@@ -52,7 +52,7 @@ const asStr = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : Stri
 const norm = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 const lower = (v: unknown) => norm(v).toLowerCase();
 
-const getAllMedia = (item): InterventionMedia[] => {
+const getAllMedia = (item: any): InterventionMedia[] => {
   const rawMedia = asArrayOrWrap<Record<string, unknown>>(item?.media);
 
   if (rawMedia.length) {

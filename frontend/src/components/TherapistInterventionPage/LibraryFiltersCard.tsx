@@ -29,7 +29,7 @@ export type LibraryFiltersState = {
 };
 
 type Props = {
-  t;
+  t: any;
   filters: LibraryFiltersState;
   onChange: (next: LibraryFiltersState) => void;
   onReset: () => void;

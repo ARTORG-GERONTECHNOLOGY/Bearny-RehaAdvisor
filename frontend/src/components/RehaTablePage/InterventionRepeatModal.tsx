@@ -44,7 +44,7 @@ interface Props {
   intervention: string | { _id: string };
   mode?: Mode;
   therapistId?: string;
-  defaults?;
+  defaults?: any;
 }
 
 const InterventionRepeatModal: React.FC<Props> = observer((props) => {
@@ -65,7 +65,7 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
   // diagnosis routing (same logic as before)
   const specs = (authStore.specialisations || []).map((s) => String(s).trim()).filter(Boolean);
   const diagnoses = Array.isArray(specs)
-    ? specs.flatMap((spec) => config?.patientInfo?.function?.[spec]?.diagnosis || [])
+    ? specs.flatMap((spec) => (config as any)?.patientInfo?.function?.[spec]?.diagnosis || [])
     : [];
   const isDiagnosis = diagnoses.includes(patient) || patient === 'all';
 

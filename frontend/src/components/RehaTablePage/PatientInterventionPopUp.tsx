@@ -37,7 +37,7 @@ import { ButtonGroup } from '@/components/ui/button-group';
 // ---------- types ----------
 type Props = {
   show: boolean;
-  item;
+  item: any;
   handleClose: () => void;
 };
 
@@ -47,10 +47,10 @@ type LangOpt = { language: string; title?: string | null };
 const asStr = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
 const uniq = (xs: string[]) => Array.from(new Set(xs.filter(Boolean)));
 
-const norm = (v) => (typeof v === 'string' ? v.trim() : '');
-const lower = (v) => norm(v).toLowerCase();
+const norm = (v: any) => (typeof v === 'string' ? v.trim() : '');
+const lower = (v: any) => norm(v).toLowerCase();
 
-const getAllMedia = (item): InterventionMedia[] => {
+const getAllMedia = (item: any): InterventionMedia[] => {
   const rawMedia = asArrayOrWrap<any>(item?.media);
 
   if (rawMedia.length) {
@@ -137,7 +137,7 @@ const getPlayableUrl = (m: InterventionMedia): string => {
 
 // ✅ “library-style” tags under description
 // NOTE: on patient payload, meta often lives under item.intervention (from plan)
-const getMetaTags = (item): string[] => {
+const getMetaTags = (item: any): string[] => {
   const out: string[] = [];
   const src = item?.intervention ?? item ?? {};
 

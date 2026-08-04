@@ -23,7 +23,7 @@ interface Props {
   patientData: AnyObj; // plan payload
 }
 
-const safeT = (t, key: string) => {
+const safeT = (t: any, key: string) => {
   const v = t(key);
   return typeof v === 'string' ? v : key;
 };

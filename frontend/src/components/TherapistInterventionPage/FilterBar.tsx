@@ -86,10 +86,10 @@ const FilterBar: React.FC<Props> = ({
   const tagOptions = uniq(tagBuckets).map((tag) => ({ value: tag, label: t(tag) }));
 
   const selectStyles = {
-    container: (base) => ({ ...base, width: '100%', minWidth: 0 }),
-    control: (base) => ({ ...base, minHeight: 38 }),
-    valueContainer: (base) => ({ ...base, minWidth: 0 }),
-    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+    container: (base: any) => ({ ...base, width: '100%', minWidth: 0 }),
+    control: (base: any) => ({ ...base, minHeight: 38 }),
+    valueContainer: (base: any) => ({ ...base, minWidth: 0 }),
+    menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
   };
 
   // --- container-width aware narrow mode ---

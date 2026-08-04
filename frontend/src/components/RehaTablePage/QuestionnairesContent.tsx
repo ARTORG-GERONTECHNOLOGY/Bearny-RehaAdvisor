@@ -92,7 +92,7 @@ const QuestionnairesContent: React.FC<QuestionnairesContentProps> = ({ patientId
   const fetchQuestionnaires = useCallback(async () => {
     try {
       const res = await apiClient.get('/questionnaires/health/');
-      const items: QItem[] = (Array.isArray(res.data) ? res.data : []).map((q) => ({
+      const items: QItem[] = (Array.isArray(res.data) ? res.data : []).map((q: any) => ({
         _id: String(q._id),
         key: String(q.key),
         title: String(q.title),

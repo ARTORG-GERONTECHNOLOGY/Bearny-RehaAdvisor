@@ -63,7 +63,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/in
 import { SearchIcon } from 'lucide-react';
 
 // ---------------- Template helpers (unchanged logic, moved out of render) ----------------
-const normalizeSegment = (segOrSchedule) => {
+const normalizeSegment = (segOrSchedule: any) => {
   const raw = segOrSchedule?.schedule ? segOrSchedule.schedule : segOrSchedule || {};
   const start_day = segOrSchedule?.from_day ?? raw.start_day ?? 1;
   const end_day = raw.end_day ?? segOrSchedule?.end_day;
@@ -713,7 +713,7 @@ const TherapistRecomendations: React.FC = observer(() => {
     [templateItemsByIntervention, templateDiag]
   );
 
-  const segmentSummary = (seg, it: TemplateItem) => {
+  const segmentSummary = (seg: any, it: TemplateItem) => {
     const daysStr =
       Array.isArray(seg.selectedDays) && seg.selectedDays.length
         ? ` • ${seg.selectedDays.join(', ')}`

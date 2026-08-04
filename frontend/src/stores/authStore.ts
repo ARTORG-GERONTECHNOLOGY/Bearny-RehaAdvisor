@@ -125,7 +125,7 @@ class AuthStore {
     return this.id || localStorage.getItem('id') || '';
   }
 
-  private _parseSpecialisationsFromPayload(data): string[] {
+  private _parseSpecialisationsFromPayload(data: any): string[] {
     // Backend might send: specialisation OR specialisations; as array or comma string
     const val =
       data?.specialisation ??

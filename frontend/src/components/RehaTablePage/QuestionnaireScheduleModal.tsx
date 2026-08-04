@@ -64,7 +64,7 @@ interface Props {
 }
 
 const extractApiError = (
-  e,
+  e: any,
   fallback: string
 ): { message: string; fieldErrors: Record<string, string> } => {
   const api = e?.response?.data;
@@ -78,7 +78,7 @@ const extractApiError = (
   if (typeof api.details === 'string' && api.details.trim()) pieces.push(api.details.trim());
 
   if (Array.isArray(api.non_field_errors))
-    pieces.push(...api.non_field_errors.map((x) => String(x)));
+    pieces.push(...api.non_field_errors.map((x: any) => String(x)));
 
   if (api.field_errors && typeof api.field_errors === 'object') {
     Object.entries(api.field_errors).forEach(([field, msgs]) => {

@@ -2,7 +2,7 @@ import { makeAutoObservable } from 'mobx';
 import apiClient from '../api/client';
 
 class AdminStore {
-  pendingEntries = []; // <-- Make sure this is initialized as an empty array
+  pendingEntries: any[] = []; // <-- Make sure this is initialized as an empty array
   error: string = '';
 
   constructor() {

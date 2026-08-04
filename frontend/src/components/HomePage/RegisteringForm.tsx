@@ -414,7 +414,7 @@ const FormRegister: React.FC<RegisterFormProps> = ({ show, handleRegShow }) => {
       .join(' — ');
   };
 
-  const extractServerMessage = (data, fallback: string): string => {
+  const extractServerMessage = (data: any, fallback: string): string => {
     if (typeof data === 'string') return t(data);
     if (data && typeof data === 'object') {
       if (typeof data.error === 'string') return t(data.error);

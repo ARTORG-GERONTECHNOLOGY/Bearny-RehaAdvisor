@@ -26,7 +26,7 @@ interface Props {
   initialDatetime?: string;
 }
 
-const safeT = (t, key: string) => {
+const safeT = (t: any, key: string) => {
   const v = t(key);
   return typeof v === 'string' ? v : key;
 };
@@ -44,7 +44,7 @@ const formatDateTime = (iso: string) => {
 };
 
 // very defensive language pick
-const pickTranslation = (translations, preferredLang: string) => {
+const pickTranslation = (translations: any[], preferredLang: string) => {
   const arr = asArray<any>(translations);
   return (
     arr.find((tr) => tr?.language === preferredLang)?.text ||

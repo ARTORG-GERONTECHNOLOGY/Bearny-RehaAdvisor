@@ -14,7 +14,7 @@ interface PatientInfoProfileCardProps {
 }
 
 const getContactsFields = (store: PatientPopupStore): PatientFieldConfig[] => {
-  const clinicProjects = config.therapistInfo?.clinic_projects || {};
+  const clinicProjects: any = config.therapistInfo?.clinic_projects || {};
   return [
     { be_name: 'last_online_contact', label: 'Last online visit', type: 'date', readOnly: true },
     { be_name: 'last_clinic_visit', label: 'Last clinic visit', type: 'date' },
@@ -81,13 +81,13 @@ const PatientInfoProfileCard: React.FC<PatientInfoProfileCardProps> = observer((
               <div className="mb-2">{t(section.title)}</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {section.fields
-                  .filter((f) => !['password', 'repeatPassword'].includes(f.name))
+                  .filter((f: any) => !['password', 'repeatPassword'].includes(f.name))
                   .filter(
-                    (f) =>
+                    (f: any) =>
                       !appModeStore.hidePiiFields ||
                       !['firstName', 'lastName', 'email', 'phone', 'age'].includes(f.name)
                   )
-                  .map((field, index: number) => (
+                  .map((field: any, index: number) => (
                     <div key={`${section.title}-${field.be_name}-${index}`}>
                       <PatientInfoFieldRenderer store={store} field={field} />
                     </div>

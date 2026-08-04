@@ -217,7 +217,7 @@ export const buildHealthCsvBlob = (
     const rows: (string | number | null)[][] = [];
     fitIn.forEach((d: any) => {
       const sessions = d.exercise?.sessions || [];
-      sessions.forEach((s) => {
+      sessions.forEach((s: any) => {
         const durMin = s.duration != null ? (s.duration as number) / 60000 : null;
         rows.push([
           toEuroDate(d.date.slice(0, 10)),
