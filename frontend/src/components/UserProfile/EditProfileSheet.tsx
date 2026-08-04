@@ -66,15 +66,15 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
     if (!show) return;
     apiClient
       .get('therapist/access-change-request/')
-      .then((res: any) => setHasPending(Boolean(res?.data?.hasPending)))
+      .then((res) => setHasPending(Boolean(res?.data?.hasPending)))
       .catch(() => {});
   }, [show]);
 
   const saving = userProfileStore.saving;
 
   const fields = useMemo(() => {
-    return (config as any).TherapistForm.flatMap((section: any) => section.fields).filter(
-      (field: any) =>
+    return (config as any).TherapistForm.flatMap((section) => section.fields).filter(
+      (field) =>
         ![
           'password',
           'repeatPassword',
@@ -108,7 +108,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
     setFormData((prev) => ({ ...prev, [field]: values }));
   };
 
-  const resolveOptions = (field: any): string[] => {
+  const resolveOptions = (field): string[] => {
     if (field.be_name === 'specialisation') return allSpecializations;
     return Array.isArray(field.options) ? field.options : [];
   };
@@ -221,7 +221,7 @@ const EditProfileSheet: React.FC<Props> = observer(({ show, userData, onCancel }
             {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
             <FieldGroup>
-              {fields.map((field: any) => (
+              {fields.map((field) => (
                 <React.Fragment key={field.be_name}>
                   {field.type === 'multi-select' ? (
                     <MultiSelectField

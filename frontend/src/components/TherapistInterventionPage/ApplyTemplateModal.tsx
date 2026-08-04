@@ -93,7 +93,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
     apiClient
       .get(`therapists/${authStore.id}/patients/`)
       .then((res) => {
-        const list: PatientOption[] = (res.data || []).map((p: any) => ({
+        const list: PatientOption[] = (res.data || []).map((p) => ({
           _id: p._id || p.id || '',
           patient_code: p.patient_code || '',
           first_name: p.first_name || '',
@@ -151,7 +151,7 @@ const ApplyTemplateModal: React.FC<Props> = ({
     return map[key] || key;
   };
 
-  const applyErrors = (data: any) => {
+  const applyErrors = (data) => {
     const fe: ErrMap = {};
     if (data?.field_errors) {
       Object.entries(data.field_errors).forEach(([k, v]) => {

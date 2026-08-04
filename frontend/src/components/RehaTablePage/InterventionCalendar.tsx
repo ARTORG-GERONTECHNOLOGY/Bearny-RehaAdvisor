@@ -24,8 +24,8 @@ type PatientPlan = { interventions: Intervention[] } & Record<string, any>;
 type DateEntry = {
   datetime: string;
   status?: 'completed' | 'missed' | 'today' | 'upcoming' | string;
-  feedback?: any[];
-  video?: any;
+  feedback?;
+  video?;
 };
 
 type CalendarEvent = {
@@ -35,7 +35,7 @@ type CalendarEvent = {
   end: Date;
   resource: {
     interventionId: string;
-    intervention: any;
+    intervention;
     dateEntry: DateEntry;
     status?: string;
   };

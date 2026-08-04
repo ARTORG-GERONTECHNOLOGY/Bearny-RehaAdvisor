@@ -410,7 +410,7 @@ const AdminDashboard: React.FC = observer(() => {
     fetchExportClinics,
   ]);
 
-  const getTherapistIdFromEntry = (entry: any) => {
+  const getTherapistIdFromEntry = (entry) => {
     return entry.therapistId || entry.therapist_id || entry.therapist || '';
   };
 
@@ -452,7 +452,7 @@ const AdminDashboard: React.FC = observer(() => {
   }, [allowedClinicsForSelectedProjects]);
 
   const openAccessModal = useCallback(
-    async (entry: any) => {
+    async (entry) => {
       setAccessError(null);
       setAccessSuccess(null);
 
@@ -604,7 +604,7 @@ const AdminDashboard: React.FC = observer(() => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {adminStore.pendingEntries.map((entry: any) => {
+                {adminStore.pendingEntries.map((entry) => {
                   const role = String(entry.role || '').toLowerCase();
                   const isTherapist = role === 'therapist';
                   const clinics: string[] = Array.isArray(entry?.clinics) ? entry.clinics : [];

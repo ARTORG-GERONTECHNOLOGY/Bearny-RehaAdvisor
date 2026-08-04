@@ -44,7 +44,7 @@ interface Props {
   intervention: string | { _id: string };
   mode?: Mode;
   therapistId?: string;
-  defaults?: any;
+  defaults?;
 }
 
 const InterventionRepeatModal: React.FC<Props> = observer((props) => {

@@ -20,7 +20,7 @@ export type InterventionMeta = {
   setting?: string[];
   duration_bucket?: string;
   keywords?: string[];
-  media?: any[];
+  media?;
   preview_img?: string;
   is_private?: boolean;
 };
@@ -40,7 +40,7 @@ export type PatientRec = {
   // media/preview (legacy still used by UI)
   duration?: number;
   preview_img?: string;
-  media?: any[];
+  media?;
 
   // full intervention object (from backend)
   intervention?: InterventionMeta;
@@ -128,7 +128,7 @@ class PatientInterventionsStore {
       const list = asArray<any>(data);
 
       const translated: PatientRec[] = await Promise.all(
-        list.map(async (row: any) => {
+        list.map(async (row) => {
           const meta: InterventionMeta | undefined =
             row && typeof row === 'object' ? (row.intervention as InterventionMeta) : undefined;
 

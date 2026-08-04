@@ -125,7 +125,7 @@ class AuthStore {
     return this.id || localStorage.getItem('id') || '';
   }
 
-  private _parseSpecialisationsFromPayload(data: any): string[] {
+  private _parseSpecialisationsFromPayload(data): string[] {
     // Backend might send: specialisation OR specialisations; as array or comma string
     const val =
       data?.specialisation ??
@@ -134,7 +134,7 @@ class AuthStore {
       data?.specializations;
 
     if (Array.isArray(val)) {
-      return val.map((s: any) => String(s).trim()).filter(Boolean);
+      return val.map((s) => String(s).trim()).filter(Boolean);
     }
 
     if (typeof val === 'string') {

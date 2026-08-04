@@ -20,7 +20,7 @@ function PeriodRow({
   t,
 }: {
   period: string;
-  data: any;
+  data;
   t: (k: string, opts?: Record<string, unknown>) => string;
 }) {
   const label = t(PERIOD_LABEL[period] ?? period);

@@ -14,7 +14,7 @@ type Props = {
   translatedTitles?: TitleMap; // 👈 NEW
 };
 
-const normalizeSegment = (segOrSchedule: any) => {
+const normalizeSegment = (segOrSchedule) => {
   const raw = segOrSchedule?.schedule ? segOrSchedule.schedule : segOrSchedule || {};
   const start_day = segOrSchedule?.from_day ?? raw.start_day ?? 1;
   const end_day = raw.end_day ?? segOrSchedule?.end_day;
@@ -31,7 +31,7 @@ const normalizeSegment = (segOrSchedule: any) => {
 
 const getSegments = (it: TemplateItem) => {
   const segs = (it as any).segments;
-  if (Array.isArray(segs) && segs.length) return segs.map((s: any) => normalizeSegment(s));
+  if (Array.isArray(segs) && segs.length) return segs.map((s) => normalizeSegment(s));
   const s = normalizeSegment(it.schedule);
   return [s];
 };
@@ -45,7 +45,7 @@ const pickSegmentForDay = (it: TemplateItem, day: number) => {
 };
 
 // ✅ NO hooks here — t is passed in from the component scope
-const segmentSummary = (seg: any, it: TemplateItem, t: (s: string) => string) => {
+const segmentSummary = (seg, it: TemplateItem, t: (s: string) => string) => {
   const daysStr =
     Array.isArray(seg.selectedDays) && seg.selectedDays.length
       ? ` • ${seg.selectedDays.join(', ')}`

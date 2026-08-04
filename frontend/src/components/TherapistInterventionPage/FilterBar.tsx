@@ -86,10 +86,10 @@ const FilterBar: React.FC<Props> = ({
   const tagOptions = uniq(tagBuckets).map((tag) => ({ value: tag, label: t(tag) }));
 
   const selectStyles = {
-    container: (base: any) => ({ ...base, width: '100%', minWidth: 0 }),
-    control: (base: any) => ({ ...base, minHeight: 38 }),
-    valueContainer: (base: any) => ({ ...base, minWidth: 0 }),
-    menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
+    container: (base) => ({ ...base, width: '100%', minWidth: 0 }),
+    control: (base) => ({ ...base, minHeight: 38 }),
+    valueContainer: (base) => ({ ...base, minWidth: 0 }),
+    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
   };
 
   // --- container-width aware narrow mode ---
@@ -144,7 +144,7 @@ const FilterBar: React.FC<Props> = ({
           placeholder={t('Filter by Primary Diagnosis')}
           options={diagnosisOptions.map((d: string) => ({ value: d, label: t(d) }))}
           value={(diagnosisFilter || []).map((d) => ({ value: d, label: t(d) }))}
-          onChange={(opts) => setDiagnosisFilter((opts || []).map((o: any) => o.value))}
+          onChange={(opts) => setDiagnosisFilter((opts || []).map((o) => o.value))}
           styles={selectStyles}
           menuPortalTarget={document.body}
         />
@@ -161,7 +161,7 @@ const FilterBar: React.FC<Props> = ({
             placeholder={t('Filter by Language')}
             options={languageOptions}
             value={(languageFilter || []).map((l) => ({ value: l, label: l.toUpperCase() }))}
-            onChange={(opts) => setLanguageFilter((opts || []).map((o: any) => o.value))}
+            onChange={(opts) => setLanguageFilter((opts || []).map((o) => o.value))}
             styles={selectStyles}
             menuPortalTarget={document.body}
           />
@@ -200,7 +200,7 @@ const FilterBar: React.FC<Props> = ({
           placeholder={t('Filter by Tags')}
           options={tagOptions}
           value={(tagFilter || []).map((tag) => ({ value: tag, label: t(tag) }))}
-          onChange={(opts) => setTagFilter((opts || []).map((o: any) => o.value))}
+          onChange={(opts) => setTagFilter((opts || []).map((o) => o.value))}
           styles={selectStyles}
           menuPortalTarget={document.body}
         />

@@ -144,7 +144,7 @@ const TemplateAssignModal: React.FC<Props> = ({
   ]);
 
   /* ---------------- ERROR HANDLER ---------------- */
-  const applyBackendErrors = (data: any) => {
+  const applyBackendErrors = (data) => {
     const fe: ErrorMap = {};
 
     if (data?.field_errors) {
@@ -211,7 +211,7 @@ const TemplateAssignModal: React.FC<Props> = ({
       const [h, m] = startTime.split(':').map(Number);
       const suggestedExecution = h * 60 + m;
 
-      let res: any;
+      let res;
 
       if (templateId) {
         // Named template endpoint

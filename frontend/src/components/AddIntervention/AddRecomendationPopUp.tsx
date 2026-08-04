@@ -101,7 +101,7 @@ const defaultFormData = {
 };
 
 // -------------------- HELPERS --------------------
-const cleanStr = (v: any) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : v);
+const cleanStr = (v) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : v);
 const uniqueStrings = (arr: string[]) => Array.from(new Set((arr || []).filter(Boolean)));
 
 const isValidUrlHttp = (raw: string) => {
@@ -208,7 +208,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
 
         const { data } = await apiClient.get(`/therapists/${therapistId}/patients/`);
         const arr = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
-        const patientOptions = arr.map((p: any) => ({
+        const patientOptions = arr.map((p) => ({
           id: p._id,
           name: p.patient_code,
         }));
@@ -270,7 +270,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
       const val = type === 'checkbox' ? checked : value;
 
       setFormData((prev) => {
-        const next: any = {
+        const next = {
           ...prev,
           [id]: type === 'text' || type === 'textarea' ? cleanStr(val) : val,
         };
@@ -288,7 +288,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
       setError('');
     };
 
-    const handleMultiChange = (field: keyof typeof formData, selected: any[]) => {
+    const handleMultiChange = (field: keyof typeof formData, selected) => {
       setFormData((prev) => ({
         ...prev,
         [field]: uniqueStrings((selected || []).map((opt) => opt.value)),
@@ -393,7 +393,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
     };
 
     /* ---------------- BACKEND ERROR HANDLER ---------------- */
-    const applyBackendErrors = (data: any) => {
+    const applyBackendErrors = (data) => {
       if (!data) return;
 
       const fieldErrors: ErrorMap = {};
@@ -758,7 +758,7 @@ const AddInterventionPopup: React.FC<AddInterventionPopupProps> = observer(
                       onChange={(opts) =>
                         setFormData((prev) => ({
                           ...prev,
-                          primaryDiagnosis: (opts || []).map((o: any) => o.value),
+                          primaryDiagnosis: (opts || []).map((o) => o.value),
                         }))
                       }
                       placeholder={t('Select')}

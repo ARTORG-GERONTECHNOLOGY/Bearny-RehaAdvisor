@@ -235,7 +235,7 @@ export default function HealthSlider() {
     open: boolean;
     message: string;
     audio: Blob | null;
-    meta: any;
+    meta;
   }>({ open: false, message: '', audio: null, meta: null });
 
   // keep last blob so upload-fail prompt can download it

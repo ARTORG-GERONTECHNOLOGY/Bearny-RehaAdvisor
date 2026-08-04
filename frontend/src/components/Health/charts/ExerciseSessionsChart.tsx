@@ -169,7 +169,7 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
               fill={sessionColor(i)}
               cursor="pointer"
               activeBar={{ fillOpacity: 0.7 }}
-              onClick={(barData: any) => {
+              onClick={(barData) => {
                 const day = barData?.date ?? barData?.payload?.date;
                 if (day) setSelectedDate(day);
               }}

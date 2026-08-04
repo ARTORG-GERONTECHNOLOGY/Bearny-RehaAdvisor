@@ -23,7 +23,7 @@ interface Props {
   patientData: AnyObj; // plan payload
 }
 
-const safeT = (t: any, key: string) => {
+const safeT = (t, key: string) => {
   const v = t(key);
   return typeof v === 'string' ? v : key;
 };
@@ -34,7 +34,7 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
   const stats = useMemo(() => {
     const id = intervention?._id;
     const assigned =
-      asArray<any>(patientData?.interventions).find((x: any) => x?._id === id) || intervention;
+      asArray<any>(patientData?.interventions).find((x) => x?._id === id) || intervention;
 
     const dates = asArray<any>(assigned?.dates);
 
@@ -46,7 +46,7 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
     let feedbackCount = 0;
     let videoCount = 0;
 
-    dates.forEach((d: any) => {
+    dates.forEach((d) => {
       const st = String(d?.status || '').toLowerCase();
       if (st === 'completed') completed += 1;
       else if (st === 'missed') missed += 1;

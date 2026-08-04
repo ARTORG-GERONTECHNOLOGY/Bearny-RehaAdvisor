@@ -26,7 +26,7 @@ interface Props {
   initialDatetime?: string;
 }
 
-const safeT = (t: any, key: string) => {
+const safeT = (t, key: string) => {
   const v = t(key);
   return typeof v === 'string' ? v : key;
 };
@@ -44,11 +44,11 @@ const formatDateTime = (iso: string) => {
 };
 
 // very defensive language pick
-const pickTranslation = (translations: any[], preferredLang: string) => {
+const pickTranslation = (translations, preferredLang: string) => {
   const arr = asArray<any>(translations);
   return (
-    arr.find((tr: any) => tr?.language === preferredLang)?.text ||
-    arr.find((tr: any) => tr?.language === 'en')?.text ||
+    arr.find((tr) => tr?.language === preferredLang)?.text ||
+    arr.find((tr) => tr?.language === 'en')?.text ||
     arr[0]?.text ||
     ''
   );
@@ -73,7 +73,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
       if (initialDatetime) {
         // Show all dates so the target is always reachable, then select it
         setOnlyWithFeedback(false);
-        const idx = allDates.findIndex((d: any) => d?.datetime === initialDatetime);
+        const idx = allDates.findIndex((d) => d?.datetime === initialDatetime);
         setSelectedIdx(idx >= 0 ? idx : 0);
       } else {
         setOnlyWithFeedback(true);
@@ -86,7 +86,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
   const totalScheduled = allDates.length;
 
   const answeredCount = useMemo(() => {
-    return allDates.reduce((acc: number, d: any) => {
+    return allDates.reduce((acc: number, d) => {
       const fbCount = asArray<any>(d?.feedback).length;
       const hasVideo = !!d?.video?.video_url;
       // treat either Q-feedback or video feedback as "answered"
@@ -96,7 +96,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
 
   const visibleDates = useMemo(() => {
     if (!onlyWithFeedback) return allDates;
-    return allDates.filter((d: any) => {
+    return allDates.filter((d) => {
       const fbCount = asArray<any>(d?.feedback).length;
       const hasVideo = !!d?.video?.video_url;
       return fbCount > 0 || hasVideo;
@@ -156,7 +156,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                   <div className="font-semibold mb-2">{safeT(t, 'Dates')}</div>
 
                   <div className="flex flex-col gap-1">
-                    {visibleDates.map((d: any, idx: number) => {
+                    {visibleDates.map((d, idx: number) => {
                       const st = String(d?.status || '').toLowerCase();
                       const fbCount = asArray<any>(d?.feedback).length;
                       const hasVid = !!d?.video?.video_url;
@@ -229,13 +229,13 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                         <Alert>{safeT(t, 'No feedback available')}</Alert>
                       ) : (
                         <div className="divide-y rounded-md border">
-                          {feedback.map((fb: any, i: number) => {
+                          {feedback.map((fb, i: number) => {
                             const q = fb?.question;
                             const qText = pickTranslation(q?.translations, userLang);
 
                             const answers = asArray<any>(fb?.answer);
                             const answerText = answers
-                              .map((a: any) => pickTranslation(a?.translations, userLang) || a?.key)
+                              .map((a) => pickTranslation(a?.translations, userLang) || a?.key)
                               .filter(Boolean)
                               .join(', ');
 
