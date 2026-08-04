@@ -1,5 +1,11 @@
 // Enable custom matchers like toBeInTheDocument, toHaveAttribute, etc.
 import '@testing-library/jest-dom';
+
+// react-router v8 server-runtime code uses TextEncoder/TextDecoder at module load time;
+// jsdom may not expose them as globals — polyfill from Node's util module.
+import { TextEncoder, TextDecoder } from 'util';
+(global as any).TextEncoder = TextEncoder;
+(global as any).TextDecoder = TextDecoder;
 beforeAll(() => {
   const originalWarn = console.warn;
 

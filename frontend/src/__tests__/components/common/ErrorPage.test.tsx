@@ -7,8 +7,8 @@ const mockIsRouteErrorResponse = jest.fn();
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
+jest.mock('react-router', () => ({
+  ...jest.requireActual('react-router'),
   useRouteError: () => mockUseRouteError(),
   isRouteErrorResponse: (error: unknown) => mockIsRouteErrorResponse(error),
 }));

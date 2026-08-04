@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { observer } from 'mobx-react-lite';
 
 import { appModeStore } from '@/stores/appModeStore';

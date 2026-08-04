@@ -1,6 +1,6 @@
 // src/pages/TherapistInterventions.tsx
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { FaPlus, FaTrash, FaCopy, FaUpload, FaEdit, FaBell } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';

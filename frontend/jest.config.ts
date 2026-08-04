@@ -6,7 +6,7 @@ const config: Config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   transform: {
     '^.+\\.(ts|tsx)$': '<rootDir>/jest-import-meta-transform.js',
-    '^.+\\.(js|jsx)$': 'babel-jest',
+    '^.+\\.(js|jsx|mjs)$': 'babel-jest',
   },
   moduleNameMapper: {
     '\\.svg\\?react$': '<rootDir>/src/__mocks__/svgReactMock.js',
@@ -16,8 +16,7 @@ const config: Config = {
     '^.*/config/interventions\\.json$': '<rootDir>/src/__mocks__/interventions.config.json',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(@react|react-dom|mobx-react-lite)/)',
-    '/node_modules/(?!axios)',
+    '/node_modules/(?!(react-router|cookie-es|axios|mobx-react-lite|react-dom)/)',
   ],
   testMatch: ['**/__tests__/**/*.(ts|tsx)', '**/?(*.)+(spec|test).(ts|tsx)'],
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],

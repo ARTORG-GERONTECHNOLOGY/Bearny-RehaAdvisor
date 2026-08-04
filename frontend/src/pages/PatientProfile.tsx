@@ -9,7 +9,7 @@ import Card from '@/components/Card';
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import authStore from '@/stores/authStore';
 import { observer } from 'mobx-react-lite';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import LogoutFill from '@/assets/icons/logout-fill.svg?react';
 import Mail from '@/assets/icons/contact/mail.svg?react';
 import Phone from '@/assets/icons/contact/phone.svg?react';
