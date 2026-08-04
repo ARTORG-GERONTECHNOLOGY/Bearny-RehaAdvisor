@@ -491,12 +491,13 @@ def user_profile_view(request, user_id):
             # Validate email + phone — skip validation when value is None/empty
             # (REDCap-imported patients have no email/phone set on their User record)
             email_val = raw.get("email")
-            if (
-                email_val is not None
-                and email_val != ""
-                and not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", str(email_val))
-            ):
-                return JsonResponse({"error": "Invalid email"}, status=400)
+            if email_val is not None and email_val != "":
+                _s = str(email_val)
+                if len(_s) > 254 or _s.count("@") != 1 or _s.startswith("@") or _s.endswith("@"):
+                    return JsonResponse({"error": "Invalid email"}, status=400)
+                _local, _domain = _s.split("@", 1)
+                if not _local or "." not in _domain or _domain.startswith(".") or _domain.endswith("."):
+                    return JsonResponse({"error": "Invalid email"}, status=400)
 
             phone_val = raw.get("phone")
             if phone_val is not None and phone_val != "" and not re.match(r"^\+?[0-9]{7,15}$", str(phone_val)):
@@ -793,9 +794,9 @@ def get_pending_users(request):
 
         return JsonResponse({"pending_users": result}, status=200)
 
-    except Exception as e:
+    except Exception:
         logger.exception("get_pending_users failed")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error."}, status=500)
 
 
 @api_view(["POST"])

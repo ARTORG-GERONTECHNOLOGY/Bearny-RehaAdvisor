@@ -449,18 +449,12 @@ def available_redcap_patients(request):
                     }
                 )
 
-        except RedcapError as e:
+        except RedcapError:
             logger.exception("available_redcap_patients: REDCap error project=%s", project)
-            errors.append({"project": project, "error": str(e), "detail": e.detail})
-        except Exception as e:
+            errors.append({"project": project, "error": "REDCap error for this project."})
+        except Exception:
             logger.exception("available_redcap_patients failed project=%s", project)
-            errors.append(
-                {
-                    "project": project,
-                    "error": "Unexpected server error.",
-                    "detail": str(e),
-                }
-            )
+            errors.append({"project": project, "error": "Unexpected server error."})
 
     # Deduplicate across (project, identifier)
     seen: Set[Tuple[str, str]] = set()

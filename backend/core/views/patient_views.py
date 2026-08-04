@@ -556,9 +556,9 @@ def mark_intervention_completed(request):
         return JsonResponse({"error": "Patient not found"}, status=404)
     except Intervention.DoesNotExist:
         return JsonResponse({"error": "Intervention not found"}, status=404)
-    except Exception as e:
-        logger.error("[mark_intervention_completed] Unexpected error: %s", str(e), exc_info=True)
-        return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
+    except Exception:
+        logger.error("[mark_intervention_completed] Unexpected error", exc_info=True)
+        return JsonResponse({"error": "Internal server error."}, status=500)
 
 
 @api_view(["POST"])
@@ -656,13 +656,9 @@ def unmark_intervention_completed(request):
         return JsonResponse({"error": "Patient not found"}, status=404)
     except Intervention.DoesNotExist:
         return JsonResponse({"error": "Intervention not found"}, status=404)
-    except Exception as e:
-        logger.error(
-            "[unmark_intervention_completed] Unexpected error: %s",
-            str(e),
-            exc_info=True,
-        )
-        return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
+    except Exception:
+        logger.error("[unmark_intervention_completed] Unexpected error", exc_info=True)
+        return JsonResponse({"error": "Internal server error."}, status=500)
 
 
 @api_view(["GET"])
@@ -1136,9 +1132,9 @@ def get_patient_plan(request, patient_id):
 
         return JsonResponse(out, safe=False, status=200)
 
-    except Exception as e:
-        logger.error("[get_patient_plan] Error while resolving/serializing patient plan: %s", str(e), exc_info=True)
-        return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
+    except Exception:
+        logger.error("[get_patient_plan] Error while resolving/serializing patient plan", exc_info=True)
+        return JsonResponse({"error": "Internal server error."}, status=500)
 
 
 @api_view(["POST"])
@@ -1239,7 +1235,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         try:
             patient = Patient.objects.get(pk=oid)
         except Patient.DoesNotExist:
-            logger.warning("[get_feedback_questions] Patient not found: %s", patient_id)
+            logger.warning("[get_feedback_questions] Patient not found for provided identifier.")
             return JsonResponse({"error": "Patient not found."}, status=404)
 
     # -------------------- HEALTHSTATUS --------------------
@@ -3259,7 +3255,7 @@ def initial_patient_questionaire(request, patient_id):
         → Returns success or field_errors
     """
 
-    def error_response(message, status=400, field_errors=None, non_field=None, details=None):
+    def error_response(message, status=400, field_errors=None, non_field=None):
         resp = {
             "success": False,
             "message": message,
@@ -3268,8 +3264,6 @@ def initial_patient_questionaire(request, patient_id):
             resp["field_errors"] = field_errors
         if non_field:
             resp["non_field_errors"] = non_field
-        if details:
-            resp["details"] = details
         return JsonResponse(resp, status=status)
 
     # ----------------------------
