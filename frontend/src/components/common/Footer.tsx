@@ -1,6 +1,6 @@
 import { FunctionComponent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router';
 import PwaInstallSheet, { useIsStandalone } from '@/components/PwaInstallSheet';
 import { Download } from 'lucide-react';
 import {

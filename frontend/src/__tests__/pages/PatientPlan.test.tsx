@@ -121,10 +121,10 @@ jest.mock('@/assets/icons/circle-check-fill.svg?react', () => ({
   default: (props: any) => <svg {...props} data-testid="circle-check" />,
 }));
 
-// Mock react-router-dom
+// Mock react-router
 const navigateMock = jest.fn();
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
+jest.mock('react-router', () => ({
+  ...jest.requireActual('react-router'),
   useNavigate: () => navigateMock,
 }));
 

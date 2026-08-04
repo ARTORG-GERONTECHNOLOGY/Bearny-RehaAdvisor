@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import Footer from '@/components/common/Footer';
 import LoginForm from '@/components/HomePage/LoginForm';
 import FormRegister from '@/components/HomePage/RegisteringForm';

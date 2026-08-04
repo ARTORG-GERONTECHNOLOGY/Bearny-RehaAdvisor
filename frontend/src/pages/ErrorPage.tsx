@@ -1,7 +1,7 @@
 import React from 'react';
 import * as Sentry from '@sentry/react';
 import { useTranslation } from 'react-i18next';
-import { useRouteError, isRouteErrorResponse } from 'react-router-dom';
+import { useRouteError, isRouteErrorResponse } from 'react-router';
 import Card from '@/components/Card';
 import Layout from '@/components/Layout';
 import { Button } from '@/components/ui/button';

@@ -171,8 +171,8 @@ jest.mock('@/hooks/useInterventions', () => ({
   })),
 }));
 
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom');
+jest.mock('react-router', () => {
+  const actual = jest.requireActual('react-router');
   return {
     ...actual,
     useNavigate: jest.fn(),
@@ -187,7 +187,7 @@ const getQuestionnairesStore = () =>
 const getInterventionsStore = () =>
   jest.requireMock('@/stores/patientInterventionsStore').patientInterventionsStore;
 const getAuthStore = () => jest.requireMock('@/stores/authStore').default;
-const getRouterMocks = () => jest.requireMock('react-router-dom');
+const getRouterMocks = () => jest.requireMock('react-router');
 const getDailyCardMock = () => jest.requireMock('@/components/PatientPage/DailyInterventionCard');
 const getActivitySectionMock = () => jest.requireMock('@/components/PatientPage/ActivitySection');
 const getHealthCheckInSectionMock = () =>

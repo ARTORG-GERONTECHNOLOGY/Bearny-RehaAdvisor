@@ -1,7 +1,7 @@
 // src/components/HomePage/RegisterPatient.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import Select from 'react-select';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import apiClient from '@/api/client';
 import config from '@/config/config.json';
 import { useTranslation } from 'react-i18next';

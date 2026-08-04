@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import TherapistInterventions from '@/pages/TherapistInterventions';
 import apiClient from '@/api/client';
 import templateStore from '@/stores/templateStore';
@@ -57,10 +57,10 @@ jest.mock('../../config/config.json', () => ({
   },
 }));
 
-// Mock react-router-dom navigation
+// Mock react-router navigation
 const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom');
+jest.mock('react-router', () => {
+  const actual = jest.requireActual('react-router');
   return {
     ...actual,
     useNavigate: () => mockNavigate,

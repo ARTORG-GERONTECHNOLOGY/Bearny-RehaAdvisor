@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import LogoutListener from '@/LogoutListener';
 import authStore from '@/stores/authStore';
 import '@testing-library/jest-dom';
@@ -8,8 +8,8 @@ jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 // Mock useNavigate
 const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom');
+jest.mock('react-router', () => {
+  const actual = jest.requireActual('react-router');
   return {
     ...actual,
     useNavigate: () => mockNavigate,

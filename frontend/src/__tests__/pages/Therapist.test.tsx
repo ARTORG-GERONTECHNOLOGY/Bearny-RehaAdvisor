@@ -2,7 +2,7 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Therapist from '@/pages/Therapist';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import authStore from '@/stores/authStore';
 import apiClient from '@/api/client';
 import { appModeStore } from '@/stores/appModeStore';
@@ -52,8 +52,8 @@ jest.mock('react-i18next', () => ({
 }));
 // Mock navigation
 const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom');
+jest.mock('react-router', () => {
+  const actual = jest.requireActual('react-router');
   return {
     ...actual,
     useNavigate: () => mockNavigate,

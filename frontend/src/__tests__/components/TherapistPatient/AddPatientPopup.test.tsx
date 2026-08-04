@@ -10,14 +10,14 @@ jest.mock('@/stores/authStore', () => ({
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
+jest.mock('react-router', () => ({
+  ...jest.requireActual('react-router'),
   useNavigate: () => mockNavigate,
 }));
 
 import { render, screen, fireEvent } from '@testing-library/react';
 import AddPatientPopup from '@/components/AddPatient/AddPatientPopUp';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter } from 'react-router';
 import '@testing-library/jest-dom';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';

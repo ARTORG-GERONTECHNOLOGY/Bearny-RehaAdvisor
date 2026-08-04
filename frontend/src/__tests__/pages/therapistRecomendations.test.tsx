@@ -141,8 +141,8 @@ jest.mock('@/utils/translate', () => ({
 
 // Mock router
 const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom');
+jest.mock('react-router', () => {
+  const actual = jest.requireActual('react-router');
   return {
     ...actual,
     useNavigate: () => mockNavigate,
@@ -179,7 +179,7 @@ jest.mock('@/stores/interventionsLibraryStore', () => ({
 
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import TherapistRecomendations from '@/pages/TherapistInterventions';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import authStore from '@/stores/authStore';
 import '@testing-library/jest-dom';
 import apiClient from '@/api/client';

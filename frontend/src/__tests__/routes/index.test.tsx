@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { Router } from '@/routes/index';
-import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { RouterProvider, createMemoryRouter } from 'react-router';
 import '@testing-library/jest-dom';
 
 // Mock API client

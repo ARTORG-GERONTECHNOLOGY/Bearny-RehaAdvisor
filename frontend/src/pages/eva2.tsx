@@ -44,7 +44,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 
 import { FaPlay, FaBell, FaBellSlash, FaInfo } from 'react-icons/fa';
 import AssistanceScreen, { type AssistanceMode } from '@/components/icf/AssistanceScreen';

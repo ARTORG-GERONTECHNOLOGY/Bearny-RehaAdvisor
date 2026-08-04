@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import '@testing-library/jest-dom';
 import Navigation from '@/components/Navigation';
 
@@ -7,8 +7,8 @@ import Navigation from '@/components/Navigation';
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => {
-  const actual = jest.requireActual('react-router-dom');
+jest.mock('react-router', () => {
+  const actual = jest.requireActual('react-router');
   return { ...actual, useNavigate: () => mockNavigate };
 });
 

@@ -6,7 +6,7 @@ import {
   Navigate,
   ScrollRestoration,
   Outlet,
-} from 'react-router-dom';
+} from 'react-router';
 
 import RootLayout from '@/RootLayout';
 import HomeSkeleton from '@/components/skeletons/HomeSkeleton';
