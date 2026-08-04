@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import datetime, timedelta
+from urllib.parse import quote, urlencode
 
 import requests
 from bson import ObjectId
@@ -397,18 +398,32 @@ def fitbit_callback(request):
             getattr(settings, "FITBIT_REDIRECT_URI", "NOT SET"),
             getattr(settings, "FITBIT_CLIENT_ID", "NOT SET") or "EMPTY",
         )
-        return redirect(f"{settings.FRONTEND_URL}/patient" f"?fitbit_status=auth_error&fitbit_error={fitbit_error}")
+        allowed_fitbit_errors = {
+            "access_denied",
+            "invalid_request",
+            "invalid_client",
+            "invalid_grant",
+            "unauthorized_client",
+            "unsupported_response_type",
+            "invalid_scope",
+            "server_error",
+            "temporarily_unavailable",
+            "redirect_uri_mismatch",
+        }
+        safe_fitbit_error = fitbit_error if fitbit_error in allowed_fitbit_errors else "unknown_error"
+        query = urlencode({"fitbit_status": "auth_error", "fitbit_error": safe_fitbit_error})
+        return redirect(f"/patient?{query}")
 
     code = request.GET.get("code")
     state = request.GET.get("state")  # carries patient_id from frontend
 
     if not code:
         logger.warning("[fitbit_callback] No code returned from Fitbit.")
-        return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=missing_code")
+        return redirect("/patient?fitbit_status=missing_code")
 
     if not state:
         logger.error("[fitbit_callback] Missing 'state' param (patient_id).")
-        return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=unauthorized")
+        return redirect("/patient?fitbit_status=unauthorized")
 
     try:
         user_id = ObjectId(state)

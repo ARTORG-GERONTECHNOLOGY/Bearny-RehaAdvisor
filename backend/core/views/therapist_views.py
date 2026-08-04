@@ -676,9 +676,9 @@ def list_therapist_patients(request, therapist_id):
         # ✅ tests expect the response itself is a list
         return JsonResponse(output_list, safe=False, status=200)
 
-    except Exception as e:
-        logger.error("[list_therapist_patients] Unexpected error: %s", str(e), exc_info=True)
-        return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
+    except Exception:
+        logger.error("[list_therapist_patients] Unexpected error", exc_info=True)
+        return JsonResponse({"error": "Internal server error."}, status=500)
 
 
 @api_view(["GET"])
@@ -709,8 +709,9 @@ def get_patients_by_therapist(request, therapist_id):
             for p in patients
         ]
         return JsonResponse(data, safe=False, status=200)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    except Exception:
+        logger.exception("[get_patients_by_therapist] Unexpected error")
+        return JsonResponse({"error": "Internal server error."}, status=500)
 
 
 @api_view(["POST"])

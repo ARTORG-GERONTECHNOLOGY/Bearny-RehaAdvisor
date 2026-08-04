@@ -165,9 +165,9 @@ def sync_wearables_to_redcap_view(request, patient_id: str):
         return JsonResponse({"error": str(e)}, status=400)
     except RedcapError as e:
         return JsonResponse({"error": str(e), "detail": e.detail}, status=502)
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error syncing wearables")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error."}, status=500)
 
     meta = summary.get("_meta", {})
     periods = {
