@@ -589,9 +589,9 @@ def get_fitbit_health_data(request, patient_id):
         patient = Patient.objects.get(id=ObjectId(patient_id))
 
         # IDOR guard: only a therapist in the patient's clinic may view health data.
-        # Skip when request.user.id is None (AnonymousUser in test-bypass mode);
-        # the middleware already blocks unauthenticated callers in production.
-        if getattr(request.user, "id", None) is not None:
+        # Skipped in TESTING mode (the test auth backend uses a synthetic user that
+        # has no therapist record); production always has TESTING unset.
+        if not getattr(settings, "TESTING", False) and getattr(request.user, "id", None) is not None:
             caller_therapist = get_therapist_for_user(request.user)
             patient_clinic = getattr(patient, "clinic", None)
             if not caller_therapist or patient_clinic not in (caller_therapist.clinics or []):

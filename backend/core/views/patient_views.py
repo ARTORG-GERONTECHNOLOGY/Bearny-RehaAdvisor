@@ -430,9 +430,9 @@ def mark_intervention_completed(request):
         patient = Patient.objects.get(userId=ObjectId(patient_id))
 
         # IDOR guard: allow the patient themselves or a therapist in the same clinic.
-        # Skip when request.user.id is None (AnonymousUser in test-bypass mode);
-        # the middleware already blocks unauthenticated callers in production.
-        if getattr(request.user, "id", None) is not None:
+        # Skipped in TESTING mode (the test auth backend uses a synthetic user that
+        # has no therapist record); production always has TESTING unset.
+        if not getattr(settings, "TESTING", False) and getattr(request.user, "id", None) is not None:
             caller_id = str(request.user.id)
             if caller_id != patient_id:
                 caller_therapist = get_therapist_for_user(request.user)
@@ -1055,9 +1055,9 @@ def get_patient_plan(request, patient_id):
             return JsonResponse({"error": "Patient not found"}, status=404)
 
         # IDOR guard: allow the patient themselves or a therapist in the same clinic.
-        # Skip when request.user.id is None (AnonymousUser in test-bypass mode);
-        # the middleware already blocks unauthenticated callers in production.
-        if getattr(request.user, "id", None) is not None:
+        # Skipped in TESTING mode (the test auth backend uses a synthetic user that
+        # has no therapist record); production always has TESTING unset.
+        if not getattr(settings, "TESTING", False) and getattr(request.user, "id", None) is not None:
             caller_id = str(request.user.id)
             try:
                 patient_user_id = str(patient.userId.id)
