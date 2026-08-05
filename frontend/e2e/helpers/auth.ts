@@ -78,10 +78,12 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
 
   // Reload to replace the pending pushState event with a real committed navigation,
   // preventing subsequent page.goto() calls from throwing "interrupted by another navigation".
-  // 'load' fires after the browser's document load event — sufficient for the SPA to mount.
-  // 'networkidle' would wait for all API requests (~4 s each on CI) and reliably exceeds
-  // the 30 s test timeout on pages that keep polling.
   await page.reload({ waitUntil: 'load' });
+  // On webkit, React's post-mount effects (auth-store reactions, route guards) can fire
+  // navigate('/therapist') and interrupt a subsequent page.goto(). Waiting for networkidle
+  // gives those effects time to settle. Cap at 2 s so Redis timeouts on CI (~4 s per check)
+  // don't block the test — React effects complete in < 100 ms, well inside the cap.
+  await page.waitForLoadState('networkidle', { timeout: 2000 }).catch(() => {});
 }
 
 /**
@@ -145,6 +147,7 @@ export async function loginAsAdmin(page: PlaywrightPage): Promise<void> {
 
   await page.waitForURL(/\/admin/, { timeout: 30_000 });
   await page.reload({ waitUntil: 'load' });
+  await page.waitForLoadState('networkidle', { timeout: 2000 }).catch(() => {});
 }
 
 function readEmailFiles(dir: string): string[] {
