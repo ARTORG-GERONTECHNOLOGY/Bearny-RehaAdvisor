@@ -27,6 +27,8 @@ test.describe('Therapist questionnaire builder full flow', () => {
   });
 
   test('create questionnaire -> appears with creator -> assign to patient', async ({ page }) => {
+    // Login (2FA + Redis cold-start) + create + assign can exceed the default 30 s on CI.
+    test.setTimeout(90000);
     skipUnlessSeeded(test);
 
     const uniqueTitle = `E2E Builder ${Date.now()}`;
@@ -76,7 +78,9 @@ test.describe('Therapist questionnaire builder full flow', () => {
       .locator('div.rounded-xl.border.cursor-pointer')
       .filter({ hasText: uniqueTitle })
       .first();
-    await expect(availableRow).toBeVisible();
+    // List refreshes via an authenticated API call after modal closes — allow up to
+    // 15 s for the Redis-delayed response to complete and React to re-render.
+    await expect(availableRow).toBeVisible({ timeout: 15000 });
 
     await availableRow.getByRole('button', { name: /assign/i }).click();
 
