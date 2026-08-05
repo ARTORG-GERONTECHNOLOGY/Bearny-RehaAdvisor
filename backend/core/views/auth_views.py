@@ -515,7 +515,12 @@ def logout_view(request):
 
 def generate_random_password(length=12):
     chars = string.ascii_letters + string.digits + string.punctuation
-    return "".join(secrets.choice(chars) for _ in range(length))
+    # Retry until the password contains at least one digit so it satisfies
+    # common password-complexity policies. Expected iterations: ~1.3.
+    while True:
+        password = "".join(secrets.choice(chars) for _ in range(length))
+        if any(c.isdigit() for c in password):
+            return password
 
 
 @api_view(["POST"])
