@@ -131,7 +131,9 @@ describe('FitbitStatus', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Connect Fitbit' }));
 
     await waitFor(() => {
-      expect(assignSpy).toHaveBeenCalledWith(expect.stringContaining('https://www.fitbit.com/oauth2/authorize'));
+      expect(assignSpy).toHaveBeenCalledWith(
+        expect.stringContaining('https://www.fitbit.com/oauth2/authorize')
+      );
       const calledUrl = assignSpy.mock.calls[0][0] as string;
       const state = new URL(calledUrl).searchParams.get('state');
       expect(state).toMatch(/^test-nonce-abc:patient-99$/);
