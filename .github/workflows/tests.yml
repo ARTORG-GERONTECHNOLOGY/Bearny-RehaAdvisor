@@ -295,10 +295,18 @@ jobs:
           echo "MONGO_INITDB_ROOT_USERNAME="             >> "$GITHUB_ENV"
           echo "MONGO_INITDB_ROOT_PASSWORD="             >> "$GITHUB_ENV"
           echo "MONGO_TLS=false"                         >> "$GITHUB_ENV"
-          echo "REDIS_URL=redis://localhost:6379/0"      >> "$GITHUB_ENV"
+          echo "REDIS_URL=redis://localhost:6379/0"            >> "$GITHUB_ENV"
+          # token_revocation.py reads CELERY_BROKER_URL to reach Redis. The dev
+          # env file points to "redis://redis:6379" (Docker service name) which
+          # does not resolve on the GitHub Actions runner. Override it so the
+          # JWT revocation checks (is_jti_revoked / get_user_valid_from) connect
+          # to the Redis service container instantly instead of timing out (2s
+          # per connection × 2 checks = ~4 s overhead that reliably breaks the
+          # 5 s toHaveURL window in patient-page E2E tests).
+          echo "CELERY_BROKER_URL=redis://localhost:6379/0" >> "$GITHUB_ENV"
           # Allow the Playwright browser (127.0.0.1:4173) to reach the Django
           # dev server (127.0.0.1:8001) without a CORS block.
-          echo "CORS_ALLOW_ALL_ORIGINS=true"             >> "$GITHUB_ENV"
+          echo "CORS_ALLOW_ALL_ORIGINS=true"                >> "$GITHUB_ENV"
           # Force API requests in E2E specs to hit the local test server, not
           # whatever VITE_API_URL is set to in the .env file.
           echo "E2E_API_URL=http://127.0.0.1:8001/api"  >> "$GITHUB_ENV"
