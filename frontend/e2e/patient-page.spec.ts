@@ -19,7 +19,10 @@ async function loginAsSeededPatient(page: Parameters<typeof test>[0]['page']) {
   await modal.locator('#password').fill(patientPassword as string);
   await modal.getByRole('button', { name: /login/i }).click();
 
-  await expect(page).toHaveURL(/\/patient(?:\/)?$/);
+  // 15 s matches home-login-success-redirects.spec.ts — the default 5 s is too
+  // tight because loginWithHttp() awaits fetchAndStoreUserInfo() before calling
+  // navigate('/patient'), and that profile fetch can be slow on CI cold-start.
+  await expect(page).toHaveURL(/\/patient(?:\/)?$/, { timeout: 15000 });
   // Hard reload to flush React Router's pending navigate('/patient') before the
   // caller issues its own page.goto(). SPA navigations don't fire browser load
   // events, so waitForLoadState('load') is a no-op here — only a real reload
@@ -57,7 +60,7 @@ test.describe('Patient page and functions', () => {
     );
 
     await modal.getByRole('button', { name: /login/i }).click();
-    await expect(page).toHaveURL(/\/patient(?:\/)?$/);
+    await expect(page).toHaveURL(/\/patient(?:\/)?$/, { timeout: 15000 });
 
     await fitbitStatusRequest;
     await planRequest;
