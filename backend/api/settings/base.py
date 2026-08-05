@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "core",
     "rest_framework.authtoken",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "django_celery_beat",
 ]
@@ -142,6 +143,7 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
+    "ALGORITHM": "HS256",
 }
 
 AUTH_PASSWORD_VALIDATORS = [

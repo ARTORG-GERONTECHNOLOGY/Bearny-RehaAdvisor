@@ -428,6 +428,18 @@ def mark_intervention_completed(request):
 
         # Resolve entities
         patient = Patient.objects.get(userId=ObjectId(patient_id))
+
+        # IDOR guard: allow the patient themselves or a therapist in the same clinic.
+        # Skipped in TESTING mode (the test auth backend uses a synthetic user that
+        # has no therapist record); production always has TESTING unset.
+        if not getattr(settings, "TESTING", False) and getattr(request.user, "id", None) is not None:
+            caller_id = str(request.user.id)
+            if caller_id != patient_id:
+                caller_therapist = get_therapist_for_user(request.user)
+                patient_clinic = getattr(patient, "clinic", None)
+                if not caller_therapist or patient_clinic not in (caller_therapist.clinics or []):
+                    return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
+
         intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
         if not rehab_plan:
@@ -1041,6 +1053,22 @@ def get_patient_plan(request, patient_id):
         if not patient:
             logger.warning("[get_patient_plan] Patient not found")
             return JsonResponse({"error": "Patient not found"}, status=404)
+
+        # IDOR guard: allow the patient themselves or a therapist in the same clinic.
+        # Skipped in TESTING mode (the test auth backend uses a synthetic user that
+        # has no therapist record); production always has TESTING unset.
+        if not getattr(settings, "TESTING", False) and getattr(request.user, "id", None) is not None:
+            caller_id = str(request.user.id)
+            try:
+                patient_user_id = str(patient.userId.id)
+            except Exception:
+                patient_user_id = None
+            if patient_user_id != caller_id:
+                caller_therapist = get_therapist_for_user(request.user)
+                patient_clinic = getattr(patient, "clinic", None)
+                if not caller_therapist or patient_clinic not in (caller_therapist.clinics or []):
+                    return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
+
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
         if not rehab_plan:

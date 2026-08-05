@@ -230,6 +230,7 @@ urlpatterns = [
         name="post_add_new_patient_group",
     ),
     # Fitbit (legacy — keep for existing connected users)
+    path("api/fitbit/auth-init/", fitbit_views.fitbit_auth_init, name="fitbit_auth_init"),
     path("api/fitbit/callback/", fitbit_views.fitbit_callback, name="fitbit_callback"),
     path("api/fitbit/disconnect/", fitbit_views.fitbit_disconnect, name="fitbit_disconnect"),
     path(

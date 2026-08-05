@@ -133,7 +133,7 @@
       "Endocrinology",
       "Physical Therapy"
     ],
-"projects": ["COPAIN", "COMPASS"],
+"projects": ["COPAIN", "COMPASS", "Demo"],
   "clinic_projects": {
     "Berner Reha Centrum": ["COPAIN"],
     "Inselspital": ["COPAIN", "COMPASS"],
@@ -141,7 +141,8 @@
     "Bern": ["COMPASS"],
     "Lisbon": ["COMPASS"],
     "Lumezzane": ["COMPASS"],
-    "Milano": ["COMPASS"]
+    "Milano": ["COMPASS"],
+    "Demo": ["Demo"]
   },
   "clinic_dag": {
     "Berner Reha Centrum": "brz",
@@ -150,7 +151,8 @@
     "Bern": "bern",
     "Lisbon": "lisbon",
     "Lumezzane": "lumezzane",
-    "Milano": "milano"
+    "Milano": "milano",
+    "Demo": "demo"
   }
   },
   "Users": ["Therapist"],

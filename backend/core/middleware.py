@@ -42,6 +42,8 @@ from django.http import JsonResponse
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import AccessToken
 
+from core.token_revocation import get_user_valid_from, is_jti_revoked
+
 logger = logging.getLogger(__name__)
 audit_logger = logging.getLogger("core.api_audit")
 
@@ -106,12 +108,31 @@ class JWTAuthMiddleware:
 
         # Validate the token (signature + expiry)
         try:
-            AccessToken(token_str)
+            token = AccessToken(token_str)
         except (TokenError, Exception):
             return JsonResponse(
                 {"detail": "Given token is not valid or has expired."},
                 status=401,
             )
+
+        # Check per-JTI denylist (set on logout)
+        jti = token.payload.get("jti", "")
+        if jti and is_jti_revoked(jti):
+            return JsonResponse(
+                {"detail": "Token has been revoked."},
+                status=401,
+            )
+
+        # Check per-user valid_from timestamp (set on password change/reset)
+        user_id = str(token.payload.get("user_id", ""))
+        if user_id:
+            valid_from = get_user_valid_from(user_id)
+            iat = int(token.payload.get("iat", 0))
+            if valid_from and iat < valid_from:
+                return JsonResponse(
+                    {"detail": "Token has been invalidated. Please log in again."},
+                    status=401,
+                )
 
         return self.get_response(request)
 

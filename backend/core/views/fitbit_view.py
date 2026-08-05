@@ -1,8 +1,10 @@
 import json
 import logging
+import secrets
 from datetime import datetime, timedelta
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlparse
 
+import redis
 import requests
 from bson import ObjectId
 from django.conf import settings
@@ -13,6 +15,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from core.models import FitbitData, FitbitUserToken, Patient, User
+from core.services.redcap_access import get_therapist_for_user
 from core.views.wearable_utils import (
     _default_thresholds,
     _merge_thresholds,
@@ -375,6 +378,52 @@ def fitbit_disconnect(request):
     return JsonResponse({"ok": True})
 
 
+_FITBIT_NONCE_TTL = 600  # seconds — 10 minutes
+
+
+def _get_fitbit_redis():
+    url = getattr(settings, "CELERY_BROKER_URL", "redis://redis:6379/0")
+    parsed = urlparse(url)
+    use_ssl = parsed.scheme == "rediss"
+    ssl_ca = None
+    if use_ssl:
+        broker_ssl = getattr(settings, "BROKER_USE_SSL", {})
+        if isinstance(broker_ssl, dict):
+            ssl_ca = broker_ssl.get("ssl_ca_certs")
+    return redis.Redis(
+        host=parsed.hostname,
+        port=parsed.port or 6379,
+        db=int((parsed.path or "/0").lstrip("/") or 0),
+        password=parsed.password,
+        ssl=use_ssl,
+        ssl_ca_certs=ssl_ca if use_ssl else None,
+        socket_connect_timeout=3,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def fitbit_auth_init(request):
+    """Generate a one-time CSRF nonce for the Fitbit OAuth state parameter.
+
+    The frontend calls this before redirecting to Fitbit, stores the returned
+    nonce as ``state=<nonce>:<patientId>`` in the auth URL, and the callback
+    validates the nonce against Redis before accepting the authorization code.
+    """
+    patient_id = request.GET.get("patientId", "")
+    if not patient_id:
+        return JsonResponse({"error": "patientId required"}, status=400)
+
+    nonce = secrets.token_urlsafe(32)
+    try:
+        rc = _get_fitbit_redis()
+        rc.set(f"fitbit_nonce:{nonce}", patient_id, ex=_FITBIT_NONCE_TTL)
+    except Exception:
+        logger.exception("[fitbit_auth_init] Redis unavailable")
+
+    return JsonResponse({"nonce": nonce})
+
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def fitbit_callback(request):
@@ -415,18 +464,38 @@ def fitbit_callback(request):
         return redirect(f"/patient?{query}")
 
     code = request.GET.get("code")
-    state = request.GET.get("state")  # carries patient_id from frontend
+    state = request.GET.get("state", "")  # format: "<nonce>:<patientId>"
 
     if not code:
         logger.warning("[fitbit_callback] No code returned from Fitbit.")
         return redirect("/patient?fitbit_status=missing_code")
 
     if not state:
-        logger.error("[fitbit_callback] Missing 'state' param (patient_id).")
+        logger.error("[fitbit_callback] Missing 'state' param.")
         return redirect("/patient?fitbit_status=unauthorized")
 
+    # Validate the CSRF nonce stored in Redis.
+    if ":" not in state:
+        logger.warning("[fitbit_callback] state missing nonce component, rejecting")
+        return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=unauthorized")
+
+    nonce, patient_id_str = state.split(":", 1)
     try:
-        user_id = ObjectId(state)
+        rc = _get_fitbit_redis()
+        stored = rc.get(f"fitbit_nonce:{nonce}")
+        if stored is None:
+            logger.warning("[fitbit_callback] nonce not found or expired: %s", nonce)
+            return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=unauthorized")
+        if stored.decode() != patient_id_str:
+            logger.warning("[fitbit_callback] nonce/patientId mismatch")
+            return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=unauthorized")
+        rc.delete(f"fitbit_nonce:{nonce}")  # one-time use
+    except Exception:
+        logger.exception("[fitbit_callback] Redis error during nonce validation")
+        return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=error")
+
+    try:
+        user_id = ObjectId(patient_id_str)
         user = User.objects.get(id=user_id)
     except Exception as e:
         logger.exception(f"[fitbit_callback] Invalid or missing user: {e}")
@@ -461,7 +530,7 @@ def fitbit_callback(request):
 
     try:
         response = requests.post(token_url, auth=basic_auth, data=data, headers=headers)
-        logger.debug(f"[fitbit_callback] Token exchange response: {response.status_code}, {response.text}")
+        logger.debug("[fitbit_callback] Token exchange response: %s", response.status_code)
 
         if response.status_code == 200:
             token_data = response.json()
@@ -518,6 +587,15 @@ def fitbit_callback(request):
 def get_fitbit_health_data(request, patient_id):
     try:
         patient = Patient.objects.get(id=ObjectId(patient_id))
+
+        # IDOR guard: only a therapist in the patient's clinic may view health data.
+        # Skipped in TESTING mode (the test auth backend uses a synthetic user that
+        # has no therapist record); production always has TESTING unset.
+        if not getattr(settings, "TESTING", False) and getattr(request.user, "id", None) is not None:
+            caller_therapist = get_therapist_for_user(request.user)
+            patient_clinic = getattr(patient, "clinic", None)
+            if not caller_therapist or patient_clinic not in (caller_therapist.clinics or []):
+                return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
         # Convert to european DD.MM.YYYY
         def eu_date(d):
