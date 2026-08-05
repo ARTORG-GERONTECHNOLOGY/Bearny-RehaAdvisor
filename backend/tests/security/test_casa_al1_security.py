@@ -235,11 +235,6 @@ def test_middleware_rejects_revoked_jti():
     user_id = str(ObjectId())
     token_str = _make_valid_access_token(user_id)
 
-    # Parse the token to get its JTI
-    from rest_framework_simplejwt.tokens import AccessToken
-
-    jti = AccessToken(token_str).payload.get("jti")
-
     def get_response(req):
         from django.http import HttpResponse
 
@@ -250,8 +245,9 @@ def test_middleware_rejects_revoked_jti():
     request = rf.get("/api/patients/", HTTP_AUTHORIZATION=f"Bearer {token_str}")
 
     # Mock is_jti_revoked to return True for this JTI
-    with patch("core.middleware.is_jti_revoked", return_value=True), patch(
-        "core.middleware.get_user_valid_from", return_value=0
+    with (
+        patch("core.middleware.is_jti_revoked", return_value=True),
+        patch("core.middleware.get_user_valid_from", return_value=0),
     ):
         _ds.TESTING = False
         try:
@@ -290,8 +286,9 @@ def test_middleware_rejects_token_issued_before_valid_from():
     # valid_from is set to now+10 so any token issued before this is rejected
     future_valid_from = int(time.time()) + 10
 
-    with patch("core.middleware.is_jti_revoked", return_value=False), patch(
-        "core.middleware.get_user_valid_from", return_value=future_valid_from
+    with (
+        patch("core.middleware.is_jti_revoked", return_value=False),
+        patch("core.middleware.get_user_valid_from", return_value=future_valid_from),
     ):
         _ds.TESTING = False
         try:
@@ -322,8 +319,9 @@ def test_middleware_passes_valid_unrevoked_token():
     rf = RequestFactory()
     request = rf.get("/api/patients/", HTTP_AUTHORIZATION=f"Bearer {token_str}")
 
-    with patch("core.middleware.is_jti_revoked", return_value=False), patch(
-        "core.middleware.get_user_valid_from", return_value=0
+    with (
+        patch("core.middleware.is_jti_revoked", return_value=False),
+        patch("core.middleware.get_user_valid_from", return_value=0),
     ):
         _ds.TESTING = False
         try:
@@ -372,11 +370,8 @@ def test_generate_random_password_uses_secrets():
 
     _random.seed(0)
     p1 = generate_random_password()
-    _random.seed(0)
-    p2 = generate_random_password()
-    # If secrets is used, p1 == p2 would be an astronomically unlikely coincidence
-    # For 12-char passwords from 94-char alphabet: 1/94^12 ≈ 0 chance of collision.
-    # We just assert length and complexity, not that they differ (would be flaky).
+    # Seeding random has no effect when secrets is used.
+    # Assert length and character variety; non-determinism is validated separately.
     assert len(p1) == 12
     assert any(c.isdigit() for c in p1)
 
@@ -473,17 +468,16 @@ def test_reset_password_invalidates_user_tokens():
     """
     user = _make_user("pwreset_user", password="Old1!")
 
-    with patch("core.views.auth_views.send_mail"), patch(
-        "core.views.auth_views.invalidate_user_tokens"
-    ) as mock_invalidate:
+    with (
+        patch("core.views.auth_views.send_mail"),
+        patch("core.views.auth_views.invalidate_user_tokens") as mock_invalidate,
+    ):
         req = factory.post(
             "/api/auth/forgot-password/",
             data=json.dumps({"email": "pwreset_user@example.com"}),
             content_type="application/json",
         )
-        force_authenticate(
-            req, user=SimpleNamespace(is_authenticated=True, id=str(user.id))
-        )
+        force_authenticate(req, user=SimpleNamespace(is_authenticated=True, id=str(user.id)))
 
         from core.views.auth_views import reset_password_view
 
@@ -541,9 +535,9 @@ def test_fitbit_auth_init_requires_authentication():
     """
     from core.views.fitbit_view import fitbit_auth_init
 
-    assert hasattr(fitbit_auth_init, "cls"), (
-        "fitbit_auth_init must be wrapped with @api_view so DRF enforces authentication"
-    )
+    assert hasattr(
+        fitbit_auth_init, "cls"
+    ), "fitbit_auth_init must be wrapped with @api_view so DRF enforces authentication"
 
 
 # ===========================================================================
@@ -633,9 +627,7 @@ def test_get_patient_plan_blocks_wrong_clinic_therapist():
     patient, _, _ = _make_patient_with_plan("idor_plan1", "Inselspital", th_a)
 
     req = factory.get(f"/api/patients/rehabilitation-plan/patient/{patient.id}/")
-    force_authenticate(
-        req, user=SimpleNamespace(is_authenticated=True, id=str(th_user_b.id))
-    )
+    force_authenticate(req, user=SimpleNamespace(is_authenticated=True, id=str(th_user_b.id)))
 
     _ds.TESTING = False
     try:
@@ -656,9 +648,7 @@ def test_get_patient_plan_allows_same_clinic_therapist():
     patient, _, _ = _make_patient_with_plan("idor_plan2", "Inselspital", th_a)
 
     req = factory.get(f"/api/patients/rehabilitation-plan/patient/{patient.id}/")
-    force_authenticate(
-        req, user=SimpleNamespace(is_authenticated=True, id=str(th_user_a.id))
-    )
+    force_authenticate(req, user=SimpleNamespace(is_authenticated=True, id=str(th_user_a.id)))
 
     _ds.TESTING = False
     try:
@@ -679,9 +669,7 @@ def test_get_patient_plan_allows_patient_self_access():
     patient, patient_user, _ = _make_patient_with_plan("idor_plan3", "Inselspital", th_a)
 
     req = factory.get(f"/api/patients/rehabilitation-plan/patient/{patient.id}/")
-    force_authenticate(
-        req, user=SimpleNamespace(is_authenticated=True, id=str(patient_user.id))
-    )
+    force_authenticate(req, user=SimpleNamespace(is_authenticated=True, id=str(patient_user.id)))
 
     _ds.TESTING = False
     try:
@@ -722,9 +710,7 @@ def test_mark_intervention_completed_blocks_wrong_patient():
         data=payload,
         content_type="application/json",
     )
-    force_authenticate(
-        req, user=SimpleNamespace(is_authenticated=True, id=str(patient_b_user.id))
-    )
+    force_authenticate(req, user=SimpleNamespace(is_authenticated=True, id=str(patient_b_user.id)))
 
     _ds.TESTING = False
     try:
@@ -756,9 +742,7 @@ def test_mark_intervention_completed_allows_patient_self():
         data=payload,
         content_type="application/json",
     )
-    force_authenticate(
-        req, user=SimpleNamespace(is_authenticated=True, id=str(patient_user.id))
-    )
+    force_authenticate(req, user=SimpleNamespace(is_authenticated=True, id=str(patient_user.id)))
 
     _ds.TESTING = False
     try:
@@ -790,9 +774,7 @@ def test_get_fitbit_health_data_blocks_wrong_clinic_therapist():
     patient, _ = _make_patient("fitbit_idor_pt", "Inselspital", th_a)
 
     req = factory.get(f"/api/fitbit/health-data/{patient.id}/")
-    force_authenticate(
-        req, user=SimpleNamespace(is_authenticated=True, id=str(th_user_b.id))
-    )
+    force_authenticate(req, user=SimpleNamespace(is_authenticated=True, id=str(th_user_b.id)))
 
     _ds.TESTING = False
     try:
@@ -813,9 +795,7 @@ def test_get_fitbit_health_data_allows_same_clinic_therapist():
     patient, _ = _make_patient("fitbit_ok_pt", "Inselspital", th_a)
 
     req = factory.get(f"/api/fitbit/health-data/{patient.id}/")
-    force_authenticate(
-        req, user=SimpleNamespace(is_authenticated=True, id=str(th_user_a.id))
-    )
+    force_authenticate(req, user=SimpleNamespace(is_authenticated=True, id=str(th_user_a.id)))
 
     _ds.TESTING = False
     try:

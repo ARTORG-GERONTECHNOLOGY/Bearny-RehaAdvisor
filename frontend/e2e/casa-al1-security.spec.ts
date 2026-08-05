@@ -268,9 +268,7 @@ test.describe('IDOR — patient endpoints require authentication (ASVS 4.2.1)', 
 
   for (const { method, path } of PROTECTED_ENDPOINTS) {
     test(`${method} ${path} returns 401 without a token`, async ({ request }) => {
-      const res = await request[method.toLowerCase() as 'get'](
-        `${API_BASE}${path}`
-      );
+      const res = await request[method.toLowerCase() as 'get'](`${API_BASE}${path}`);
       expect(res.status()).toBe(401);
     });
   }
@@ -320,9 +318,10 @@ test.describe('JWT algorithm header (ASVS 6.2.1)', () => {
     const { accessToken } = session!;
     // JWT header is the first segment before the first '.'
     const headerB64 = accessToken.split('.')[0];
-    const header = JSON.parse(
-      Buffer.from(headerB64, 'base64url').toString('utf-8')
-    ) as { alg?: string; typ?: string };
+    const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf-8')) as {
+      alg?: string;
+      typ?: string;
+    };
 
     expect(header.alg).toBe('HS256');
     expect(header.typ).toBe('JWT');
