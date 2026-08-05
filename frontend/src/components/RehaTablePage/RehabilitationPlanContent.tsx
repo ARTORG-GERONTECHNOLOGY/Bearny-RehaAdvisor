@@ -13,6 +13,7 @@ import PatientInterventionPopUp from '@/components/RehaTablePage/PatientInterven
 import InterventionRepeatModal from '@/components/RehaTablePage/InterventionRepeatModal';
 import InterventionStatsModal from '@/components/RehaTablePage/InterventionStatsModal';
 import InterventionFeedbackModal from '@/components/RehaTablePage/InterventionFeedbackModal';
+import InterventionRemoveModal from '@/components/RehaTablePage/InterventionRemoveModal';
 import '@/assets/styles/RehabTable.css';
 import { RehabilitationPlanContentLoadingSkeleton } from '@/components/skeletons/TherapistPatientDetailSkeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -109,7 +110,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                   showStats: store.showStats,
                   openFeedbackBrowser: store.openFeedbackBrowser,
                   handleModifyIntervention: store.openModifyIntervention,
-                  handleDeleteExercise: (id: string) => store.deleteExercise(id, t as any),
+                  handleDeleteExercise: (id: string) => store.openRemoveModal(id),
                   handleAddIntervention: store.openAddIntervention,
                 }}
                 patientData={store.patientData as any}
@@ -194,6 +195,21 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
             onHide={store.closeStatsModal}
             intervention={store.selectedExerciseFromPlan as any}
             patientData={store.patientData as any}
+          />
+        )}
+
+        {/* REMOVE MODAL */}
+        {store.showRemoveModal && store.selectedExerciseFromPlan && (
+          <InterventionRemoveModal
+            show
+            onHide={store.closeRemoveModal}
+            intervention={store.selectedExerciseFromPlan}
+            onConfirm={async (occurrenceDatetime) => {
+              const interventionId = store.selectedExerciseFromPlan?._id;
+              if (!interventionId) return;
+              await store.deleteExercise(interventionId, t as any, occurrenceDatetime);
+              store.closeRemoveModal();
+            }}
           />
         )}
 

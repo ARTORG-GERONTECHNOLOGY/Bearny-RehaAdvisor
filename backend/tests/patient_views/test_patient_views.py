@@ -512,6 +512,140 @@ def test_remove_intervention_missing_params(mongo_mock):
     assert "Missing required parameters" in resp.content.decode()
 
 
+def test_remove_single_occurrence_success(mongo_mock):
+    """
+    Passing a "datetime" alongside "intervention"/"patientId" removes only
+    that one future occurrence, leaving the intervention's other scheduled
+    dates untouched.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    target_date = plan.interventions[0].dates[2]
+    remaining_count = len(plan.interventions[0].dates) - 1
+
+    payload = {
+        "intervention": str(intervention.id),
+        "patientId": str(patient.id),
+        "datetime": target_date.isoformat(),
+    }
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    assert "Intervention dates removed successfully" in resp.content.decode()
+
+    plan.reload()
+    remaining_dates = plan.interventions[0].dates
+    assert len(remaining_dates) == remaining_count
+    assert all(abs((d - target_date).total_seconds()) >= 1 for d in remaining_dates)
+
+
+def test_remove_single_occurrence_local_midnight_not_confused_with_neighbor_day(mongo_mock):
+    """
+    Regression guard: unlike the reschedule endpoint's same-day collision
+    check (which buckets by *local* calendar day and once broke around local
+    midnight — see test_reschedule_intervention_date_local_midnight_not_blocked_by_neighbor_day),
+    single-occurrence removal matches on the exact UTC instant. An occurrence
+    sitting at local midnight in Europe/Zurich must be removed without
+    touching the occurrences on the neighboring local calendar days, even
+    though local-midnight's UTC instant falls on the *previous* UTC day.
+    """
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+
+    patient, _, intervention, plan = setup_patient_with_plan()
+    assignment = plan.interventions[0]
+
+    zurich = ZoneInfo("Europe/Zurich")
+    base_day = (dt.datetime.now(zurich) + dt.timedelta(days=10)).date()
+
+    def local(day, hour):
+        return dt.datetime.combine(day, dt.time(hour=hour), tzinfo=zurich)
+
+    day_before = local(base_day - dt.timedelta(days=1), 18)
+    day_of_midnight = local(base_day, 0)
+    day_after = local(base_day + dt.timedelta(days=1), 9)
+
+    assignment.dates = [
+        day_before.astimezone(dt.timezone.utc).replace(tzinfo=None),
+        day_of_midnight.astimezone(dt.timezone.utc).replace(tzinfo=None),
+        day_after.astimezone(dt.timezone.utc).replace(tzinfo=None),
+    ]
+    plan.save()
+
+    payload = {
+        "intervention": str(intervention.id),
+        "patientId": str(patient.id),
+        "datetime": day_of_midnight.astimezone(dt.timezone.utc).isoformat(),
+    }
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    remaining = sorted(plan.interventions[0].dates)
+    expected = sorted(
+        [
+            day_before.astimezone(dt.timezone.utc).replace(tzinfo=None),
+            day_after.astimezone(dt.timezone.utc).replace(tzinfo=None),
+        ]
+    )
+    assert len(remaining) == 2
+    for actual, exp in zip(remaining, expected):
+        assert abs((actual - exp).total_seconds()) < 1
+
+
+def test_remove_single_occurrence_not_found(mongo_mock):
+    """
+    A "datetime" that doesn't match any scheduled occurrence returns 404
+    without mutating the plan.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    original_count = len(plan.interventions[0].dates)
+
+    payload = {
+        "intervention": str(intervention.id),
+        "patientId": str(patient.id),
+        "datetime": (datetime.now() + timedelta(days=365)).isoformat(),
+    }
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404
+    assert "OccurrenceNotFound" in resp.content.decode()
+
+    plan.reload()
+    assert len(plan.interventions[0].dates) == original_count
+
+
+def test_remove_single_occurrence_invalid_datetime(mongo_mock):
+    """An unparsable "datetime" value is rejected with 400 before touching the plan."""
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    payload = {
+        "intervention": str(intervention.id),
+        "patientId": str(patient.id),
+        "datetime": "not-a-date",
+    }
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    assert "Invalid date format" in resp.content.decode()
+
+
 def test_remove_intervention_patient_not_found(mongo_mock):
     """
 

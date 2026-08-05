@@ -67,6 +67,21 @@ jest.mock(
       );
     }
 );
+jest.mock(
+  '@/components/RehaTablePage/InterventionRemoveModal',
+  () =>
+    function InterventionRemoveModal(props: any) {
+      return (
+        <div data-testid="remove-modal">
+          <button onClick={props.onHide}>close-remove</button>
+          <button onClick={() => props.onConfirm(undefined)}>confirm-remove-all</button>
+          <button onClick={() => props.onConfirm('2026-01-01T00:00:00.000Z')}>
+            confirm-remove-single
+          </button>
+        </div>
+      );
+    }
+);
 
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
@@ -102,6 +117,7 @@ const mockStore = {
   showExerciseStats: false,
   showFeedbackBrowser: false,
   feedbackBrowserIntervention: null as Record<string, unknown> | null,
+  showRemoveModal: false,
   translateTag: undefined as any,
   initForPatient: jest.fn().mockResolvedValue(undefined),
   dispose: jest.fn().mockResolvedValue(undefined),
@@ -125,6 +141,8 @@ const mockStore = {
   closeRepeatModal: jest.fn(),
   closeStatsModal: jest.fn(),
   closeFeedbackBrowser: jest.fn(),
+  openRemoveModal: jest.fn(),
+  closeRemoveModal: jest.fn(),
   fetchAll: jest.fn().mockResolvedValue(undefined),
   fetchInts: jest.fn().mockResolvedValue(undefined),
   setError: jest.fn(),
@@ -299,6 +317,65 @@ describe('RehabilitationPlanContent', () => {
     render(<RehabilitationPlanContent patientId="patient-abc" />);
     expect(screen.queryByTestId('feedback-modal')).not.toBeInTheDocument();
     mockStore.showFeedbackBrowser = false;
+  });
+
+  it('shows the remove modal and removes all occurrences on confirm', async () => {
+    mockStore.showRemoveModal = true;
+    mockStore.selectedExerciseFromPlan = { _id: 'ex-1' };
+    render(<RehabilitationPlanContent patientId="patient-abc" />);
+
+    expect(screen.getByTestId('remove-modal')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('confirm-remove-all'));
+    await waitFor(() => {
+      expect(mockStore.deleteExercise).toHaveBeenCalledWith(
+        'ex-1',
+        expect.any(Function),
+        undefined
+      );
+      expect(mockStore.closeRemoveModal).toHaveBeenCalled();
+    });
+
+    mockStore.showRemoveModal = false;
+    mockStore.selectedExerciseFromPlan = null;
+  });
+
+  it('removes a single occurrence on confirm', async () => {
+    mockStore.showRemoveModal = true;
+    mockStore.selectedExerciseFromPlan = { _id: 'ex-1' };
+    render(<RehabilitationPlanContent patientId="patient-abc" />);
+
+    fireEvent.click(screen.getByText('confirm-remove-single'));
+    await waitFor(() => {
+      expect(mockStore.deleteExercise).toHaveBeenCalledWith(
+        'ex-1',
+        expect.any(Function),
+        '2026-01-01T00:00:00.000Z'
+      );
+    });
+
+    mockStore.showRemoveModal = false;
+    mockStore.selectedExerciseFromPlan = null;
+  });
+
+  it('closes the remove modal via onHide', () => {
+    mockStore.showRemoveModal = true;
+    mockStore.selectedExerciseFromPlan = { _id: 'ex-1' };
+    render(<RehabilitationPlanContent patientId="patient-abc" />);
+
+    fireEvent.click(screen.getByText('close-remove'));
+    expect(mockStore.closeRemoveModal).toHaveBeenCalled();
+
+    mockStore.showRemoveModal = false;
+    mockStore.selectedExerciseFromPlan = null;
+  });
+
+  it('does not show the remove modal without a selected exercise', () => {
+    mockStore.showRemoveModal = true;
+    mockStore.selectedExerciseFromPlan = null;
+    render(<RehabilitationPlanContent patientId="patient-abc" />);
+    expect(screen.queryByTestId('remove-modal')).not.toBeInTheDocument();
+    mockStore.showRemoveModal = false;
   });
 
   it('reschedules an intervention via the calendar callback', async () => {

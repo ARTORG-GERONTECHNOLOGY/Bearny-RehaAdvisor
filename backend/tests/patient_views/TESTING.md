@@ -15,7 +15,7 @@ It also includes [`test_helpers.py`](test_helpers.py) for pure helper logic in
 
 | `/api/interventions/complete/` | POST | `mark_intervention_completed` | 9 |
 | `/api/interventions/uncomplete/` | POST | `unmark_intervention_completed` | 6 |
-| `/api/interventions/remove-from-patient/` | POST | `remove_intervention_from_patient` | 4 |
+| `/api/interventions/remove-from-patient/` | POST | `remove_intervention_from_patient` | 8 |
 | `/api/interventions/add-to-patient/` | POST | `add_intervention_to_patient` | 3 |
 | `/api/interventions/modify-patient/` | POST | `modify_intervention_from_date` | 13 |
 | `/api/patients/rehabilitation-plan/patient/<id>/` | GET | `get_patient_plan` | 16 |
@@ -27,7 +27,7 @@ It also includes [`test_helpers.py`](test_helpers.py) for pure helper logic in
 | `/api/patients/healthstatus-history/<id>/` | GET | `get_patient_healthstatus_history` | 3 |
 | `/api/patients/feedback/questionaire/` (audio) | POST | `submit_patient_feedback` | 1 |
 
-**Total: 98 tests**
+**Total: 102 tests**
 
 ---
 
@@ -152,12 +152,19 @@ On success, a `Logs` document with `action="INTERVENTION_UNCOMPLETE"` is written
 
 JSON body: `{ intervention, patientId }`.  Removes all *future* scheduled dates.
 
+An optional `datetime` field removes only that single future occurrence
+instead, leaving the intervention's other scheduled dates untouched.
+
 ### Tests (`test_patient_views.py`)
 
 | Test | Scenario | Expected |
 |---|---|---|
 | `test_remove_intervention_success` | Valid patient + plan | 200, 'Intervention dates removed successfully' |
 | `test_remove_intervention_missing_params` | Empty body | 400, 'Missing required parameters' |
+| `test_remove_single_occurrence_success` | `datetime` matches one scheduled occurrence | 200, only that date removed |
+| `test_remove_single_occurrence_local_midnight_not_confused_with_neighbor_day` | Occurrence at local (Europe/Zurich) midnight, neighbors on adjacent local days | 200, only the midnight occurrence removed — matching is by exact UTC instant, not local calendar day, so it can't collide with the reschedule endpoint's day-bucketing bug |
+| `test_remove_single_occurrence_not_found` | `datetime` matches no scheduled occurrence | 404, 'OccurrenceNotFound' |
+| `test_remove_single_occurrence_invalid_datetime` | `datetime` is not parsable | 400, 'Invalid date format' |
 | `test_remove_intervention_patient_not_found` | Unknown patientId | 404, 'Patient not found' |
 | `test_remove_intervention_get_method_not_allowed` | GET | 405 |
 
