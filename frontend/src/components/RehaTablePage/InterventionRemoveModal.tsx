@@ -54,7 +54,7 @@ const InterventionRemoveModal: React.FC<Props> = ({ show, onHide, intervention, 
     setScope('all');
     setOccurrenceDatetime(futureDates[0]?.datetime || '');
     setSubmitting(false);
-  }, [show, intervention._id]);
+  }, [show, intervention._id, futureDates]);
 
   const canConfirm = scope === 'all' || (scope === 'single' && !!occurrenceDatetime);
 
