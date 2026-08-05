@@ -24,10 +24,11 @@ async function loginAsSeededPatient(page: Parameters<typeof test>[0]['page']) {
   // navigate('/patient'), and that profile fetch can be slow on CI cold-start.
   await expect(page).toHaveURL(/\/patient(?:\/)?$/, { timeout: 15000 });
   // Hard reload to flush React Router's pending navigate('/patient') before the
-  // caller issues its own page.goto(). SPA navigations don't fire browser load
-  // events, so waitForLoadState('load') is a no-op here — only a real reload
-  // clears the navigation queue. Matches the therapist helper pattern in auth.ts.
-  await page.reload({ waitUntil: 'networkidle' });
+  // caller issues its own page.goto(). 'load' fires after the browser's document
+  // load event, which is sufficient for the SPA to mount. 'networkidle' would
+  // require ALL API requests (each ~4 s on CI due to Redis cold-start) to settle,
+  // which regularly exceeds the 30 s test timeout.
+  await page.reload({ waitUntil: 'load' });
 }
 
 test.describe('Patient page and functions', () => {

@@ -26,8 +26,11 @@ async function loginAsSeededPatient(page: Page) {
   // Hard reload to flush React Router's pending navigate('/patient') before the
   // caller issues its own page.goto(). SPA navigations don't fire browser load
   // events, so waitForLoadState('load') is a no-op here — only a real reload
-  // clears the navigation queue. Matches the therapist helper pattern in auth.ts.
-  await page.reload({ waitUntil: 'networkidle' });
+  // clears the navigation queue. 'load' fires after the browser's document load
+  // event — sufficient for the SPA to mount. 'networkidle' would wait for ALL
+  // API requests (~4 s each on CI due to Redis cold-start) and exceeds the
+  // 30 s test timeout.
+  await page.reload({ waitUntil: 'load' });
 }
 
 test.describe('Patient interventions page', () => {
