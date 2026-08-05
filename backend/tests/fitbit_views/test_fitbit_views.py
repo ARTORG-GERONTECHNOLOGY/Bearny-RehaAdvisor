@@ -25,7 +25,7 @@ the 15-minute rate-limit guard is applied on every page load. The Celery task
 import json
 from datetime import datetime, time
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import mongomock
 import pytest
@@ -55,6 +55,22 @@ from core.views.fitbit_view import (
 
 client = Client()
 rf = RequestFactory()
+
+# ---------------------------------------------------------------------------
+# Nonce helper — used by fitbit_callback tests that go through the full flow.
+# The callback now validates state=<nonce>:<patientId> against Redis.
+# These helpers let tests inject a pre-seeded nonce without a real Redis.
+# ---------------------------------------------------------------------------
+
+_CALLBACK_NONCE = "test-nonce-fitbit-callback-abc123"
+
+
+def _nonce_redis(patient_id: str) -> MagicMock:
+    """Return a Mock Redis client that accepts _CALLBACK_NONCE for patient_id."""
+    rc = MagicMock()
+    rc.get.return_value = patient_id.encode()  # callback calls .decode() on the result
+    rc.delete.return_value = None
+    return rc
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -241,21 +257,25 @@ def test_fitbit_callback_missing_state_redirects():
 
 
 def test_fitbit_callback_invalid_user_redirects():
+    # "invalid" has no ":" separator so nonce validation rejects it before
+    # the user lookup — the status is now "unauthorized" (not "invalid_user").
     resp = client.get("/api/fitbit/callback/?code=abc&state=invalid")
     assert resp.status_code == 302
-    assert "fitbit_status=invalid_user" in resp.headers["Location"]
+    assert "fitbit_status=unauthorized" in resp.headers["Location"]
 
 
 @patch("core.views.fitbit_view.requests.post")
-def test_fitbit_callback_token_exchange_error_redirects(mock_post):
+@patch("core.views.fitbit_view._get_fitbit_redis")
+def test_fitbit_callback_token_exchange_error_redirects(mock_redis_factory, mock_post):
     _, _, patient_user, _ = create_patient_graph()
+    mock_redis_factory.return_value = _nonce_redis(str(patient_user.id))
     mock_resp = Mock()
     mock_resp.status_code = 400
     mock_resp.text = "bad"
     mock_post.return_value = mock_resp
 
     resp = client.get(
-        f"/api/fitbit/callback/?code=abc&state={patient_user.id}",
+        f"/api/fitbit/callback/?code=abc&state={_CALLBACK_NONCE}:{patient_user.id}",
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 302
@@ -263,8 +283,10 @@ def test_fitbit_callback_token_exchange_error_redirects(mock_post):
 
 
 @patch("core.views.fitbit_view.requests.post")
-def test_fitbit_callback_success_saves_token(mock_post):
+@patch("core.views.fitbit_view._get_fitbit_redis")
+def test_fitbit_callback_success_saves_token(mock_redis_factory, mock_post):
     _, _, patient_user, _ = create_patient_graph()
+    mock_redis_factory.return_value = _nonce_redis(str(patient_user.id))
     mock_resp = Mock()
     mock_resp.status_code = 200
     mock_resp.text = "ok"
@@ -277,7 +299,7 @@ def test_fitbit_callback_success_saves_token(mock_post):
     mock_post.return_value = mock_resp
 
     resp = client.get(
-        f"/api/fitbit/callback/?code=abc&state={patient_user.id}",
+        f"/api/fitbit/callback/?code=abc&state={_CALLBACK_NONCE}:{patient_user.id}",
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 302
@@ -846,9 +868,11 @@ def test_fitbit_summary_connected_false_when_token_revoked(mock_fetch):
 
 
 @patch("core.views.fitbit_view.requests.post")
-def test_fitbit_callback_clears_revoked_flag_on_reconnect(mock_post):
+@patch("core.views.fitbit_view._get_fitbit_redis")
+def test_fitbit_callback_clears_revoked_flag_on_reconnect(mock_redis_factory, mock_post):
     """Re-connecting a previously revoked token must clear is_revoked."""
     _, _, patient_user, _ = create_patient_graph()
+    mock_redis_factory.return_value = _nonce_redis(str(patient_user.id))
     from django.utils import timezone as _tz
 
     # Simulate a previously revoked token
@@ -873,7 +897,7 @@ def test_fitbit_callback_clears_revoked_flag_on_reconnect(mock_post):
     mock_post.return_value = mock_resp
 
     resp = client.get(
-        f"/api/fitbit/callback/?code=abc&state={patient_user.id}",
+        f"/api/fitbit/callback/?code=abc&state={_CALLBACK_NONCE}:{patient_user.id}",
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 302
