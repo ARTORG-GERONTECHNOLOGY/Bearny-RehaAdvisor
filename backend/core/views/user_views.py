@@ -82,6 +82,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from core.models import InterventionTemplate, Logs, PasswordAttempt, Patient, Therapist, User
 from core.permissions import IsAdmin
+from core.token_revocation import invalidate_user_tokens
 from utils.config import WEARABLE_DEVICE_CHOICES
 from utils.utils import (
     check_rate_limit,
@@ -222,6 +223,10 @@ def change_password(request, therapist_id):
     # Save new password
     user.pwdhash = make_password(new_password)
     user.save()
+
+    # Invalidate all outstanding tokens so existing sessions cannot continue
+    # after a password change.
+    invalidate_user_tokens(str(user.id))
 
     Logs.objects.create(
         userId=user,

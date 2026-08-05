@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-import random
+import secrets
 import string
 import uuid
 from datetime import datetime, timedelta
@@ -38,6 +38,7 @@ from core.models import (
 )
 from core.tasks import fetch_fitbit_data_async
 from core.throttles import LoginRateThrottle
+from core.token_revocation import invalidate_user_tokens, revoke_jti
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.config import WEARABLE_DEVICE_CHOICES, config
 from utils.scheduling import _expand_dates
@@ -468,6 +469,36 @@ def logout_view(request):
 
         user = User.objects.get(pk=ObjectId(user_id))
 
+        # Revoke the refresh token so it cannot be used to obtain new access tokens.
+        from rest_framework_simplejwt.tokens import RefreshToken as _RefreshToken
+
+        refresh_str = request.COOKIES.get("refresh_token", "")
+        if refresh_str:
+            try:
+                refresh = _RefreshToken(refresh_str)
+                jti = refresh.payload.get("jti", "")
+                if jti:
+                    revoke_jti(jti, ttl_seconds=86400)  # max refresh token lifetime
+            except Exception:
+                logger.warning("[logout_view] Could not revoke refresh token JTI")
+
+        # Also revoke the access token so it cannot be replayed within its 5-min window.
+        access_str = request.COOKIES.get("access_token", "")
+        if not access_str:
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                access_str = auth_header.split(" ", 1)[1]
+        if access_str:
+            try:
+                from rest_framework_simplejwt.tokens import AccessToken as _AccessToken
+
+                access = _AccessToken(access_str)
+                jti = access.payload.get("jti", "")
+                if jti:
+                    revoke_jti(jti, ttl_seconds=300)  # max access token lifetime
+            except Exception:
+                logger.warning("[logout_view] Could not revoke access token JTI")
+
         Logs.objects.create(userId=user, action="LOGOUT", actor_role=user.role)
 
         _resp = JsonResponse({"message": "Logout successful"}, status=200)
@@ -484,7 +515,7 @@ def logout_view(request):
 
 def generate_random_password(length=12):
     chars = string.ascii_letters + string.digits + string.punctuation
-    return "".join(random.choice(chars) for _ in range(length))
+    return "".join(secrets.choice(chars) for _ in range(length))
 
 
 @api_view(["POST"])
@@ -510,6 +541,10 @@ def reset_password_view(request):
         # Hash and save using the same pattern as change_password / user_views
         user.pwdhash = make_password(new_password)
         user.save()
+
+        # Invalidate all outstanding tokens for this user so old sessions cannot
+        # be used after the password has been reset.
+        invalidate_user_tokens(str(user.id))
 
         # Send email with the new password
         send_mail(
@@ -956,7 +991,7 @@ def register_view(request):
 
 
 def generate_code(length=6):
-    return "".join(random.choices(string.digits, k=length))
+    return "".join(secrets.choice(string.digits) for _ in range(length))
 
 
 # =============================
