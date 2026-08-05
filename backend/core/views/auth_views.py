@@ -1126,7 +1126,14 @@ def verify_code_view(request):
         verification.delete()
         reset_verify_attempts(user_id)
 
-        refresh = RefreshToken.for_user(user)
+        # Use direct RefreshToken() rather than for_user() — our User is a
+        # MongoEngine document and OutstandingToken.user is a Django ORM FK;
+        # for_user() would raise ValueError. Token revocation is handled by
+        # the Redis-based JTI denylist in core/token_revocation.py.
+        refresh = RefreshToken()
+        refresh["user_id"] = user_id  # already a string from the request body
+        refresh["role"] = user.role
+        refresh["username"] = getattr(user, "username", "") or ""
         _ua = (request.headers.get("User-Agent", "") or "")[:300]
         Logs.objects.create(
             userId=user,
