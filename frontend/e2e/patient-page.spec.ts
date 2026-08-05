@@ -29,6 +29,11 @@ async function loginAsSeededPatient(page: Parameters<typeof test>[0]['page']) {
   // require ALL API requests (each ~4 s on CI due to Redis cold-start) to settle,
   // which regularly exceeds the 30 s test timeout.
   await page.reload({ waitUntil: 'load' });
+  // On webkit, React's post-mount effects (auth-store reactions) can fire
+  // navigate('/patient') and interrupt a subsequent page.goto(). Waiting for
+  // networkidle gives those effects time to settle. Cap at 2 s so Redis timeouts
+  // on CI (~4 s per check) don't block the test — React effects complete in < 100 ms.
+  await page.waitForLoadState('networkidle', { timeout: 2000 }).catch(() => {});
 }
 
 test.describe('Patient page and functions', () => {
