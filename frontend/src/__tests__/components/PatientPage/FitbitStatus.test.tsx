@@ -39,27 +39,27 @@ jest.mock('@/api/client', () => ({
   },
 }));
 
-// Capture window.location.href assignments
+// Capture window.location.href assignments.
+// jsdom marks window.location non-configurable, so Object.defineProperty can't
+// redefine it directly. Deleting it first (a jsdom-permitted quirk) lets us
+// assign a plain stub object with a captured href setter.
 const originalLocation = window.location;
 let locationHref = '';
 beforeAll(() => {
-  Object.defineProperty(window, 'location', {
-    configurable: true,
-    value: {
-      get href() {
-        return locationHref;
-      },
-      set href(v: string) {
-        locationHref = v;
-      },
+  delete (window as any).location;
+  (window as any).location = {
+    get href() {
+      return locationHref;
     },
-  });
+    set href(v: string) {
+      locationHref = v;
+    },
+    assign: jest.fn(),
+    replace: jest.fn(),
+  };
 });
 afterAll(() => {
-  Object.defineProperty(window, 'location', {
-    configurable: true,
-    value: originalLocation,
-  });
+  (window as any).location = originalLocation;
 });
 
 describe('FitbitStatus', () => {
