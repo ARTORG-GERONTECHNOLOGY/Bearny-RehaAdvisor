@@ -57,7 +57,7 @@ const FitbitConnectButton: React.FC = observer(() => {
       `&prompt=login` +
       `&expires_in=604800`;
 
-    window.location.href = authUrl;
+    window.location.assign(authUrl);
   };
 
   return (

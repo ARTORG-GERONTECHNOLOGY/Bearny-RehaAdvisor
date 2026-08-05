@@ -39,37 +39,23 @@ jest.mock('@/api/client', () => ({
   },
 }));
 
-// Capture window.location.href assignments.
-// jsdom marks window.location non-configurable, so Object.defineProperty can't
-// redefine it directly. Deleting it first (a jsdom-permitted quirk) lets us
-// assign a plain stub object with a captured href setter.
-const originalLocation = window.location;
-let locationHref = '';
-beforeAll(() => {
-  delete (window as any).location;
-  (window as any).location = {
-    get href() {
-      return locationHref;
-    },
-    set href(v: string) {
-      locationHref = v;
-    },
-    assign: jest.fn(),
-    replace: jest.fn(),
-  };
-});
-afterAll(() => {
-  (window as any).location = originalLocation;
-});
-
 describe('FitbitStatus', () => {
+  // Spy on window.location.assign for each test that checks navigation.
+  // jest.spyOn works on the Location prototype in jsdom 26 where the
+  // whole location object cannot be replaced.
+  let assignSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
     mockConnected = false;
     mockAuthId = 'auth-patient-id';
-    locationHref = '';
     mockApiGet.mockResolvedValue({ data: { nonce: 'test-nonce-abc' } });
+    assignSpy = jest.spyOn(window.location, 'assign').mockImplementation(jest.fn());
+  });
+
+  afterEach(() => {
+    assignSpy.mockRestore();
   });
 
   // ── Status polling ──────────────────────────────────────────────────────
@@ -145,10 +131,9 @@ describe('FitbitStatus', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Connect Fitbit' }));
 
     await waitFor(() => {
-      expect(locationHref).toContain('https://www.fitbit.com/oauth2/authorize');
-      // state must be <nonce>:<patientId>
-      const url = new URL(locationHref);
-      const state = url.searchParams.get('state');
+      expect(assignSpy).toHaveBeenCalledWith(expect.stringContaining('https://www.fitbit.com/oauth2/authorize'));
+      const calledUrl = assignSpy.mock.calls[0][0] as string;
+      const state = new URL(calledUrl).searchParams.get('state');
       expect(state).toMatch(/^test-nonce-abc:patient-99$/);
     });
   });
@@ -160,7 +145,7 @@ describe('FitbitStatus', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Connect Fitbit' }));
 
     await waitFor(() => {
-      expect(locationHref).toContain('prompt=login');
+      expect(assignSpy).toHaveBeenCalledWith(expect.stringContaining('prompt=login'));
     });
   });
 
@@ -173,7 +158,7 @@ describe('FitbitStatus', () => {
 
     // Wait long enough for the async handler to settle
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(locationHref).toBe('');
+    expect(assignSpy).not.toHaveBeenCalled();
   });
 
   // ── Disconnect ──────────────────────────────────────────────────────────
