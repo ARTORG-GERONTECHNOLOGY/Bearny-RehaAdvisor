@@ -592,9 +592,7 @@ def get_fitbit_health_data(request, patient_id):
         caller_therapist = get_therapist_for_user(request.user)
         patient_clinic = getattr(patient, "clinic", None)
         if not caller_therapist or patient_clinic not in (caller_therapist.clinics or []):
-            return JsonResponse(
-                {"error": "You are not authorised to access this patient's data."}, status=403
-            )
+            return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
         # Convert to european DD.MM.YYYY
         def eu_date(d):
