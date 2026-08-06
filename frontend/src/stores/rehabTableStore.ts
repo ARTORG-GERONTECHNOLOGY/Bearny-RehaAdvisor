@@ -124,6 +124,7 @@ export class RehabTableStore {
   showExerciseStats = false;
   showRepeatModal = false;
   showInfoInterventionModal = false;
+  showRemoveModal = false;
 
   showFeedbackBrowser = false;
   feedbackBrowserIntervention: Intervention | null = null;
@@ -638,12 +639,26 @@ export class RehabTableStore {
     this.showRepeatModal = false;
   }
 
-  async deleteExercise(interventionId: string, t: (k: string) => unknown) {
+  openRemoveModal(interventionId: string) {
+    this.selectedExerciseId = interventionId || null;
+    this.showRemoveModal = true;
+  }
+
+  closeRemoveModal() {
+    this.showRemoveModal = false;
+  }
+
+  async deleteExercise(
+    interventionId: string,
+    t: (k: string) => unknown,
+    occurrenceDatetime?: string
+  ) {
     try {
       // POST /api/interventions/remove-from-patient/
       const res = await apiClient.post('interventions/remove-from-patient/', {
         patientId: this.patientIdForCalls,
         intervention: interventionId,
+        ...(occurrenceDatetime ? { datetime: occurrenceDatetime } : {}),
       });
 
       if (res.status === 200 || res.status === 201) {

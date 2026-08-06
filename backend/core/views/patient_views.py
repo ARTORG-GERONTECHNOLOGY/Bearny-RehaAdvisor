@@ -3136,7 +3136,12 @@ def remove_intervention_from_patient(request):
     """
     POST /api/interventions/remove-from-patient/
 
-    Removes all *future* scheduled dates for a specific intervention from a patient's plan.
+    Removes scheduled dates for a specific intervention from a patient's plan.
+
+    By default, removes all *future* scheduled dates (past/today dates are kept).
+    If an optional "datetime" field is supplied, only that single future
+    occurrence is removed instead — other future dates for the intervention
+    are left untouched.
 
     Success:
     {
@@ -3174,6 +3179,7 @@ def remove_intervention_from_patient(request):
     # Extract fields
     intervention_id = data.get("intervention")
     patient_id = data.get("patientId")
+    occurrence_datetime_raw = data.get("datetime")
 
     # Validate required parameters
     field_errors = {}
@@ -3193,6 +3199,22 @@ def remove_intervention_from_patient(request):
             },
             status=400,
         )
+
+    occurrence_dt_utc = None
+    if occurrence_datetime_raw:
+        try:
+            occurrence_dt_utc = _as_aware_utc(
+                datetime.datetime.fromisoformat(str(occurrence_datetime_raw).replace("Z", "+00:00"))
+            )
+        except Exception:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": "Invalid date format.",
+                    "field_errors": {"datetime": ["Must be ISO format."]},
+                },
+                status=400,
+            )
 
     # Try processing
     try:
@@ -3224,12 +3246,29 @@ def remove_intervention_from_patient(request):
     try:
         now = timezone.now()
         intervention_found = False
+        occurrence_found = False
 
         for assignment in plan.interventions:
             if str(assignment.interventionId.pk) == str(intervention_id):
                 intervention_found = True
-                # Keep only past or today's dates
-                assignment.dates = [d for d in assignment.dates if ensure_aware(d) <= now]
+
+                if occurrence_dt_utc is not None:
+                    # Remove only the single matching future occurrence, leaving
+                    # every other scheduled date (past or future) untouched.
+                    # Matched in UTC (like reschedule_intervention_date) since
+                    # naive Mongo dates are stored as UTC instants, not local time.
+                    now_utc = _as_aware_utc(now)
+                    remaining = []
+                    for d in assignment.dates:
+                        d_utc = _as_aware_utc(d)
+                        if d_utc > now_utc and abs((d_utc - occurrence_dt_utc).total_seconds()) < 1:
+                            occurrence_found = True
+                            continue
+                        remaining.append(d)
+                    assignment.dates = remaining
+                else:
+                    # Keep only past or today's dates
+                    assignment.dates = [d for d in assignment.dates if ensure_aware(d) <= now]
 
         if not intervention_found:
             return JsonResponse(
@@ -3237,6 +3276,16 @@ def remove_intervention_from_patient(request):
                     "success": False,
                     "message": "Intervention not assigned to this patient.",
                     "error": "InterventionNotFound",
+                },
+                status=404,
+            )
+
+        if occurrence_dt_utc is not None and not occurrence_found:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "message": "The requested occurrence was not found.",
+                    "error": "OccurrenceNotFound",
                 },
                 status=404,
             )

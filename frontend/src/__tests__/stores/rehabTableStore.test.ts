@@ -974,4 +974,46 @@ describe('deleteExercise', () => {
 
     expect(mockApiClient.get).not.toHaveBeenCalled();
   });
+
+  it('includes the occurrence datetime when removing a single occurrence', async () => {
+    const store = makeStore();
+    store.explicitPatientId = 'p1';
+    mockApiClient.post.mockResolvedValueOnce({ status: 200 });
+
+    await store.deleteExercise(
+      'int-1',
+      jest.fn((k: string) => k),
+      '2026-01-01T00:00:00.000Z'
+    );
+
+    expect(mockApiClient.post).toHaveBeenCalledWith('interventions/remove-from-patient/', {
+      patientId: 'p1',
+      intervention: 'int-1',
+      datetime: '2026-01-01T00:00:00.000Z',
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// openRemoveModal / closeRemoveModal
+// ---------------------------------------------------------------------------
+
+describe('openRemoveModal / closeRemoveModal', () => {
+  it('selects the intervention and shows the remove modal', () => {
+    const store = makeStore();
+
+    store.openRemoveModal('int-1');
+
+    expect(store.selectedExerciseId).toBe('int-1');
+    expect(store.showRemoveModal).toBe(true);
+  });
+
+  it('hides the remove modal on close', () => {
+    const store = makeStore();
+    store.openRemoveModal('int-1');
+
+    store.closeRemoveModal();
+
+    expect(store.showRemoveModal).toBe(false);
+  });
 });
