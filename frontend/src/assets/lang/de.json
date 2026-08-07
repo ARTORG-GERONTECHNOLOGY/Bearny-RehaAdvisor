@@ -389,6 +389,7 @@
   "No heart rate zone data": "Keine Herzfrequenzzonendaten",
   "No time in active heart rate zones": "Keine Zeit in aktiven Herzfrequenzzonen",
   "No wear time data": "Keine Tragezeitdaten",
+  "wear_time_unavailable_info": "Die Tragezeit ist derzeit aufgrund einer technischen Einschränkung der Fitbit-Integration nicht verfügbar. Sie wird wiederhergestellt, sobald die Google Health-Verbindung eingerichtet ist.",
   "Wear Time": "Tragezeit",
   "Wear Time (min)": "Tragezeit (Min)",
   "No resting heart rate data": "Keine Daten zur Ruheherzfrequenz",

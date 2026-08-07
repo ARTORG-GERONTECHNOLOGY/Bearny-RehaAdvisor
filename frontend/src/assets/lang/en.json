@@ -381,6 +381,7 @@
   "No heart rate zone data": "No heart rate zone data",
   "No time in active heart rate zones": "No time in active heart rate zones",
   "No wear time data": "No wear time data",
+  "wear_time_unavailable_info": "Wear time is currently unavailable due to a technical limitation with the Fitbit integration. It will be restored once the Google Health connection is established.",
   "Wear Time": "Wear Time",
   "Wear Time (min)": "Wear Time (min)",
   "No resting heart rate data": "No resting heart rate data",
