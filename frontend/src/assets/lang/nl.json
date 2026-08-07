@@ -374,6 +374,7 @@
   "No heart rate zone data": "Geen hartslagzonegegevens",
   "No time in active heart rate zones": "Geen tijd in actieve hartslagzones",
   "No wear time data": "Geen draagtijdgegevens",
+  "wear_time_unavailable_info": "Draagtijd is momenteel niet beschikbaar vanwege een technische beperking van de Fitbit-integratie. Dit wordt hersteld zodra de Google Health-verbinding is tot stand gebracht.",
   "Wear Time": "Draagtijd",
   "Wear Time (min)": "Draagtijd (min)",
   "No resting heart rate data": "Geen gegevens over rusthartslag",
