@@ -277,8 +277,7 @@ def test_therapist_plan_includes_rating_count(mongo_mock):
         questionKey="rating_stars_exercise",
         translations=[Translation(language="en", text="Rate this")],
         possibleAnswers=[
-            AnswerOption(key=str(i), translations=[Translation(language="en", text=str(i))])
-            for i in range(1, 6)
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=str(i))]) for i in range(1, 6)
         ],
         answer_type="select",
     )
