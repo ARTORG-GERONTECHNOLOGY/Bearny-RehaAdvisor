@@ -71,7 +71,7 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
         ? assigned.ratingCount
         : typeof intervention?.ratingCount === 'number'
           ? intervention.ratingCount
-          : 0;
+          : undefined;
 
     const duration = assigned?.duration ?? intervention?.duration ?? 0;
 
