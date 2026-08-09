@@ -8,6 +8,7 @@ const SIZE_VB = 32;
 interface StarRatingProps {
   value: number | null | undefined;
   showNumber?: boolean;
+  count?: number;
   max?: number;
   size?: number;
 }
@@ -39,13 +40,16 @@ const Star: React.FC<{ fill: number; id: string; size: number }> = ({ fill, id, 
 const StarRating: React.FC<StarRatingProps> = ({
   value,
   showNumber = false,
+  count,
   max = 5,
   size = 16,
 }) => {
+  const uid = useId();
+
   if (value == null || isNaN(value) || value <= 0) return null;
 
-  const uid = useId();
   const clamped = Math.min(value, max);
+  const hasCount = typeof count === 'number' && count >= 0;
 
   return (
     <span
@@ -56,7 +60,12 @@ const StarRating: React.FC<StarRatingProps> = ({
         const fill = Math.min(1, Math.max(0, clamped - i));
         return <Star key={i} fill={fill} id={`${uid}-${i}`} size={size} />;
       })}
-      {showNumber && <span className="text-xs text-gray-500 ml-1">{value}</span>}
+      {showNumber && (
+        <span className="text-xs leading-none text-gray-500 ml-1 mt-0.5">{value}</span>
+      )}
+      {hasCount && (
+        <span className="text-xs leading-none text-gray-400 ml-1 mt-0.5">({count})</span>
+      )}
     </span>
   );
 };

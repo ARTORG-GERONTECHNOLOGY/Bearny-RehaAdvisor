@@ -49,6 +49,9 @@ const PatientLibraryInterventionCard: React.FC<PatientLibraryInterventionCardPro
             <Badge variant="card">
               <StarsIcon className="w-4 h-4" />
               <div>{item.avg_rating.toFixed(1)}</div>
+              {typeof item.rating_count === 'number' && (
+                <div className="text-chartMuted">({item.rating_count})</div>
+              )}
             </Badge>
           )}
         </div>
