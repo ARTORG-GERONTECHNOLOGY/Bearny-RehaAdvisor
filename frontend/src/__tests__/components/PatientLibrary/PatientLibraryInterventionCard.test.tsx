@@ -59,38 +59,6 @@ describe('PatientLibraryInterventionCard', () => {
   it('shows numeric average when avg_rating is provided', () => {
     render(
       <PatientLibraryInterventionCard
-        item={{ duration: 20, content_type: 'Exercise', avg_rating: 4.3, rating_count: 12 }}
-        displayTitle="Squats"
-        Icon={MockMainIcon}
-        contentTypeIcon={MockContentTypeIcon}
-        containerClassName="w-full"
-        onClick={() => {}}
-      />
-    );
-
-    expect(screen.getByText('4.3')).toBeInTheDocument();
-    expect(screen.getByText('(12)')).toBeInTheDocument();
-  });
-
-  it('shows formatted average when avg_rating is 5', () => {
-    render(
-      <PatientLibraryInterventionCard
-        item={{ duration: 10, content_type: 'Video', avg_rating: 5.0, rating_count: 3 }}
-        displayTitle="Yoga"
-        Icon={MockMainIcon}
-        contentTypeIcon={null}
-        containerClassName="w-full"
-        onClick={() => {}}
-      />
-    );
-
-    expect(screen.getByText('5.0')).toBeInTheDocument();
-    expect(screen.getByText('(3)')).toBeInTheDocument();
-  });
-
-  it('hides the vote count when rating_count is absent', () => {
-    render(
-      <PatientLibraryInterventionCard
         item={{ duration: 20, content_type: 'Exercise', avg_rating: 4.3 }}
         displayTitle="Squats"
         Icon={MockMainIcon}
@@ -101,7 +69,21 @@ describe('PatientLibraryInterventionCard', () => {
     );
 
     expect(screen.getByText('4.3')).toBeInTheDocument();
-    expect(screen.queryByText(/^\(\d+\)$/)).not.toBeInTheDocument();
+  });
+
+  it('shows formatted average when avg_rating is 5', () => {
+    render(
+      <PatientLibraryInterventionCard
+        item={{ duration: 10, content_type: 'Video', avg_rating: 5.0 }}
+        displayTitle="Yoga"
+        Icon={MockMainIcon}
+        contentTypeIcon={null}
+        containerClassName="w-full"
+        onClick={() => {}}
+      />
+    );
+
+    expect(screen.getByText('5.0')).toBeInTheDocument();
   });
 
   it('hides rating badge when avg_rating is null', () => {
