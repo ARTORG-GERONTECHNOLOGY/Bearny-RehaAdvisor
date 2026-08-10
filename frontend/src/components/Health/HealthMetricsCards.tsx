@@ -129,7 +129,10 @@ const MetricCard: React.FC<{
         {info && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="cursor-help text-muted-foreground" onClick={(e) => e.stopPropagation()}>
+              <span
+                className="cursor-help text-muted-foreground"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <InfoIcon className="h-3.5 w-3.5" />
               </span>
             </TooltipTrigger>
