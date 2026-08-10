@@ -55,8 +55,7 @@ import QuestionnaireResultsTable, {
 } from '@/components/Health/QuestionnaireResultsTable';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { InfoIcon } from 'lucide-react';
+import InfoBubble from '@/components/common/InfoBubble';
 import { colors } from '@/lib/colors';
 import { formatDurationMinutes } from '@/utils/dateFormat';
 import { colorFromTier } from '@/utils/healthCharts';
@@ -127,17 +126,9 @@ const MetricCard: React.FC<{
         <Icon className="h-4 w-4" />
         {label}
         {info && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                className="cursor-help text-muted-foreground"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <InfoIcon className="h-3.5 w-3.5" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-64 text-xs">{info}</TooltipContent>
-          </Tooltip>
+          <span onClick={(e) => e.stopPropagation()}>
+            <InfoBubble tooltip={info} />
+          </span>
         )}
       </CardDescription>
       <CardTitle>{value}</CardTitle>
