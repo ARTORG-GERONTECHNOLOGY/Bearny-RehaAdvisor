@@ -81,6 +81,12 @@ jest.mock('@/components/Health/QuestionnaireResultsTable', () => ({
   default: () => <div data-testid="table-questionnaire" />,
   countQuestionnaireDays: jest.fn(() => 0),
 }));
+jest.mock('@/components/common/InfoBubble', () => ({
+  __esModule: true,
+  default: ({ tooltip }: { tooltip: string }) => (
+    <span data-testid="info-bubble-icon" role="button" title={tooltip} />
+  ),
+}));
 
 import HealthMetricsCards from '@/components/Health/HealthMetricsCards';
 import type { HealthPageStore } from '@/stores/healthPageStore';
