@@ -59,7 +59,7 @@ describe('PatientLibraryInterventionCard', () => {
   it('shows numeric average when avg_rating is provided', () => {
     render(
       <PatientLibraryInterventionCard
-        item={{ duration: 20, content_type: 'Exercise', avg_rating: 4.3, rating_count: 12 }}
+        item={{ duration: 20, content_type: 'Exercise', avg_rating: 4.3 }}
         displayTitle="Squats"
         Icon={MockMainIcon}
         contentTypeIcon={MockContentTypeIcon}
@@ -74,7 +74,7 @@ describe('PatientLibraryInterventionCard', () => {
   it('shows formatted average when avg_rating is 5', () => {
     render(
       <PatientLibraryInterventionCard
-        item={{ duration: 10, content_type: 'Video', avg_rating: 5.0, rating_count: 3 }}
+        item={{ duration: 10, content_type: 'Video', avg_rating: 5.0 }}
         displayTitle="Yoga"
         Icon={MockMainIcon}
         contentTypeIcon={null}

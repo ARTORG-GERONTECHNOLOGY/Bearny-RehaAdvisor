@@ -9,7 +9,6 @@ type PatientLibraryInterventionCardItem = {
   duration?: string | number;
   content_type?: string;
   avg_rating?: number | null;
-  rating_count?: number;
 };
 
 type PatientLibraryInterventionCardProps = {

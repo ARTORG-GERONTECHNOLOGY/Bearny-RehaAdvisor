@@ -263,6 +263,57 @@ def test_get_patient_plan_for_therapist_no_plan(mongo_mock):
     assert "No rehabilitation plan found" in resp.content.decode()
 
 
+def test_therapist_plan_includes_rating_count(mongo_mock):
+    """
+    Each intervention entry must expose ``ratingCount`` (the number of star
+    ratings the ``averageRating`` was computed from) alongside the average,
+    so the frontend can display "4.5 (3 ratings)" instead of a bare average.
+    """
+    patient, therapist, intervention, plan = setup_basic_plan()
+    assignment = plan.interventions[0]
+
+    question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_exercise",
+        translations=[Translation(language="en", text="Rate this")],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=str(i))]) for i in range(1, 6)
+        ],
+        answer_type="select",
+    )
+    question.save()
+
+    for i, day in enumerate(assignment.dates):
+        PatientInterventionLogs(
+            userId=patient,
+            interventionId=intervention,
+            rehabilitationPlanId=plan,
+            date=day,
+            status=["completed"],
+            feedback=[
+                FeedbackEntry(
+                    questionId=question,
+                    answerKey=[
+                        AnswerOption(
+                            key=str(4 if i < 2 else 2),
+                            translations=[Translation(language="en", text="x")],
+                        )
+                    ],
+                )
+            ],
+        ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    entry = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention.id))
+    assert entry["ratingCount"] == 3
+    assert entry["averageRating"] == round((4 + 4 + 2) / 3, 1)
+
+
 def test_get_patient_plan_for_therapist_post_method_not_allowed(mongo_mock):
     """
     POST to the therapist-plan endpoint returns 405.  Only GET is accepted.

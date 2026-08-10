@@ -135,6 +135,20 @@ describe('InterventionList', () => {
     expect(descOrder[0]).toContain('High');
   });
 
+  it('shows the vote count next to the star rating when provided', () => {
+    const rated = [
+      { _id: 'a', title: 'Rated', content_type: 'video', avg_rating: 4, rating_count: 12 },
+    ];
+    render(
+      <InterventionList
+        items={rated}
+        onClick={mockOnClick}
+        translatedTitles={{ a: { title: 'Rated', lang: null } }}
+      />
+    );
+    expect(screen.getByText('(12)')).toBeInTheDocument();
+  });
+
   it('activates a row via keyboard Enter and Space', () => {
     render(
       <InterventionList items={items} onClick={mockOnClick} translatedTitles={translatedTitles} />

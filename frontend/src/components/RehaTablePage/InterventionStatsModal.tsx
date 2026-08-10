@@ -66,6 +66,13 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
           ? intervention.averageRating
           : 0;
 
+    const ratingCount =
+      typeof assigned?.ratingCount === 'number'
+        ? assigned.ratingCount
+        : typeof intervention?.ratingCount === 'number'
+          ? intervention.ratingCount
+          : undefined;
+
     const duration = assigned?.duration ?? intervention?.duration ?? 0;
 
     return {
@@ -77,6 +84,7 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
       feedbackCount,
       videoCount,
       avgRating,
+      ratingCount,
       duration,
       frequency: assigned?.frequency || '',
       notes: assigned?.notes || '',
@@ -117,7 +125,11 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
             <TableRow>
               <TableCell className="font-medium w-1/3">{safeT(t, 'Average rating')}</TableCell>
               <TableCell>
-                {stats.avgRating > 0 ? <StarRating value={stats.avgRating} showNumber /> : '-'}
+                {stats.avgRating > 0 ? (
+                  <StarRating value={stats.avgRating} count={stats.ratingCount} showNumber />
+                ) : (
+                  '-'
+                )}
               </TableCell>
             </TableRow>
             <TableRow>

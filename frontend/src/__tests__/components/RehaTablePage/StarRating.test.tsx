@@ -99,4 +99,19 @@ describe('StarRating', () => {
     const { container } = render(<StarRating value={2} max={5} />);
     expect(container.querySelectorAll('svg')).toHaveLength(5);
   });
+
+  it('does not render a count when count is omitted', () => {
+    render(<StarRating value={3} />);
+    expect(screen.queryByText(/^\(\d+\)$/)).not.toBeInTheDocument();
+  });
+
+  it('renders the vote count when provided', () => {
+    render(<StarRating value={4} count={12} />);
+    expect(screen.getByText('(12)')).toBeInTheDocument();
+  });
+
+  it('renders a count of zero', () => {
+    render(<StarRating value={4} count={0} />);
+    expect(screen.getByText('(0)')).toBeInTheDocument();
+  });
 });

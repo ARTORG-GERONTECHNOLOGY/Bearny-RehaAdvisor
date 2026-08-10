@@ -27,6 +27,7 @@ interface Intervention {
   media?: InterventionMedia[];
 
   avg_rating?: number;
+  rating_count?: number;
 
   language?: string;
   available_languages?: string[];
@@ -221,7 +222,7 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
                 </div>
               </TableCell>
               <TableCell>
-                <StarRating value={rec.avg_rating} showNumber />
+                <StarRating value={rec.avg_rating} count={rec.rating_count} showNumber />
               </TableCell>
               <TableCell>
                 <div className="flex flex-wrap items-center gap-1">

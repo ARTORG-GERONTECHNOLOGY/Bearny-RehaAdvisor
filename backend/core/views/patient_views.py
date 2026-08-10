@@ -3097,6 +3097,7 @@ def get_patient_plan_for_therapist(request, patient_id):
                     "currentTotalCount": current_total_count,
                     "completedCount": completed_count,
                     "averageRating": (round(rating_sum / rating_count, 1) if rating_count > 0 else 0),
+                    "ratingCount": rating_count,
                     "duration": getattr(intervention, "duration", 0),
                 }
             )

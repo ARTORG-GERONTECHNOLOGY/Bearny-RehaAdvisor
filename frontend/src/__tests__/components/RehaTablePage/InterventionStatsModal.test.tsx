@@ -29,6 +29,7 @@ describe('InterventionStatsModal', () => {
       benefitFor: [],
       tags: [],
       averageRating: 4.5,
+      ratingCount: 8,
     };
 
     const patientData = {
@@ -97,6 +98,7 @@ describe('InterventionStatsModal', () => {
     // Check table rows
     expect(screen.getByText(/Average rating/)).toBeInTheDocument();
     expect(screen.getByText('4.5')).toBeInTheDocument();
+    expect(screen.getByText('(8)')).toBeInTheDocument();
     expect(screen.getByText(/Feedback entries/)).toBeInTheDocument();
     expect(screen.getByText(/Video feedback/)).toBeInTheDocument();
     expect(screen.getByText(/Duration/)).toBeInTheDocument();
