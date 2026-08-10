@@ -87,6 +87,17 @@ jest.mock('@/components/common/InfoBubble', () => ({
     <span data-testid="info-bubble-icon" role="button" title={tooltip} />
   ),
 }));
+// Radix UI tooltip has a package deduplication issue in CI (nested
+// @radix-ui/react-context creates two separate context factories, breaking
+// the TooltipProvider/Tooltip contract). Mock the whole module so no Radix
+// tooltip code runs in this test environment.
+jest.mock('@/components/ui/tooltip', () => ({
+  __esModule: true,
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipContent: () => null,
+}));
 
 import HealthMetricsCards from '@/components/Health/HealthMetricsCards';
 import type { HealthPageStore } from '@/stores/healthPageStore';
