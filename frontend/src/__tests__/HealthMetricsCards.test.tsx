@@ -245,7 +245,10 @@ describe('HealthMetricsCards – cards with no data are not clickable', () => {
 
   it('has no clickable cards when every metric has no data', () => {
     render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
-    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    const clickableButtons = screen
+      .queryAllByRole('button')
+      .filter((el) => el.dataset.testid !== 'info-bubble-icon');
+    expect(clickableButtons).toHaveLength(0);
   });
 
   it('makes a card clickable — and its detail dialog reachable — once it has data', async () => {
@@ -256,7 +259,9 @@ describe('HealthMetricsCards – cards with no data are not clickable', () => {
 
     render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
 
-    const buttons = screen.getAllByRole('button');
+    const buttons = screen
+      .getAllByRole('button')
+      .filter((el) => el.dataset.testid !== 'info-bubble-icon');
     expect(buttons).toHaveLength(1);
 
     await user.click(buttons[0]);
