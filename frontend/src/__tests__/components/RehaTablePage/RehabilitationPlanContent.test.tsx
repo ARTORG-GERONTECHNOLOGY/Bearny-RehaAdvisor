@@ -136,6 +136,7 @@ const mockStore = {
   initForPatient: jest.fn().mockResolvedValue(undefined),
   dispose: jest.fn().mockResolvedValue(undefined),
   setUserLang: jest.fn(),
+  setTranslateTag: jest.fn(),
   translateVisibleItems: jest.fn().mockResolvedValue(undefined),
   setSearchTerm: jest.fn(),
   setPatientTypeFilter: jest.fn(),

@@ -1,5 +1,5 @@
 // src/stores/rehabTableStore.ts
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, observable, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { filterInterventions } from '@/utils/filterUtils';
@@ -152,7 +152,7 @@ export class RehabTableStore {
   private entryTime = 0;
 
   constructor() {
-    makeAutoObservable(this, { translateTag: false }, { autoBind: true });
+    makeAutoObservable(this, { translateTag: observable.ref }, { autoBind: true });
   }
 
   // ---------------------------------------------------------------------------
@@ -362,6 +362,10 @@ export class RehabTableStore {
   // ---------------------------------------------------------------------------
   setUserLang(lang: string) {
     this.userLang = lang || 'en';
+  }
+
+  setTranslateTag(fn: (tag: string) => string) {
+    this.translateTag = fn;
   }
 
   setError(v: string | null) {

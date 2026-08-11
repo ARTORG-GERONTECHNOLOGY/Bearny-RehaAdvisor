@@ -31,7 +31,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
 
     // keep tag translation in sync with current language
     useEffect(() => {
-      store.translateTag = t;
+      store.setTranslateTag(t);
     }, [store, t, i18n.language]);
 
     // init for this patient + cleanup
