@@ -2,19 +2,21 @@
 import React, { useMemo, useRef, useState } from 'react';
 import Select, { StylesConfig } from 'react-select';
 import { TFunction } from 'i18next';
-import { FaPlus, FaMinus, FaChartBar, FaEdit, FaUndo, FaGlobe, FaFilter } from 'react-icons/fa';
+import {
+  FaPlus,
+  FaMinus,
+  FaChartBar,
+  FaEdit,
+  FaUndo,
+  FaGlobe,
+  FaFilter,
+  FaChevronDown,
+} from 'react-icons/fa';
 import StarIcon from '@/assets/icons/interventions/star.svg?react';
 
 import config from '@/config/config.json';
 import { Intervention } from '@/types';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -32,6 +34,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 // Sentinel for the "clear filter" Select item — Radix forbids an empty-string item value.
@@ -152,6 +155,10 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
   } = actions;
 
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const [allOpen, setAllOpen] = useState(false);
+  const [activeOpen, setActiveOpen] = useState(true);
+  const [pastOpen, setPastOpen] = useState(true);
 
   const listScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -365,6 +372,21 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
     );
   };
 
+  const renderSectionTrigger = (title: string, count: number) => (
+    <CollapsibleTrigger asChild>
+      <button
+        type="button"
+        className="group flex w-full items-center justify-between gap-4 p-4 text-left"
+      >
+        <span className="font-semibold leading-none tracking-tight">{title}</span>
+        <span className="flex items-center gap-2">
+          <Badge variant="dashboard">{count}</Badge>
+          <FaChevronDown className="text-zinc-400 transition-transform group-data-[state=open]:rotate-180" />
+        </span>
+      </button>
+    </CollapsibleTrigger>
+  );
+
   const activeFiltersCount =
     (patientTypeFilter ? 1 : 0) +
     (contentTypeFilter ? 1 : 0) +
@@ -512,54 +534,53 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
     <TooltipProvider>
       <div className="flex flex-col gap-2">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>{t('All interventions')}</CardTitle>
-            <CardAction>
-              <Badge variant="dashboard">{visibleItems.length}</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            {renderFiltersBar()}
-            <div className="mt-3 flex flex-col gap-2 h-96 overflow-auto" ref={listScrollRef}>
-              {visibleItems.length === 0 ? (
-                <div className="text-zinc-500">{t('No interventions match the filters.')}</div>
-              ) : (
-                visibleItems.map((it: any) => renderInterventionCard(it, { inAllTab: true }))
-              )}
-            </div>
-          </CardContent>
+          <Collapsible open={allOpen} onOpenChange={setAllOpen}>
+            {renderSectionTrigger(t('All interventions'), visibleItems.length)}
+            <CollapsibleContent>
+              <CardContent>
+                {renderFiltersBar()}
+                <div className="mt-3 flex flex-col gap-2 h-96 overflow-auto" ref={listScrollRef}>
+                  {visibleItems.length === 0 ? (
+                    <div className="text-zinc-500">{t('No interventions match the filters.')}</div>
+                  ) : (
+                    visibleItems.map((it: any) => renderInterventionCard(it, { inAllTab: true }))
+                  )}
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>{t('Active interventions')}</CardTitle>
-            <CardAction>
-              <Badge variant="dashboard">{activeItems.length}</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2 max-h-96 overflow-auto">
-            {activeItems.length === 0 ? (
-              <div className="text-zinc-500">{t('No active interventions.')}</div>
-            ) : (
-              activeItems.map((it: any) => renderInterventionCard(it))
-            )}
-          </CardContent>
+          <Collapsible open={activeOpen} onOpenChange={setActiveOpen}>
+            {renderSectionTrigger(t('Active interventions'), activeItems.length)}
+            <CollapsibleContent>
+              <CardContent className="flex flex-col gap-2 max-h-96 overflow-auto">
+                {activeItems.length === 0 ? (
+                  <div className="text-zinc-500">{t('No active interventions.')}</div>
+                ) : (
+                  activeItems.map((it: any) => renderInterventionCard(it))
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>{t('Past interventions')}</CardTitle>
-            <CardAction>
-              <Badge variant="dashboard">{pastItems.length}</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2 max-h-96 overflow-auto">
-            {pastItems.length === 0 ? (
-              <div className="text-zinc-500">{t('No past interventions.')}</div>
-            ) : (
-              pastItems.map((it: any) => renderInterventionCard(it, { showScheduleAgain: true }))
-            )}
-          </CardContent>
+          <Collapsible open={pastOpen} onOpenChange={setPastOpen}>
+            {renderSectionTrigger(t('Past interventions'), pastItems.length)}
+            <CollapsibleContent>
+              <CardContent className="flex flex-col gap-2 max-h-96 overflow-auto">
+                {pastItems.length === 0 ? (
+                  <div className="text-zinc-500">{t('No past interventions.')}</div>
+                ) : (
+                  pastItems.map((it: any) =>
+                    renderInterventionCard(it, { showScheduleAgain: true })
+                  )
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
       </div>
     </TooltipProvider>

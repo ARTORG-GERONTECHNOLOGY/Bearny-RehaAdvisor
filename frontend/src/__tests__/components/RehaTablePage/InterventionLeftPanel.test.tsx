@@ -117,6 +117,12 @@ const renderPanel = (
   return { filters, actions, data, patientData };
 };
 
+// The "All interventions" section starts collapsed; its content (filters bar,
+// All-tab cards) only exists in the DOM once its trigger has been clicked open.
+const openAllPanel = () => {
+  fireEvent.click(screen.getByRole('button', { name: /All interventions/i }));
+};
+
 describe('InterventionLeftPanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -130,6 +136,7 @@ describe('InterventionLeftPanel', () => {
       renderPanel();
       expect(screen.getByText('No active interventions.')).toBeInTheDocument();
       expect(screen.getByText('No past interventions.')).toBeInTheDocument();
+      openAllPanel();
       expect(screen.getByText('No interventions match the filters.')).toBeInTheDocument();
     });
 
@@ -285,6 +292,7 @@ describe('InterventionLeftPanel', () => {
     it('shows Add for unassigned items in the All tab and calls handleAddIntervention', () => {
       const intervention = makeIntervention({ _id: 'all-1' });
       const { actions } = renderPanel({ data: { visibleItems: [intervention] } });
+      openAllPanel();
       fireEvent.click(screen.getByLabelText('Add'));
       expect(actions.handleAddIntervention).toHaveBeenCalledWith(intervention);
     });
@@ -295,6 +303,7 @@ describe('InterventionLeftPanel', () => {
         data: { visibleItems: [intervention] },
         patientData: { interventions: [{ _id: 'all-2', dates: [] }] },
       });
+      openAllPanel();
       fireEvent.click(screen.getByLabelText('Remove'));
       expect(actions.handleDeleteExercise).toHaveBeenCalledWith('all-2');
     });
@@ -306,6 +315,7 @@ describe('InterventionLeftPanel', () => {
   describe('filters bar', () => {
     it('updates the search term as the user types', () => {
       const { filters } = renderPanel();
+      openAllPanel();
       fireEvent.change(screen.getByPlaceholderText('Search Interventions'), {
         target: { value: 'stretch' },
       });
@@ -316,12 +326,14 @@ describe('InterventionLeftPanel', () => {
       renderPanel({
         filters: { patientTypeFilter: 'Stroke', tagFilter: ['Exercise'] } as any,
       });
+      openAllPanel();
       expect(screen.getByText(/Filters/).textContent).toContain('(2)');
     });
 
     it('opens the filter menu and updates the patient type filter', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
+      openAllPanel();
       await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       // Defaults to the sentinel "All Patient Types" option (clearable
@@ -336,6 +348,7 @@ describe('InterventionLeftPanel', () => {
     it('clears the patient type filter via the "All Patient Types" option', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel({ filters: { patientTypeFilter: 'Stroke' } });
+      openAllPanel();
       await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       const select = document.getElementById('patientTypeFilter')!;
@@ -347,6 +360,7 @@ describe('InterventionLeftPanel', () => {
     it('updates the content type filter', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
+      openAllPanel();
       await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       const select = document.getElementById('contentTypeFilter')!;
@@ -358,6 +372,7 @@ describe('InterventionLeftPanel', () => {
     it('keeps the Filters dropdown open after selecting a nested Select option', async () => {
       const user = userEvent.setup();
       renderPanel();
+      openAllPanel();
       await user.click(screen.getByRole('button', { name: /Filters/i }));
       expect(screen.getByRole('menu')).toBeInTheDocument();
 
@@ -375,6 +390,7 @@ describe('InterventionLeftPanel', () => {
     it('clears the content type filter via the "All Content Types" option', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel({ filters: { contentTypeFilter: 'Video' } });
+      openAllPanel();
       await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       const select = document.getElementById('contentTypeFilter')!;
@@ -386,6 +402,7 @@ describe('InterventionLeftPanel', () => {
     it('updates the tag filter via react-select', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
+      openAllPanel();
       await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       const tagSelect = screen.getByTestId('tag-select');
@@ -396,6 +413,7 @@ describe('InterventionLeftPanel', () => {
     it('updates the benefit filter via react-select', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
+      openAllPanel();
       await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       const benefitSelect = screen.getByTestId('benefit-select');
@@ -406,6 +424,7 @@ describe('InterventionLeftPanel', () => {
     it('updates the language filter via react-select and clears it back to []', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
+      openAllPanel();
       await user.click(screen.getByRole('button', { name: /Filters/i }));
 
       const languageSelect = screen.getByTestId('language-select');
@@ -419,6 +438,7 @@ describe('InterventionLeftPanel', () => {
     it('calls resetAllFilters when Reset filters is clicked', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
+      openAllPanel();
       await user.click(screen.getByRole('button', { name: /Filters/i }));
       fireEvent.click(screen.getByRole('button', { name: /Reset filters/i }));
       expect(filters.resetAllFilters).toHaveBeenCalled();
@@ -435,6 +455,7 @@ describe('InterventionLeftPanel', () => {
           ],
         },
       });
+      openAllPanel();
       await user.click(screen.getByRole('button', { name: /Filters/i }));
       // Just verifying the panel renders without throwing while computing language options;
       // the mocked react-select doesn't expose the passed options for direct assertion.
@@ -450,6 +471,7 @@ describe('InterventionLeftPanel', () => {
           languageFilter: ['en'],
         } as any,
       });
+      openAllPanel();
       await user.click(screen.getByRole('button', { name: /Filters/i }));
       expect(screen.getByTestId('tag-select')).toBeInTheDocument();
       expect(screen.getByTestId('benefit-select')).toBeInTheDocument();
