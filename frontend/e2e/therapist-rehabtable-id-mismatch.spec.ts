@@ -138,6 +138,12 @@ async function goToRehabilitationPlanTab(page: Page, patientId: string) {
   await page.getByRole('tab', { name: 'Rehabilitation Plan' }).click();
 }
 
+// The intervention left panel's "Active interventions" section is collapsed by
+// default — the mocked intervention has a future date, so it lands there.
+async function openActiveInterventionsSection(page: Page) {
+  await page.getByRole('button', { name: /Active interventions/i }).click();
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -167,6 +173,7 @@ test.describe('Rehab-table — intervention ID mismatch fix (#347)', () => {
         // fallback: just wait for network idle
       });
     await page.waitForLoadState('networkidle');
+    await openActiveInterventionsSection(page);
 
     // The intervention title should be visible in the left-panel filter list.
     // Before the fix this was absent because patientAssignedItems was empty.
@@ -180,6 +187,7 @@ test.describe('Rehab-table — intervention ID mismatch fix (#347)', () => {
     await mockPlanAndCatalog(page);
     await goToRehabilitationPlanTab(page, PATIENT_ID);
     await page.waitForLoadState('networkidle');
+    await openActiveInterventionsSection(page);
 
     // Stats button appears only when `assigned === true` in InterventionLeftPanel.
     // Before the fix, assigned was always false for mismatched-id interventions.

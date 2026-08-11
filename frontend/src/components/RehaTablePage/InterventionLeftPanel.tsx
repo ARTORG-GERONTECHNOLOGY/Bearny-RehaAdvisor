@@ -145,8 +145,8 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
   } = actions;
 
   const [allOpen, setAllOpen] = useState(false);
-  const [activeOpen, setActiveOpen] = useState(true);
-  const [pastOpen, setPastOpen] = useState(true);
+  const [activeOpen, setActiveOpen] = useState(false);
+  const [pastOpen, setPastOpen] = useState(false);
 
   const [allFiltersOpen, setAllFiltersOpen] = useState(false);
   const [activeFiltersOpen, setActiveFiltersOpen] = useState(false);

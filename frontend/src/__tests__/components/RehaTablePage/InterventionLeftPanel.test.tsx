@@ -127,10 +127,10 @@ const renderPanel = (
   return { filters, actions, data, patientData };
 };
 
-// The "All interventions" section starts collapsed; its content (filters bar,
-// All-tab cards) only exists in the DOM once its trigger has been clicked open.
-const openAllPanel = () => {
-  fireEvent.click(screen.getByRole('button', { name: /All interventions/i }));
+// All three sections (All, Active, Past) start collapsed; a section's content
+// (filters bar, cards) only exists in the DOM once its trigger has been clicked open.
+const openSection = (title: string) => {
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(title, 'i') }));
 };
 
 describe('InterventionLeftPanel', () => {
@@ -144,9 +144,11 @@ describe('InterventionLeftPanel', () => {
   describe('section rendering', () => {
     it('shows empty-state copy for active, past and all sections', () => {
       renderPanel();
+      openSection('Active interventions');
       expect(screen.getByText('No active interventions.')).toBeInTheDocument();
+      openSection('Past interventions');
       expect(screen.getByText('No past interventions.')).toBeInTheDocument();
-      openAllPanel();
+      openSection('All interventions');
       expect(screen.getByText('No interventions match the filters.')).toBeInTheDocument();
     });
 
@@ -163,6 +165,7 @@ describe('InterventionLeftPanel', () => {
     it('renders an intervention card with its title', () => {
       const active = [makeIntervention({ title: 'Squats' })];
       renderPanel({ data: { activeItems: active } });
+      openSection('Active interventions');
       expect(screen.getByText('Squats')).toBeInTheDocument();
     });
 
@@ -174,6 +177,7 @@ describe('InterventionLeftPanel', () => {
           titleMap: { 'int-x': { title: 'Translated Title', lang: 'de' } },
         },
       });
+      openSection('Active interventions');
       expect(screen.getByText('Translated Title')).toBeInTheDocument();
       expect(screen.queryByText('Original Title')).not.toBeInTheDocument();
     });
@@ -181,6 +185,7 @@ describe('InterventionLeftPanel', () => {
     it('uses typeMap label over content_type when present', () => {
       const active = [makeIntervention({ _id: 'int-y', content_type: 'Video' })];
       renderPanel({ data: { activeItems: active, typeMap: { 'int-y': 'Custom Type' } } });
+      openSection('Active interventions');
       expect(screen.getByText('Custom Type')).toBeInTheDocument();
     });
   });
@@ -192,6 +197,7 @@ describe('InterventionLeftPanel', () => {
     it('calls handleExerciseClick when the card is clicked', () => {
       const active = [makeIntervention()];
       const { actions } = renderPanel({ data: { activeItems: active } });
+      openSection('Active interventions');
       fireEvent.click(screen.getByText('Breathing Exercise').closest('[role="button"]')!);
       expect(actions.handleExerciseClick).toHaveBeenCalledWith(active[0]);
     });
@@ -199,6 +205,7 @@ describe('InterventionLeftPanel', () => {
     it('calls handleExerciseClick on Enter/Space when the card itself has focus', () => {
       const active = [makeIntervention()];
       const { actions } = renderPanel({ data: { activeItems: active } });
+      openSection('Active interventions');
       const card = screen.getByText('Breathing Exercise').closest('[role="button"]')!;
 
       fireEvent.keyDown(card, { key: 'Enter' });
@@ -214,6 +221,7 @@ describe('InterventionLeftPanel', () => {
         data: { activeItems: active },
         patientData: { interventions: [{ _id: 'assigned-1', dates: [] }] },
       });
+      openSection('Active interventions');
       fireEvent.keyDown(screen.getByLabelText('Statistics'), { key: 'Enter' });
       expect(actions.handleExerciseClick).not.toHaveBeenCalled();
     });
@@ -224,12 +232,14 @@ describe('InterventionLeftPanel', () => {
         data: { activeItems: [intervention] },
         patientData: { interventions: [{ _id: 'assigned-1', dates: [] }] },
       });
+      openSection('Active interventions');
       expect(screen.getByLabelText('Statistics')).toBeInTheDocument();
       expect(screen.getByLabelText('Feedback')).toBeInTheDocument();
     });
 
     it('hides Statistics and Feedback actions when not assigned', () => {
       renderPanel({ data: { activeItems: [makeIntervention()] } });
+      openSection('Active interventions');
       expect(screen.queryByLabelText('Statistics')).not.toBeInTheDocument();
       expect(screen.queryByLabelText('Feedback')).not.toBeInTheDocument();
     });
@@ -240,6 +250,7 @@ describe('InterventionLeftPanel', () => {
         data: { activeItems: [intervention] },
         patientData: { interventions: [{ _id: 'assigned-1', dates: [] }] },
       });
+      openSection('Active interventions');
       fireEvent.click(screen.getByLabelText('Statistics'));
       expect(actions.showStats).toHaveBeenCalledWith(intervention);
     });
@@ -250,6 +261,7 @@ describe('InterventionLeftPanel', () => {
         data: { activeItems: [intervention] },
         patientData: { interventions: [{ _id: 'assigned-1', dates: [] }] },
       });
+      openSection('Active interventions');
       fireEvent.click(screen.getByLabelText('Feedback'));
       expect(actions.openFeedbackBrowser).toHaveBeenCalledWith(intervention);
     });
@@ -263,6 +275,7 @@ describe('InterventionLeftPanel', () => {
           interventions: [{ _id: 'assigned-future', dates: [{ datetime: future }] }],
         },
       });
+      openSection('Active interventions');
       fireEvent.click(screen.getByLabelText('Modify'));
       expect(actions.handleModifyIntervention).toHaveBeenCalledWith(intervention);
     });
@@ -276,6 +289,7 @@ describe('InterventionLeftPanel', () => {
           interventions: [{ _id: 'assigned-past', dates: [{ datetime: past }] }],
         },
       });
+      openSection('Active interventions');
       expect(screen.queryByLabelText('Modify')).not.toBeInTheDocument();
     });
 
@@ -288,6 +302,7 @@ describe('InterventionLeftPanel', () => {
           interventions: [{ _id: 'assigned-future', dates: [{ datetime: future }] }],
         },
       });
+      openSection('Active interventions');
       fireEvent.click(screen.getByLabelText('Remove'));
       expect(actions.handleDeleteExercise).toHaveBeenCalledWith('assigned-future');
     });
@@ -295,6 +310,7 @@ describe('InterventionLeftPanel', () => {
     it('shows "Schedule again" for past-section cards and calls handleAddIntervention', () => {
       const intervention = makeIntervention({ _id: 'past-1' });
       const { actions } = renderPanel({ data: { pastItems: [intervention] } });
+      openSection('Past interventions');
       fireEvent.click(screen.getByLabelText('Schedule again'));
       expect(actions.handleAddIntervention).toHaveBeenCalledWith(intervention);
     });
@@ -302,7 +318,7 @@ describe('InterventionLeftPanel', () => {
     it('shows Add for unassigned items in the All tab and calls handleAddIntervention', () => {
       const intervention = makeIntervention({ _id: 'all-1' });
       const { actions } = renderPanel({ data: { visibleItems: [intervention] } });
-      openAllPanel();
+      openSection('All interventions');
       fireEvent.click(screen.getByLabelText('Add'));
       expect(actions.handleAddIntervention).toHaveBeenCalledWith(intervention);
     });
@@ -313,7 +329,7 @@ describe('InterventionLeftPanel', () => {
         data: { visibleItems: [intervention] },
         patientData: { interventions: [{ _id: 'all-2', dates: [] }] },
       });
-      openAllPanel();
+      openSection('All interventions');
       fireEvent.click(screen.getByLabelText('Remove'));
       expect(actions.handleDeleteExercise).toHaveBeenCalledWith('all-2');
     });
@@ -324,38 +340,25 @@ describe('InterventionLeftPanel', () => {
   // independent filter state (same controls, different section).
   // ------------------------------------------------------------------
   describe.each([
-    {
-      key: 'all' as const,
-      testId: 'all-section',
-      idPrefix: 'all',
-      title: 'All interventions',
-      startsOpen: false,
-    },
+    { key: 'all' as const, testId: 'all-section', idPrefix: 'all', title: 'All interventions' },
     {
       key: 'active' as const,
       testId: 'active-section',
       idPrefix: 'active',
       title: 'Active interventions',
-      startsOpen: true,
     },
     {
       key: 'past' as const,
       testId: 'past-section',
       idPrefix: 'past',
       title: 'Past interventions',
-      startsOpen: true,
     },
-  ])('$title filters bar', ({ key, testId, idPrefix, title, startsOpen }) => {
+  ])('$title filters bar', ({ key, testId, idPrefix, title }) => {
     const section = () => screen.getByTestId(testId);
-    const openSection = () => {
-      if (!startsOpen) {
-        fireEvent.click(screen.getByRole('button', { name: new RegExp(title, 'i') }));
-      }
-    };
 
     it('updates the search term as the user types', () => {
       const { filters } = renderPanel();
-      openSection();
+      openSection(title);
       fireEvent.change(within(section()).getByPlaceholderText('Search Interventions'), {
         target: { value: 'stretch' },
       });
@@ -366,14 +369,14 @@ describe('InterventionLeftPanel', () => {
       renderPanel({
         filters: { [key]: { patientTypeFilter: 'Stroke', tagFilter: ['Exercise'] } } as any,
       });
-      openSection();
+      openSection(title);
       expect(within(section()).getByText(/Filters/).textContent).toContain('(2)');
     });
 
     it('opens the filter menu and updates the patient type filter', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      openSection();
+      openSection(title);
       await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
       // Defaults to the sentinel "All Patient Types" option (clearable
@@ -390,7 +393,7 @@ describe('InterventionLeftPanel', () => {
       const { filters } = renderPanel({
         filters: { [key]: { patientTypeFilter: 'Stroke' } } as any,
       });
-      openSection();
+      openSection(title);
       await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
       const select = document.getElementById(`${idPrefix}-patientTypeFilter`)!;
@@ -402,7 +405,7 @@ describe('InterventionLeftPanel', () => {
     it('updates the content type filter', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      openSection();
+      openSection(title);
       await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
       const select = document.getElementById(`${idPrefix}-contentTypeFilter`)!;
@@ -414,7 +417,7 @@ describe('InterventionLeftPanel', () => {
     it('keeps the Filters dropdown open after selecting a nested Select option', async () => {
       const user = userEvent.setup();
       renderPanel();
-      openSection();
+      openSection(title);
       await user.click(within(section()).getByRole('button', { name: /Filters/i }));
       // DropdownMenuContent portals to document.body, so it's queried globally —
       // only this section's dropdown is open, so there's exactly one "menu".
@@ -436,7 +439,7 @@ describe('InterventionLeftPanel', () => {
       const { filters } = renderPanel({
         filters: { [key]: { contentTypeFilter: 'Video' } } as any,
       });
-      openSection();
+      openSection(title);
       await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
       const select = document.getElementById(`${idPrefix}-contentTypeFilter`)!;
@@ -448,7 +451,7 @@ describe('InterventionLeftPanel', () => {
     it('updates the tag filter via react-select', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      openSection();
+      openSection(title);
       await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
       // DropdownMenuContent (and everything inside it) portals to document.body,
@@ -461,7 +464,7 @@ describe('InterventionLeftPanel', () => {
     it('updates the benefit filter via react-select', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      openSection();
+      openSection(title);
       await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
       const benefitSelect = screen.getByTestId('benefit-select');
@@ -472,7 +475,7 @@ describe('InterventionLeftPanel', () => {
     it('updates the language filter via react-select and clears it back to []', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      openSection();
+      openSection(title);
       await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
       const languageSelect = screen.getByTestId('language-select');
@@ -486,7 +489,7 @@ describe('InterventionLeftPanel', () => {
     it('calls resetFilters when Reset filters is clicked', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      openSection();
+      openSection(title);
       await user.click(within(section()).getByRole('button', { name: /Filters/i }));
       fireEvent.click(screen.getByRole('button', { name: /Reset filters/i }));
       expect(filters[key].resetFilters).toHaveBeenCalled();
@@ -503,7 +506,7 @@ describe('InterventionLeftPanel', () => {
           },
         } as any,
       });
-      openSection();
+      openSection(title);
       await user.click(within(section()).getByRole('button', { name: /Filters/i }));
       expect(screen.getByTestId('tag-select')).toBeInTheDocument();
       expect(screen.getByTestId('benefit-select')).toBeInTheDocument();
@@ -522,7 +525,7 @@ describe('InterventionLeftPanel', () => {
         ],
       },
     });
-    openAllPanel();
+    openSection('All interventions');
     const allSection = screen.getByTestId('all-section');
     await user.click(within(allSection).getByRole('button', { name: /Filters/i }));
     // Just verifying the panel renders without throwing while computing language options;
