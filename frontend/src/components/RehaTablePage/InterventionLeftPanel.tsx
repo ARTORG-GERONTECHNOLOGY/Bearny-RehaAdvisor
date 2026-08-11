@@ -512,6 +512,25 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
     <TooltipProvider>
       <div className="flex flex-col gap-2">
         <Card>
+          <CardHeader className="pb-3">
+            <CardTitle>{t('All interventions')}</CardTitle>
+            <CardAction>
+              <Badge variant="dashboard">{visibleItems.length}</Badge>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            {renderFiltersBar()}
+            <div className="mt-3 flex flex-col gap-2 h-96 overflow-auto" ref={listScrollRef}>
+              {visibleItems.length === 0 ? (
+                <div className="text-zinc-500">{t('No interventions match the filters.')}</div>
+              ) : (
+                visibleItems.map((it: any) => renderInterventionCard(it, { inAllTab: true }))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader>
             <CardTitle>{t('Active interventions')}</CardTitle>
             <CardAction>
@@ -540,25 +559,6 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
             ) : (
               pastItems.map((it: any) => renderInterventionCard(it, { showScheduleAgain: true }))
             )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>{t('All interventions')}</CardTitle>
-            <CardAction>
-              <Badge variant="dashboard">{visibleItems.length}</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            {renderFiltersBar()}
-            <div className="mt-3 flex flex-col gap-2 h-96 overflow-auto" ref={listScrollRef}>
-              {visibleItems.length === 0 ? (
-                <div className="text-zinc-500">{t('No interventions match the filters.')}</div>
-              ) : (
-                visibleItems.map((it: any) => renderInterventionCard(it, { inAllTab: true }))
-              )}
-            </div>
           </CardContent>
         </Card>
       </div>
