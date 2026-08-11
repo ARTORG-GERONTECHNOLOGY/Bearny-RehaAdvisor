@@ -57,21 +57,23 @@ const makeIntervention = (overrides: Record<string, any> = {}) => ({
   ...overrides,
 });
 
-const baseFilters = () => ({
+const makeSectionFilters = () => ({
   searchTerm: '',
   setSearchTerm: jest.fn(),
   patientTypeFilter: '',
   setPatientTypeFilter: jest.fn(),
   contentTypeFilter: '',
   setContentTypeFilter: jest.fn(),
-  tagFilter: [],
+  tagFilter: [] as string[],
   setTagFilter: jest.fn(),
-  benefitForFilter: [],
+  benefitForFilter: [] as string[],
   setBenefitForFilter: jest.fn(),
-  languageFilter: [],
+  languageFilter: [] as string[],
   setLanguageFilter: jest.fn(),
-  resetAllFilters: jest.fn(),
+  resetFilters: jest.fn(),
 });
+
+type SectionFiltersOverride = Partial<ReturnType<typeof makeSectionFilters>>;
 
 const baseActions = () => ({
   handleExerciseClick: jest.fn(),
@@ -85,12 +87,20 @@ const baseActions = () => ({
 const renderPanel = (
   overrides: {
     data?: Partial<React.ComponentProps<typeof InterventionLeftPanel>['data']>;
-    filters?: Partial<ReturnType<typeof baseFilters>>;
+    filters?: {
+      all?: SectionFiltersOverride;
+      active?: SectionFiltersOverride;
+      past?: SectionFiltersOverride;
+    };
     actions?: Partial<ReturnType<typeof baseActions>>;
     patientData?: any;
   } = {}
 ) => {
-  const filters = { ...baseFilters(), ...overrides.filters };
+  const filters = {
+    all: { ...makeSectionFilters(), ...overrides.filters?.all },
+    active: { ...makeSectionFilters(), ...overrides.filters?.active },
+    past: { ...makeSectionFilters(), ...overrides.filters?.past },
+  };
   const actions = { ...baseActions(), ...overrides.actions };
   const data = {
     activeItems: [],
@@ -107,7 +117,7 @@ const renderPanel = (
   render(
     <InterventionLeftPanel
       data={data}
-      filters={filters}
+      filters={filters as any}
       actions={actions}
       patientData={patientData}
       t={t as any}
@@ -310,73 +320,107 @@ describe('InterventionLeftPanel', () => {
   });
 
   // ------------------------------------------------------------------
-  // Filters bar
+  // Filters bar — All, Active and Past sections each have their own,
+  // independent filter state (same controls, different section).
   // ------------------------------------------------------------------
-  describe('filters bar', () => {
+  describe.each([
+    {
+      key: 'all' as const,
+      testId: 'all-section',
+      idPrefix: 'all',
+      title: 'All interventions',
+      startsOpen: false,
+    },
+    {
+      key: 'active' as const,
+      testId: 'active-section',
+      idPrefix: 'active',
+      title: 'Active interventions',
+      startsOpen: true,
+    },
+    {
+      key: 'past' as const,
+      testId: 'past-section',
+      idPrefix: 'past',
+      title: 'Past interventions',
+      startsOpen: true,
+    },
+  ])('$title filters bar', ({ key, testId, idPrefix, title, startsOpen }) => {
+    const section = () => screen.getByTestId(testId);
+    const openSection = () => {
+      if (!startsOpen) {
+        fireEvent.click(screen.getByRole('button', { name: new RegExp(title, 'i') }));
+      }
+    };
+
     it('updates the search term as the user types', () => {
       const { filters } = renderPanel();
-      openAllPanel();
-      fireEvent.change(screen.getByPlaceholderText('Search Interventions'), {
+      openSection();
+      fireEvent.change(within(section()).getByPlaceholderText('Search Interventions'), {
         target: { value: 'stretch' },
       });
-      expect(filters.setSearchTerm).toHaveBeenCalledWith('stretch');
+      expect(filters[key].setSearchTerm).toHaveBeenCalledWith('stretch');
     });
 
     it('shows the active filters count on the Filters toggle', () => {
       renderPanel({
-        filters: { patientTypeFilter: 'Stroke', tagFilter: ['Exercise'] } as any,
+        filters: { [key]: { patientTypeFilter: 'Stroke', tagFilter: ['Exercise'] } } as any,
       });
-      openAllPanel();
-      expect(screen.getByText(/Filters/).textContent).toContain('(2)');
+      openSection();
+      expect(within(section()).getByText(/Filters/).textContent).toContain('(2)');
     });
 
     it('opens the filter menu and updates the patient type filter', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      openAllPanel();
-      await user.click(screen.getByRole('button', { name: /Filters/i }));
+      openSection();
+      await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
       // Defaults to the sentinel "All Patient Types" option (clearable
       // without needing the "Reset filters" button), so it can't be found by
       // the "Filter by Patient Type" placeholder text anymore — use its id.
-      const select = document.getElementById('patientTypeFilter')!;
+      const select = document.getElementById(`${idPrefix}-patientTypeFilter`)!;
       await user.click(select);
       await user.click(await screen.findByRole('option', { name: 'Stroke' }));
-      expect(filters.setPatientTypeFilter).toHaveBeenCalledWith('Stroke');
+      expect(filters[key].setPatientTypeFilter).toHaveBeenCalledWith('Stroke');
     });
 
     it('clears the patient type filter via the "All Patient Types" option', async () => {
       const user = userEvent.setup();
-      const { filters } = renderPanel({ filters: { patientTypeFilter: 'Stroke' } });
-      openAllPanel();
-      await user.click(screen.getByRole('button', { name: /Filters/i }));
+      const { filters } = renderPanel({
+        filters: { [key]: { patientTypeFilter: 'Stroke' } } as any,
+      });
+      openSection();
+      await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
-      const select = document.getElementById('patientTypeFilter')!;
+      const select = document.getElementById(`${idPrefix}-patientTypeFilter`)!;
       await user.click(select);
       await user.click(await screen.findByRole('option', { name: 'All Patient Types' }));
-      expect(filters.setPatientTypeFilter).toHaveBeenCalledWith('');
+      expect(filters[key].setPatientTypeFilter).toHaveBeenCalledWith('');
     });
 
     it('updates the content type filter', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      openAllPanel();
-      await user.click(screen.getByRole('button', { name: /Filters/i }));
+      openSection();
+      await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
-      const select = document.getElementById('contentTypeFilter')!;
+      const select = document.getElementById(`${idPrefix}-contentTypeFilter`)!;
       await user.click(select);
       await user.click(await screen.findByRole('option', { name: 'Video' }));
-      expect(filters.setContentTypeFilter).toHaveBeenCalledWith('Video');
+      expect(filters[key].setContentTypeFilter).toHaveBeenCalledWith('Video');
     });
 
     it('keeps the Filters dropdown open after selecting a nested Select option', async () => {
       const user = userEvent.setup();
       renderPanel();
-      openAllPanel();
-      await user.click(screen.getByRole('button', { name: /Filters/i }));
+      openSection();
+      await user.click(within(section()).getByRole('button', { name: /Filters/i }));
+      // DropdownMenuContent portals to document.body, so it's queried globally —
+      // only this section's dropdown is open, so there's exactly one "menu".
       expect(screen.getByRole('menu')).toBeInTheDocument();
 
-      const select = document.getElementById('contentTypeFilter')!;
+      const select = document.getElementById(`${idPrefix}-contentTypeFilter`)!;
       await user.click(select);
       await user.click(await screen.findByRole('option', { name: 'Video' }));
 
@@ -389,93 +433,100 @@ describe('InterventionLeftPanel', () => {
 
     it('clears the content type filter via the "All Content Types" option', async () => {
       const user = userEvent.setup();
-      const { filters } = renderPanel({ filters: { contentTypeFilter: 'Video' } });
-      openAllPanel();
-      await user.click(screen.getByRole('button', { name: /Filters/i }));
+      const { filters } = renderPanel({
+        filters: { [key]: { contentTypeFilter: 'Video' } } as any,
+      });
+      openSection();
+      await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
-      const select = document.getElementById('contentTypeFilter')!;
+      const select = document.getElementById(`${idPrefix}-contentTypeFilter`)!;
       await user.click(select);
       await user.click(await screen.findByRole('option', { name: 'All Content Types' }));
-      expect(filters.setContentTypeFilter).toHaveBeenCalledWith('');
+      expect(filters[key].setContentTypeFilter).toHaveBeenCalledWith('');
     });
 
     it('updates the tag filter via react-select', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      openAllPanel();
-      await user.click(screen.getByRole('button', { name: /Filters/i }));
+      openSection();
+      await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
+      // DropdownMenuContent (and everything inside it) portals to document.body,
+      // so it's queried globally — only this section's dropdown is open.
       const tagSelect = screen.getByTestId('tag-select');
       fireEvent.click(within(tagSelect).getByText('change tag-select'));
-      expect(filters.setTagFilter).toHaveBeenCalledWith(['picked']);
+      expect(filters[key].setTagFilter).toHaveBeenCalledWith(['picked']);
     });
 
     it('updates the benefit filter via react-select', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      openAllPanel();
-      await user.click(screen.getByRole('button', { name: /Filters/i }));
+      openSection();
+      await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
       const benefitSelect = screen.getByTestId('benefit-select');
       fireEvent.click(within(benefitSelect).getByText('change benefit-select'));
-      expect(filters.setBenefitForFilter).toHaveBeenCalledWith(['picked']);
+      expect(filters[key].setBenefitForFilter).toHaveBeenCalledWith(['picked']);
     });
 
     it('updates the language filter via react-select and clears it back to []', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      openAllPanel();
-      await user.click(screen.getByRole('button', { name: /Filters/i }));
+      openSection();
+      await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
       const languageSelect = screen.getByTestId('language-select');
       fireEvent.click(within(languageSelect).getByText('change language-select'));
-      expect(filters.setLanguageFilter).toHaveBeenCalledWith(['picked']);
+      expect(filters[key].setLanguageFilter).toHaveBeenCalledWith(['picked']);
 
       fireEvent.click(within(languageSelect).getByText('clear language-select'));
-      expect(filters.setLanguageFilter).toHaveBeenCalledWith([]);
+      expect(filters[key].setLanguageFilter).toHaveBeenCalledWith([]);
     });
 
-    it('calls resetAllFilters when Reset filters is clicked', async () => {
+    it('calls resetFilters when Reset filters is clicked', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
-      openAllPanel();
-      await user.click(screen.getByRole('button', { name: /Filters/i }));
+      openSection();
+      await user.click(within(section()).getByRole('button', { name: /Filters/i }));
       fireEvent.click(screen.getByRole('button', { name: /Reset filters/i }));
-      expect(filters.resetAllFilters).toHaveBeenCalled();
-    });
-
-    it('derives language options from available_languages arrays and the language field, deduped', async () => {
-      const user = userEvent.setup();
-      renderPanel({
-        data: {
-          allItems: [
-            makeIntervention({ _id: 'l1', available_languages: ['en', 'de'], language: 'en' }),
-            makeIntervention({ _id: 'l2', available_languages: [], language: 'FR' }),
-            makeIntervention({ _id: 'l3', available_languages: undefined, language: '' }),
-          ],
-        },
-      });
-      openAllPanel();
-      await user.click(screen.getByRole('button', { name: /Filters/i }));
-      // Just verifying the panel renders without throwing while computing language options;
-      // the mocked react-select doesn't expose the passed options for direct assertion.
-      expect(screen.getByTestId('language-select')).toBeInTheDocument();
+      expect(filters[key].resetFilters).toHaveBeenCalled();
     });
 
     it('renders already-selected tag/benefit/language filter chips via react-select value prop', async () => {
       const user = userEvent.setup();
       renderPanel({
         filters: {
-          tagFilter: ['Exercise'],
-          benefitForFilter: ['Home'],
-          languageFilter: ['en'],
+          [key]: {
+            tagFilter: ['Exercise'],
+            benefitForFilter: ['Home'],
+            languageFilter: ['en'],
+          },
         } as any,
       });
-      openAllPanel();
-      await user.click(screen.getByRole('button', { name: /Filters/i }));
+      openSection();
+      await user.click(within(section()).getByRole('button', { name: /Filters/i }));
       expect(screen.getByTestId('tag-select')).toBeInTheDocument();
       expect(screen.getByTestId('benefit-select')).toBeInTheDocument();
       expect(screen.getByTestId('language-select')).toBeInTheDocument();
     });
+  });
+
+  it('derives language options (shared across all sections) from available_languages arrays and the language field, deduped', async () => {
+    const user = userEvent.setup();
+    renderPanel({
+      data: {
+        allItems: [
+          makeIntervention({ _id: 'l1', available_languages: ['en', 'de'], language: 'en' }),
+          makeIntervention({ _id: 'l2', available_languages: [], language: 'FR' }),
+          makeIntervention({ _id: 'l3', available_languages: undefined, language: '' }),
+        ],
+      },
+    });
+    openAllPanel();
+    const allSection = screen.getByTestId('all-section');
+    await user.click(within(allSection).getByRole('button', { name: /Filters/i }));
+    // Just verifying the panel renders without throwing while computing language options;
+    // the mocked react-select doesn't expose the passed options for direct assertion.
+    expect(screen.getByTestId('language-select')).toBeInTheDocument();
   });
 });

@@ -123,7 +123,6 @@ const mockStore = {
   dispose: jest.fn().mockResolvedValue(undefined),
   setUserLang: jest.fn(),
   translateVisibleItems: jest.fn().mockResolvedValue(undefined),
-  applyAllFilters: jest.fn(),
   setSearchTerm: jest.fn(),
   setPatientTypeFilter: jest.fn(),
   setContentTypeFilter: jest.fn(),
