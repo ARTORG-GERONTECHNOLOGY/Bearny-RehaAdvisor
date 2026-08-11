@@ -81,6 +81,23 @@ jest.mock('@/components/Health/QuestionnaireResultsTable', () => ({
   default: () => <div data-testid="table-questionnaire" />,
   countQuestionnaireDays: jest.fn(() => 0),
 }));
+jest.mock('@/components/common/InfoBubble', () => ({
+  __esModule: true,
+  default: ({ tooltip }: { tooltip: string }) => (
+    <span data-testid="info-bubble-icon" role="button" title={tooltip} />
+  ),
+}));
+// Radix UI tooltip has a package deduplication issue in CI (nested
+// @radix-ui/react-context creates two separate context factories, breaking
+// the TooltipProvider/Tooltip contract). Mock the whole module so no Radix
+// tooltip code runs in this test environment.
+jest.mock('@/components/ui/tooltip', () => ({
+  __esModule: true,
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipContent: () => null,
+}));
 
 import HealthMetricsCards from '@/components/Health/HealthMetricsCards';
 import type { HealthPageStore } from '@/stores/healthPageStore';
@@ -245,7 +262,10 @@ describe('HealthMetricsCards – cards with no data are not clickable', () => {
 
   it('has no clickable cards when every metric has no data', () => {
     render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
-    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    const clickableButtons = screen
+      .queryAllByRole('button')
+      .filter((el) => el.dataset.testid !== 'info-bubble-icon');
+    expect(clickableButtons).toHaveLength(0);
   });
 
   it('makes a card clickable — and its detail dialog reachable — once it has data', async () => {
@@ -256,7 +276,9 @@ describe('HealthMetricsCards – cards with no data are not clickable', () => {
 
     render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
 
-    const buttons = screen.getAllByRole('button');
+    const buttons = screen
+      .getAllByRole('button')
+      .filter((el) => el.dataset.testid !== 'info-bubble-icon');
     expect(buttons).toHaveLength(1);
 
     await user.click(buttons[0]);

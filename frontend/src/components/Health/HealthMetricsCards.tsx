@@ -55,6 +55,7 @@ import QuestionnaireResultsTable, {
 } from '@/components/Health/QuestionnaireResultsTable';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import InfoBubble from '@/components/common/InfoBubble';
 import { colors } from '@/lib/colors';
 import { formatDurationMinutes } from '@/utils/dateFormat';
 import { colorFromTier } from '@/utils/healthCharts';
@@ -102,7 +103,8 @@ const MetricCard: React.FC<{
   value: React.ReactNode;
   children: React.ReactNode;
   onClick?: () => void;
-}> = ({ icon: Icon, label, value, children, onClick }) => (
+  info?: string;
+}> = ({ icon: Icon, label, value, children, onClick, info }) => (
   <Card
     onClick={onClick}
     role={onClick ? 'button' : undefined}
@@ -123,6 +125,11 @@ const MetricCard: React.FC<{
       <CardDescription className="flex items-center gap-1">
         <Icon className="h-4 w-4" />
         {label}
+        {info && (
+          <span onClick={(e) => e.stopPropagation()}>
+            <InfoBubble tooltip={info} />
+          </span>
+        )}
       </CardDescription>
       <CardTitle>{value}</CardTitle>
     </CardHeader>
@@ -147,6 +154,7 @@ const MetricCardWithDialog = <Row extends { date: string }>({
   legend,
   cardRef,
   renderChart,
+  info,
 }: {
   t: (k: string) => string;
   icon: React.FC<React.SVGProps<SVGSVGElement>>;
@@ -160,6 +168,7 @@ const MetricCardWithDialog = <Row extends { date: string }>({
   legend?: React.ReactNode;
   cardRef?: React.RefObject<HTMLDivElement>;
   renderChart: (className?: string, ref?: React.RefObject<HTMLDivElement>) => React.ReactNode;
+  info?: string;
 }) => {
   const [open, setOpen] = useState(false);
 
@@ -175,6 +184,7 @@ const MetricCardWithDialog = <Row extends { date: string }>({
         label={label}
         value={value}
         onClick={hasData ? () => setOpen(true) : undefined}
+        info={info}
       >
         {renderChart(undefined, cardRef)}
       </MetricCard>
@@ -311,6 +321,7 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
           className={className}
         />
       )}
+      info={t('wear_time_unavailable_info')}
     />
   );
 

@@ -24,6 +24,11 @@ const assignedColumn = (page: Page) => page.locator('.rehab-row .rehab-col').nth
 async function goToPatientDetail(page: Page) {
   const { patientId } = creds();
   await page.goto(`/therapist-patient-detail/${patientId}`);
+  // Wait for auth effects to settle (useRoleAuthGate may fire navigate() async).
+  // networkidle gives React time to complete auth checks and render the tab list.
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  // Fail fast if the auth guard redirected away from patient detail.
+  await expect(page).toHaveURL(new RegExp(`therapist-patient-detail/${patientId}`));
 }
 
 test.describe('Therapist rehab table questionnaires', () => {

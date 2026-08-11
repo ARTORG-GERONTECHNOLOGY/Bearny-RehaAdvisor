@@ -15,7 +15,7 @@ from core.models import (
     HeartRateZone,
     SleepData,
 )
-from core.views.fitbit_sync import _wear_time_from_hr_zones, get_valid_access_token
+from core.views.fitbit_sync import get_valid_access_token
 
 logger = logging.getLogger(__name__)
 FITBIT_API_URL = "https://api.fitbit.com/1/user/-"
@@ -327,7 +327,7 @@ class Command(BaseCommand):
                         set__hrv=hrv_data.get(dt),
                         set__exercise=exercise_data.get(dt, []),
                     )
-                    wt = wear_time_map.get(dt) or _wear_time_from_hr_zones(series["heart_rate_zones"].get(dt))
+                    wt = wear_time_map.get(dt)
                     if wt is not None:
                         update_kwargs["set__wear_time_minutes"] = wt
                     FitbitData.objects(user=user_token.user, date=dt).update_one(**update_kwargs, upsert=True)
