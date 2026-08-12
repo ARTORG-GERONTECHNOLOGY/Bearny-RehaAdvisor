@@ -31,8 +31,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
 
     // keep tag translation in sync with current language
     useEffect(() => {
-      store.translateTag = t;
-      store.applyAllFilters();
+      store.setTranslateTag(t);
     }, [store, t, i18n.language]);
 
     // init for this patient + cleanup
@@ -82,8 +81,8 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
             ) : (
               <InterventionLeftPanel
                 data={{
-                  activeItems: store.activePatientItems,
-                  pastItems: store.pastPatientItems,
+                  activeItems: store.filteredActivePatientItems,
+                  pastItems: store.filteredPastPatientItems,
                   visibleItems: store.filteredRecommendations,
                   allItems: store.recommendations,
                   titleMap: store.titleMap,
@@ -91,19 +90,51 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                   diagnoses: store.diagnoses,
                 }}
                 filters={{
-                  searchTerm: store.searchTerm,
-                  setSearchTerm: store.setSearchTerm,
-                  patientTypeFilter: store.patientTypeFilter,
-                  setPatientTypeFilter: store.setPatientTypeFilter,
-                  contentTypeFilter: store.contentTypeFilter,
-                  setContentTypeFilter: store.setContentTypeFilter,
-                  tagFilter: store.tagFilter,
-                  setTagFilter: store.setTagFilter,
-                  benefitForFilter: store.benefitForFilter,
-                  setBenefitForFilter: store.setBenefitForFilter,
-                  languageFilter: store.languageFilter,
-                  setLanguageFilter: store.setLanguageFilter,
-                  resetAllFilters: store.resetAllFilters,
+                  all: {
+                    searchTerm: store.searchTerm,
+                    setSearchTerm: store.setSearchTerm,
+                    patientTypeFilter: store.patientTypeFilter,
+                    setPatientTypeFilter: store.setPatientTypeFilter,
+                    contentTypeFilter: store.contentTypeFilter,
+                    setContentTypeFilter: store.setContentTypeFilter,
+                    tagFilter: store.tagFilter,
+                    setTagFilter: store.setTagFilter,
+                    benefitForFilter: store.benefitForFilter,
+                    setBenefitForFilter: store.setBenefitForFilter,
+                    languageFilter: store.languageFilter,
+                    setLanguageFilter: store.setLanguageFilter,
+                    resetFilters: store.resetAllFilters,
+                  },
+                  active: {
+                    searchTerm: store.activeSearchTerm,
+                    setSearchTerm: store.setActiveSearchTerm,
+                    patientTypeFilter: store.activePatientTypeFilter,
+                    setPatientTypeFilter: store.setActivePatientTypeFilter,
+                    contentTypeFilter: store.activeContentTypeFilter,
+                    setContentTypeFilter: store.setActiveContentTypeFilter,
+                    tagFilter: store.activeTagFilter,
+                    setTagFilter: store.setActiveTagFilter,
+                    benefitForFilter: store.activeBenefitForFilter,
+                    setBenefitForFilter: store.setActiveBenefitForFilter,
+                    languageFilter: store.activeLanguageFilter,
+                    setLanguageFilter: store.setActiveLanguageFilter,
+                    resetFilters: store.resetActiveFilters,
+                  },
+                  past: {
+                    searchTerm: store.pastSearchTerm,
+                    setSearchTerm: store.setPastSearchTerm,
+                    patientTypeFilter: store.pastPatientTypeFilter,
+                    setPatientTypeFilter: store.setPastPatientTypeFilter,
+                    contentTypeFilter: store.pastContentTypeFilter,
+                    setContentTypeFilter: store.setPastContentTypeFilter,
+                    tagFilter: store.pastTagFilter,
+                    setTagFilter: store.setPastTagFilter,
+                    benefitForFilter: store.pastBenefitForFilter,
+                    setBenefitForFilter: store.setPastBenefitForFilter,
+                    languageFilter: store.pastLanguageFilter,
+                    setLanguageFilter: store.setPastLanguageFilter,
+                    resetFilters: store.resetPastFilters,
+                  },
                 }}
                 actions={{
                   handleExerciseClick: store.handleExerciseClick,

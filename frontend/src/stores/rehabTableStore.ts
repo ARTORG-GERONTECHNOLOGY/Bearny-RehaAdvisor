@@ -1,5 +1,5 @@
 // src/stores/rehabTableStore.ts
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable, observable, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { filterInterventions } from '@/utils/filterUtils';
@@ -98,7 +98,6 @@ export class RehabTableStore {
   // Data
   allInterventions: Intervention[] = []; // catalog (includes private if backend adds them)
   recommendations: Intervention[] = [];
-  filteredRecommendations: Intervention[] = [];
 
   // i18n
   userLang = 'en';
@@ -114,6 +113,22 @@ export class RehabTableStore {
   tagFilter: string[] = [];
   benefitForFilter: string[] = [];
   languageFilter: string[] = [];
+
+  // filters (ACTIVE tab)
+  activeSearchTerm = '';
+  activePatientTypeFilter = '';
+  activeContentTypeFilter = '';
+  activeTagFilter: string[] = [];
+  activeBenefitForFilter: string[] = [];
+  activeLanguageFilter: string[] = [];
+
+  // filters (PAST tab)
+  pastSearchTerm = '';
+  pastPatientTypeFilter = '';
+  pastContentTypeFilter = '';
+  pastTagFilter: string[] = [];
+  pastBenefitForFilter: string[] = [];
+  pastLanguageFilter: string[] = [];
 
   // tag translation function (set from component)
   translateTag: ((tag: string) => string) | undefined = undefined;
@@ -137,7 +152,7 @@ export class RehabTableStore {
   private entryTime = 0;
 
   constructor() {
-    makeAutoObservable(this, { translateTag: false }, { autoBind: true });
+    makeAutoObservable(this, { translateTag: observable.ref }, { autoBind: true });
   }
 
   // ---------------------------------------------------------------------------
@@ -266,6 +281,64 @@ export class RehabTableStore {
     return this.matchedPatientItems.filter((it) => !this.hasFutureDates(it._id));
   }
 
+  // Shared by the three filtered* getters below — the only thing that differs
+  // per section is which six filter fields feed in.
+  private filterSection(
+    items: Intervention[],
+    sectionFilters: {
+      patientTypeFilter: string;
+      languageFilter: string[];
+      contentTypeFilter: string;
+      tagFilter: string[];
+      benefitForFilter: string[];
+      searchTerm: string;
+    }
+  ): Intervention[] {
+    return filterInterventions(items, this.titleMap, {
+      diagnosisFilter: sectionFilters.patientTypeFilter ? [sectionFilters.patientTypeFilter] : [],
+      languageFilter: sectionFilters.languageFilter.map((l) => l.toLowerCase()),
+      contentTypeFilter: sectionFilters.contentTypeFilter,
+      tagFilter: sectionFilters.tagFilter,
+      benefitForFilter: sectionFilters.benefitForFilter,
+      searchTerm: sectionFilters.searchTerm,
+      includeTagsInSearch: true,
+      getTagLabel: this.translateTag,
+    });
+  }
+
+  get filteredRecommendations(): Intervention[] {
+    return this.filterSection(this.recommendations, {
+      patientTypeFilter: this.patientTypeFilter,
+      languageFilter: this.languageFilter,
+      contentTypeFilter: this.contentTypeFilter,
+      tagFilter: this.tagFilter,
+      benefitForFilter: this.benefitForFilter,
+      searchTerm: this.searchTerm,
+    });
+  }
+
+  get filteredActivePatientItems(): Intervention[] {
+    return this.filterSection(this.activePatientItems, {
+      patientTypeFilter: this.activePatientTypeFilter,
+      languageFilter: this.activeLanguageFilter,
+      contentTypeFilter: this.activeContentTypeFilter,
+      tagFilter: this.activeTagFilter,
+      benefitForFilter: this.activeBenefitForFilter,
+      searchTerm: this.activeSearchTerm,
+    });
+  }
+
+  get filteredPastPatientItems(): Intervention[] {
+    return this.filterSection(this.pastPatientItems, {
+      patientTypeFilter: this.pastPatientTypeFilter,
+      languageFilter: this.pastLanguageFilter,
+      contentTypeFilter: this.pastContentTypeFilter,
+      tagFilter: this.pastTagFilter,
+      benefitForFilter: this.pastBenefitForFilter,
+      searchTerm: this.pastSearchTerm,
+    });
+  }
+
   get selectedExerciseFromPlan(): Intervention | null {
     if (!this.selectedExerciseId) return null;
 
@@ -291,6 +364,10 @@ export class RehabTableStore {
     this.userLang = lang || 'en';
   }
 
+  setTranslateTag(fn: (tag: string) => string) {
+    this.translateTag = fn;
+  }
+
   setError(v: string | null) {
     this.error = v;
   }
@@ -301,27 +378,21 @@ export class RehabTableStore {
 
   setSearchTerm(v: string) {
     this.searchTerm = v;
-    this.applyAllFilters();
   }
   setPatientTypeFilter(v: string) {
     this.patientTypeFilter = v;
-    this.applyAllFilters();
   }
   setContentTypeFilter(v: string) {
     this.contentTypeFilter = v;
-    this.applyAllFilters();
   }
   setTagFilter(v: string[]) {
     this.tagFilter = Array.isArray(v) ? v : [];
-    this.applyAllFilters();
   }
   setBenefitForFilter(v: string[]) {
     this.benefitForFilter = Array.isArray(v) ? v : [];
-    this.applyAllFilters();
   }
   setLanguageFilter(v: string[]) {
     this.languageFilter = Array.isArray(v) ? v : [];
-    this.applyAllFilters();
   }
 
   resetAllFilters() {
@@ -331,7 +402,60 @@ export class RehabTableStore {
     this.tagFilter = [];
     this.benefitForFilter = [];
     this.languageFilter = [];
-    this.applyAllFilters();
+  }
+
+  setActiveSearchTerm(v: string) {
+    this.activeSearchTerm = v;
+  }
+  setActivePatientTypeFilter(v: string) {
+    this.activePatientTypeFilter = v;
+  }
+  setActiveContentTypeFilter(v: string) {
+    this.activeContentTypeFilter = v;
+  }
+  setActiveTagFilter(v: string[]) {
+    this.activeTagFilter = Array.isArray(v) ? v : [];
+  }
+  setActiveBenefitForFilter(v: string[]) {
+    this.activeBenefitForFilter = Array.isArray(v) ? v : [];
+  }
+  setActiveLanguageFilter(v: string[]) {
+    this.activeLanguageFilter = Array.isArray(v) ? v : [];
+  }
+  resetActiveFilters() {
+    this.activeSearchTerm = '';
+    this.activePatientTypeFilter = '';
+    this.activeContentTypeFilter = '';
+    this.activeTagFilter = [];
+    this.activeBenefitForFilter = [];
+    this.activeLanguageFilter = [];
+  }
+
+  setPastSearchTerm(v: string) {
+    this.pastSearchTerm = v;
+  }
+  setPastPatientTypeFilter(v: string) {
+    this.pastPatientTypeFilter = v;
+  }
+  setPastContentTypeFilter(v: string) {
+    this.pastContentTypeFilter = v;
+  }
+  setPastTagFilter(v: string[]) {
+    this.pastTagFilter = Array.isArray(v) ? v : [];
+  }
+  setPastBenefitForFilter(v: string[]) {
+    this.pastBenefitForFilter = Array.isArray(v) ? v : [];
+  }
+  setPastLanguageFilter(v: string[]) {
+    this.pastLanguageFilter = Array.isArray(v) ? v : [];
+  }
+  resetPastFilters() {
+    this.pastSearchTerm = '';
+    this.pastPatientTypeFilter = '';
+    this.pastContentTypeFilter = '';
+    this.pastTagFilter = [];
+    this.pastBenefitForFilter = [];
+    this.pastLanguageFilter = [];
   }
 
   // ---------------------------------------------------------------------------
@@ -458,10 +582,7 @@ export class RehabTableStore {
       runInAction(() => {
         this.allInterventions = arr;
         this.recommendations = arr;
-        this.filteredRecommendations = arr;
       });
-
-      this.applyAllFilters();
 
       if (this.patientData?.interventions?.length) {
         runInAction(() => {
@@ -479,23 +600,6 @@ export class RehabTableStore {
         this.error = msg;
       });
     }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Filters (ALL tab)
-  // ---------------------------------------------------------------------------
-  applyAllFilters() {
-    const filtered = filterInterventions(this.recommendations, this.titleMap, {
-      diagnosisFilter: this.patientTypeFilter ? [this.patientTypeFilter] : [],
-      languageFilter: this.languageFilter.map((l) => l.toLowerCase()),
-      contentTypeFilter: this.contentTypeFilter,
-      tagFilter: this.tagFilter,
-      benefitForFilter: this.benefitForFilter,
-      searchTerm: this.searchTerm,
-      includeTagsInSearch: true,
-      getTagLabel: this.translateTag,
-    });
-    this.filteredRecommendations = filtered;
   }
 
   // ---------------------------------------------------------------------------

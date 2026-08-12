@@ -502,7 +502,7 @@ describe('setters', () => {
     expect(store.topTab).toBe('questionnaires');
   });
 
-  it('filter setters update state and recompute filteredRecommendations', () => {
+  it('filter setters update state and filteredRecommendations reflects it', () => {
     const store = makeStore();
     (store as any).recommendations = [{ _id: '1' }, { _id: '2' }];
 
@@ -519,8 +519,8 @@ describe('setters', () => {
     store.setLanguageFilter(['EN']);
     expect(store.languageFilter).toEqual(['EN']);
 
-    // The shared filterInterventions mock echoes back its 2nd arg (titleMap),
-    // so each setter having triggered applyAllFilters is what this confirms.
+    // The shared filterInterventions mock echoes back its 2nd arg (titleMap) —
+    // filteredRecommendations is a computed getter, so it just reflects that.
     expect(store.filteredRecommendations).toEqual(store.titleMap);
   });
 
@@ -551,6 +551,70 @@ describe('setters', () => {
     expect(store.tagFilter).toEqual([]);
     expect(store.benefitForFilter).toEqual([]);
     expect(store.languageFilter).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Setters / filters — Active and Past tabs (same shape as the ALL tab above,
+// but independent state so each section can be filtered on its own).
+// ---------------------------------------------------------------------------
+
+describe.each([
+  {
+    section: 'active' as const,
+    cap: 'Active',
+    filteredGetter: 'filteredActivePatientItems' as const,
+  },
+  { section: 'past' as const, cap: 'Past', filteredGetter: 'filteredPastPatientItems' as const },
+])('$section filters', ({ section, cap, filteredGetter }) => {
+  it(`set${cap}* setters update state and recompute ${filteredGetter}`, () => {
+    const store = makeStore() as any;
+
+    store[`set${cap}SearchTerm`]('abc');
+    expect(store[`${section}SearchTerm`]).toBe('abc');
+    store[`set${cap}PatientTypeFilter`]('Stroke');
+    expect(store[`${section}PatientTypeFilter`]).toBe('Stroke');
+    store[`set${cap}ContentTypeFilter`]('Video');
+    expect(store[`${section}ContentTypeFilter`]).toBe('Video');
+    store[`set${cap}TagFilter`](['tag1']);
+    expect(store[`${section}TagFilter`]).toEqual(['tag1']);
+    store[`set${cap}BenefitForFilter`](['benefit1']);
+    expect(store[`${section}BenefitForFilter`]).toEqual(['benefit1']);
+    store[`set${cap}LanguageFilter`](['EN']);
+    expect(store[`${section}LanguageFilter`]).toEqual(['EN']);
+
+    // The shared filterInterventions mock echoes back its 2nd arg (titleMap) —
+    // same convention as the ALL tab's filteredRecommendations test above.
+    expect(store[filteredGetter]).toEqual(store.titleMap);
+  });
+
+  it(`set${cap}TagFilter/set${cap}BenefitForFilter/set${cap}LanguageFilter coerce non-arrays to []`, () => {
+    const store = makeStore() as any;
+    store[`set${cap}TagFilter`](null);
+    expect(store[`${section}TagFilter`]).toEqual([]);
+    store[`set${cap}BenefitForFilter`](undefined);
+    expect(store[`${section}BenefitForFilter`]).toEqual([]);
+    store[`set${cap}LanguageFilter`]('not-an-array');
+    expect(store[`${section}LanguageFilter`]).toEqual([]);
+  });
+
+  it(`reset${cap}Filters clears every filter field`, () => {
+    const store = makeStore() as any;
+    store[`set${cap}SearchTerm`]('x');
+    store[`set${cap}PatientTypeFilter`]('y');
+    store[`set${cap}ContentTypeFilter`]('z');
+    store[`set${cap}TagFilter`](['a']);
+    store[`set${cap}BenefitForFilter`](['b']);
+    store[`set${cap}LanguageFilter`](['c']);
+
+    store[`reset${cap}Filters`]();
+
+    expect(store[`${section}SearchTerm`]).toBe('');
+    expect(store[`${section}PatientTypeFilter`]).toBe('');
+    expect(store[`${section}ContentTypeFilter`]).toBe('');
+    expect(store[`${section}TagFilter`]).toEqual([]);
+    expect(store[`${section}BenefitForFilter`]).toEqual([]);
+    expect(store[`${section}LanguageFilter`]).toEqual([]);
   });
 });
 
@@ -639,8 +703,8 @@ describe('fetchInts', () => {
     expect(mockApiClient.get).toHaveBeenCalledWith('interventions/all/p1/');
     expect(store.allInterventions).toHaveLength(2);
     expect(store.recommendations).toEqual(store.allInterventions);
-    // applyAllFilters() ran — confirmed via the shared filterInterventions mock,
-    // which echoes back its 2nd arg (titleMap).
+    // filteredRecommendations is a computed getter derived from recommendations —
+    // confirmed via the shared filterInterventions mock, which echoes back its 2nd arg (titleMap).
     expect(store.filteredRecommendations).toEqual(store.titleMap);
   });
 

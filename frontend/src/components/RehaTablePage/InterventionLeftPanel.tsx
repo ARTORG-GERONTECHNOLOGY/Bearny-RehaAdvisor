@@ -2,19 +2,21 @@
 import React, { useMemo, useRef, useState } from 'react';
 import Select, { StylesConfig } from 'react-select';
 import { TFunction } from 'i18next';
-import { FaPlus, FaMinus, FaChartBar, FaEdit, FaUndo, FaGlobe, FaFilter } from 'react-icons/fa';
+import {
+  FaPlus,
+  FaMinus,
+  FaChartBar,
+  FaEdit,
+  FaUndo,
+  FaGlobe,
+  FaFilter,
+  FaChevronDown,
+} from 'react-icons/fa';
 import StarIcon from '@/assets/icons/interventions/star.svg?react';
 
 import config from '@/config/config.json';
 import { Intervention } from '@/types';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -32,6 +34,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 
 // Sentinel for the "clear filter" Select item — Radix forbids an empty-string item value.
@@ -51,7 +54,7 @@ interface LeftPanelData {
   diagnoses: string[];
 }
 
-interface LeftPanelFilters {
+interface SectionFilterState {
   searchTerm: string;
   setSearchTerm: (v: string) => void;
   patientTypeFilter: string;
@@ -64,7 +67,13 @@ interface LeftPanelFilters {
   setBenefitForFilter: (v: string[]) => void;
   languageFilter: string[];
   setLanguageFilter: (v: string[]) => void;
-  resetAllFilters: () => void;
+  resetFilters: () => void;
+}
+
+interface LeftPanelFilters {
+  all: SectionFilterState;
+  active: SectionFilterState;
+  past: SectionFilterState;
 }
 
 interface LeftPanelActions {
@@ -107,22 +116,6 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
 }) => {
   const { activeItems, pastItems, visibleItems, allItems, titleMap, typeMap, diagnoses } = data;
 
-  const {
-    searchTerm,
-    setSearchTerm,
-    patientTypeFilter,
-    setPatientTypeFilter,
-    contentTypeFilter,
-    setContentTypeFilter,
-    tagFilter,
-    setTagFilter,
-    benefitForFilter,
-    setBenefitForFilter,
-    languageFilter,
-    setLanguageFilter,
-    resetAllFilters,
-  } = filters;
-
   // Indexed by intervention id so each rendered card doesn't scan all of patientData.interventions.
   const patientInterventionsById = useMemo(() => {
     const map = new Map<string, Intervention>();
@@ -151,19 +144,17 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
     handleAddIntervention,
   } = actions;
 
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [allOpen, setAllOpen] = useState(false);
+  const [activeOpen, setActiveOpen] = useState(false);
+  const [pastOpen, setPastOpen] = useState(false);
 
-  const listScrollRef = useRef<HTMLDivElement | null>(null);
+  const [allFiltersOpen, setAllFiltersOpen] = useState(false);
+  const [activeFiltersOpen, setActiveFiltersOpen] = useState(false);
+  const [pastFiltersOpen, setPastFiltersOpen] = useState(false);
 
-  const scrollListToTop = () => {
-    const el = listScrollRef.current;
-    if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleReset = () => {
-    resetAllFilters();
-    scrollListToTop();
-  };
+  const allListScrollRef = useRef<HTMLDivElement | null>(null);
+  const activeListScrollRef = useRef<HTMLDivElement | null>(null);
+  const pastListScrollRef = useRef<HTMLDivElement | null>(null);
 
   const renderInterventionCard = (
     intervention: any,
@@ -365,201 +356,291 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
     );
   };
 
-  const activeFiltersCount =
-    (patientTypeFilter ? 1 : 0) +
-    (contentTypeFilter ? 1 : 0) +
-    (tagFilter?.length ? 1 : 0) +
-    (benefitForFilter?.length ? 1 : 0) +
-    (languageFilter?.length ? 1 : 0);
+  const renderSectionTrigger = (title: string, count: number) => (
+    <CollapsibleTrigger asChild>
+      <button
+        type="button"
+        className="group flex w-full items-center justify-between gap-4 p-4 text-left"
+      >
+        <span className="font-semibold leading-none tracking-tight">{title}</span>
+        <span className="flex items-center gap-2">
+          <Badge variant="dashboard">{count}</Badge>
+          <FaChevronDown className="text-zinc-400 transition-transform group-data-[state=open]:rotate-180" />
+        </span>
+      </button>
+    </CollapsibleTrigger>
+  );
 
   const selectStyles: StylesConfig<{ value: string; label: string }, true> = {
     container: (base) => ({ ...base, width: '100%', minWidth: 0 }),
     menuPortal: (base) => ({ ...base, zIndex: 9999 }),
   };
 
-  const renderFiltersBar = () => (
-    <div className="flex items-center gap-2">
-      <Field className="grow">
-        <Input
-          id="searchInput"
-          type="text"
-          placeholder={t('Search Interventions')}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </Field>
+  const renderFiltersBar = (
+    fs: SectionFilterState,
+    cfg: {
+      idPrefix: string;
+      sectionTitle: string;
+      open: boolean;
+      onOpenChange: (open: boolean) => void;
+      scrollRef: React.RefObject<HTMLDivElement | null>;
+    }
+  ) => {
+    const {
+      searchTerm,
+      setSearchTerm,
+      patientTypeFilter,
+      setPatientTypeFilter,
+      contentTypeFilter,
+      setContentTypeFilter,
+      tagFilter,
+      setTagFilter,
+      benefitForFilter,
+      setBenefitForFilter,
+      languageFilter,
+      setLanguageFilter,
+      resetFilters,
+    } = fs;
 
-      <DropdownMenu open={filtersOpen} onOpenChange={setFiltersOpen} modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button variant="secondary" size="dashboard">
-            <FaFilter />
-            {t('Filters')}
-            {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
-          </Button>
-        </DropdownMenuTrigger>
+    const activeFiltersCount =
+      (patientTypeFilter ? 1 : 0) +
+      (contentTypeFilter ? 1 : 0) +
+      (tagFilter?.length ? 1 : 0) +
+      (benefitForFilter?.length ? 1 : 0) +
+      (languageFilter?.length ? 1 : 0);
 
-        <DropdownMenuContent align="start" className="p-3 w-[min(420px,86vw)]">
-          <div className="grid grid-cols-2 gap-2.5">
-            <Field>
-              <UiSelect
-                value={patientTypeFilter || ALL_FILTER_VALUE}
-                onValueChange={(value) =>
-                  setPatientTypeFilter(value === ALL_FILTER_VALUE ? '' : value)
-                }
-              >
-                <SelectTrigger id="patientTypeFilter">
-                  <SelectValue placeholder={t('Filter by Patient Type')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_FILTER_VALUE}>{t('All Patient Types')}</SelectItem>
-                  {diagnoses.map((type: string) => (
-                    <SelectItem key={type} value={type}>
-                      {t(type)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </UiSelect>
-            </Field>
+    const scrollToTop = () => {
+      const el = cfg.scrollRef.current;
+      if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
-            <Field>
-              <UiSelect
-                value={contentTypeFilter || ALL_FILTER_VALUE}
-                onValueChange={(value) =>
-                  setContentTypeFilter(value === ALL_FILTER_VALUE ? '' : value)
-                }
-              >
-                <SelectTrigger id="contentTypeFilter">
-                  <SelectValue placeholder={t('Filter by Content Type')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_FILTER_VALUE}>{t('All Content Types')}</SelectItem>
-                  {config.RecomendationInfo.types.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {t(type)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </UiSelect>
-            </Field>
+    const handleReset = () => {
+      resetFilters();
+      scrollToTop();
+    };
 
-            <Field>
-              <Select
-                classNamePrefix="select"
-                isMulti
-                options={config.RecomendationInfo.tags.map((tag) => ({
-                  value: tag,
-                  label: t(tag),
-                }))}
-                value={tagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
-                onChange={(opts) => setTagFilter((opts || []).map((opt: any) => opt.value))}
-                placeholder={t('Filter by Tags')}
-                styles={selectStyles}
-                menuPortalTarget={document.body}
-              />
-            </Field>
+    return (
+      <div className="flex items-center gap-2">
+        <Field className="grow">
+          <Input
+            id={`${cfg.idPrefix}-searchInput`}
+            type="text"
+            placeholder={t('Search Interventions')}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </Field>
 
-            <Field>
-              <Select
-                classNamePrefix="select"
-                isMulti
-                options={config.RecomendationInfo.benefits.map((b) => ({
-                  value: b,
-                  label: t(b),
-                }))}
-                value={benefitForFilter.map((b) => ({ value: b, label: t(b) }))}
-                onChange={(opts) => setBenefitForFilter((opts || []).map((opt: any) => opt.value))}
-                placeholder={t('Filter by Benefit')}
-                styles={selectStyles}
-                menuPortalTarget={document.body}
-              />
-            </Field>
+        <DropdownMenu open={cfg.open} onOpenChange={cfg.onOpenChange} modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="secondary"
+              size="dashboard"
+              aria-label={`${t('Filters')} — ${cfg.sectionTitle}`}
+            >
+              <FaFilter />
+              {t('Filters')}
+              {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
+            </Button>
+          </DropdownMenuTrigger>
 
-            <Field className="col-span-2">
-              <Select
-                classNamePrefix="select"
-                isMulti
-                options={languageOptions}
-                value={languageFilter.map((l) => ({ value: l, label: l.toUpperCase() }))}
-                onChange={(opts) => setLanguageFilter((opts || []).map((opt: any) => opt.value))}
-                placeholder={t('Filter by Language')}
-                styles={selectStyles}
-                menuPortalTarget={document.body}
-              />
-            </Field>
+          <DropdownMenuContent align="start" className="p-3 w-[min(420px,86vw)]">
+            <div className="grid grid-cols-2 gap-2.5">
+              <Field>
+                <UiSelect
+                  value={patientTypeFilter || ALL_FILTER_VALUE}
+                  onValueChange={(value) =>
+                    setPatientTypeFilter(value === ALL_FILTER_VALUE ? '' : value)
+                  }
+                >
+                  <SelectTrigger id={`${cfg.idPrefix}-patientTypeFilter`}>
+                    <SelectValue placeholder={t('Filter by Patient Type')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>{t('All Patient Types')}</SelectItem>
+                    {diagnoses.map((type: string) => (
+                      <SelectItem key={type} value={type}>
+                        {t(type)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </UiSelect>
+              </Field>
 
-            <div className="col-span-2 flex justify-between">
-              <Button variant="secondary" size="dashboard" onClick={handleReset}>
-                <FaUndo /> {t('Reset filters')}
-              </Button>
+              <Field>
+                <UiSelect
+                  value={contentTypeFilter || ALL_FILTER_VALUE}
+                  onValueChange={(value) =>
+                    setContentTypeFilter(value === ALL_FILTER_VALUE ? '' : value)
+                  }
+                >
+                  <SelectTrigger id={`${cfg.idPrefix}-contentTypeFilter`}>
+                    <SelectValue placeholder={t('Filter by Content Type')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>{t('All Content Types')}</SelectItem>
+                    {config.RecomendationInfo.types.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {t(type)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </UiSelect>
+              </Field>
 
-              <Button
-                variant="secondary"
-                size="dashboard"
-                onClick={scrollListToTop}
-                aria-label={t('Scroll to top')}
-                title={t('Scroll to top')}
-              >
-                ↑
-              </Button>
+              <Field>
+                <Select
+                  classNamePrefix="select"
+                  isMulti
+                  options={config.RecomendationInfo.tags.map((tag) => ({
+                    value: tag,
+                    label: t(tag),
+                  }))}
+                  value={tagFilter.map((tag) => ({ value: tag, label: t(tag) }))}
+                  onChange={(opts) => setTagFilter((opts || []).map((opt: any) => opt.value))}
+                  placeholder={t('Filter by Tags')}
+                  styles={selectStyles}
+                  menuPortalTarget={document.body}
+                />
+              </Field>
+
+              <Field>
+                <Select
+                  classNamePrefix="select"
+                  isMulti
+                  options={config.RecomendationInfo.benefits.map((b) => ({
+                    value: b,
+                    label: t(b),
+                  }))}
+                  value={benefitForFilter.map((b) => ({ value: b, label: t(b) }))}
+                  onChange={(opts) =>
+                    setBenefitForFilter((opts || []).map((opt: any) => opt.value))
+                  }
+                  placeholder={t('Filter by Benefit')}
+                  styles={selectStyles}
+                  menuPortalTarget={document.body}
+                />
+              </Field>
+
+              <Field className="col-span-2">
+                <Select
+                  classNamePrefix="select"
+                  isMulti
+                  options={languageOptions}
+                  value={languageFilter.map((l) => ({ value: l, label: l.toUpperCase() }))}
+                  onChange={(opts) => setLanguageFilter((opts || []).map((opt: any) => opt.value))}
+                  placeholder={t('Filter by Language')}
+                  styles={selectStyles}
+                  menuPortalTarget={document.body}
+                />
+              </Field>
+
+              <div className="col-span-2 flex justify-between">
+                <Button variant="secondary" size="dashboard" onClick={handleReset}>
+                  <FaUndo /> {t('Reset filters')}
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  size="dashboard"
+                  onClick={scrollToTop}
+                  aria-label={t('Scroll to top')}
+                  title={t('Scroll to top')}
+                >
+                  ↑
+                </Button>
+              </div>
             </div>
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  };
 
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('Active interventions')}</CardTitle>
-            <CardAction>
-              <Badge variant="dashboard">{activeItems.length}</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2 max-h-96 overflow-auto">
-            {activeItems.length === 0 ? (
-              <div className="text-zinc-500">{t('No active interventions.')}</div>
-            ) : (
-              activeItems.map((it: any) => renderInterventionCard(it))
-            )}
-          </CardContent>
+        <Card data-testid="all-section">
+          <Collapsible open={allOpen} onOpenChange={setAllOpen}>
+            {renderSectionTrigger(t('All interventions'), visibleItems.length)}
+            <CollapsibleContent>
+              <CardContent>
+                {renderFiltersBar(filters.all, {
+                  idPrefix: 'all',
+                  sectionTitle: t('All interventions'),
+                  open: allFiltersOpen,
+                  onOpenChange: setAllFiltersOpen,
+                  scrollRef: allListScrollRef,
+                })}
+                <div
+                  className="mt-3 flex flex-col gap-2 max-h-96 overflow-auto"
+                  ref={allListScrollRef}
+                >
+                  {visibleItems.length === 0 ? (
+                    <div className="text-zinc-500">{t('No interventions match the filters.')}</div>
+                  ) : (
+                    visibleItems.map((it: any) => renderInterventionCard(it, { inAllTab: true }))
+                  )}
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('Past interventions')}</CardTitle>
-            <CardAction>
-              <Badge variant="dashboard">{pastItems.length}</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2 max-h-96 overflow-auto">
-            {pastItems.length === 0 ? (
-              <div className="text-zinc-500">{t('No past interventions.')}</div>
-            ) : (
-              pastItems.map((it: any) => renderInterventionCard(it, { showScheduleAgain: true }))
-            )}
-          </CardContent>
+        <Card data-testid="active-section">
+          <Collapsible open={activeOpen} onOpenChange={setActiveOpen}>
+            {renderSectionTrigger(t('Active interventions'), activeItems.length)}
+            <CollapsibleContent>
+              <CardContent>
+                {renderFiltersBar(filters.active, {
+                  idPrefix: 'active',
+                  sectionTitle: t('Active interventions'),
+                  open: activeFiltersOpen,
+                  onOpenChange: setActiveFiltersOpen,
+                  scrollRef: activeListScrollRef,
+                })}
+                <div
+                  className="mt-3 flex flex-col gap-2 max-h-96 overflow-auto"
+                  ref={activeListScrollRef}
+                >
+                  {activeItems.length === 0 ? (
+                    <div className="text-zinc-500">{t('No active interventions.')}</div>
+                  ) : (
+                    activeItems.map((it: any) => renderInterventionCard(it))
+                  )}
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>{t('All interventions')}</CardTitle>
-            <CardAction>
-              <Badge variant="dashboard">{visibleItems.length}</Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            {renderFiltersBar()}
-            <div className="mt-3 flex flex-col gap-2 h-96 overflow-auto" ref={listScrollRef}>
-              {visibleItems.length === 0 ? (
-                <div className="text-zinc-500">{t('No interventions match the filters.')}</div>
-              ) : (
-                visibleItems.map((it: any) => renderInterventionCard(it, { inAllTab: true }))
-              )}
-            </div>
-          </CardContent>
+        <Card data-testid="past-section">
+          <Collapsible open={pastOpen} onOpenChange={setPastOpen}>
+            {renderSectionTrigger(t('Past interventions'), pastItems.length)}
+            <CollapsibleContent>
+              <CardContent>
+                {renderFiltersBar(filters.past, {
+                  idPrefix: 'past',
+                  sectionTitle: t('Past interventions'),
+                  open: pastFiltersOpen,
+                  onOpenChange: setPastFiltersOpen,
+                  scrollRef: pastListScrollRef,
+                })}
+                <div
+                  className="mt-3 flex flex-col gap-2 max-h-96 overflow-auto"
+                  ref={pastListScrollRef}
+                >
+                  {pastItems.length === 0 ? (
+                    <div className="text-zinc-500">{t('No past interventions.')}</div>
+                  ) : (
+                    pastItems.map((it: any) =>
+                      renderInterventionCard(it, { showScheduleAgain: true })
+                    )
+                  )}
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Collapsible>
         </Card>
       </div>
     </TooltipProvider>
