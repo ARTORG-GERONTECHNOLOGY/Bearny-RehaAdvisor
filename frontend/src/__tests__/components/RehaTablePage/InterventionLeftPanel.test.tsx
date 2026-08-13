@@ -323,15 +323,40 @@ describe('InterventionLeftPanel', () => {
       expect(actions.handleAddIntervention).toHaveBeenCalledWith(intervention);
     });
 
-    it('shows Remove for assigned items in the All tab and calls handleDeleteExercise', () => {
+    it('shows Remove for assigned items with a future date in the All tab and calls handleDeleteExercise', () => {
       const intervention = makeIntervention({ _id: 'all-2' });
+      const future = new Date(Date.now() + 86400000).toISOString();
       const { actions } = renderPanel({
         data: { visibleItems: [intervention] },
-        patientData: { interventions: [{ _id: 'all-2', dates: [] }] },
+        patientData: { interventions: [{ _id: 'all-2', dates: [{ datetime: future }] }] },
       });
       openSection('All interventions');
       fireEvent.click(screen.getByLabelText('Remove'));
       expect(actions.handleDeleteExercise).toHaveBeenCalledWith('all-2');
+    });
+
+    it('shows Schedule again (not Remove) for assigned items with only past dates in the All tab', () => {
+      const intervention = makeIntervention({ _id: 'all-3' });
+      const past = new Date(Date.now() - 86400000).toISOString();
+      const { actions } = renderPanel({
+        data: { visibleItems: [intervention] },
+        patientData: { interventions: [{ _id: 'all-3', dates: [{ datetime: past }] }] },
+      });
+      openSection('All interventions');
+      expect(screen.queryByLabelText('Remove')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText('Schedule again'));
+      expect(actions.handleAddIntervention).toHaveBeenCalledWith(intervention);
+    });
+
+    it('shows Schedule again (not Remove) for assigned items with no dates at all in the All tab', () => {
+      const intervention = makeIntervention({ _id: 'all-4' });
+      renderPanel({
+        data: { visibleItems: [intervention] },
+        patientData: { interventions: [{ _id: 'all-4', dates: [] }] },
+      });
+      openSection('All interventions');
+      expect(screen.getByLabelText('Schedule again')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Remove')).not.toBeInTheDocument();
     });
   });
 
