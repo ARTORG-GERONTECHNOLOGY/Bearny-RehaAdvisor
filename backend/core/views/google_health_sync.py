@@ -159,10 +159,14 @@ def _list_points(access_token: str, data_type: str, filter_expr: str) -> list[di
 
 def _fetch_sleep(access_token: str, d: datetime.date) -> dict | None:
     """
-    Fetch the primary sleep session for date d.
-    Filters by civil_start_time from 6pm the previous day to 6pm the target day,
-    capturing overnight sleep associated with this date.
-    Returns a SleepData-compatible dict or None.
+    Fetch and aggregate all sleep data points for date d.
+
+    Filters by civil_start_time from 6pm the previous day to 6pm the target day
+    so that overnight sleep is captured for the correct calendar date.
+
+    The Google Health API may return multiple data points for one night (e.g. two
+    consecutive sessions or separate stage segments).  All are summed so the result
+    matches what Google Health displays, rather than showing only the longest segment.
     """
     prev = d - timedelta(days=1)
     filter_expr = (
@@ -173,40 +177,39 @@ def _fetch_sleep(access_token: str, d: datetime.date) -> dict | None:
     if not points:
         return None
 
-    # Use the longest sleep session
-    def _duration(pt):
+    total_duration_ms = 0
+    total_minutes_asleep = 0
+    total_awakenings = 0
+    earliest_start: datetime.datetime | None = None
+    latest_end: datetime.datetime | None = None
+
+    for pt in points:
         s = pt.get("sleep", {})
         iv = s.get("interval", {})
+        summary = s.get("summary", {})
         try:
-            start = datetime.datetime.fromisoformat(iv["startTime"].replace("Z", "+00:00"))
-            end = datetime.datetime.fromisoformat(iv["endTime"].replace("Z", "+00:00"))
-            return (end - start).total_seconds()
+            start_dt = datetime.datetime.fromisoformat(iv["startTime"].replace("Z", "+00:00"))
+            end_dt = datetime.datetime.fromisoformat(iv["endTime"].replace("Z", "+00:00"))
         except (KeyError, ValueError):
-            return 0
+            continue
+        dur_ms = int((end_dt - start_dt).total_seconds() * 1000)
+        total_duration_ms += dur_ms
+        total_minutes_asleep += summary.get("minutesAsleep") or (dur_ms // 60000)
+        total_awakenings += summary.get("awakenings") or 0
+        if earliest_start is None or start_dt < earliest_start:
+            earliest_start = start_dt
+        if latest_end is None or end_dt > latest_end:
+            latest_end = end_dt
 
-    pt = max(points, key=_duration)
-    sleep = pt.get("sleep", {})
-    iv = sleep.get("interval", {})
-    summary = sleep.get("summary", {})
-
-    try:
-        start_str = iv.get("startTime", "")
-        end_str = iv.get("endTime", "")
-        start_dt = datetime.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-        end_dt = datetime.datetime.fromisoformat(end_str.replace("Z", "+00:00"))
-        duration_ms = int((end_dt - start_dt).total_seconds() * 1000)
-    except (ValueError, AttributeError):
+    if not total_duration_ms or earliest_start is None:
         return None
 
-    minutes_asleep = summary.get("minutesAsleep") or (duration_ms // 60000)
-    awakenings = summary.get("awakenings") or 0
-
     return {
-        "sleep_duration": duration_ms,
-        "minutes_asleep": minutes_asleep,
-        "sleep_start": start_str,
-        "sleep_end": end_str,
-        "awakenings": awakenings,
+        "sleep_duration": total_duration_ms,
+        "minutes_asleep": total_minutes_asleep,
+        "sleep_start": earliest_start.isoformat(),
+        "sleep_end": latest_end.isoformat(),
+        "awakenings": total_awakenings,
     }
 
 
@@ -356,7 +359,7 @@ def _sync_day(user, access_token: str, d: datetime.date) -> bool:
     # ---- Sleep ----
     sleep_raw = _fetch_sleep(access_token, d)
     sleep_obj = SleepData(**sleep_raw) if sleep_raw else None
-    sleep_minutes = (sleep_raw["sleep_duration"] // 60000) if sleep_raw else 0
+    sleep_minutes = (sleep_raw.get("minutes_asleep") or sleep_raw["sleep_duration"] // 60000) if sleep_raw else 0
 
     # ---- Exercise sessions ----
     exercise_sessions = _fetch_exercise(access_token, d)

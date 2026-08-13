@@ -90,8 +90,18 @@ _GOOGLE_SCOPES = " ".join(
 
 
 def _sleep_minutes(entry: GoogleHealthData) -> int:
+    """Return sleep in minutes, matching what Google Health displays.
+
+    Prefers minutes_asleep (actual sleep, wake phases excluded) over
+    sleep_duration (raw time-in-bed).  Legacy records without minutes_asleep
+    fall back to sleep_duration / 60 000.
+    """
     try:
-        dur_ms = (entry.sleep.sleep_duration or 0) if entry.sleep else 0
+        if not entry.sleep:
+            return 0
+        if entry.sleep.minutes_asleep is not None:
+            return max(0, int(entry.sleep.minutes_asleep))
+        dur_ms = entry.sleep.sleep_duration or 0
         return int(round(dur_ms / 60000))
     except Exception:
         return 0
@@ -445,7 +455,8 @@ def get_google_health_data(request, patient_id):
 
             sleep = None
             if entry.sleep:
-                dur_min = (entry.sleep.sleep_duration or 0) / 60000
+                ma = entry.sleep.minutes_asleep
+                dur_min = ma if ma is not None else (entry.sleep.sleep_duration or 0) / 60000
                 sleep = {
                     "sleep_minutes": dur_min,
                     "sleep_hours": round(dur_min / 60, 2),
