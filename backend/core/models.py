@@ -688,7 +688,7 @@ class Patient(Document):
 
     preferred_language = StringField(
         max_length=10,
-        choices=["en", "es", "fr", "de", "it", "nl", "sv", "zh", "ja", "ko"],
+        choices=["en", "es", "fr", "de", "it", "nl", "pt", "sv", "zh", "ja", "ko"],
         default="en",
     )
 

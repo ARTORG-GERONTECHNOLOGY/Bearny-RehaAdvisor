@@ -330,6 +330,7 @@ def user_profile_view(request, user_id):
         "personal_goals": list,
         "social_support": list,
         "initial_questionnaire_enabled": bool,
+        "preferred_language": str,
         # wearable_device handled explicitly below (enum validation)
     }
 

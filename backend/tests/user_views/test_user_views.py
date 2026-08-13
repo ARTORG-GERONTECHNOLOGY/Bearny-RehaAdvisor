@@ -543,6 +543,48 @@ def test_user_profile_view_update_patient_reha_end_date():
     assert "reha_end_date" in resp.json().get("updated", {})
 
 
+def test_user_profile_view_update_patient_preferred_language():
+    """
+    PUT preferred_language for a Patient persists it (used to keep push
+    notification content in sync with the language the patient picks in the
+    frontend's LanguageSelectorCard).
+    """
+    user, patient = create_patient()
+    payload = {"preferred_language": "de"}
+
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps(payload),
+        content_type="application/json",
+    )
+
+    assert resp.status_code == 200
+    assert resp.json().get("updated", {}).get("preferred_language") == "de"
+    patient.reload()
+    assert patient.preferred_language == "de"
+
+
+def test_user_profile_view_update_patient_preferred_language_portuguese_accepted():
+    """
+    Regression: "pt" must be a valid preferred_language choice — the
+    frontend's language selector supports Portuguese
+    (frontend/src/constants/languages.ts), and rejecting it here would 500
+    the whole profile PUT (mongoengine choices validation runs on save()).
+    """
+    user, patient = create_patient()
+    payload = {"preferred_language": "pt"}
+
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps(payload),
+        content_type="application/json",
+    )
+
+    assert resp.status_code == 200
+    patient.reload()
+    assert patient.preferred_language == "pt"
+
+
 def test_user_profile_view_update_patient_characteristics_preserves_internal_spaces():
     """
     PUT patient characteristic fields with multi-word values should preserve
