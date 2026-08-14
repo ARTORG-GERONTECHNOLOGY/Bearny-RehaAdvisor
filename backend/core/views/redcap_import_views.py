@@ -690,8 +690,10 @@ def import_patient_from_redcap(request):
         patient.redcap_dag = dag
 
         # Store study group from whichever row in the export has the field set.
+        # Use per-project labels when defined, falling back to the global map.
         sg_field = config.get("study_group_redcap_field", "")
-        sg_labels = config.get("study_group_labels", {})
+        _proj_labels = config.get("project_study_group_labels", {})
+        sg_labels = _proj_labels.get(project.lower(), config.get("study_group_labels", {}))
         if sg_field:
             raw_sg = None
             for _row in all_fetched:

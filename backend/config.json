@@ -624,5 +624,15 @@
     "study_group_labels": {
         "1": "Control Group",
         "2": "Deeper Group"
+    },
+    "project_study_group_labels": {
+        "compass": {
+            "1": "Control Group",
+            "2": "Deeper Group"
+        },
+        "copain": {
+            "1": "Control Group",
+            "2": "Intervention Group"
+        }
     }
 }
