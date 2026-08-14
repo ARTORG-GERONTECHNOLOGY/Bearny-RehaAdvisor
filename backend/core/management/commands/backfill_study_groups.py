@@ -64,14 +64,14 @@ class Command(BaseCommand):
 
         config = _CONFIG
         sg_field = config.get("study_group_redcap_field", "")
-        sg_labels = config.get("study_group_labels", {})
+        sg_labels_global = config.get("study_group_labels", {})
+        sg_labels_by_project = config.get("project_study_group_labels", {})
 
         if not sg_field:
             self.stderr.write("study_group_redcap_field not set in config.json — nothing to do.")
             return
 
         self.stdout.write(f"REDCap field: {sg_field}")
-        self.stdout.write(f"Label map:    {sg_labels}")
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY-RUN — no changes will be saved."))
 
@@ -119,6 +119,10 @@ class Command(BaseCommand):
                 continue
 
             self.stdout.write(f"\nProject: {project} ({len(pt_list)} patient(s))")
+
+            # Use per-project label map when defined, fall back to global.
+            sg_labels = sg_labels_by_project.get(project.lower(), sg_labels_global)
+            self.stdout.write(f"Label map:    {sg_labels}")
 
             # Build a record_id → patient map
             rid_map = {pt.redcap_record_id: pt for pt in pt_list}
