@@ -56,12 +56,19 @@ def _parse_json_body(request) -> Dict[str, Any]:
         raise ValueError(INVALID_JSON_BODY_MESSAGE)
 
 
+_DISALLOWED_QUERY_SCALAR_TOKENS = ("$", "\x00", "{", "}", "[", "]")
+_MAX_QUERY_SCALAR_LENGTH = 2048
+
+
 def _sanitize_query_scalar_string(value: Any, field_name: str) -> str:
     # Defensive NoSQL injection guard: reject non-strings and obvious Mongo
-    # operator/null-byte tokens before a value reaches a MongoEngine filter.
+    # operator/null-byte/document-literal tokens before a value reaches a
+    # MongoEngine filter. Real values for the fields this guards (currently
+    # just `endpoint`) never contain these characters, so this is a no-op
+    # for legitimate requests.
     if not isinstance(value, str) or not value:
         raise ValueError(f"'{field_name}' is required.")
-    if "$" in value or "\x00" in value:
+    if len(value) > _MAX_QUERY_SCALAR_LENGTH or any(token in value for token in _DISALLOWED_QUERY_SCALAR_TOKENS):
         raise ValueError(f"Invalid '{field_name}' value.")
     return value
 

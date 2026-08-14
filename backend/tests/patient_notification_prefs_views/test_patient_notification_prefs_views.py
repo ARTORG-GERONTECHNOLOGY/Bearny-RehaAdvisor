@@ -209,6 +209,29 @@ def test_subscription_post_requires_keys():
     assert resp.status_code == 400
 
 
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "https://fcm.googleapis.com/fcm/send/{$ne: null}",  # Mongo operator token
+        "https://fcm.googleapis.com/fcm/send/" + "a" * 2049,  # exceeds length cap
+        "https://fcm.googleapis.com/fcm/send/{malformed",  # brace, not a real op payload
+    ],
+)
+def test_subscription_post_rejects_query_scalar_sanitizer_violations(endpoint):
+    """Belt-and-suspenders sanitizer in front of the MongoEngine filter — see
+    _sanitize_query_scalar_string. Not reachable as real NoSQL injection
+    (MongoEngine keyword filters never interpret string *content* as
+    operators), but cheap to reject outright."""
+    patient = create_patient()
+    resp = client.post(
+        f"/api/patients/{patient.id}/push-subscription/",
+        data=json.dumps({"endpoint": endpoint, "keys": {"p256dh": "p-key", "auth": "a-key"}}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+
+
 def test_subscription_post_creates_row():
     patient = create_patient()
     resp = client.post(
