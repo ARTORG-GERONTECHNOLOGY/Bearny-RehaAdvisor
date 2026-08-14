@@ -107,22 +107,9 @@ def _validate_preference_updates(partial: Dict[str, Any]) -> Dict[str, bool]:
 
 
 def _apply_notification_preference_updates(patient: Patient, updates: Dict[str, bool]) -> Patient:
-    """
-    Atomic per-field $set, keyed by pk — deliberately not a read-modify-write
-    of the whole embedded doc (patient.notification_preferences = prefs;
-    patient.save() rewrites the *entire* subdocument). Two requests toggling
-    different categories in quick succession — which the frontend explicitly
-    allows, see useNotifications.ts's per-category pending-state guard —
-    would each start from their own stale in-memory read; whichever save()
-    landed second would silently discard the other's change. A dotted-path
-    $set on just the touched leaf field can't lose a sibling field's
-    concurrent write, however the two requests interleave.
-    """
+    """Per-field $set keyed by pk — avoids the lost-update race from patient.save() rewriting the whole embedded doc."""
     if patient.notification_preferences is None:
-        # $set on a dotted path errors if the parent is literally null (vs.
-        # simply absent, which Mongo auto-vivifies) — make sure it's a real
-        # subdocument first. Harmless no-op if another request already won
-        # this same race.
+        # $set on a dotted path fails if the parent is null rather than absent.
         Patient.objects(pk=patient.pk, notification_preferences=None).update_one(
             set__notification_preferences=PatientNotificationPreferences()
         )
@@ -192,10 +179,7 @@ def patient_notification_preferences_view(request, patient_id: str):
     if updates:
         patient = _apply_notification_preference_updates(patient, updates)
         if patient is None:
-            # Patient was deleted concurrently (account deletion, REDCap sync
-            # cleanup) between the initial lookup and this write — modify()
-            # returns None rather than raising when its pk filter no longer
-            # matches anything.
+            # Patient was deleted concurrently with this write.
             return bad(PATIENT_NOT_FOUND_MESSAGE, status=404)
 
     prefs = patient.notification_preferences or PatientNotificationPreferences()
