@@ -33,6 +33,7 @@ from core.services.redcap_access import get_therapist_for_user
 logger = logging.getLogger(__name__)
 
 PREFERENCE_FIELDS = ("education", "exercise", "instructions", "reminder", "behavior_change", "other")
+INVALID_JSON_BODY_MESSAGE = "Invalid JSON body."
 
 
 def ok(data: Dict[str, Any], status: int = 200) -> JsonResponse:
@@ -51,7 +52,17 @@ def _parse_json_body(request) -> Dict[str, Any]:
         raw = request.body.decode("utf-8") if request.body else ""
         return json.loads(raw) if raw.strip() else {}
     except Exception:
-        raise ValueError("Invalid JSON body.")
+        raise ValueError(INVALID_JSON_BODY_MESSAGE)
+
+
+def _sanitize_query_scalar_string(value: Any, field_name: str) -> str:
+    # Defensive NoSQL injection guard: reject non-strings and obvious Mongo
+    # operator/null-byte tokens before a value reaches a MongoEngine filter.
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"'{field_name}' is required.")
+    if "$" in value or "\x00" in value:
+        raise ValueError(f"Invalid '{field_name}' value.")
+    return value
 
 
 def _resolve_patient(patient_id: str) -> Patient:
@@ -119,8 +130,9 @@ def patient_notification_preferences_view(request, patient_id: str):
 
     try:
         body = _parse_json_body(request)
-    except ValueError as ve:
-        return bad(str(ve), status=400)
+    except ValueError:
+        logger.warning("Invalid JSON body in patient_notification_preferences_view.", exc_info=True)
+        return bad(INVALID_JSON_BODY_MESSAGE, status=400)
 
     partial = body.get("preferences")
     if not isinstance(partial, dict):
@@ -154,12 +166,14 @@ def patient_push_subscription_view(request, patient_id: str):
 
     try:
         body = _parse_json_body(request)
+    except ValueError:
+        logger.warning("Invalid JSON body in patient_push_subscription_view.", exc_info=True)
+        return bad(INVALID_JSON_BODY_MESSAGE, status=400)
+
+    try:
+        endpoint = _sanitize_query_scalar_string(body.get("endpoint"), "endpoint")
     except ValueError as ve:
         return bad(str(ve), status=400)
-
-    endpoint = body.get("endpoint")
-    if not endpoint or not isinstance(endpoint, str):
-        return bad("'endpoint' is required.", status=400)
 
     if request.method == "DELETE":
         PushSubscription.objects(endpoint=endpoint, patient=patient).delete()
