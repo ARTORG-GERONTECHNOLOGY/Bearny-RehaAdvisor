@@ -585,6 +585,28 @@ def test_user_profile_view_update_patient_preferred_language_portuguese_accepted
     assert patient.preferred_language == "pt"
 
 
+def test_user_profile_view_update_patient_preferred_language_rejects_invalid_choice():
+    """
+    An out-of-choice preferred_language must 400 up front, not fall through
+    to mongoengine's choices ValidationError on save() — which the view's
+    blanket exception handler would otherwise turn into a 500, and only
+    after other fields in the same request had already been persisted via
+    the earlier user.save() call.
+    """
+    user, patient = create_patient()
+    payload = {"preferred_language": "xx"}
+
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps(payload),
+        content_type="application/json",
+    )
+
+    assert resp.status_code == 400
+    patient.reload()
+    assert patient.preferred_language != "xx"
+
+
 def test_user_profile_view_update_patient_characteristics_preserves_internal_spaces():
     """
     PUT patient characteristic fields with multi-word values should preserve
