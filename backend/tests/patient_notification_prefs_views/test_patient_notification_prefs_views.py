@@ -13,6 +13,7 @@ DELETE /api/patients/<patient_id>/push-subscription/
 import json
 from datetime import datetime
 from types import SimpleNamespace
+from unittest import mock
 
 import mongomock
 import pytest
@@ -180,6 +181,79 @@ def test_prefs_post_partial_update_persists():
     assert patient.notification_preferences.education is True
     assert patient.notification_preferences.exercise is True
     assert patient.notification_preferences.reminder is False
+
+
+def test_prefs_post_concurrent_updates_to_different_fields_are_not_lost():
+    """
+    Regression: the view used to read the whole notification_preferences
+    embedded doc into Python, mutate it, and patient.save() the entire
+    subdocument. Two requests toggling *different* categories — which the
+    frontend explicitly allows, since only the category actually being
+    toggled is disabled in the UI (see NotificationsCard.tsx) — would each
+    start from the same stale in-memory read; whichever save() landed
+    second silently discarded the other's change.
+
+    Simulate that staleness deterministically: force both requests to
+    resolve the patient from the same pre-fetched snapshot (captured before
+    either write), so neither request's initial read reflects the other's
+    change. The fix ($set on just the touched leaf field, keyed by pk) must
+    preserve both writes regardless of in-memory staleness, because it
+    never depends on the snapshot's other field values.
+    """
+    patient = create_patient()
+    stale_snapshot = Patient.objects.get(pk=patient.pk)
+
+    with mock.patch(
+        "core.views.patient_notification_prefs._resolve_patient",
+        return_value=stale_snapshot,
+    ):
+        resp_a = client.post(
+            f"/api/patients/{patient.id}/notification-preferences/",
+            data=json.dumps({"preferences": {"education": True}}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+        resp_b = client.post(
+            f"/api/patients/{patient.id}/notification-preferences/",
+            data=json.dumps({"preferences": {"exercise": True}}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    assert resp_a.status_code == 200
+    assert resp_b.status_code == 200
+    # The second response reflects the true post-write DB state (not just
+    # its own stale snapshot + its own change), so it must show both fields.
+    assert resp_b.json()["preferences"]["education"] is True
+    assert resp_b.json()["preferences"]["exercise"] is True
+
+    patient.reload()
+    assert patient.notification_preferences.education is True
+    assert patient.notification_preferences.exercise is True
+
+
+def test_prefs_post_handles_null_notification_preferences():
+    """
+    Regression: a patient whose notification_preferences is explicitly None
+    (e.g. legacy data) must not 500 — $set on a dotted path errors if the
+    parent is literally null, so _apply_notification_preference_updates
+    must normalise it to a real subdocument first.
+    """
+    patient = create_patient()
+    patient.notification_preferences = None
+    patient.save()
+
+    resp = client.post(
+        f"/api/patients/{patient.id}/notification-preferences/",
+        data=json.dumps({"preferences": {"education": True}}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["preferences"]["education"] is True
+    patient.reload()
+    assert patient.notification_preferences.education is True
 
 
 # ---------------------------------------------------------------------------

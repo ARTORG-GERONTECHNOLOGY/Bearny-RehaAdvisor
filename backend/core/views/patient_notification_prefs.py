@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 PREFERENCE_FIELDS = ("education", "exercise", "instructions", "reminder", "behavior_change", "other")
 INVALID_JSON_BODY_MESSAGE = "Invalid JSON body."
+PATIENT_NOT_FOUND_MESSAGE = "Patient not found."
 
 
 def ok(data: Dict[str, Any], status: int = 200) -> JsonResponse:
@@ -94,6 +95,43 @@ def _patient_user_id(patient: Patient) -> str:
     return str(user.id) if user is not None else ""
 
 
+def _validate_preference_updates(partial: Dict[str, Any]) -> Dict[str, bool]:
+    updates: Dict[str, bool] = {}
+    for field in PREFERENCE_FIELDS:
+        if field in partial:
+            value = partial[field]
+            if not isinstance(value, bool):
+                raise ValueError(f"'{field}' must be a boolean.")
+            updates[field] = value
+    return updates
+
+
+def _apply_notification_preference_updates(patient: Patient, updates: Dict[str, bool]) -> Patient:
+    """
+    Atomic per-field $set, keyed by pk — deliberately not a read-modify-write
+    of the whole embedded doc (patient.notification_preferences = prefs;
+    patient.save() rewrites the *entire* subdocument). Two requests toggling
+    different categories in quick succession — which the frontend explicitly
+    allows, see useNotifications.ts's per-category pending-state guard —
+    would each start from their own stale in-memory read; whichever save()
+    landed second would silently discard the other's change. A dotted-path
+    $set on just the touched leaf field can't lose a sibling field's
+    concurrent write, however the two requests interleave.
+    """
+    if patient.notification_preferences is None:
+        # $set on a dotted path errors if the parent is literally null (vs.
+        # simply absent, which Mongo auto-vivifies) — make sure it's a real
+        # subdocument first. Harmless no-op if another request already won
+        # this same race.
+        Patient.objects(pk=patient.pk, notification_preferences=None).update_one(
+            set__notification_preferences=PatientNotificationPreferences()
+        )
+    return Patient.objects(pk=patient.pk).modify(
+        new=True,
+        **{f"set__notification_preferences__{field}": value for field, value in updates.items()},
+    )
+
+
 def _check_can_write(request, patient: Patient, patient_id: str) -> JsonResponse | None:
     """Only the patient themselves may write their own preferences/subscriptions."""
     if getattr(settings, "TESTING", False) or getattr(request.user, "id", None) is None:
@@ -123,7 +161,7 @@ def patient_notification_preferences_view(request, patient_id: str):
     try:
         patient = _resolve_patient(patient_id)
     except Exception:
-        return bad("Patient not found.", status=404)
+        return bad(PATIENT_NOT_FOUND_MESSAGE, status=404)
 
     if request.method == "GET":
         auth_error = _check_can_read(request, patient, patient_id)
@@ -146,17 +184,21 @@ def patient_notification_preferences_view(request, patient_id: str):
     if not isinstance(partial, dict):
         return bad("'preferences' must be an object.", status=400)
 
+    try:
+        updates = _validate_preference_updates(partial)
+    except ValueError as ve:
+        return bad(str(ve), status=400)
+
+    if updates:
+        patient = _apply_notification_preference_updates(patient, updates)
+        if patient is None:
+            # Patient was deleted concurrently (account deletion, REDCap sync
+            # cleanup) between the initial lookup and this write — modify()
+            # returns None rather than raising when its pk filter no longer
+            # matches anything.
+            return bad(PATIENT_NOT_FOUND_MESSAGE, status=404)
+
     prefs = patient.notification_preferences or PatientNotificationPreferences()
-    for field in PREFERENCE_FIELDS:
-        if field in partial:
-            value = partial[field]
-            if not isinstance(value, bool):
-                return bad(f"'{field}' must be a boolean.", status=400)
-            setattr(prefs, field, value)
-
-    patient.notification_preferences = prefs
-    patient.save()
-
     return ok({"patient_id": str(patient.id), "preferences": _preferences_to_dict(prefs)})
 
 
@@ -166,7 +208,7 @@ def patient_push_subscription_view(request, patient_id: str):
     try:
         patient = _resolve_patient(patient_id)
     except Exception:
-        return bad("Patient not found.", status=404)
+        return bad(PATIENT_NOT_FOUND_MESSAGE, status=404)
 
     auth_error = _check_can_write(request, patient, patient_id)
     if auth_error:
