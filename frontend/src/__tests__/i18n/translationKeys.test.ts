@@ -15,10 +15,11 @@ const SRC_DIR = path.resolve(__dirname, '../..');
 const SKIP_DIRS = new Set(['node_modules', '__tests__', '__mocks__']);
 const SOURCE_FILE_RE = /\.(tsx?|jsx?)$/;
 
-// Matches t('literal') / t("literal") calls with a plain string first argument.
-// Dynamic keys (template literals, variables, member expressions) are intentionally
-// skipped since they can't be resolved statically.
-const T_CALL_RE = /(?<![a-zA-Z0-9_$.])t\(\s*(['"])((?:(?!\1)[^\\]|\\.)*)\1/g;
+// Matches t('literal') / t("literal") calls with a plain string first argument,
+// including member-access calls like i18n.t('literal') or this.t('literal').
+// Dynamic keys (template literals, variables, non-literal expressions) are
+// intentionally skipped since they can't be resolved statically.
+const T_CALL_RE = /(?<![a-zA-Z0-9_$])t\(\s*(['"])((?:(?!\1)[^\\]|\\.)*)\1/g;
 
 function collectSourceFiles(dir: string, out: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
