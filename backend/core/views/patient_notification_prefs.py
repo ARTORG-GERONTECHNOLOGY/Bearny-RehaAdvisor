@@ -23,6 +23,7 @@ from typing import Any, Dict
 from bson import ObjectId
 from django.conf import settings
 from django.http import JsonResponse
+from mongoengine.errors import NotUniqueError
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
@@ -196,21 +197,25 @@ def patient_push_subscription_view(request, patient_id: str):
     # steal it out from under them without any signal. The frontend handles
     # this response by unsubscribing the stale browser subscription and
     # subscribing fresh, which mints a genuinely new endpoint.
-    existing = PushSubscription.objects(endpoint=endpoint).first()
-    if existing is not None and str(existing.patient.id) != str(patient.id):
+    #
+    # This upsert is atomic: scoping the filter to (endpoint, patient) means
+    # a doc already existing under a different patient won't match, so Mongo
+    # tries to insert instead — which the unique index on `endpoint` rejects
+    # as NotUniqueError, caught below.
+    try:
+        PushSubscription.objects(endpoint=endpoint, patient=patient).update_one(
+            set__patient=patient,
+            set__endpoint=endpoint,
+            set__keys_p256dh=p256dh,
+            set__keys_auth=auth,
+            set__user_agent=body.get("user_agent", ""),
+            upsert=True,
+        )
+    except NotUniqueError:
         return bad(
             "This device is already registered to a different patient.",
             status=409,
             code="endpoint_conflict",
         )
-
-    PushSubscription.objects(endpoint=endpoint).update_one(
-        set__patient=patient,
-        set__endpoint=endpoint,
-        set__keys_p256dh=p256dh,
-        set__keys_auth=auth,
-        set__user_agent=body.get("user_agent", ""),
-        upsert=True,
-    )
 
     return ok({"message": "Subscription registered."})
