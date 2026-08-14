@@ -383,6 +383,7 @@ def test_valid_token_not_expired_skips_refresh(mock_post):
 # _fetch_sleep — aggregation tests
 # ---------------------------------------------------------------------------
 
+
 def _make_sleep_point(start_iso: str, end_iso: str, minutes_asleep: int, awakenings: int = 0) -> dict:
     """Build a minimal Google Health API sleep dataPoint dict."""
     return {
@@ -397,17 +398,22 @@ def _make_sleep_point(start_iso: str, end_iso: str, minutes_asleep: int, awakeni
 def test_fetch_sleep_sums_multiple_sessions(mock_get):
     """Two sleep sessions for one night must be summed, not just the longest taken."""
     import datetime
+
     from core.views.google_health_sync import _fetch_sleep
 
     # Session A: 4h 19min in bed, 230 min actually asleep
     pt_a = _make_sleep_point(
-        "2026-08-12T23:00:00Z", "2026-08-13T03:19:00Z",
-        minutes_asleep=230, awakenings=2,
+        "2026-08-12T23:00:00Z",
+        "2026-08-13T03:19:00Z",
+        minutes_asleep=230,
+        awakenings=2,
     )
     # Session B: 2h 52min in bed, 165 min actually asleep
     pt_b = _make_sleep_point(
-        "2026-08-13T03:45:00Z", "2026-08-13T06:37:00Z",
-        minutes_asleep=165, awakenings=1,
+        "2026-08-13T03:45:00Z",
+        "2026-08-13T06:37:00Z",
+        minutes_asleep=165,
+        awakenings=1,
     )
 
     mock_get.return_value = MagicMock(
@@ -432,11 +438,14 @@ def test_fetch_sleep_sums_multiple_sessions(mock_get):
 def test_fetch_sleep_single_session(mock_get):
     """Single session still works correctly after the aggregation refactor."""
     import datetime
+
     from core.views.google_health_sync import _fetch_sleep
 
     pt = _make_sleep_point(
-        "2026-08-12T22:30:00Z", "2026-08-13T06:30:00Z",
-        minutes_asleep=450, awakenings=1,
+        "2026-08-12T22:30:00Z",
+        "2026-08-13T06:30:00Z",
+        minutes_asleep=450,
+        awakenings=1,
     )
     mock_get.return_value = MagicMock(
         status_code=200,
@@ -454,6 +463,7 @@ def test_fetch_sleep_single_session(mock_get):
 @patch("core.views.google_health_sync.requests.get")
 def test_fetch_sleep_no_points_returns_none(mock_get):
     import datetime
+
     from core.views.google_health_sync import _fetch_sleep
 
     mock_get.return_value = MagicMock(
@@ -467,11 +477,12 @@ def test_fetch_sleep_no_points_returns_none(mock_get):
 def test_sleep_minutes_prefers_minutes_asleep():
     """_sleep_minutes() in google_health_view must use minutes_asleep, not sleep_duration."""
     from types import SimpleNamespace
+
     from core.views.google_health_view import _sleep_minutes
 
     entry = SimpleNamespace(
         sleep=SimpleNamespace(
-            minutes_asleep=395,       # actual sleep ≈ 6h 35min
+            minutes_asleep=395,  # actual sleep ≈ 6h 35min
             sleep_duration=25_860_000,  # time in bed ≈ 7h 11min
         )
     )
@@ -480,6 +491,7 @@ def test_sleep_minutes_prefers_minutes_asleep():
 
 def test_sleep_minutes_falls_back_to_duration_when_no_minutes_asleep():
     from types import SimpleNamespace
+
     from core.views.google_health_view import _sleep_minutes
 
     entry = SimpleNamespace(
