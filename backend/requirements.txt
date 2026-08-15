@@ -27,3 +27,4 @@ black
 isort
 sentry-sdk[django]
 cryptography
+pywebpush

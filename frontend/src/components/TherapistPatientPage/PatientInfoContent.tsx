@@ -12,6 +12,7 @@ import PatientInfoWearablesSyncResult from './PatientInfoWearablesSyncResult';
 import PatientInfoProfileCard from './PatientInfoProfileCard';
 import PatientInfoCharacteristicsCard from './PatientInfoCharacteristicsCard';
 import PatientInfoThresholdsCard from './PatientInfoThresholdsCard';
+import PatientInfoNotificationsCard from './PatientInfoNotificationsCard';
 import PatientInfoRedcapCard from './PatientInfoRedcapCard';
 import { PatientInfoContentLoadingSkeleton } from '@/components/skeletons/TherapistPatientDetailSkeleton';
 
@@ -102,6 +103,7 @@ const PatientInfoContent: React.FC<PatientInfoContentProps> = observer(({ patien
             <div className="md:col-start-1 md:row-start-2 xl:col-start-2 xl:row-start-1">
               <PatientInfoCharacteristicsCard store={store} />
               <PatientInfoThresholdsCard store={store} />
+              <PatientInfoNotificationsCard store={store} />
             </div>
             {appModeStore.showRedcapTab && (
               <div className="md:col-start-2 md:row-start-1 md:row-span-2 xl:col-start-3 xl:row-span-1">

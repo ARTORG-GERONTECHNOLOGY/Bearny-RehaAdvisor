@@ -77,3 +77,26 @@ class Command(BaseCommand):
             },
         )
         self.stdout.write(self.style.SUCCESS(f"{'Created' if created4 else 'Updated'} task: {task4.name}"))
+
+        # Hourly, on the hour (intervention push notifications — the task
+        # itself checks the full past hour, see send_due_intervention_push_notifications)
+        hourly_schedule, _ = CrontabSchedule.objects.get_or_create(
+            minute="0",
+            hour="*",
+            day_of_week="*",
+            day_of_month="*",
+            month_of_year="*",
+            timezone=settings.TIME_ZONE,
+        )
+
+        # Task 5: Send due intervention push notifications
+        task5, created5 = PeriodicTask.objects.update_or_create(
+            name="Send Due Intervention Push Notifications",
+            defaults={
+                "crontab": hourly_schedule,
+                "task": "core.tasks.send_due_intervention_push_notifications",
+                "enabled": True,
+                "args": json.dumps([]),
+            },
+        )
+        self.stdout.write(self.style.SUCCESS(f"{'Created' if created5 else 'Updated'} task: {task5.name}"))

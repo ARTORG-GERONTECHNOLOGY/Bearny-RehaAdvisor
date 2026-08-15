@@ -163,6 +163,35 @@ def test_parse_start_date_from_datetime():
     assert isinstance(result, datetime)
 
 
+def test_parse_start_date_preserves_local_wall_clock_time():
+    """Regression: 10:45 Zurich (sent as 08:45Z) must not shift to 8:45."""
+    # 10:45 in Europe/Zurich during CEST (UTC+2) == 08:45 UTC on the wire.
+    aware_utc_iso = "2026-08-12T08:45:00.000Z"
+    result = parse_start_date(aware_utc_iso)
+
+    assert result.tzinfo is None  # naive, as documented
+    assert (result.hour, result.minute) == (10, 45)
+
+
+def test_generate_repeat_dates_preserves_scheduled_local_time():
+    """Same regression, end-to-end through generate_repeat_dates."""
+    from django.utils.timezone import localtime, make_aware
+
+    patient_end_date = make_aware(datetime.now() + timedelta(days=10))
+    repeat_data = {
+        "interval": 1,
+        "unit": "day",
+        "start_date": "2026-08-12T08:45:00.000Z",  # 10:45 Zurich (CEST, UTC+2)
+        "end": {"type": "count", "count": 1},
+    }
+
+    dates = generate_repeat_dates(patient_end_date, repeat_data)
+
+    assert len(dates) == 1
+    local_dt = localtime(dates[0]) if dates[0].tzinfo else dates[0]
+    assert (local_dt.hour, local_dt.minute) == (10, 45)
+
+
 def test_generate_repeat_dates_day_count_limit():
     patient_end_date = datetime.now() + timedelta(days=10)
     repeat_data = {

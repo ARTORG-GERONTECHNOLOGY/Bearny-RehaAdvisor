@@ -33,6 +33,10 @@ from core.views.intervention_import import import_interventions
 from core.views.intervention_media_upload import upload_intervention_media
 from core.views.media_auth_view import media_auth_check
 from core.views.patient_flag_views import patient_comments_view, patient_flag_view
+from core.views.patient_notification_prefs import (
+    patient_notification_preferences_view,
+    patient_push_subscription_view,
+)
 from core.views.patient_thresholds import patient_thresholds_view
 from core.views.questionaires_view import (
     assign_questionnaire,
@@ -373,6 +377,16 @@ urlpatterns = [
         "api/patients/<str:patient_id>/thresholds/",
         patient_thresholds_view,
         name="patient-thresholds",
+    ),
+    path(
+        "api/patients/<str:patient_id>/notification-preferences/",
+        patient_notification_preferences_view,
+        name="patient-notification-preferences",
+    ),
+    path(
+        "api/patients/<str:patient_id>/push-subscription/",
+        patient_push_subscription_view,
+        name="patient-push-subscription",
     ),
     path(
         "api/patients/<str:patient_id>/flag/",

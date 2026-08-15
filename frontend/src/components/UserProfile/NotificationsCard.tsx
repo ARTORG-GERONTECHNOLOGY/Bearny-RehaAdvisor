@@ -1,31 +1,72 @@
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { observer } from 'mobx-react-lite';
 import Card from '@/components/Card';
 import { Switch } from '@/components/ui/switch';
 import { useNotifications } from '@/hooks/useNotifications';
+import authStore from '@/stores/authStore';
+import {
+  notificationPreferencesStore,
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_CATEGORY_LABEL_KEYS,
+} from '@/stores/notificationPreferencesStore';
 
-export default function NotificationsCard() {
+const NotificationsCard: React.FC = observer(() => {
   const { t } = useTranslation();
-  const { enabled, permission, supportsPeriodicSync, toggleNotifications } = useNotifications();
+  const { permission, supportsPush, toggleCategory, toggleAll, pendingCategories, pendingAll } =
+    useNotifications();
+  const patientId = authStore.getStoredUserId();
+  const { preferences, error } = notificationPreferencesStore;
+
+  useEffect(() => {
+    if (patientId) {
+      notificationPreferencesStore.fetchPreferences(patientId);
+    }
+  }, [patientId]);
+
+  const allEnabled = NOTIFICATION_CATEGORIES.every((c) => preferences[c]);
 
   return (
-    <Card className="flex flex-col gap-1">
-      <div className="text-sm font-medium text-zinc-500">{t('Notifications')}</div>
+    <Card className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
+          <div className="text-sm font-medium text-zinc-500">{t('Notifications')}</div>
           <div className="font-bold text-lg leading-6 text-zinc-800">{t('Receive reminders')}</div>
           {permission === 'denied' && (
             <div className="text-nok text-xs">
               {t('Notification permission denied. Please enable in browser settings.')}
             </div>
           )}
-          {!supportsPeriodicSync && (
+          {!supportsPush && (
             <div className="text-amber-600 text-xs">
-              {t('Background notifications not supported in this browser.')}
+              {t('Push notifications are not supported in this browser.')}
             </div>
           )}
+          {!!error && <div className="text-nok text-xs">{t(error)}</div>}
         </div>
-        <Switch checked={enabled} onCheckedChange={toggleNotifications} />
+        <Switch
+          checked={allEnabled}
+          disabled={pendingAll}
+          onCheckedChange={(value) => patientId && toggleAll(patientId, value)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2 border-t border-zinc-100 pt-2">
+        {NOTIFICATION_CATEGORIES.map((category) => (
+          <div key={category} className="flex items-center justify-between">
+            <div className="text-sm text-zinc-700">
+              {t(NOTIFICATION_CATEGORY_LABEL_KEYS[category])}
+            </div>
+            <Switch
+              checked={preferences[category]}
+              disabled={pendingAll || pendingCategories.has(category)}
+              onCheckedChange={(value) => patientId && toggleCategory(patientId, category, value)}
+            />
+          </div>
+        ))}
       </div>
     </Card>
   );
-}
+});
+
+export default NotificationsCard;

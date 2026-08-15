@@ -52,17 +52,36 @@ const mockAuthStore = jest.requireMock('@/stores/authStore').default as {
 };
 
 // Mock useNotifications hook
-const mockToggleNotifications = jest.fn();
 const mockUseNotifications = jest.fn(() => ({
-  enabled: false,
   permission: 'default' as NotificationPermission,
-  supportsPeriodicSync: true,
-  toggleNotifications: mockToggleNotifications,
+  supportsPush: true,
+  toggleCategory: jest.fn(),
+  toggleAll: jest.fn(),
+  pendingCategories: new Set<string>(),
+  pendingAll: false,
 }));
 
 jest.mock('@/hooks/useNotifications', () => ({
   useNotifications: () => mockUseNotifications(),
 }));
+
+// Mock notificationPreferencesStore
+jest.mock('@/stores/notificationPreferencesStore', () => {
+  const actual = jest.requireActual('@/stores/notificationPreferencesStore');
+  return {
+    ...actual,
+    notificationPreferencesStore: {
+      preferences: {
+        ...actual.NOTIFICATION_CATEGORIES.reduce((a: any, c: string) => ({ ...a, [c]: true }), {}),
+      },
+      loading: false,
+      saving: false,
+      error: '',
+      fetchPreferences: jest.fn(),
+      savePreferences: jest.fn(),
+    },
+  };
+});
 
 jest.mock('@/components/ui/select', () => ({
   Select: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -116,10 +135,12 @@ beforeEach(() => {
   mockFetchStatus.mockClear();
   mockFitbitConnected = false;
   mockUseNotifications.mockReturnValue({
-    enabled: false,
     permission: 'default' as NotificationPermission,
-    supportsPeriodicSync: true,
-    toggleNotifications: mockToggleNotifications,
+    supportsPush: true,
+    toggleCategory: jest.fn(),
+    toggleAll: jest.fn(),
+    pendingCategories: new Set<string>(),
+    pendingAll: false,
   });
   mockAuthStore.isAuthenticated = true;
   mockAuthStore.userType = 'Patient';
@@ -132,6 +153,9 @@ beforeEach(() => {
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
+// Detailed per-category switch/permission behaviour is covered in
+// components/UserProfile/NotificationsCard.test.tsx — these just confirm the
+// card is composed into the page.
 describe('PatientProfile - Notifications', () => {
   it('renders notification settings card', () => {
     renderPatientProfile();
@@ -139,79 +163,20 @@ describe('PatientProfile - Notifications', () => {
     expect(screen.getByText('Receive reminders')).toBeInTheDocument();
   });
 
-  it('displays notification switch in unchecked state by default', () => {
-    renderPatientProfile();
-    const switchElement = screen.getByRole('switch');
-    expect(switchElement).not.toBeChecked();
-  });
-
-  it('displays notification switch in checked state when enabled', () => {
-    mockUseNotifications.mockReturnValue({
-      enabled: true,
-      permission: 'granted' as NotificationPermission,
-      supportsPeriodicSync: true,
-      toggleNotifications: mockToggleNotifications,
-    });
-
-    renderPatientProfile();
-    const switchElement = screen.getByRole('switch');
-    expect(switchElement).toBeChecked();
-  });
-
-  it('calls toggleNotifications when switch is clicked', async () => {
-    renderPatientProfile();
-    const switchElement = screen.getByRole('switch');
-
-    fireEvent.click(switchElement);
-
-    await waitFor(() => {
-      expect(mockToggleNotifications).toHaveBeenCalledWith(true);
-    });
-  });
-
   it('shows permission denied warning when permission is denied', () => {
     mockUseNotifications.mockReturnValue({
-      enabled: false,
       permission: 'denied' as NotificationPermission,
-      supportsPeriodicSync: true,
-      toggleNotifications: mockToggleNotifications,
+      supportsPush: true,
+      toggleCategory: jest.fn(),
+      toggleAll: jest.fn(),
+      pendingCategories: new Set<string>(),
+      pendingAll: false,
     });
 
     renderPatientProfile();
     expect(
       screen.getByText('Notification permission denied. Please enable in browser settings.')
     ).toBeInTheDocument();
-  });
-
-  it('shows browser not supported warning when periodicSync is not supported', () => {
-    mockUseNotifications.mockReturnValue({
-      enabled: false,
-      permission: 'default' as NotificationPermission,
-      supportsPeriodicSync: false,
-      toggleNotifications: mockToggleNotifications,
-    });
-
-    renderPatientProfile();
-    expect(
-      screen.getByText('Background notifications not supported in this browser.')
-    ).toBeInTheDocument();
-  });
-
-  it('does not show warnings when everything is supported', () => {
-    mockUseNotifications.mockReturnValue({
-      enabled: true,
-      permission: 'granted' as NotificationPermission,
-      supportsPeriodicSync: true,
-      toggleNotifications: mockToggleNotifications,
-    });
-
-    renderPatientProfile();
-    expect(
-      screen.queryByText('Notification permission denied. Please enable in browser settings.')
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('Background notifications not supported in this browser.')
-    ).not.toBeInTheDocument();
   });
 });
 

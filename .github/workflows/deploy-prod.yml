@@ -14,6 +14,9 @@ name: Production Deployment
 #   PROD_SSH_KEY         — private SSH key (PEM)
 #   VITE_SENTRY_DSN      — baked into the frontend image at build time;
 #                          server .env.prod is too late for the static bundle
+#   VITE_VAPID_PUBLIC_KEY — baked into frontend image at build time;
+#                           VAPID_PRIVATE_KEY/VAPID_ADMIN_EMAIL
+#                           are backend-only — go in server .env.prod
 #   SLACK_WEBHOOK_URL    — optional Slack notifications
 #   E2E_PATIENT_PASSWORD — Playwright E2E credentials (same as tests.yml)
 #   E2E_ADMIN_PASSWORD   — Playwright E2E credentials
@@ -369,6 +372,15 @@ jobs:
             exit 1
           fi
 
+      - name: Verify frontend VAPID public key is configured
+        env:
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+        run: |
+          if [ -z "$VITE_VAPID_PUBLIC_KEY" ]; then
+            echo "::error::VITE_VAPID_PUBLIC_KEY is empty for the production build. The frontend reads this at Docker build time, so push notification subscribe/enable will fail for every patient in production when this secret is missing or not visible to the build job."
+            exit 1
+          fi
+
       - name: Verify Fitbit client ID is configured
         run: |
           # Keep this value in sync with the VITE_FITBIT_CLIENT_ID build-arg below.
@@ -407,6 +419,7 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           build-args: |
             VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
+            VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}
             VITE_FITBIT_CLIENT_ID=23Q9W2
             VITE_FITBIT_REDIRECT_URI=https://reha-advisor.ch/api/fitbit/callback/
           cache-from: type=gha,scope=frontend-root

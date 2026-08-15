@@ -1,46 +1,119 @@
-import { useState, useEffect } from 'react';
-import i18n from 'i18next';
+import { useEffect, useState } from 'react';
+import {
+  notificationPreferencesStore,
+  NOTIFICATION_CATEGORIES,
+  type NotificationCategory,
+} from '@/stores/notificationPreferencesStore';
+import { urlBase64ToUint8Array } from '@/utils/pushSubscription';
 
-function postLanguageToSW(lang: string) {
-  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage({
-      type: 'SET_LANGUAGE',
-      language: lang.slice(0, 2),
-    });
+// Module-level (not per-render) in-flight locks: there is only ever one real
+// browser push subscription, so concurrent toggleCategory/toggleAll calls
+// (e.g. rapid double-clicks before the UI has re-rendered) must share the
+// same subscribe/unsubscribe attempt instead of each independently calling
+// pushManager.subscribe(), which creates a distinct new subscription per call.
+let subscribeInFlight: Promise<boolean> | null = null;
+let unsubscribeInFlight: Promise<void> | null = null;
+
+async function createFreshSubscription(
+  registration: ServiceWorkerRegistration
+): Promise<PushSubscription> {
+  const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
+  return registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
+  });
+}
+
+// The backend returns this when `endpoint` already belongs to a different
+// patient (see patient_notification_prefs.py) — a browser PushSubscription
+// is scoped to origin, not to our app's login state, so this happens on
+// shared devices where a previous patient logged out without disabling
+// notifications first.
+function isEndpointConflict(error: unknown): boolean {
+  const response = (error as { response?: { status?: number; data?: { code?: string } } })
+    ?.response;
+  return response?.status === 409 && response?.data?.code === 'endpoint_conflict';
+}
+
+// Returns whether a real PushSubscription actually got created — callers
+// must not persist a category as "on" unless this is true, otherwise the UI
+// shows enabled while no subscription exists to ever deliver anything.
+async function doSubscribeToPush(patientId: string): Promise<boolean> {
+  notificationPreferencesStore.clearError();
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await createFreshSubscription(registration);
+    }
+
+    try {
+      await notificationPreferencesStore.registerPushSubscription(patientId, subscription.toJSON());
+    } catch (error) {
+      if (!isEndpointConflict(error)) throw error;
+      // Drop the stale subscription (it belongs to someone else) and mint a
+      // genuinely new one, rather than silently taking over their device.
+      await subscription.unsubscribe();
+      subscription = await createFreshSubscription(registration);
+      await notificationPreferencesStore.registerPushSubscription(patientId, subscription.toJSON());
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[Notifications] Failed to subscribe to push:', error);
+    notificationPreferencesStore.setError('Failed to enable push notifications');
+    return false;
   }
 }
 
+function subscribeToPush(patientId: string): Promise<boolean> {
+  if (!subscribeInFlight) {
+    subscribeInFlight = doSubscribeToPush(patientId).finally(() => {
+      subscribeInFlight = null;
+    });
+  }
+  return subscribeInFlight;
+}
+
+async function doUnsubscribeFromPush(patientId: string): Promise<void> {
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (subscription) {
+      const endpoint = subscription.endpoint;
+      await subscription.unsubscribe();
+      await notificationPreferencesStore.removePushSubscription(patientId, endpoint);
+    }
+  } catch (error) {
+    console.error('[Notifications] Failed to unsubscribe from push:', error);
+  }
+}
+
+function unsubscribeFromPush(patientId: string): Promise<void> {
+  if (!unsubscribeInFlight) {
+    unsubscribeInFlight = doUnsubscribeFromPush(patientId).finally(() => {
+      unsubscribeInFlight = null;
+    });
+  }
+  return unsubscribeInFlight;
+}
+
 export function useNotifications() {
-  const [enabled, setEnabled] = useState<boolean>(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
-  const [supportsPeriodicSync, setSupportsPeriodicSync] = useState<boolean>(false);
+  const [supportsPush, setSupportsPush] = useState<boolean>(false);
+  // Categories (and/or "all") currently mid-toggle — used to disable their
+  // switches in the UI so a slow permission/subscribe round-trip can't be
+  // mistaken for "nothing happened" and clicked again.
+  const [pendingCategories, setPendingCategories] = useState<Set<NotificationCategory>>(new Set());
+  const [pendingAll, setPendingAll] = useState(false);
 
   useEffect(() => {
-    // Check current permission
     if ('Notification' in window) {
       setPermission(Notification.permission);
     }
-
-    // Check if Periodic Background Sync is supported
-    if ('serviceWorker' in navigator && 'periodicSync' in ServiceWorkerRegistration.prototype) {
-      setSupportsPeriodicSync(true);
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      setSupportsPush(true);
     }
-
-    // Load saved setting
-    const saved = localStorage.getItem('notifications-enabled');
-    if (saved === 'true' && Notification.permission === 'granted') {
-      setEnabled(true);
-    }
-
-    // Sync current language to SW on mount
-    postLanguageToSW(i18n.language);
-
-    // Keep SW language in sync whenever user changes language
-    const handleLanguageChanged = (lang: string) => postLanguageToSW(lang);
-    i18n.on('languageChanged', handleLanguageChanged);
-    return () => {
-      i18n.off('languageChanged', handleLanguageChanged);
-    };
   }, []);
 
   const requestPermission = async (): Promise<boolean> => {
@@ -58,70 +131,69 @@ export function useNotifications() {
     return result === 'granted';
   };
 
-  const registerPeriodicSync = async () => {
+  const toggleCategory = async (
+    patientId: string,
+    category: NotificationCategory,
+    value: boolean
+  ) => {
+    setPendingCategories((prev) => new Set(prev).add(category));
     try {
-      const registration = await navigator.serviceWorker.ready;
-      if ('periodicSync' in registration) {
-        // @ts-expect-error - periodicSync API
-        await registration.periodicSync.register('twice-weekly-reminder', {
-          minInterval: 24 * 60 * 60 * 1000, // 24 h – fires daily; SW checks Mon/Thu before showing
+      if (value) {
+        const hasPermission = await requestPermission();
+        if (!hasPermission) return;
+        const subscribed = await subscribeToPush(patientId);
+        if (!subscribed) return; // doSubscribeToPush already set the error
+        await notificationPreferencesStore.savePreferences(patientId, { [category]: true });
+      } else {
+        const saved = await notificationPreferencesStore.savePreferences(patientId, {
+          [category]: false,
         });
-        console.log('[Notifications] Periodic sync registered for twice-weekly reminders');
+        if (!saved) return; // preferences were rolled back — subscription must stay as-is
+        const stillEnabled = NOTIFICATION_CATEGORIES.some(
+          (c) => c !== category && notificationPreferencesStore.preferences[c]
+        );
+        if (!stillEnabled) {
+          await unsubscribeFromPush(patientId);
+        }
       }
-    } catch (error) {
-      console.error('[Notifications] Failed to register periodic sync:', error);
-    }
-  };
-
-  const unregisterPeriodicSync = async () => {
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      if ('periodicSync' in registration) {
-        // @ts-expect-error - periodicSync API
-        await registration.periodicSync.unregister('twice-weekly-reminder');
-        console.log('[Notifications] Periodic sync unregistered');
-      }
-    } catch (error) {
-      console.error('[Notifications] Failed to unregister periodic sync:', error);
-    }
-  };
-
-  const testNotification = () => {
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({
-        type: 'TEST_NOTIFICATION',
+    } finally {
+      setPendingCategories((prev) => {
+        const next = new Set(prev);
+        next.delete(category);
+        return next;
       });
     }
   };
 
-  const toggleNotifications = async (value: boolean) => {
-    if (value) {
-      // Enable notifications
-      const hasPermission = await requestPermission();
-      if (hasPermission) {
-        setEnabled(true);
-        localStorage.setItem('notifications-enabled', 'true');
-        await registerPeriodicSync();
-        // Ensure SW knows the current language before test notification fires
-        postLanguageToSW(i18n.language);
-        // Show a test notification
-        testNotification();
-      } else {
-        setEnabled(false);
-        localStorage.setItem('notifications-enabled', 'false');
+  const toggleAll = async (patientId: string, value: boolean) => {
+    setPendingAll(true);
+    try {
+      if (value) {
+        const hasPermission = await requestPermission();
+        if (!hasPermission) return;
+        const subscribed = await subscribeToPush(patientId);
+        if (!subscribed) return; // doSubscribeToPush already set the error
       }
-    } else {
-      // Disable notifications
-      setEnabled(false);
-      localStorage.setItem('notifications-enabled', 'false');
-      await unregisterPeriodicSync();
+      const partial = Object.fromEntries(NOTIFICATION_CATEGORIES.map((c) => [c, value])) as Record<
+        NotificationCategory,
+        boolean
+      >;
+      const saved = await notificationPreferencesStore.savePreferences(patientId, partial);
+      if (!saved) return; // preferences were rolled back — subscription must stay as-is
+      if (!value) {
+        await unsubscribeFromPush(patientId);
+      }
+    } finally {
+      setPendingAll(false);
     }
   };
 
   return {
-    enabled,
     permission,
-    supportsPeriodicSync,
-    toggleNotifications,
+    supportsPush,
+    toggleCategory,
+    toggleAll,
+    pendingCategories,
+    pendingAll,
   };
 }

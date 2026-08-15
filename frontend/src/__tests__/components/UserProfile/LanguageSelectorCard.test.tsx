@@ -2,8 +2,17 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import LanguageSelectorCard from '@/components/UserProfile/LanguageSelectorCard';
+import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
+
+jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
+
+jest.mock('@/stores/authStore', () => ({
+  __esModule: true,
+  default: { userType: 'Patient', getStoredUserId: jest.fn(() => 'patient-1') },
+}));
 
 // Real Radix Select needs pointer-capture APIs jsdom doesn't implement — mock it with a
 // native <select> that still wires value/onValueChange, so handleChange is exercised for real.
@@ -37,6 +46,13 @@ jest.mock('@/components/ui/select', () => ({
 }));
 
 describe('LanguageSelectorCard', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (authStore as any).userType = 'Patient';
+    (authStore.getStoredUserId as jest.Mock).mockReturnValue('patient-1');
+    (apiClient.put as jest.Mock).mockResolvedValue({});
+  });
+
   it('renders an option for every supported language', () => {
     render(<LanguageSelectorCard />);
     ['English', 'Deutsch', 'Français', 'Italiano', 'Português', 'Nederlands'].forEach((name) => {
@@ -80,5 +96,36 @@ describe('LanguageSelectorCard', () => {
     fireEvent.change(screen.getByTestId('language-select'), { target: { value: 'fr' } });
 
     expect(i18n.changeLanguage).toHaveBeenCalledWith('fr');
+  });
+
+  describe('persisting preferred_language for patients', () => {
+    it('PUTs preferred_language to the profile endpoint when the user is a Patient', () => {
+      (apiClient.put as jest.Mock).mockResolvedValueOnce({});
+      render(<LanguageSelectorCard />);
+
+      fireEvent.change(screen.getByTestId('language-select'), { target: { value: 'pt' } });
+
+      expect(apiClient.put).toHaveBeenCalledWith('/users/patient-1/profile/', {
+        preferred_language: 'pt',
+      });
+    });
+
+    it('does not PUT when the user is not a Patient (e.g. Therapist)', () => {
+      (authStore as any).userType = 'Therapist';
+      render(<LanguageSelectorCard />);
+
+      fireEvent.change(screen.getByTestId('language-select'), { target: { value: 'fr' } });
+
+      expect(apiClient.put).not.toHaveBeenCalled();
+    });
+
+    it('does not throw when the PUT request fails', () => {
+      (apiClient.put as jest.Mock).mockRejectedValueOnce(new Error('network down'));
+      render(<LanguageSelectorCard />);
+
+      expect(() => {
+        fireEvent.change(screen.getByTestId('language-select'), { target: { value: 'it' } });
+      }).not.toThrow();
+    });
   });
 });
