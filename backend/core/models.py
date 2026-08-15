@@ -603,6 +603,22 @@ class PatientComment(EmbeddedDocument):
     commented_by = StringField(default="")
 
 
+# ---------------------------------------
+# Per-category push notification prefs
+# ---------------------------------------
+class PatientNotificationPreferences(EmbeddedDocument):
+    # Keys mirror Intervention.aim via AIM_TO_NOTIFICATION_CATEGORY
+    # (core/notifications/categorize.py); "other" covers "Experience" and
+    # unmapped aims. Default False: "on" implies subscribed, since enabling
+    # a category is what creates the PushSubscription (useNotifications.ts).
+    education = BooleanField(default=False)
+    exercise = BooleanField(default=False)
+    instructions = BooleanField(default=False)
+    reminder = BooleanField(default=False)
+    behavior_change = BooleanField(default=False)
+    other = BooleanField(default=False)
+
+
 class Patient(Document):
     meta = {
         "collection": "Patients",
@@ -627,6 +643,9 @@ class Patient(Document):
     # ✅ Platform-specific settings
     thresholds = EmbeddedDocumentField("PatientThresholds", default=lambda: PatientThresholds())
     thresholds_history = ListField(EmbeddedDocumentField("PatientThresholdsSnapshot"), default=list)
+    notification_preferences = EmbeddedDocumentField(
+        "PatientNotificationPreferences", default=lambda: PatientNotificationPreferences()
+    )
 
     # ✅ Therapist-facing flag + comment history
     flagged = BooleanField(default=False)
@@ -688,7 +707,7 @@ class Patient(Document):
 
     preferred_language = StringField(
         max_length=10,
-        choices=["en", "es", "fr", "de", "it", "nl", "sv", "zh", "ja", "ko"],
+        choices=["en", "es", "fr", "de", "it", "nl", "pt", "sv", "zh", "ja", "ko"],
         default="en",
     )
 
@@ -742,6 +761,51 @@ class RehabilitationPlan(Document):
     questionnaires = ListField(EmbeddedDocumentField(QuestionnaireAssignment))
     createdAt = DateTimeField(default=timezone.now)  # Timestamp for creation
     updatedAt = DateTimeField(default=timezone.now)  # Timestamp for last update
+
+
+class PushSubscription(Document):
+    """One row per browser/device a patient has subscribed to Web Push from."""
+
+    meta = {
+        "collection": "PushSubscriptions",
+        "indexes": [
+            {"fields": ["patient"]},
+            {"fields": ["endpoint"], "unique": True},
+        ],
+    }
+
+    patient = ReferenceField(Patient, required=True)
+    endpoint = StringField(required=True, unique=True)
+    keys_p256dh = StringField(required=True)
+    keys_auth = StringField(required=True)
+    user_agent = StringField(default="")
+    created_at = DateTimeField(default=timezone.now)
+    last_used_at = DateTimeField(null=True)
+
+
+class SentPushNotification(Document):
+    """
+    Dedup record: one per (patient, rehab plan, intervention, scheduled_at)
+    so the hourly Celery scan never sends the same scheduled intervention
+    notification twice, even across retried/concurrent task runs.
+    """
+
+    meta = {
+        "collection": "SentPushNotifications",
+        "indexes": [
+            {
+                "fields": ["patient", "rehab_plan", "intervention", "scheduled_at"],
+                "unique": True,
+            },
+        ],
+    }
+
+    patient = ReferenceField(Patient, required=True)
+    rehab_plan = ReferenceField(RehabilitationPlan, required=True)
+    intervention = ReferenceField(Intervention, required=True)
+    scheduled_at = DateTimeField(required=True)
+    category = StringField()
+    sent_at = DateTimeField(default=timezone.now)
 
 
 class PatientICFRating(Document):

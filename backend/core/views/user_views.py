@@ -330,6 +330,7 @@ def user_profile_view(request, user_id):
         "personal_goals": list,
         "social_support": list,
         "initial_questionnaire_enabled": bool,
+        "preferred_language": str,
         # wearable_device handled explicitly below (enum validation)
     }
 
@@ -507,6 +508,11 @@ def user_profile_view(request, user_id):
             phone_val = raw.get("phone")
             if phone_val is not None and phone_val != "" and not re.match(r"^\+?[0-9]{7,15}$", str(phone_val)):
                 return JsonResponse({"error": "Invalid phone"}, status=400)
+
+            lang_val = raw.get("preferred_language")
+            if lang_val is not None and lang_val != "":
+                if str(lang_val) not in Patient._fields["preferred_language"].choices:
+                    return JsonResponse({"error": "Invalid preferred_language"}, status=400)
 
             updated = {}
             old = {}

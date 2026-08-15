@@ -221,13 +221,21 @@ def sanitize_text(text, is_name=False):
 
 def parse_start_date(start_date):
     """
-    Parse a start date from string or datetime to a timezone-naive datetime object.
+    Parse a start date to a naive datetime representing LOCAL wall-clock time.
+    Aware input is converted to local time before stripping tzinfo — callers
+    re-attach the local tz via make_aware(), so stripping first would relabel
+    e.g. UTC digits as local, shifting the result by the UTC offset.
     """
     try:
         if isinstance(start_date, str):
-            return datetime.fromisoformat(start_date.replace("Z", "+00:00")).replace(tzinfo=None)
+            dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
         elif isinstance(start_date, datetime):
-            return start_date.replace(tzinfo=None)
+            dt = start_date
+        else:
+            return timezone.now().replace(tzinfo=None)
+        if not is_naive(dt):
+            dt = dt.astimezone(timezone.get_current_timezone())
+        return dt.replace(tzinfo=None)
     except Exception as e:
         logger.warning(f"Failed to parse start date: {e}")
     return timezone.now().replace(tzinfo=None)

@@ -1,13 +1,17 @@
 # core/tasks.py
+import json
 import logging
 import os
 import subprocess
 import time
 from datetime import timedelta
+from datetime import timezone as datetime_timezone
 
 from celery import shared_task
+from django.conf import settings
 from django.core.management import call_command
 from django.utils import timezone
+from mongoengine.errors import NotUniqueError
 
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from core.views.google_health_sync import fetch_google_health_today_for_user
@@ -18,11 +22,15 @@ from core.models import (
     Logs,
     Patient,
     PatientInterventionLogs,
+    PushSubscription,
     RehabilitationPlan,
+    SentPushNotification,
     SMSVerification,
     Therapist,
     User,
 )
+from core.notifications.categorize import resolve_notification_category
+from core.notifications.push_translations import get_push_content
 
 _LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "365"))
 _AUDIT_EXPORT_RETENTION_DAYS = int(os.getenv("AUDIT_EXPORT_RETENTION_DAYS", "1825"))  # 5 years
@@ -338,3 +346,156 @@ def renew_certificates():
 
     logger.info("[renew_certificates] ✅ certificates renewed and nginx reloaded")
     return "renewed"
+
+
+def _as_aware_utc(dt):
+    """
+    Treat naive datetimes as UTC, not local server time.
+
+    The mongoengine connection uses tz_aware=False (core/apps.py), so any
+    aware datetime written to InterventionAssignment.dates round-trips back
+    as a naive value holding the UTC instant, not local time. This mirrors
+    patient_views.py::_as_aware_utc, the convention already established for
+    this exact field (all writers there normalize to UTC before saving, e.g.
+    reschedule_intervention_date's past_utc/future_utc/existing_utc).
+    """
+    if dt is None:
+        return None
+    if timezone.is_naive(dt):
+        return timezone.make_aware(dt, datetime_timezone.utc)
+    return dt.astimezone(datetime_timezone.utc)
+
+
+def _send_push_to_patient(patient: Patient, category: str) -> None:
+    from pywebpush import WebPushException, webpush
+
+    content = get_push_content(patient.preferred_language, category)
+    if not content.get("title"):
+        return
+
+    payload = json.dumps(
+        {
+            "title": content["title"],
+            "body": content.get("body", ""),
+            "url": "/",
+            "tag": f"bearny-{category}",
+        }
+    )
+
+    for subscription in PushSubscription.objects(patient=patient):
+        try:
+            webpush(
+                subscription_info={
+                    "endpoint": subscription.endpoint,
+                    "keys": {
+                        "p256dh": subscription.keys_p256dh,
+                        "auth": subscription.keys_auth,
+                    },
+                },
+                data=payload,
+                vapid_private_key=settings.VAPID_PRIVATE_KEY,
+                vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
+                # requests has no default timeout, so set one to avoid hanging the worker.
+                timeout=10,
+            )
+            subscription.last_used_at = timezone.now()
+            subscription.save()
+        except WebPushException as e:
+            status_code = getattr(e.response, "status_code", None)
+            if status_code in (404, 410):
+                logger.info("[send_push] stale subscription removed (patient=%s)", patient.id)
+                subscription.delete()
+            else:
+                logger.warning("[send_push] webpush failed for patient=%s: %s", patient.id, e)
+        except Exception:
+            # Don't let one bad subscription abort the loop for other patients.
+            logger.exception("[send_push] unexpected error sending to patient=%s", patient.id)
+
+
+def _due_assignment_dates(plan, window_start, window_end):
+    """Yield (assignment, dt) pairs from plan.interventions whose date falls in the window."""
+    for assignment in plan.interventions:
+        for raw_dt in assignment.dates:
+            dt = _as_aware_utc(raw_dt)
+            if dt is not None and window_start <= dt < window_end:
+                yield assignment, dt
+
+
+def _notify_if_due(plan, patient, assignment, dt) -> str:
+    """Send (or skip) one due notification. Returns 'sent', 'skipped', or 'duplicate'."""
+    intervention = assignment.interventionId
+    if intervention is None:
+        return "skipped"
+    category = resolve_notification_category(intervention.aim)
+
+    # Fail closed: missing prefs or attribute means "not enabled".
+    prefs = patient.notification_preferences
+    category_enabled = bool(getattr(prefs, category, False)) if prefs is not None else False
+    if not category_enabled:
+        return "skipped"
+
+    try:
+        SentPushNotification(
+            patient=patient,
+            rehab_plan=plan,
+            intervention=intervention,
+            scheduled_at=dt,
+            category=category,
+        ).save()
+    except NotUniqueError:
+        return "duplicate"  # already sent for this exact scheduled date
+
+    _send_push_to_patient(patient, category)
+    return "sent"
+
+
+@shared_task(
+    name="core.tasks.send_due_intervention_push_notifications",
+    autoretry_for=(Exception,),
+    retry_backoff=30,
+    max_retries=2,
+)
+def send_due_intervention_push_notifications():
+    """
+    Runs hourly, on the hour (see seed_periodic_tasks). Finds
+    InterventionAssignment scheduled `dates` entries due in the past hour,
+    and pushes a notification to each patient who has that intervention's
+    category (Intervention.aim, mapped via resolve_notification_category)
+    enabled in their notification_preferences.
+
+    Note: because this only runs once per hour, a date scheduled just after
+    the top of the hour won't notify until up to ~59 minutes later, at the
+    next run. There is no catch-up logic: if Beat/the worker is down for
+    longer than an hour, any dates that fell in the resulting gap are
+    permanently skipped, not just delayed — the next run only ever looks at
+    the hour immediately before it.
+
+    Dedup is enforced by SentPushNotification's unique compound index, not by
+    mutating the embedded InterventionAssignment.dates list in place — safer
+    under retried/concurrent task runs.
+    """
+    window_end = timezone.now().replace(minute=0, second=0, microsecond=0)
+    window_start = window_end - timedelta(hours=1)
+
+    # Coarse DB-level pre-filter: narrows candidate plans. Mongo can't
+    # guarantee the $gte/$lte conditions land on the same array element two
+    # levels deep (interventions[].dates[]), so we re-check exactly in Python.
+    candidates = RehabilitationPlan.objects(
+        status="active",
+        startDate__lte=window_end,
+        endDate__gte=window_start,
+        interventions__dates__gte=window_start,
+        interventions__dates__lte=window_end,
+    )
+
+    counts = {"sent": 0, "skipped": 0, "duplicate": 0}
+    for plan in candidates:
+        patient = plan.patientId
+        if patient is None:
+            continue
+        for assignment, dt in _due_assignment_dates(plan, window_start, window_end):
+            outcome = _notify_if_due(plan, patient, assignment, dt)
+            counts[outcome] += 1
+
+    logger.info("[send_due_intervention_push_notifications] %s", counts)
+    return counts

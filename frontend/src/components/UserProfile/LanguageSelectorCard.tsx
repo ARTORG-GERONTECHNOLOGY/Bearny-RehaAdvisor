@@ -9,6 +9,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { SUPPORTED_LANGUAGES, LANGUAGE_FLAGS, LANGUAGE_NAMES } from '@/constants/languages';
+import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
 
 export default function LanguageSelectorCard() {
   const { t, i18n } = useTranslation();
@@ -17,6 +19,16 @@ export default function LanguageSelectorCard() {
 
   const handleChange = (value: string) => {
     i18n.changeLanguage(value);
+
+    // Only patients have a preferred_language field — this card is shared with therapists.
+    if (authStore.userType === 'Patient') {
+      const patientId = authStore.getStoredUserId();
+      if (patientId) {
+        apiClient.put(`/users/${patientId}/profile/`, { preferred_language: value }).catch(() => {
+          // Non-critical: i18n already switched locally, this just persists it.
+        });
+      }
+    }
   };
 
   return (

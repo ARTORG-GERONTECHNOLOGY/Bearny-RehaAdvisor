@@ -300,20 +300,37 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
               {/* ALL tab behavior for + / - */}
               {opts.inAllTab ? (
                 assigned ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="dashboard"
-                        variant="secondary"
-                        onClick={() => handleDeleteExercise(intervention._id)}
-                        aria-label={t('Remove')}
-                        className="px-3"
-                      >
-                        <FaMinus className="text-nok" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{t('Remove')}</TooltipContent>
-                  </Tooltip>
+                  hasFuture ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="dashboard"
+                          variant="secondary"
+                          onClick={() => handleDeleteExercise(intervention._id)}
+                          aria-label={t('Remove')}
+                          className="px-3"
+                        >
+                          <FaMinus className="text-nok" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('Remove')}</TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="dashboard"
+                          variant="secondary"
+                          onClick={() => handleAddIntervention(intervention)}
+                          aria-label={t('Schedule again')}
+                          className="px-3"
+                        >
+                          <FaPlus className="text-ok" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t('Schedule again')}</TooltipContent>
+                    </Tooltip>
+                  )
                 ) : (
                   <Tooltip>
                     <TooltipTrigger asChild>
