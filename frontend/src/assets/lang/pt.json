@@ -586,6 +586,8 @@
   "Receive reminders": "Receber lembretes",
   "Notification permission denied. Please enable in browser settings.": "Permissão de notificação negada. Por favor ative nas definições do navegador.",
   "Push notifications are not supported in this browser.": "As notificações push não são suportadas neste navegador.",
+  "Notifications are enabled on your account, but not on this device.": "As notificações estão ativadas na sua conta, mas não neste dispositivo.",
+  "Enable on this device": "Ativar neste dispositivo",
   "Failed to load notification preferences": "Não foi possível carregar as preferências de notificação",
   "Failed to save notification preferences": "Não foi possível guardar as preferências de notificação",
   "Failed to enable push notifications": "Não foi possível ativar as notificações push",

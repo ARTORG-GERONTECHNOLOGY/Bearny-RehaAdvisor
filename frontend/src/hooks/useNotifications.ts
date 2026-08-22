@@ -101,6 +101,9 @@ function unsubscribeFromPush(patientId: string): Promise<void> {
 export function useNotifications() {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [supportsPush, setSupportsPush] = useState<boolean>(false);
+  // Distinct from preferences, which are shared across the patient's devices.
+  const [isSubscribedOnThisDevice, setIsSubscribedOnThisDevice] = useState(false);
+  const [pendingDeviceEnable, setPendingDeviceEnable] = useState(false);
   // Categories (and/or "all") currently mid-toggle — used to disable their
   // switches in the UI so a slow permission/subscribe round-trip can't be
   // mistaken for "nothing happened" and clicked again.
@@ -115,6 +118,19 @@ export function useNotifications() {
       setSupportsPush(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!supportsPush) return;
+    let cancelled = false;
+    // getRegistration(), not .ready — .ready can hang until first load finishes.
+    navigator.serviceWorker.getRegistration().then(async (registration) => {
+      const subscription = await registration?.pushManager.getSubscription();
+      if (!cancelled) setIsSubscribedOnThisDevice(!!subscription);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [supportsPush]);
 
   const requestPermission = async (): Promise<boolean> => {
     if (!('Notification' in window)) {
@@ -131,6 +147,15 @@ export function useNotifications() {
     return result === 'granted';
   };
 
+  const subscribeThisDevice = async (patientId: string): Promise<boolean> => {
+    const hasPermission = await requestPermission();
+    if (!hasPermission) return false;
+    const subscribed = await subscribeToPush(patientId);
+    if (!subscribed) return false; // doSubscribeToPush already set the error
+    setIsSubscribedOnThisDevice(true);
+    return true;
+  };
+
   const toggleCategory = async (
     patientId: string,
     category: NotificationCategory,
@@ -139,10 +164,7 @@ export function useNotifications() {
     setPendingCategories((prev) => new Set(prev).add(category));
     try {
       if (value) {
-        const hasPermission = await requestPermission();
-        if (!hasPermission) return;
-        const subscribed = await subscribeToPush(patientId);
-        if (!subscribed) return; // doSubscribeToPush already set the error
+        if (!(await subscribeThisDevice(patientId))) return;
         await notificationPreferencesStore.savePreferences(patientId, { [category]: true });
       } else {
         const saved = await notificationPreferencesStore.savePreferences(patientId, {
@@ -154,6 +176,7 @@ export function useNotifications() {
         );
         if (!stillEnabled) {
           await unsubscribeFromPush(patientId);
+          setIsSubscribedOnThisDevice(false);
         }
       }
     } finally {
@@ -169,10 +192,7 @@ export function useNotifications() {
     setPendingAll(true);
     try {
       if (value) {
-        const hasPermission = await requestPermission();
-        if (!hasPermission) return;
-        const subscribed = await subscribeToPush(patientId);
-        if (!subscribed) return; // doSubscribeToPush already set the error
+        if (!(await subscribeThisDevice(patientId))) return;
       }
       const partial = Object.fromEntries(NOTIFICATION_CATEGORIES.map((c) => [c, value])) as Record<
         NotificationCategory,
@@ -182,15 +202,29 @@ export function useNotifications() {
       if (!saved) return; // preferences were rolled back — subscription must stay as-is
       if (!value) {
         await unsubscribeFromPush(patientId);
+        setIsSubscribedOnThisDevice(false);
       }
     } finally {
       setPendingAll(false);
     }
   };
 
+  // Unlike toggleCategory/toggleAll, this never saves preferences — they're already correct.
+  const enableOnThisDevice = async (patientId: string) => {
+    setPendingDeviceEnable(true);
+    try {
+      await subscribeThisDevice(patientId);
+    } finally {
+      setPendingDeviceEnable(false);
+    }
+  };
+
   return {
     permission,
     supportsPush,
+    isSubscribedOnThisDevice,
+    enableOnThisDevice,
+    pendingDeviceEnable,
     toggleCategory,
     toggleAll,
     pendingCategories,

@@ -593,6 +593,8 @@
   "Receive reminders": "Receive reminders",
   "Notification permission denied. Please enable in browser settings.": "Notification permission denied. Please enable in browser settings.",
   "Push notifications are not supported in this browser.": "Push notifications are not supported in this browser.",
+  "Notifications are enabled on your account, but not on this device.": "Notifications are enabled on your account, but not on this device.",
+  "Enable on this device": "Enable on this device",
   "Failed to load notification preferences": "Failed to load notification preferences",
   "Failed to save notification preferences": "Failed to save notification preferences",
   "Failed to enable push notifications": "Failed to enable push notifications",
