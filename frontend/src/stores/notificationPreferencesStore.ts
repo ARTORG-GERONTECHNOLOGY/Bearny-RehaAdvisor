@@ -63,6 +63,8 @@ class NotificationPreferencesStore {
   error = '';
   // Guards against an out-of-order fetchPreferences response overwriting newer state.
   private fetchToken = 0;
+  // Whose data is currently loaded — distinguishes a patient switch (clear stale data) from a same-patient retry (keep it on failure).
+  private loadedPatientId: string | null = null;
 
   constructor() {
     makeAutoObservable(this);
@@ -81,6 +83,12 @@ class NotificationPreferencesStore {
     const token = ++this.fetchToken;
     this.loading = true;
     this.error = '';
+    if (patientId !== this.loadedPatientId) {
+      // New patient: clear old values now, don't wait for the fetch to resolve.
+      this.preferences = { ...DEFAULT_PREFERENCES };
+      this.deviceCount = null;
+      this.lastSent = { ...DEFAULT_LAST_SENT };
+    }
     try {
       const { data } = await apiClient.get(`/patients/${patientId}/notification-preferences/`);
       if (token !== this.fetchToken) return;
@@ -88,14 +96,12 @@ class NotificationPreferencesStore {
         this.preferences = { ...DEFAULT_PREFERENCES, ...data.preferences };
         this.deviceCount = data.device_count ?? 0;
         this.lastSent = { ...DEFAULT_LAST_SENT, ...data.last_sent };
+        this.loadedPatientId = patientId;
       });
     } catch {
       if (token !== this.fetchToken) return;
       runInAction(() => {
-        // Reset rather than leaving the previous patient's values on screen.
-        this.preferences = { ...DEFAULT_PREFERENCES };
-        this.deviceCount = null;
-        this.lastSent = { ...DEFAULT_LAST_SENT };
+        // Keep last-known-good values on failure; only surface the error.
         this.error = 'Failed to load notification preferences';
       });
     } finally {

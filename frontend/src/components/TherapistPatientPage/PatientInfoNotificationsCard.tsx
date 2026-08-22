@@ -20,8 +20,8 @@ interface PatientInfoNotificationsCardProps {
 const PatientInfoNotificationsCard: React.FC<PatientInfoNotificationsCardProps> = observer(
   ({ store }) => {
     const { t } = useTranslation();
-    const preferences = store.rawPatient?.notification_preferences ?? {};
-    const { deviceCount, lastSent } = notificationPreferencesStore;
+    // Not store.rawPatient.notification_preferences — that's a one-time snapshot and goes stale.
+    const { preferences, deviceCount, lastSent } = notificationPreferencesStore;
 
     useEffect(() => {
       if (store.patientId) {
