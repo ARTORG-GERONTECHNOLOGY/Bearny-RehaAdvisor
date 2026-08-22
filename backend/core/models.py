@@ -797,7 +797,8 @@ class SentPushNotification(Document):
                 "fields": ["patient", "rehab_plan", "intervention", "scheduled_at"],
                 "unique": True,
             },
-            # Supports patient_notification_prefs.py's per-patient `.order_by("-sent_at")`.
+            # Supports patient_notification_prefs.py's per-patient, per-category
+            # aggregation ($match on patient, $sort by -sent_at) in _last_sent_by_category.
             {"fields": ["patient", "-sent_at"]},
         ],
     }

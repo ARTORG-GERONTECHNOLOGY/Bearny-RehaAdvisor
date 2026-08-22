@@ -34,25 +34,43 @@ function collectSourceFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-function collectUsedKeys(): Map<string, string> {
-  const keys = new Map<string, string>();
+interface KeyUsage {
+  file: string;
+  withCount: boolean; // some call site passes count, e.g. t('key', { count: n })
+  withoutCount: boolean; // some call site doesn't
+}
+
+const COUNT_OPTION_RE = /^\s*,\s*\{[^}]*\bcount\s*:/;
+
+function collectUsedKeys(): Map<string, KeyUsage> {
+  const keys = new Map<string, KeyUsage>();
   for (const file of collectSourceFiles(SRC_DIR)) {
     const content = fs.readFileSync(file, 'utf-8');
     let match;
+    T_CALL_RE.lastIndex = 0;
     while ((match = T_CALL_RE.exec(content))) {
       const key = match[2];
-      if (!keys.has(key)) {
-        keys.set(key, path.relative(SRC_DIR, file));
+      const tail = content.slice(T_CALL_RE.lastIndex, T_CALL_RE.lastIndex + 300);
+      const withCount = COUNT_OPTION_RE.test(tail);
+      const existing = keys.get(key);
+      if (!existing) {
+        keys.set(key, { file: path.relative(SRC_DIR, file), withCount, withoutCount: !withCount });
+      } else {
+        if (withCount) existing.withCount = true;
+        else existing.withoutCount = true;
       }
     }
   }
   return keys;
 }
 
-// i18next resolves t('key', { count }) to `key_one`/`key_other`, not the
-// bare key — accept either form since the scanner can't tell which a call uses.
-function hasKey(translations: Record<string, unknown>, key: string): boolean {
-  return key in translations || (`${key}_one` in translations && `${key}_other` in translations);
+// A non-count call only ever looks up the bare key — no `key_one`/`key_other`
+// fallback applies there — so it always needs the bare key, even if some
+// other call site for the same key does pass count.
+function hasKey(translations: Record<string, unknown>, key: string, usage: KeyUsage): boolean {
+  if (key in translations) return true;
+  if (usage.withoutCount) return false;
+  return `${key}_one` in translations && `${key}_other` in translations;
 }
 
 describe('t() keys used in the app exist in every language file', () => {
@@ -65,8 +83,8 @@ describe('t() keys used in the app exist in every language file', () => {
   it.each(langs)('%s has every key referenced by a t() call', (lang) => {
     const translations = files[lang];
     const missing = [...usedKeys.entries()]
-      .filter(([key]) => !hasKey(translations, key))
-      .map(([key, file]) => `"${key}" (first used in ${file})`);
+      .filter(([key, usage]) => !hasKey(translations, key, usage))
+      .map(([key, { file }]) => `"${key}" (first used in ${file})`);
     expect(missing).toHaveLength(0);
   });
 });

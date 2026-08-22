@@ -21,7 +21,7 @@ const PatientInfoNotificationsCard: React.FC<PatientInfoNotificationsCardProps> 
   ({ store }) => {
     const { t } = useTranslation();
     // Not store.rawPatient.notification_preferences — that's a one-time snapshot and goes stale.
-    const { preferences, deviceCount, lastSent } = notificationPreferencesStore;
+    const { preferences, deviceCount, lastSent, error } = notificationPreferencesStore;
 
     useEffect(() => {
       if (store.patientId) {
@@ -42,6 +42,7 @@ const PatientInfoNotificationsCard: React.FC<PatientInfoNotificationsCardProps> 
                   : t('devicesRegisteredCount', { count: deviceCount })}
               </div>
             )}
+            {!!error && <div className="text-xs text-nok">{t(error)}</div>}
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             <TooltipProvider delayDuration={150}>

@@ -120,10 +120,9 @@ export function useNotifications() {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [supportsPush, setSupportsPush] = useState<boolean>(false);
   // Distinct from preferences, which are shared across the patient's devices.
-  const [isSubscribedOnThisDevice, setIsSubscribedOnThisDevice] = useState(false);
-  // True once the mount-time subscription check resolves. Gate the "not on
-  // this device" hint on this so it doesn't flash before the check settles.
-  const [deviceCheckComplete, setDeviceCheckComplete] = useState(false);
+  // null = not yet known (mount-time check still in flight or failed);
+  // true/false = confirmed subscription state for this device.
+  const [deviceSubscribed, setDeviceSubscribed] = useState<boolean | null>(null);
   const [pendingDeviceEnable, setPendingDeviceEnable] = useState(false);
   // Categories (and/or "all") currently mid-toggle — used to disable their
   // switches in the UI so a slow permission/subscribe round-trip can't be
@@ -149,12 +148,11 @@ export function useNotifications() {
       .then((registration) => getCurrentSubscription(registration))
       .then((subscription) => {
         if (!cancelled) {
-          setIsSubscribedOnThisDevice(!!subscription);
-          setDeviceCheckComplete(true);
+          setDeviceSubscribed(!!subscription);
         }
       })
       .catch((error) => {
-        // deviceCheckComplete stays false so we don't show a possibly-wrong hint.
+        // deviceSubscribed stays null so we don't show a possibly-wrong hint.
         console.error("[Notifications] Failed to check this device's push subscription:", error);
       });
     return () => {
@@ -182,8 +180,14 @@ export function useNotifications() {
     if (!hasPermission) return false;
     const subscribed = await subscribeToPush(patientId);
     if (!subscribed) return false; // doSubscribeToPush already set the error
-    setIsSubscribedOnThisDevice(true);
+    setDeviceSubscribed(true);
     return true;
+  };
+
+  const unsubscribeThisDevice = async (patientId: string): Promise<boolean> => {
+    const unsubscribed = await unsubscribeFromPush(patientId);
+    if (unsubscribed) setDeviceSubscribed(false);
+    return unsubscribed;
   };
 
   const toggleCategory = async (
@@ -205,8 +209,7 @@ export function useNotifications() {
           (c) => c !== category && notificationPreferencesStore.preferences[c]
         );
         if (!stillEnabled) {
-          const unsubscribed = await unsubscribeFromPush(patientId);
-          if (unsubscribed) setIsSubscribedOnThisDevice(false);
+          await unsubscribeThisDevice(patientId);
         }
       }
     } finally {
@@ -231,8 +234,7 @@ export function useNotifications() {
       const saved = await notificationPreferencesStore.savePreferences(patientId, partial);
       if (!saved) return; // preferences were rolled back — subscription must stay as-is
       if (!value) {
-        const unsubscribed = await unsubscribeFromPush(patientId);
-        if (unsubscribed) setIsSubscribedOnThisDevice(false);
+        await unsubscribeThisDevice(patientId);
       }
     } finally {
       setPendingAll(false);
@@ -252,8 +254,8 @@ export function useNotifications() {
   return {
     permission,
     supportsPush,
-    isSubscribedOnThisDevice,
-    deviceCheckComplete,
+    isSubscribedOnThisDevice: deviceSubscribed === true,
+    deviceCheckComplete: deviceSubscribed !== null,
     enableOnThisDevice,
     pendingDeviceEnable,
     toggleCategory,

@@ -16,7 +16,6 @@
 # then userId fallback, ok()/bad() JSON helpers) and the IDOR guard from
 # core/views/patient_views.py::mark_intervention_completed.
 
-import datetime
 import json
 import logging
 from typing import Any, Dict
@@ -24,7 +23,6 @@ from typing import Any, Dict
 from bson import ObjectId
 from django.conf import settings
 from django.http import JsonResponse
-from django.utils import timezone
 from mongoengine.errors import NotUniqueError
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -32,6 +30,7 @@ from rest_framework.permissions import IsAuthenticated
 from core.models import Patient, PatientNotificationPreferences, PushSubscription, SentPushNotification
 from core.notifications.push_endpoints import is_allowed_push_endpoint
 from core.services.redcap_access import get_therapist_for_user
+from core.views.patient_views import _as_aware_utc
 
 logger = logging.getLogger(__name__)
 
@@ -87,13 +86,6 @@ def _preferences_to_dict(prefs: PatientNotificationPreferences) -> Dict[str, boo
     # Fail closed (opt-in): a missing attribute reads as "not enabled", matching
     # PatientNotificationPreferences' own default=False.
     return {field: bool(getattr(prefs, field, False)) for field in PREFERENCE_FIELDS}
-
-
-def _as_aware_utc(d: datetime.datetime) -> datetime.datetime:
-    """Treat a naive datetime as UTC (mongoengine round-trips it without tzinfo) and return it tz-aware."""
-    if timezone.is_naive(d):
-        return timezone.make_aware(d, datetime.timezone.utc)
-    return d.astimezone(datetime.timezone.utc)
 
 
 def _last_sent_by_category(patient: Patient) -> Dict[str, str | None]:
