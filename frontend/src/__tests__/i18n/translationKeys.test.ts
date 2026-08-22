@@ -49,6 +49,12 @@ function collectUsedKeys(): Map<string, string> {
   return keys;
 }
 
+// i18next resolves t('key', { count }) to `key_one`/`key_other`, not the
+// bare key — accept either form since the scanner can't tell which a call uses.
+function hasKey(translations: Record<string, unknown>, key: string): boolean {
+  return key in translations || (`${key}_one` in translations && `${key}_other` in translations);
+}
+
 describe('t() keys used in the app exist in every language file', () => {
   const usedKeys = collectUsedKeys();
 
@@ -59,7 +65,7 @@ describe('t() keys used in the app exist in every language file', () => {
   it.each(langs)('%s has every key referenced by a t() call', (lang) => {
     const translations = files[lang];
     const missing = [...usedKeys.entries()]
-      .filter(([key]) => !(key in translations))
+      .filter(([key]) => !hasKey(translations, key))
       .map(([key, file]) => `"${key}" (first used in ${file})`);
     expect(missing).toHaveLength(0);
   });
