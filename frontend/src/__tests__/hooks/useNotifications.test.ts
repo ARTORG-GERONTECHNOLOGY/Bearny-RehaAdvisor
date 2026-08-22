@@ -73,7 +73,10 @@ describe('useNotifications', () => {
     mockRegistration = { pushManager: mockPushManager };
 
     Object.defineProperty(global.navigator, 'serviceWorker', {
-      value: { ready: Promise.resolve(mockRegistration) },
+      value: {
+        ready: Promise.resolve(mockRegistration),
+        getRegistration: jest.fn().mockResolvedValue(mockRegistration),
+      },
       writable: true,
       configurable: true,
     });
@@ -89,6 +92,77 @@ describe('useNotifications', () => {
     delete (global as any).PushManager;
     const { result } = renderHook(() => useNotifications());
     expect(result.current.supportsPush).toBe(false);
+  });
+
+  describe('isSubscribedOnThisDevice', () => {
+    it('is true on mount when this device already holds a push subscription', async () => {
+      mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
+      const { result } = renderHook(() => useNotifications());
+
+      await waitFor(() => {
+        expect(result.current.isSubscribedOnThisDevice).toBe(true);
+      });
+      expect(result.current.deviceCheckComplete).toBe(true);
+    });
+
+    it('is false on mount when this device has no push subscription', async () => {
+      const { result } = renderHook(() => useNotifications());
+
+      await waitFor(() => {
+        expect(mockPushManager.getSubscription).toHaveBeenCalled();
+      });
+      expect(result.current.isSubscribedOnThisDevice).toBe(false);
+      expect(result.current.deviceCheckComplete).toBe(true);
+    });
+
+    it('does not throw and leaves deviceCheckComplete false when the mount-time check fails (regression: unhandled promise rejection)', async () => {
+      (navigator.serviceWorker.getRegistration as jest.Mock).mockRejectedValue(
+        new Error('registration unavailable')
+      );
+      const { result } = renderHook(() => useNotifications());
+
+      await waitFor(() => {
+        expect(navigator.serviceWorker.getRegistration).toHaveBeenCalled();
+      });
+      // Give the rejected promise a tick to settle; the assertion is really
+      // that nothing throws and state stays at its safe defaults.
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(result.current.isSubscribedOnThisDevice).toBe(false);
+      expect(result.current.deviceCheckComplete).toBe(false);
+    });
+  });
+
+  describe('enableOnThisDevice', () => {
+    it('subscribes this device without saving or changing any preference', async () => {
+      mockNotification.requestPermission = jest.fn().mockResolvedValue('granted');
+      const { result } = renderHook(() => useNotifications());
+
+      await act(async () => {
+        await result.current.enableOnThisDevice('patient-1');
+      });
+
+      expect(mockPushManager.subscribe).toHaveBeenCalled();
+      expect(notificationPreferencesStore.registerPushSubscription).toHaveBeenCalledWith(
+        'patient-1',
+        { endpoint: 'https://push.example.com/abc', keys: {} }
+      );
+      expect(notificationPreferencesStore.savePreferences).not.toHaveBeenCalled();
+      expect(result.current.isSubscribedOnThisDevice).toBe(true);
+    });
+
+    it('does not mark the device as subscribed when permission is denied', async () => {
+      mockNotification.requestPermission = jest.fn().mockResolvedValue('denied');
+      const { result } = renderHook(() => useNotifications());
+
+      await act(async () => {
+        await result.current.enableOnThisDevice('patient-1');
+      });
+
+      expect(mockPushManager.subscribe).not.toHaveBeenCalled();
+      expect(result.current.isSubscribedOnThisDevice).toBe(false);
+    });
   });
 
   describe('toggleCategory', () => {
@@ -139,6 +213,11 @@ describe('useNotifications', () => {
 
     it('saves the preference and keeps the subscription when other categories remain enabled', async () => {
       const { result } = renderHook(() => useNotifications());
+      // Let the mount-time "is this device subscribed" check resolve and
+      // clear its call to getSubscription before asserting on the toggle
+      // itself, which is the actual behavior under test here.
+      await waitFor(() => expect(mockPushManager.getSubscription).toHaveBeenCalled());
+      mockPushManager.getSubscription.mockClear();
 
       await act(async () => {
         await result.current.toggleCategory('patient-1', 'education', false);
@@ -162,6 +241,11 @@ describe('useNotifications', () => {
       mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
 
       const { result } = renderHook(() => useNotifications());
+      // Let the mount-time "is this device subscribed" check resolve and
+      // clear its call to getSubscription before asserting on the toggle
+      // itself, which is the actual behavior under test here.
+      await waitFor(() => expect(mockPushManager.getSubscription).toHaveBeenCalled());
+      mockPushManager.getSubscription.mockClear();
 
       await act(async () => {
         await result.current.toggleCategory('patient-1', 'education', false);
@@ -174,6 +258,33 @@ describe('useNotifications', () => {
         'patient-1',
         'https://push.example.com/abc'
       );
+      expect(result.current.isSubscribedOnThisDevice).toBe(false);
+    });
+
+    it('keeps isSubscribedOnThisDevice true when the real unsubscribe fails (regression: was reporting the device as unsubscribed even though the browser subscription was still live)', async () => {
+      (notificationPreferencesStore as any).preferences = {
+        education: true,
+        exercise: false,
+        instructions: false,
+        reminder: false,
+        behavior_change: false,
+        other: false,
+      };
+      mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
+      mockSubscription.unsubscribe.mockRejectedValue(new Error('offline'));
+
+      const { result } = renderHook(() => useNotifications());
+      await waitFor(() => expect(result.current.isSubscribedOnThisDevice).toBe(true));
+
+      await act(async () => {
+        await result.current.toggleCategory('patient-1', 'education', false);
+      });
+
+      expect(notificationPreferencesStore.savePreferences).toHaveBeenCalledWith('patient-1', {
+        education: false,
+      });
+      expect(notificationPreferencesStore.removePushSubscription).not.toHaveBeenCalled();
+      expect(result.current.isSubscribedOnThisDevice).toBe(true);
     });
 
     it('does not unsubscribe when the disabling save fails (regression: was tearing down the real subscription while preferences silently rolled back to "on")', async () => {
@@ -189,6 +300,8 @@ describe('useNotifications', () => {
       mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
 
       const { result } = renderHook(() => useNotifications());
+      await waitFor(() => expect(mockPushManager.getSubscription).toHaveBeenCalled());
+      mockPushManager.getSubscription.mockClear();
 
       await act(async () => {
         await result.current.toggleCategory('patient-1', 'education', false);
@@ -197,6 +310,35 @@ describe('useNotifications', () => {
       expect(mockPushManager.getSubscription).not.toHaveBeenCalled();
       expect(mockSubscription.unsubscribe).not.toHaveBeenCalled();
       expect(notificationPreferencesStore.removePushSubscription).not.toHaveBeenCalled();
+    });
+
+    it('still marks the device unsubscribed when the browser unsubscribe succeeds but the backend DELETE fails (regression: a dropped removePushSubscription request left isSubscribedOnThisDevice stuck true even though the real subscription was already gone)', async () => {
+      (notificationPreferencesStore as any).preferences = {
+        education: true,
+        exercise: false,
+        instructions: false,
+        reminder: false,
+        behavior_change: false,
+        other: false,
+      };
+      mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
+      (notificationPreferencesStore.removePushSubscription as jest.Mock).mockRejectedValue(
+        new Error('network down')
+      );
+
+      const { result } = renderHook(() => useNotifications());
+      await waitFor(() => expect(result.current.isSubscribedOnThisDevice).toBe(true));
+
+      await act(async () => {
+        await result.current.toggleCategory('patient-1', 'education', false);
+      });
+
+      expect(mockSubscription.unsubscribe).toHaveBeenCalled();
+      expect(notificationPreferencesStore.removePushSubscription).toHaveBeenCalledWith(
+        'patient-1',
+        'https://push.example.com/abc'
+      );
+      expect(result.current.isSubscribedOnThisDevice).toBe(false);
     });
   });
 
@@ -264,6 +406,8 @@ describe('useNotifications', () => {
       mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
 
       const { result } = renderHook(() => useNotifications());
+      await waitFor(() => expect(mockPushManager.getSubscription).toHaveBeenCalled());
+      mockPushManager.getSubscription.mockClear();
 
       await act(async () => {
         await result.current.toggleAll('patient-1', false);
@@ -276,7 +420,7 @@ describe('useNotifications', () => {
   });
 
   describe('pending state', () => {
-    it('marks a category pending during toggleCategory and clears it after', async () => {
+    it('marks pendingToggle during toggleCategory and clears it after', async () => {
       mockNotification.requestPermission = jest.fn().mockResolvedValue('granted');
       let resolveSave: (value: boolean) => void = () => {};
       (notificationPreferencesStore.savePreferences as jest.Mock).mockImplementation(
@@ -294,7 +438,7 @@ describe('useNotifications', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.pendingCategories.has('education')).toBe(true);
+        expect(result.current.pendingToggle).toBe(true);
       });
 
       await act(async () => {
@@ -302,10 +446,10 @@ describe('useNotifications', () => {
         await togglePromise;
       });
 
-      expect(result.current.pendingCategories.has('education')).toBe(false);
+      expect(result.current.pendingToggle).toBe(false);
     });
 
-    it('marks pendingAll during toggleAll and clears it after', async () => {
+    it('marks pendingToggle during toggleAll and clears it after', async () => {
       let resolveSave: (value: boolean) => void = () => {};
       (notificationPreferencesStore.savePreferences as jest.Mock).mockImplementation(
         () =>
@@ -322,7 +466,7 @@ describe('useNotifications', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.pendingAll).toBe(true);
+        expect(result.current.pendingToggle).toBe(true);
       });
 
       await act(async () => {
@@ -330,7 +474,7 @@ describe('useNotifications', () => {
         await togglePromise;
       });
 
-      expect(result.current.pendingAll).toBe(false);
+      expect(result.current.pendingToggle).toBe(false);
     });
   });
 
@@ -371,6 +515,55 @@ describe('useNotifications', () => {
       expect(notificationPreferencesStore.savePreferences).toHaveBeenCalledWith('patient-1', {
         exercise: true,
       });
+    });
+  });
+
+  describe('mount-time check vs. an orphaned in-flight subscribe', () => {
+    it("waits for a subscribe still running from a since-unmounted instance before reporting this device's state (regression: a fresh mount's check could race ahead of it, capture a stale value, and never correct itself)", async () => {
+      mockNotification.requestPermission = jest.fn().mockResolvedValue('granted');
+
+      // Real browser behavior: once pushManager.subscribe() creates a
+      // subscription, later getSubscription() calls return it.
+      mockPushManager.subscribe.mockImplementation(async () => {
+        mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
+        return mockSubscription;
+      });
+
+      // The subscribe is slow (e.g. a real network round-trip to register with
+      // the backend) — resolved manually once the first component has unmounted.
+      let resolveRegister: () => void = () => {};
+      (notificationPreferencesStore.registerPushSubscription as jest.Mock).mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveRegister = resolve;
+          })
+      );
+
+      const first = renderHook(() => useNotifications());
+      let enablePromise!: Promise<void>;
+      act(() => {
+        enablePromise = first.result.current.enableOnThisDevice('patient-1');
+      });
+      await waitFor(() => expect(mockPushManager.subscribe).toHaveBeenCalled());
+
+      // User navigates away before the subscribe (and its enclosing component)
+      // finishes — the module-level subscribeInFlight promise keeps running.
+      first.unmount();
+
+      // A new instance mounts (e.g. the user comes back to the page) while the
+      // orphaned subscribe from the first instance is still in flight.
+      const second = renderHook(() => useNotifications());
+
+      // Only now does the orphaned subscribe's backend call resolve.
+      await act(async () => {
+        resolveRegister();
+        await enablePromise;
+      });
+
+      await waitFor(() => {
+        expect(second.result.current.isSubscribedOnThisDevice).toBe(true);
+      });
+      expect(second.result.current.deviceCheckComplete).toBe(true);
     });
   });
 

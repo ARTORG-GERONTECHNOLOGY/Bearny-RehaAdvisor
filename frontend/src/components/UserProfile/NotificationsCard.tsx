@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { observer } from 'mobx-react-lite';
 import Card from '@/components/Card';
 import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/hooks/useNotifications';
 import authStore from '@/stores/authStore';
 import {
@@ -13,8 +15,17 @@ import {
 
 const NotificationsCard: React.FC = observer(() => {
   const { t } = useTranslation();
-  const { permission, supportsPush, toggleCategory, toggleAll, pendingCategories, pendingAll } =
-    useNotifications();
+  const {
+    permission,
+    supportsPush,
+    isSubscribedOnThisDevice,
+    deviceCheckComplete,
+    enableOnThisDevice,
+    pendingDeviceEnable,
+    toggleCategory,
+    toggleAll,
+    pendingToggle,
+  } = useNotifications();
   const patientId = authStore.getStoredUserId();
   const { preferences, error } = notificationPreferencesStore;
 
@@ -25,6 +36,13 @@ const NotificationsCard: React.FC = observer(() => {
   }, [patientId]);
 
   const allEnabled = NOTIFICATION_CATEGORIES.every((c) => preferences[c]);
+  const anyEnabled = NOTIFICATION_CATEGORIES.some((c) => preferences[c]);
+  const showDeviceHint =
+    supportsPush &&
+    permission !== 'denied' &&
+    anyEnabled &&
+    deviceCheckComplete &&
+    !isSubscribedOnThisDevice;
 
   return (
     <Card className="flex flex-col gap-3">
@@ -46,7 +64,7 @@ const NotificationsCard: React.FC = observer(() => {
         </div>
         <Switch
           checked={allEnabled}
-          disabled={pendingAll}
+          disabled={pendingToggle}
           onCheckedChange={(value) => patientId && toggleAll(patientId, value)}
         />
       </div>
@@ -59,12 +77,33 @@ const NotificationsCard: React.FC = observer(() => {
             </div>
             <Switch
               checked={preferences[category]}
-              disabled={pendingAll || pendingCategories.has(category)}
+              disabled={pendingToggle}
               onCheckedChange={(value) => patientId && toggleCategory(patientId, category, value)}
             />
           </div>
         ))}
       </div>
+
+      {showDeviceHint && (
+        <div className="flex flex-col gap-2">
+          <Separator />
+          <div className="flex flex-col gap-3">
+            <div className="text-xs text-yellow">
+              {t('Notifications are enabled on your account, but not on this device.')}
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="dashboard"
+              className="rounded-full"
+              disabled={pendingDeviceEnable}
+              onClick={() => patientId && enableOnThisDevice(patientId)}
+            >
+              {t('Enable on this device')}
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 });
