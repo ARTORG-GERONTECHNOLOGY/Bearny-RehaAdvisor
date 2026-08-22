@@ -66,6 +66,7 @@ const mockUseNotifications = jest.fn(() => ({
   // device is subscribed, so the "not on this device" hint stays hidden
   // unless a test explicitly sets isSubscribedOnThisDevice to false.
   isSubscribedOnThisDevice: true,
+  deviceCheckComplete: true,
   enableOnThisDevice: mockEnableOnThisDevice,
   pendingDeviceEnable: false,
   toggleCategory: mockToggleCategory,
@@ -94,6 +95,7 @@ describe('NotificationsCard', () => {
       permission: 'default' as NotificationPermission,
       supportsPush: true,
       isSubscribedOnThisDevice: true,
+      deviceCheckComplete: true,
       enableOnThisDevice: mockEnableOnThisDevice,
       pendingDeviceEnable: false,
       toggleCategory: mockToggleCategory,
@@ -154,6 +156,7 @@ describe('NotificationsCard', () => {
       permission: 'denied' as NotificationPermission,
       supportsPush: true,
       isSubscribedOnThisDevice: true,
+      deviceCheckComplete: true,
       enableOnThisDevice: mockEnableOnThisDevice,
       pendingDeviceEnable: false,
       toggleCategory: mockToggleCategory,
@@ -172,6 +175,7 @@ describe('NotificationsCard', () => {
       permission: 'default' as NotificationPermission,
       supportsPush: false,
       isSubscribedOnThisDevice: true,
+      deviceCheckComplete: true,
       enableOnThisDevice: mockEnableOnThisDevice,
       pendingDeviceEnable: false,
       toggleCategory: mockToggleCategory,
@@ -190,6 +194,7 @@ describe('NotificationsCard', () => {
       permission: 'granted' as NotificationPermission,
       supportsPush: true,
       isSubscribedOnThisDevice: true,
+      deviceCheckComplete: true,
       enableOnThisDevice: mockEnableOnThisDevice,
       pendingDeviceEnable: false,
       toggleCategory: mockToggleCategory,
@@ -223,6 +228,7 @@ describe('NotificationsCard', () => {
         permission: 'default' as NotificationPermission,
         supportsPush: true,
         isSubscribedOnThisDevice: true,
+        deviceCheckComplete: true,
         enableOnThisDevice: mockEnableOnThisDevice,
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
@@ -242,6 +248,7 @@ describe('NotificationsCard', () => {
         permission: 'default' as NotificationPermission,
         supportsPush: true,
         isSubscribedOnThisDevice: true,
+        deviceCheckComplete: true,
         enableOnThisDevice: mockEnableOnThisDevice,
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
@@ -261,6 +268,7 @@ describe('NotificationsCard', () => {
         permission: 'default' as NotificationPermission,
         supportsPush: true,
         isSubscribedOnThisDevice: true,
+        deviceCheckComplete: true,
         enableOnThisDevice: mockEnableOnThisDevice,
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
@@ -282,6 +290,7 @@ describe('NotificationsCard', () => {
         permission: 'default' as NotificationPermission,
         supportsPush: true,
         isSubscribedOnThisDevice: false,
+        deviceCheckComplete: true,
         enableOnThisDevice: mockEnableOnThisDevice,
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
@@ -292,6 +301,23 @@ describe('NotificationsCard', () => {
       render(<NotificationsCard />);
       expect(screen.getByText(HINT_TEXT)).toBeInTheDocument();
       expect(screen.getByText('Enable on this device')).toBeInTheDocument();
+    });
+
+    it('hides the hint while the device subscription check is still in flight (regression: hint flashed on for already-subscribed devices)', () => {
+      mockUseNotifications.mockReturnValue({
+        permission: 'default' as NotificationPermission,
+        supportsPush: true,
+        isSubscribedOnThisDevice: false,
+        deviceCheckComplete: false,
+        enableOnThisDevice: mockEnableOnThisDevice,
+        pendingDeviceEnable: false,
+        toggleCategory: mockToggleCategory,
+        toggleAll: mockToggleAll,
+        pendingCategories: new Set<string>(),
+        pendingAll: false,
+      });
+      render(<NotificationsCard />);
+      expect(screen.queryByText(HINT_TEXT)).not.toBeInTheDocument();
     });
 
     it('hides the hint once this device is subscribed', () => {
@@ -312,6 +338,7 @@ describe('NotificationsCard', () => {
         permission: 'default' as NotificationPermission,
         supportsPush: true,
         isSubscribedOnThisDevice: false,
+        deviceCheckComplete: true,
         enableOnThisDevice: mockEnableOnThisDevice,
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
@@ -328,6 +355,7 @@ describe('NotificationsCard', () => {
         permission: 'default' as NotificationPermission,
         supportsPush: false,
         isSubscribedOnThisDevice: false,
+        deviceCheckComplete: true,
         enableOnThisDevice: mockEnableOnThisDevice,
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
@@ -344,6 +372,7 @@ describe('NotificationsCard', () => {
         permission: 'denied' as NotificationPermission,
         supportsPush: true,
         isSubscribedOnThisDevice: false,
+        deviceCheckComplete: true,
         enableOnThisDevice: mockEnableOnThisDevice,
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
@@ -360,6 +389,7 @@ describe('NotificationsCard', () => {
         permission: 'default' as NotificationPermission,
         supportsPush: true,
         isSubscribedOnThisDevice: false,
+        deviceCheckComplete: true,
         enableOnThisDevice: mockEnableOnThisDevice,
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
@@ -377,6 +407,7 @@ describe('NotificationsCard', () => {
         permission: 'default' as NotificationPermission,
         supportsPush: true,
         isSubscribedOnThisDevice: false,
+        deviceCheckComplete: true,
         enableOnThisDevice: mockEnableOnThisDevice,
         pendingDeviceEnable: true,
         toggleCategory: mockToggleCategory,

@@ -12,7 +12,7 @@ import { urlBase64ToUint8Array } from '@/utils/pushSubscription';
 // same subscribe/unsubscribe attempt instead of each independently calling
 // pushManager.subscribe(), which creates a distinct new subscription per call.
 let subscribeInFlight: Promise<boolean> | null = null;
-let unsubscribeInFlight: Promise<void> | null = null;
+let unsubscribeInFlight: Promise<boolean> | null = null;
 
 async function createFreshSubscription(
   registration: ServiceWorkerRegistration
@@ -22,6 +22,12 @@ async function createFreshSubscription(
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
   });
+}
+
+async function getCurrentSubscription(
+  registration: ServiceWorkerRegistration | null | undefined
+): Promise<PushSubscription | null> {
+  return (await registration?.pushManager.getSubscription()) ?? null;
 }
 
 // The backend returns this when `endpoint` already belongs to a different
@@ -42,7 +48,7 @@ async function doSubscribeToPush(patientId: string): Promise<boolean> {
   notificationPreferencesStore.clearError();
   try {
     const registration = await navigator.serviceWorker.ready;
-    let subscription = await registration.pushManager.getSubscription();
+    let subscription = await getCurrentSubscription(registration);
     if (!subscription) {
       subscription = await createFreshSubscription(registration);
     }
@@ -75,21 +81,26 @@ function subscribeToPush(patientId: string): Promise<boolean> {
   return subscribeInFlight;
 }
 
-async function doUnsubscribeFromPush(patientId: string): Promise<void> {
+// Returns whether the subscription was actually removed — callers must not
+// mark the device unsubscribed unless this is true, or the UI can claim
+// "not on this device" while the real subscription is still live.
+async function doUnsubscribeFromPush(patientId: string): Promise<boolean> {
   try {
     const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.getSubscription();
+    const subscription = await getCurrentSubscription(registration);
     if (subscription) {
       const endpoint = subscription.endpoint;
       await subscription.unsubscribe();
       await notificationPreferencesStore.removePushSubscription(patientId, endpoint);
     }
+    return true;
   } catch (error) {
     console.error('[Notifications] Failed to unsubscribe from push:', error);
+    return false;
   }
 }
 
-function unsubscribeFromPush(patientId: string): Promise<void> {
+function unsubscribeFromPush(patientId: string): Promise<boolean> {
   if (!unsubscribeInFlight) {
     unsubscribeInFlight = doUnsubscribeFromPush(patientId).finally(() => {
       unsubscribeInFlight = null;
@@ -103,6 +114,9 @@ export function useNotifications() {
   const [supportsPush, setSupportsPush] = useState<boolean>(false);
   // Distinct from preferences, which are shared across the patient's devices.
   const [isSubscribedOnThisDevice, setIsSubscribedOnThisDevice] = useState(false);
+  // True once the mount-time subscription check resolves. Gate the "not on
+  // this device" hint on this so it doesn't flash before the check settles.
+  const [deviceCheckComplete, setDeviceCheckComplete] = useState(false);
   const [pendingDeviceEnable, setPendingDeviceEnable] = useState(false);
   // Categories (and/or "all") currently mid-toggle — used to disable their
   // switches in the UI so a slow permission/subscribe round-trip can't be
@@ -123,10 +137,19 @@ export function useNotifications() {
     if (!supportsPush) return;
     let cancelled = false;
     // getRegistration(), not .ready — .ready can hang until first load finishes.
-    navigator.serviceWorker.getRegistration().then(async (registration) => {
-      const subscription = await registration?.pushManager.getSubscription();
-      if (!cancelled) setIsSubscribedOnThisDevice(!!subscription);
-    });
+    navigator.serviceWorker
+      .getRegistration()
+      .then((registration) => getCurrentSubscription(registration))
+      .then((subscription) => {
+        if (!cancelled) {
+          setIsSubscribedOnThisDevice(!!subscription);
+          setDeviceCheckComplete(true);
+        }
+      })
+      .catch((error) => {
+        // deviceCheckComplete stays false so we don't show a possibly-wrong hint.
+        console.error("[Notifications] Failed to check this device's push subscription:", error);
+      });
     return () => {
       cancelled = true;
     };
@@ -175,8 +198,8 @@ export function useNotifications() {
           (c) => c !== category && notificationPreferencesStore.preferences[c]
         );
         if (!stillEnabled) {
-          await unsubscribeFromPush(patientId);
-          setIsSubscribedOnThisDevice(false);
+          const unsubscribed = await unsubscribeFromPush(patientId);
+          if (unsubscribed) setIsSubscribedOnThisDevice(false);
         }
       }
     } finally {
@@ -201,8 +224,8 @@ export function useNotifications() {
       const saved = await notificationPreferencesStore.savePreferences(patientId, partial);
       if (!saved) return; // preferences were rolled back — subscription must stay as-is
       if (!value) {
-        await unsubscribeFromPush(patientId);
-        setIsSubscribedOnThisDevice(false);
+        const unsubscribed = await unsubscribeFromPush(patientId);
+        if (unsubscribed) setIsSubscribedOnThisDevice(false);
       }
     } finally {
       setPendingAll(false);
@@ -223,6 +246,7 @@ export function useNotifications() {
     permission,
     supportsPush,
     isSubscribedOnThisDevice,
+    deviceCheckComplete,
     enableOnThisDevice,
     pendingDeviceEnable,
     toggleCategory,

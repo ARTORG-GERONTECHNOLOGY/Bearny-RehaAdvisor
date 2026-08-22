@@ -19,6 +19,7 @@ const NotificationsCard: React.FC = observer(() => {
     permission,
     supportsPush,
     isSubscribedOnThisDevice,
+    deviceCheckComplete,
     enableOnThisDevice,
     pendingDeviceEnable,
     toggleCategory,
@@ -38,7 +39,11 @@ const NotificationsCard: React.FC = observer(() => {
   const allEnabled = NOTIFICATION_CATEGORIES.every((c) => preferences[c]);
   const anyEnabled = NOTIFICATION_CATEGORIES.some((c) => preferences[c]);
   const showDeviceHint =
-    supportsPush && permission !== 'denied' && anyEnabled && !isSubscribedOnThisDevice;
+    supportsPush &&
+    permission !== 'denied' &&
+    anyEnabled &&
+    deviceCheckComplete &&
+    !isSubscribedOnThisDevice;
 
   return (
     <Card className="flex flex-col gap-3">
