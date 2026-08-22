@@ -29,7 +29,7 @@ from core.models import (
     Therapist,
     User,
 )
-from core.views.patient_notification_prefs import _check_can_read, _check_can_write
+from core.views.patient_notification_prefs import _as_aware_utc, _check_can_read, _check_can_write
 
 client = Client()
 
@@ -194,9 +194,30 @@ def test_prefs_get_last_sent_returns_most_recent_per_category_for_this_patient_o
 
     resp = client.get(f"/api/patients/{patient.id}/notification-preferences/", HTTP_AUTHORIZATION="Bearer test")
     last_sent = resp.json()["last_sent"]
-    assert last_sent["exercise"] == newer.isoformat()
-    assert last_sent["reminder"] == older.isoformat()
+    # Round-tripped through mongoengine's tz_aware=False connection, sent_at
+    # comes back naive holding the UTC instant — _as_aware_utc restores the
+    # offset before serializing, so the frontend doesn't misread it as local time.
+    assert last_sent["exercise"] == _as_aware_utc(newer).isoformat()
+    assert last_sent["reminder"] == _as_aware_utc(older).isoformat()
     assert last_sent["education"] is None
+
+
+def test_prefs_get_last_sent_is_utc_offset_not_naive_local():
+    """
+    Regression: sent_at round-trips out of Mongo as a naive datetime holding
+    the UTC instant (tz_aware=False, see _as_aware_utc). Serializing it
+    directly with .isoformat() produced an offset-less string that
+    frontend/src/utils/dateFormat.ts's `new Date(iso)` then parsed as local
+    time, silently shifting displayed timestamps by the viewer's UTC offset.
+    """
+    patient = create_patient()
+    sent_at = datetime.now().replace(microsecond=0)
+    create_sent_push_notification(patient, "exercise", sent_at)
+
+    resp = client.get(f"/api/patients/{patient.id}/notification-preferences/", HTTP_AUTHORIZATION="Bearer test")
+    last_sent = resp.json()["last_sent"]["exercise"]
+    assert last_sent is not None
+    assert last_sent.endswith("+00:00"), f"expected a UTC-offset timestamp, got {last_sent!r}"
 
 
 # ---------------------------------------------------------------------------

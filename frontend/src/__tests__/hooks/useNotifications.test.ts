@@ -311,6 +311,35 @@ describe('useNotifications', () => {
       expect(mockSubscription.unsubscribe).not.toHaveBeenCalled();
       expect(notificationPreferencesStore.removePushSubscription).not.toHaveBeenCalled();
     });
+
+    it('still marks the device unsubscribed when the browser unsubscribe succeeds but the backend DELETE fails (regression: a dropped removePushSubscription request left isSubscribedOnThisDevice stuck true even though the real subscription was already gone)', async () => {
+      (notificationPreferencesStore as any).preferences = {
+        education: true,
+        exercise: false,
+        instructions: false,
+        reminder: false,
+        behavior_change: false,
+        other: false,
+      };
+      mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
+      (notificationPreferencesStore.removePushSubscription as jest.Mock).mockRejectedValue(
+        new Error('network down')
+      );
+
+      const { result } = renderHook(() => useNotifications());
+      await waitFor(() => expect(result.current.isSubscribedOnThisDevice).toBe(true));
+
+      await act(async () => {
+        await result.current.toggleCategory('patient-1', 'education', false);
+      });
+
+      expect(mockSubscription.unsubscribe).toHaveBeenCalled();
+      expect(notificationPreferencesStore.removePushSubscription).toHaveBeenCalledWith(
+        'patient-1',
+        'https://push.example.com/abc'
+      );
+      expect(result.current.isSubscribedOnThisDevice).toBe(false);
+    });
   });
 
   describe('toggleAll', () => {

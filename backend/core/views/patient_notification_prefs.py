@@ -16,6 +16,7 @@
 # then userId fallback, ok()/bad() JSON helpers) and the IDOR guard from
 # core/views/patient_views.py::mark_intervention_completed.
 
+import datetime
 import json
 import logging
 from typing import Any, Dict
@@ -23,6 +24,7 @@ from typing import Any, Dict
 from bson import ObjectId
 from django.conf import settings
 from django.http import JsonResponse
+from django.utils import timezone
 from mongoengine.errors import NotUniqueError
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -87,6 +89,13 @@ def _preferences_to_dict(prefs: PatientNotificationPreferences) -> Dict[str, boo
     return {field: bool(getattr(prefs, field, False)) for field in PREFERENCE_FIELDS}
 
 
+def _as_aware_utc(d: datetime.datetime) -> datetime.datetime:
+    """Treat a naive datetime as UTC (mongoengine round-trips it without tzinfo) and return it tz-aware."""
+    if timezone.is_naive(d):
+        return timezone.make_aware(d, datetime.timezone.utc)
+    return d.astimezone(datetime.timezone.utc)
+
+
 def _last_sent_by_category(patient: Patient) -> Dict[str, str | None]:
     """Most recent SentPushNotification.sent_at per category — reflects when a send was
     last attempted/scheduled, not confirmed delivery (webpush failures aren't persisted)."""
@@ -95,7 +104,7 @@ def _last_sent_by_category(patient: Patient) -> Dict[str, str | None]:
     records = SentPushNotification.objects(patient=patient).order_by("-sent_at").only("category", "sent_at")
     for record in records:
         if record.category in remaining:
-            result[record.category] = record.sent_at.isoformat()
+            result[record.category] = _as_aware_utc(record.sent_at).isoformat()
             remaining.discard(record.category)
             if not remaining:
                 break

@@ -81,9 +81,12 @@ function subscribeToPush(patientId: string): Promise<boolean> {
   return subscribeInFlight;
 }
 
-// Returns whether the subscription was actually removed — callers must not
-// mark the device unsubscribed unless this is true, or the UI can claim
-// "not on this device" while the real subscription is still live.
+// Returns whether the browser subscription was actually removed — callers
+// must not mark the device unsubscribed unless this is true, or the UI can
+// claim "not on this device" while the real subscription is still live.
+// Doesn't depend on the backend DELETE succeeding — the browser subscription
+// is really gone either way, and a stale server-side row still gets reaped
+// on its next dead-endpoint push (see _send_push_to_patient).
 async function doUnsubscribeFromPush(patientId: string): Promise<boolean> {
   try {
     const registration = await navigator.serviceWorker.ready;
@@ -91,7 +94,11 @@ async function doUnsubscribeFromPush(patientId: string): Promise<boolean> {
     if (subscription) {
       const endpoint = subscription.endpoint;
       await subscription.unsubscribe();
-      await notificationPreferencesStore.removePushSubscription(patientId, endpoint);
+      try {
+        await notificationPreferencesStore.removePushSubscription(patientId, endpoint);
+      } catch (error) {
+        console.error('[Notifications] Failed to remove server-side push subscription:', error);
+      }
     }
     return true;
   } catch (error) {
