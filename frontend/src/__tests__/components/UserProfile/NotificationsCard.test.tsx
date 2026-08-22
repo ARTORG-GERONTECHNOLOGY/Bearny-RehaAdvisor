@@ -71,8 +71,7 @@ const mockUseNotifications = jest.fn(() => ({
   pendingDeviceEnable: false,
   toggleCategory: mockToggleCategory,
   toggleAll: mockToggleAll,
-  pendingCategories: new Set<string>(),
-  pendingAll: false,
+  pendingToggle: false,
 }));
 
 jest.mock('@/hooks/useNotifications', () => ({
@@ -100,8 +99,7 @@ describe('NotificationsCard', () => {
       pendingDeviceEnable: false,
       toggleCategory: mockToggleCategory,
       toggleAll: mockToggleAll,
-      pendingCategories: new Set<string>(),
-      pendingAll: false,
+      pendingToggle: false,
     });
   });
 
@@ -161,8 +159,7 @@ describe('NotificationsCard', () => {
       pendingDeviceEnable: false,
       toggleCategory: mockToggleCategory,
       toggleAll: mockToggleAll,
-      pendingCategories: new Set<string>(),
-      pendingAll: false,
+      pendingToggle: false,
     });
     render(<NotificationsCard />);
     expect(
@@ -180,8 +177,7 @@ describe('NotificationsCard', () => {
       pendingDeviceEnable: false,
       toggleCategory: mockToggleCategory,
       toggleAll: mockToggleAll,
-      pendingCategories: new Set<string>(),
-      pendingAll: false,
+      pendingToggle: false,
     });
     render(<NotificationsCard />);
     expect(
@@ -199,8 +195,7 @@ describe('NotificationsCard', () => {
       pendingDeviceEnable: false,
       toggleCategory: mockToggleCategory,
       toggleAll: mockToggleAll,
-      pendingCategories: new Set<string>(),
-      pendingAll: false,
+      pendingToggle: false,
     });
     render(<NotificationsCard />);
     expect(
@@ -223,7 +218,7 @@ describe('NotificationsCard', () => {
   });
 
   describe('pending state disables the corresponding switch', () => {
-    it('disables the master switch while pendingAll is true', () => {
+    it('disables every switch while pendingToggle is true (a pending subscribe/unsubscribe must finish before another can start against the same device subscription)', () => {
       mockUseNotifications.mockReturnValue({
         permission: 'default' as NotificationPermission,
         supportsPush: true,
@@ -233,34 +228,13 @@ describe('NotificationsCard', () => {
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
         toggleAll: mockToggleAll,
-        pendingCategories: new Set<string>(),
-        pendingAll: true,
+        pendingToggle: true,
       });
       render(<NotificationsCard />);
       const switches = screen.getAllByRole('switch');
-      expect(switches[0]).toBeDisabled();
-      // Category switches are also disabled while a bulk operation is in flight.
-      expect(switches[1]).toBeDisabled();
-    });
-
-    it('disables only the pending category switch, not the others', () => {
-      mockUseNotifications.mockReturnValue({
-        permission: 'default' as NotificationPermission,
-        supportsPush: true,
-        isSubscribedOnThisDevice: true,
-        deviceCheckComplete: true,
-        enableOnThisDevice: mockEnableOnThisDevice,
-        pendingDeviceEnable: false,
-        toggleCategory: mockToggleCategory,
-        toggleAll: mockToggleAll,
-        pendingCategories: new Set(['education']),
-        pendingAll: false,
-      });
-      render(<NotificationsCard />);
-      const switches = screen.getAllByRole('switch');
-      expect(switches[0]).not.toBeDisabled(); // master
+      expect(switches[0]).toBeDisabled(); // master
       expect(switches[1]).toBeDisabled(); // education (first category)
-      expect(switches[2]).not.toBeDisabled(); // exercise
+      expect(switches[2]).toBeDisabled(); // exercise
     });
 
     it('does not call toggleCategory when clicking a disabled switch', () => {
@@ -273,8 +247,7 @@ describe('NotificationsCard', () => {
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
         toggleAll: mockToggleAll,
-        pendingCategories: new Set(['education']),
-        pendingAll: false,
+        pendingToggle: true,
       });
       render(<NotificationsCard />);
       fireEvent.click(screen.getAllByRole('switch')[1]);
@@ -295,8 +268,7 @@ describe('NotificationsCard', () => {
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
         toggleAll: mockToggleAll,
-        pendingCategories: new Set<string>(),
-        pendingAll: false,
+        pendingToggle: false,
       });
       render(<NotificationsCard />);
       expect(screen.getByText(HINT_TEXT)).toBeInTheDocument();
@@ -313,8 +285,7 @@ describe('NotificationsCard', () => {
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
         toggleAll: mockToggleAll,
-        pendingCategories: new Set<string>(),
-        pendingAll: false,
+        pendingToggle: false,
       });
       render(<NotificationsCard />);
       expect(screen.queryByText(HINT_TEXT)).not.toBeInTheDocument();
@@ -343,8 +314,7 @@ describe('NotificationsCard', () => {
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
         toggleAll: mockToggleAll,
-        pendingCategories: new Set<string>(),
-        pendingAll: false,
+        pendingToggle: false,
       });
       render(<NotificationsCard />);
       expect(screen.queryByText(HINT_TEXT)).not.toBeInTheDocument();
@@ -360,8 +330,7 @@ describe('NotificationsCard', () => {
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
         toggleAll: mockToggleAll,
-        pendingCategories: new Set<string>(),
-        pendingAll: false,
+        pendingToggle: false,
       });
       render(<NotificationsCard />);
       expect(screen.queryByText(HINT_TEXT)).not.toBeInTheDocument();
@@ -377,8 +346,7 @@ describe('NotificationsCard', () => {
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
         toggleAll: mockToggleAll,
-        pendingCategories: new Set<string>(),
-        pendingAll: false,
+        pendingToggle: false,
       });
       render(<NotificationsCard />);
       expect(screen.queryByText(HINT_TEXT)).not.toBeInTheDocument();
@@ -394,8 +362,7 @@ describe('NotificationsCard', () => {
         pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
         toggleAll: mockToggleAll,
-        pendingCategories: new Set<string>(),
-        pendingAll: false,
+        pendingToggle: false,
       });
       render(<NotificationsCard />);
       fireEvent.click(screen.getByText('Enable on this device'));
@@ -412,8 +379,7 @@ describe('NotificationsCard', () => {
         pendingDeviceEnable: true,
         toggleCategory: mockToggleCategory,
         toggleAll: mockToggleAll,
-        pendingCategories: new Set<string>(),
-        pendingAll: false,
+        pendingToggle: false,
       });
       render(<NotificationsCard />);
       expect(screen.getByText('Enable on this device')).toBeDisabled();

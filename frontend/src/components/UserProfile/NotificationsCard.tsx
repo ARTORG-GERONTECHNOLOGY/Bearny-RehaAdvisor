@@ -24,8 +24,7 @@ const NotificationsCard: React.FC = observer(() => {
     pendingDeviceEnable,
     toggleCategory,
     toggleAll,
-    pendingCategories,
-    pendingAll,
+    pendingToggle,
   } = useNotifications();
   const patientId = authStore.getStoredUserId();
   const { preferences, error } = notificationPreferencesStore;
@@ -65,7 +64,7 @@ const NotificationsCard: React.FC = observer(() => {
         </div>
         <Switch
           checked={allEnabled}
-          disabled={pendingAll}
+          disabled={pendingToggle}
           onCheckedChange={(value) => patientId && toggleAll(patientId, value)}
         />
       </div>
@@ -78,7 +77,7 @@ const NotificationsCard: React.FC = observer(() => {
             </div>
             <Switch
               checked={preferences[category]}
-              disabled={pendingAll || pendingCategories.has(category)}
+              disabled={pendingToggle}
               onCheckedChange={(value) => patientId && toggleCategory(patientId, category, value)}
             />
           </div>

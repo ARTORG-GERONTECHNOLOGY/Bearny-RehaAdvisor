@@ -420,7 +420,7 @@ describe('useNotifications', () => {
   });
 
   describe('pending state', () => {
-    it('marks a category pending during toggleCategory and clears it after', async () => {
+    it('marks pendingToggle during toggleCategory and clears it after', async () => {
       mockNotification.requestPermission = jest.fn().mockResolvedValue('granted');
       let resolveSave: (value: boolean) => void = () => {};
       (notificationPreferencesStore.savePreferences as jest.Mock).mockImplementation(
@@ -438,7 +438,7 @@ describe('useNotifications', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.pendingCategories.has('education')).toBe(true);
+        expect(result.current.pendingToggle).toBe(true);
       });
 
       await act(async () => {
@@ -446,10 +446,10 @@ describe('useNotifications', () => {
         await togglePromise;
       });
 
-      expect(result.current.pendingCategories.has('education')).toBe(false);
+      expect(result.current.pendingToggle).toBe(false);
     });
 
-    it('marks pendingAll during toggleAll and clears it after', async () => {
+    it('marks pendingToggle during toggleAll and clears it after', async () => {
       let resolveSave: (value: boolean) => void = () => {};
       (notificationPreferencesStore.savePreferences as jest.Mock).mockImplementation(
         () =>
@@ -466,7 +466,7 @@ describe('useNotifications', () => {
       });
 
       await waitFor(() => {
-        expect(result.current.pendingAll).toBe(true);
+        expect(result.current.pendingToggle).toBe(true);
       });
 
       await act(async () => {
@@ -474,7 +474,7 @@ describe('useNotifications', () => {
         await togglePromise;
       });
 
-      expect(result.current.pendingAll).toBe(false);
+      expect(result.current.pendingToggle).toBe(false);
     });
   });
 
@@ -515,6 +515,55 @@ describe('useNotifications', () => {
       expect(notificationPreferencesStore.savePreferences).toHaveBeenCalledWith('patient-1', {
         exercise: true,
       });
+    });
+  });
+
+  describe('mount-time check vs. an orphaned in-flight subscribe', () => {
+    it("waits for a subscribe still running from a since-unmounted instance before reporting this device's state (regression: a fresh mount's check could race ahead of it, capture a stale value, and never correct itself)", async () => {
+      mockNotification.requestPermission = jest.fn().mockResolvedValue('granted');
+
+      // Real browser behavior: once pushManager.subscribe() creates a
+      // subscription, later getSubscription() calls return it.
+      mockPushManager.subscribe.mockImplementation(async () => {
+        mockPushManager.getSubscription.mockResolvedValue(mockSubscription);
+        return mockSubscription;
+      });
+
+      // The subscribe is slow (e.g. a real network round-trip to register with
+      // the backend) — resolved manually once the first component has unmounted.
+      let resolveRegister: () => void = () => {};
+      (notificationPreferencesStore.registerPushSubscription as jest.Mock).mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveRegister = resolve;
+          })
+      );
+
+      const first = renderHook(() => useNotifications());
+      let enablePromise!: Promise<void>;
+      act(() => {
+        enablePromise = first.result.current.enableOnThisDevice('patient-1');
+      });
+      await waitFor(() => expect(mockPushManager.subscribe).toHaveBeenCalled());
+
+      // User navigates away before the subscribe (and its enclosing component)
+      // finishes — the module-level subscribeInFlight promise keeps running.
+      first.unmount();
+
+      // A new instance mounts (e.g. the user comes back to the page) while the
+      // orphaned subscribe from the first instance is still in flight.
+      const second = renderHook(() => useNotifications());
+
+      // Only now does the orphaned subscribe's backend call resolve.
+      await act(async () => {
+        resolveRegister();
+        await enablePromise;
+      });
+
+      await waitFor(() => {
+        expect(second.result.current.isSubscribedOnThisDevice).toBe(true);
+      });
+      expect(second.result.current.deviceCheckComplete).toBe(true);
     });
   });
 

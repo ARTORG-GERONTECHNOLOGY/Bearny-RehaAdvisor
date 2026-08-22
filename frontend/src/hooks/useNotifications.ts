@@ -7,10 +7,10 @@ import {
 import { urlBase64ToUint8Array } from '@/utils/pushSubscription';
 
 // Module-level (not per-render) in-flight locks: there is only ever one real
-// browser push subscription, so concurrent toggleCategory/toggleAll calls
-// (e.g. rapid double-clicks before the UI has re-rendered) must share the
-// same subscribe/unsubscribe attempt instead of each independently calling
-// pushManager.subscribe(), which creates a distinct new subscription per call.
+// browser push subscription, so concurrent subscribe/unsubscribe calls must
+// share the same attempt instead of each independently calling
+// pushManager.subscribe(). Also consulted by the mount-time check effect
+// below, in case a component unmounts mid-request.
 let subscribeInFlight: Promise<boolean> | null = null;
 let unsubscribeInFlight: Promise<boolean> | null = null;
 
@@ -124,11 +124,11 @@ export function useNotifications() {
   // true/false = confirmed subscription state for this device.
   const [deviceSubscribed, setDeviceSubscribed] = useState<boolean | null>(null);
   const [pendingDeviceEnable, setPendingDeviceEnable] = useState(false);
-  // Categories (and/or "all") currently mid-toggle — used to disable their
-  // switches in the UI so a slow permission/subscribe round-trip can't be
-  // mistaken for "nothing happened" and clicked again.
-  const [pendingCategories, setPendingCategories] = useState<Set<NotificationCategory>>(new Set());
-  const [pendingAll, setPendingAll] = useState(false);
+  // True while any toggleCategory/toggleAll call is in flight — disables every
+  // switch in the UI so a slow permission/subscribe round-trip can't be
+  // mistaken for "nothing happened" and clicked again, and so two switches
+  // can't independently subscribe/unsubscribe the device at the same time.
+  const [pendingToggle, setPendingToggle] = useState(false);
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -142,9 +142,14 @@ export function useNotifications() {
   useEffect(() => {
     if (!supportsPush) return;
     let cancelled = false;
-    // getRegistration(), not .ready — .ready can hang until first load finishes.
-    navigator.serviceWorker
-      .getRegistration()
+    // Wait for any subscribe/unsubscribe left running by a since-unmounted
+    // instance, so this check doesn't read a stale pre-op subscription state.
+    const pendingOps = [subscribeInFlight, unsubscribeInFlight].filter(
+      (p): p is Promise<boolean> => p !== null
+    );
+    Promise.allSettled(pendingOps)
+      // getRegistration(), not .ready — .ready can hang until first load finishes.
+      .then(() => navigator.serviceWorker.getRegistration())
       .then((registration) => getCurrentSubscription(registration))
       .then((subscription) => {
         if (!cancelled) {
@@ -195,7 +200,7 @@ export function useNotifications() {
     category: NotificationCategory,
     value: boolean
   ) => {
-    setPendingCategories((prev) => new Set(prev).add(category));
+    setPendingToggle(true);
     try {
       if (value) {
         if (!(await subscribeThisDevice(patientId))) return;
@@ -213,16 +218,12 @@ export function useNotifications() {
         }
       }
     } finally {
-      setPendingCategories((prev) => {
-        const next = new Set(prev);
-        next.delete(category);
-        return next;
-      });
+      setPendingToggle(false);
     }
   };
 
   const toggleAll = async (patientId: string, value: boolean) => {
-    setPendingAll(true);
+    setPendingToggle(true);
     try {
       if (value) {
         if (!(await subscribeThisDevice(patientId))) return;
@@ -237,7 +238,7 @@ export function useNotifications() {
         await unsubscribeThisDevice(patientId);
       }
     } finally {
-      setPendingAll(false);
+      setPendingToggle(false);
     }
   };
 
@@ -260,7 +261,6 @@ export function useNotifications() {
     pendingDeviceEnable,
     toggleCategory,
     toggleAll,
-    pendingCategories,
-    pendingAll,
+    pendingToggle,
   };
 }
