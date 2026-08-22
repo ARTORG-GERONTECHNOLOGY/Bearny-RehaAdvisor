@@ -61,6 +61,8 @@ class NotificationPreferencesStore {
   loading = false;
   saving = false;
   error = '';
+  // Guards against an out-of-order fetchPreferences response overwriting newer state.
+  private fetchToken = 0;
 
   constructor() {
     makeAutoObservable(this);
@@ -76,23 +78,32 @@ class NotificationPreferencesStore {
 
   async fetchPreferences(patientId: string) {
     if (!patientId) return;
+    const token = ++this.fetchToken;
     this.loading = true;
     this.error = '';
     try {
       const { data } = await apiClient.get(`/patients/${patientId}/notification-preferences/`);
+      if (token !== this.fetchToken) return;
       runInAction(() => {
         this.preferences = { ...DEFAULT_PREFERENCES, ...data.preferences };
         this.deviceCount = data.device_count ?? 0;
         this.lastSent = { ...DEFAULT_LAST_SENT, ...data.last_sent };
       });
     } catch {
+      if (token !== this.fetchToken) return;
       runInAction(() => {
+        // Reset rather than leaving the previous patient's values on screen.
+        this.preferences = { ...DEFAULT_PREFERENCES };
+        this.deviceCount = null;
+        this.lastSent = { ...DEFAULT_LAST_SENT };
         this.error = 'Failed to load notification preferences';
       });
     } finally {
-      runInAction(() => {
-        this.loading = false;
-      });
+      if (token === this.fetchToken) {
+        runInAction(() => {
+          this.loading = false;
+        });
+      }
     }
   }
 

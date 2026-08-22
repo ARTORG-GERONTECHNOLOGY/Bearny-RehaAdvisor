@@ -98,16 +98,21 @@ def _as_aware_utc(d: datetime.datetime) -> datetime.datetime:
 
 def _last_sent_by_category(patient: Patient) -> Dict[str, str | None]:
     """Most recent SentPushNotification.sent_at per category — reflects when a send was
-    last attempted/scheduled, not confirmed delivery (webpush failures aren't persisted)."""
+    last attempted/scheduled, not confirmed delivery (webpush failures aren't persisted).
+
+    Grouped server-side via aggregation, using the (patient, -sent_at) index, so only
+    one row per category comes back regardless of how large the patient's history is.
+    """
     result: Dict[str, str | None] = dict.fromkeys(PREFERENCE_FIELDS)
-    remaining = set(PREFERENCE_FIELDS)
-    records = SentPushNotification.objects(patient=patient).order_by("-sent_at").only("category", "sent_at")
-    for record in records:
-        if record.category in remaining:
-            result[record.category] = _as_aware_utc(record.sent_at).isoformat()
-            remaining.discard(record.category)
-            if not remaining:
-                break
+    pipeline = [
+        {"$match": {"patient": patient.pk}},
+        {"$sort": {"sent_at": -1}},
+        {"$group": {"_id": "$category", "sent_at": {"$first": "$sent_at"}}},
+    ]
+    for row in SentPushNotification.objects.aggregate(pipeline):
+        category = row["_id"]
+        if category in result:
+            result[category] = _as_aware_utc(row["sent_at"]).isoformat()
     return result
 
 
