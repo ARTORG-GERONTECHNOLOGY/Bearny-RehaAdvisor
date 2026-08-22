@@ -144,12 +144,23 @@ export function useNotifications() {
     let cancelled = false;
     // Wait for any subscribe/unsubscribe left running by a since-unmounted
     // instance, so this check doesn't read a stale pre-op subscription state.
+    // Bounded by a timeout: doSubscribeToPush/doUnsubscribeFromPush start
+    // with navigator.serviceWorker.ready, which — like the comment below
+    // notes — can itself hang, so an orphaned op must not be able to block
+    // this check forever.
     const pendingOps = [subscribeInFlight, unsubscribeInFlight].filter(
       (p): p is Promise<boolean> => p !== null
     );
-    Promise.allSettled(pendingOps)
-      // getRegistration(), not .ready — .ready can hang until first load finishes.
-      .then(() => navigator.serviceWorker.getRegistration())
+    let waitTimer: ReturnType<typeof setTimeout>;
+    const wait = new Promise<void>((resolve) => {
+      waitTimer = setTimeout(resolve, 3000);
+    });
+    Promise.race([Promise.allSettled(pendingOps), wait])
+      .then(() => {
+        clearTimeout(waitTimer);
+        // getRegistration(), not .ready — .ready can hang until first load finishes.
+        return navigator.serviceWorker.getRegistration();
+      })
       .then((registration) => getCurrentSubscription(registration))
       .then((subscription) => {
         if (!cancelled) {
@@ -162,6 +173,7 @@ export function useNotifications() {
       });
     return () => {
       cancelled = true;
+      clearTimeout(waitTimer);
     };
   }, [supportsPush]);
 

@@ -565,6 +565,50 @@ describe('useNotifications', () => {
       });
       expect(second.result.current.deviceCheckComplete).toBe(true);
     });
+
+    it("does not hang forever if the orphaned op is itself stuck on navigator.serviceWorker.ready (regression: that's the exact hang the mount check's getRegistration()-not-.ready choice exists to avoid, and waiting on the orphaned op unbounded would reintroduce it)", async () => {
+      mockNotification.requestPermission = jest.fn().mockResolvedValue('granted');
+      // A real, documented service-worker quirk on first load: .ready doesn't
+      // resolve until a service worker actively controls the page. Simulated
+      // here as staying pending until resolveReady() is called below, so
+      // doSubscribeToPush's first await doesn't settle and the subscribe
+      // started below doesn't finish until we let it.
+      let resolveReady!: (registration: ServiceWorkerRegistration) => void;
+      const readyPromise = new Promise<ServiceWorkerRegistration>((resolve) => {
+        resolveReady = resolve;
+      });
+      Object.defineProperty(global.navigator, 'serviceWorker', {
+        value: {
+          ready: readyPromise,
+          getRegistration: jest.fn().mockResolvedValue(mockRegistration),
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      const first = renderHook(() => useNotifications());
+      let enablePromise!: Promise<void>;
+      act(() => {
+        enablePromise = first.result.current.enableOnThisDevice('patient-1');
+      });
+      await waitFor(() => expect(mockNotification.requestPermission).toHaveBeenCalled());
+
+      first.unmount();
+
+      const second = renderHook(() => useNotifications());
+      expect(second.result.current.deviceCheckComplete).toBe(false);
+
+      await waitFor(() => expect(second.result.current.deviceCheckComplete).toBe(true), {
+        timeout: 5000,
+      });
+
+      // Let the orphaned subscribe finish so it doesn't leak into later tests —
+      // subscribeInFlight is module-level state, not reset between tests.
+      await act(async () => {
+        resolveReady(mockRegistration);
+        await enablePromise;
+      });
+    }, 10000);
   });
 
   describe('shared-device conflict handling', () => {
