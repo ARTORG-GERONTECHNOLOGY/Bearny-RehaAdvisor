@@ -11,7 +11,7 @@ DELETE /api/patients/<patient_id>/push-subscription/
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest import mock
 
@@ -20,7 +20,15 @@ import pytest
 from bson import ObjectId
 from django.test import Client, override_settings
 
-from core.models import Patient, PushSubscription, Therapist, User
+from core.models import (
+    Intervention,
+    Patient,
+    PushSubscription,
+    RehabilitationPlan,
+    SentPushNotification,
+    Therapist,
+    User,
+)
 from core.views.patient_notification_prefs import _check_can_read, _check_can_write
 
 client = Client()
@@ -91,6 +99,31 @@ def _request_as(user_id):
     return SimpleNamespace(user=SimpleNamespace(id=user_id))
 
 
+def create_sent_push_notification(patient, category, sent_at):
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=patient.therapist,
+        startDate=sent_at,
+        endDate=sent_at,
+        status="active",
+    ).save()
+    intervention = Intervention(
+        external_id=f"ext-{ObjectId()}",
+        language="en",
+        title="Intervention",
+        description="desc",
+        content_type="Video",
+    ).save()
+    return SentPushNotification(
+        patient=patient,
+        rehab_plan=plan,
+        intervention=intervention,
+        scheduled_at=sent_at,
+        category=category,
+        sent_at=sent_at,
+    ).save()
+
+
 # ---------------------------------------------------------------------------
 # GET /notification-preferences/
 # ---------------------------------------------------------------------------
@@ -122,6 +155,48 @@ def test_prefs_get_defaults_all_false():
         "behavior_change": False,
         "other": False,
     }
+    assert body["device_count"] == 0
+    assert body["last_sent"] == {
+        "education": None,
+        "exercise": None,
+        "instructions": None,
+        "reminder": None,
+        "behavior_change": None,
+        "other": None,
+    }
+
+
+def test_prefs_get_device_count_reflects_only_this_patients_subscriptions():
+    patient = create_patient()
+    other = create_patient()
+    PushSubscription(patient=patient, endpoint="https://push.example.com/a", keys_p256dh="p", keys_auth="a").save()
+    PushSubscription(patient=patient, endpoint="https://push.example.com/b", keys_p256dh="p", keys_auth="a").save()
+    PushSubscription(patient=other, endpoint="https://push.example.com/c", keys_p256dh="p", keys_auth="a").save()
+
+    resp = client.get(f"/api/patients/{patient.id}/notification-preferences/", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.json()["device_count"] == 2
+
+
+def test_prefs_get_last_sent_returns_most_recent_per_category_for_this_patient_only():
+    patient = create_patient()
+    other = create_patient()
+    # microsecond=0: MongoDB (and mongomock) store datetimes at millisecond
+    # precision, so a raw datetime.now() round-trips with rounded/truncated
+    # microseconds and no longer string-compares equal to the original.
+    now = datetime.now().replace(microsecond=0)
+    older = now - timedelta(days=5)
+    newer = now - timedelta(days=1)
+
+    create_sent_push_notification(patient, "exercise", older)
+    create_sent_push_notification(patient, "exercise", newer)  # most recent should win
+    create_sent_push_notification(patient, "reminder", older)
+    create_sent_push_notification(other, "exercise", now)  # different patient, must not leak in
+
+    resp = client.get(f"/api/patients/{patient.id}/notification-preferences/", HTTP_AUTHORIZATION="Bearer test")
+    last_sent = resp.json()["last_sent"]
+    assert last_sent["exercise"] == newer.isoformat()
+    assert last_sent["reminder"] == older.isoformat()
+    assert last_sent["education"] is None
 
 
 # ---------------------------------------------------------------------------

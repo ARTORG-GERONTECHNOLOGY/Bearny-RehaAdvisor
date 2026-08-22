@@ -41,8 +41,23 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   other: false,
 };
 
+export type LastSentByCategory = Record<NotificationCategory, string | null>;
+
+const DEFAULT_LAST_SENT: LastSentByCategory = {
+  education: null,
+  exercise: null,
+  instructions: null,
+  reminder: null,
+  behavior_change: null,
+  other: null,
+};
+
 class NotificationPreferencesStore {
   preferences: NotificationPreferences = { ...DEFAULT_PREFERENCES };
+  // null (not 0): distinguishes "not fetched yet" from "confirmed zero devices",
+  // so the therapist-facing card doesn't flash a false "no device" warning.
+  deviceCount: number | null = null;
+  lastSent: LastSentByCategory = { ...DEFAULT_LAST_SENT };
   loading = false;
   saving = false;
   error = '';
@@ -67,6 +82,8 @@ class NotificationPreferencesStore {
       const { data } = await apiClient.get(`/patients/${patientId}/notification-preferences/`);
       runInAction(() => {
         this.preferences = { ...DEFAULT_PREFERENCES, ...data.preferences };
+        this.deviceCount = data.device_count ?? 0;
+        this.lastSent = { ...DEFAULT_LAST_SENT, ...data.last_sent };
       });
     } catch {
       runInAction(() => {

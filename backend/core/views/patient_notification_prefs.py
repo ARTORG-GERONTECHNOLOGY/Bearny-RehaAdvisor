@@ -27,7 +27,7 @@ from mongoengine.errors import NotUniqueError
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
-from core.models import Patient, PatientNotificationPreferences, PushSubscription
+from core.models import Patient, PatientNotificationPreferences, PushSubscription, SentPushNotification
 from core.notifications.push_endpoints import is_allowed_push_endpoint
 from core.services.redcap_access import get_therapist_for_user
 
@@ -85,6 +85,21 @@ def _preferences_to_dict(prefs: PatientNotificationPreferences) -> Dict[str, boo
     # Fail closed (opt-in): a missing attribute reads as "not enabled", matching
     # PatientNotificationPreferences' own default=False.
     return {field: bool(getattr(prefs, field, False)) for field in PREFERENCE_FIELDS}
+
+
+def _last_sent_by_category(patient: Patient) -> Dict[str, str | None]:
+    """Most recent SentPushNotification.sent_at per category — reflects when a send was
+    last attempted/scheduled, not confirmed delivery (webpush failures aren't persisted)."""
+    result: Dict[str, str | None] = dict.fromkeys(PREFERENCE_FIELDS)
+    remaining = set(PREFERENCE_FIELDS)
+    records = SentPushNotification.objects(patient=patient).order_by("-sent_at").only("category", "sent_at")
+    for record in records:
+        if record.category in remaining:
+            result[record.category] = record.sent_at.isoformat()
+            remaining.discard(record.category)
+            if not remaining:
+                break
+    return result
 
 
 def _patient_user_id(patient: Patient) -> str:
@@ -155,7 +170,14 @@ def patient_notification_preferences_view(request, patient_id: str):
         if auth_error:
             return auth_error
         prefs = patient.notification_preferences or PatientNotificationPreferences()
-        return ok({"patient_id": str(patient.id), "preferences": _preferences_to_dict(prefs)})
+        return ok(
+            {
+                "patient_id": str(patient.id),
+                "preferences": _preferences_to_dict(prefs),
+                "device_count": PushSubscription.objects(patient=patient).count(),
+                "last_sent": _last_sent_by_category(patient),
+            }
+        )
 
     auth_error = _check_can_write(request, patient, patient_id)
     if auth_error:
