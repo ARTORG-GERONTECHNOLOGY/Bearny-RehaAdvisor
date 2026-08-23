@@ -484,6 +484,132 @@ def test_remove_intervention_success(mongo_mock):
     assert "Intervention dates removed successfully" in resp.content.decode()
 
 
+def test_remove_intervention_matches_translated_variant(mongo_mock):
+    """
+    Multilingual interventions exist as one Intervention document per language
+    sharing an external_id. The therapist calendar's catalog merge can surface
+    a different language variant's id than the one actually assigned - the
+    removal lookup must still resolve via external_id instead of returning
+    "Intervention not assigned to this patient."
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    )
+    translated.save()
+
+    payload = {"intervention": str(translated.id), "patientId": str(patient.id)}
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert "Intervention dates removed successfully" in resp.content.decode()
+
+
+def test_remove_intervention_duplicate_external_id_only_affects_one_assignment(mongo_mock):
+    """
+    Regression: if a patient's plan ever ends up with two assignments that
+    share an external_id (e.g. one per language variant), removing one of
+    them must only clear that assignment's dates, not the other assignment's
+    dates too.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    )
+    translated.save()
+
+    other_dates = [datetime.now() + timedelta(days=i) for i in range(1, 6)]
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=translated,
+            frequency="Daily",
+            notes="",
+            dates=other_dates,
+        )
+    )
+    plan.save()
+
+    payload = {"intervention": str(intervention.id), "patientId": str(patient.id)}
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    remaining_assignments = [a for a in plan.interventions if a.interventionId.id == translated.id]
+    assert len(remaining_assignments) == 1
+    assert len(remaining_assignments[0].dates) == len(other_dates), (
+        "Removing one language variant's assignment must not touch the other "
+        "assignment sharing the same external_id."
+    )
+
+
+def test_remove_intervention_ambiguous_external_id_is_rejected(mongo_mock):
+    """
+    Regression: when the requested id matches no assignment exactly and more
+    than one assignment shares its external_id (e.g. both an EN and a DE
+    variant are assigned), the lookup must refuse to guess which assignment
+    was intended rather than silently acting on the first one.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    )
+    translated.save()
+
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=translated,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(1, 6)],
+        )
+    )
+    plan.save()
+
+    # A third variant sharing the same external_id, assigned to neither
+    # assignment - matches neither exactly, and matches both via external_id.
+    unassigned_variant = Intervention(
+        title="Étirement",
+        description="Exercices d'étirement",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="fr",
+    )
+    unassigned_variant.save()
+
+    payload = {"intervention": str(unassigned_variant.id), "patientId": str(patient.id)}
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404, resp.content.decode()
+
+    plan.reload()
+    assert len(plan.interventions) == 2, "Ambiguous match must not mutate either assignment."
+
+
 def test_remove_intervention_missing_params(mongo_mock):
     """
 

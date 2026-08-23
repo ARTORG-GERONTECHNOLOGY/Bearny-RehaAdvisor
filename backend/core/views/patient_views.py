@@ -2183,6 +2183,50 @@ def _ceil_to_day(dt: datetime.datetime) -> datetime.datetime:
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+def _find_plan_intervention_assignment(plan, intervention_id):
+    """
+    Match a plan's intervention assignment by interventionId, falling back to
+    external_id. Multilingual interventions exist as separate Intervention
+    documents (one per language, same external_id) - the frontend catalog can
+    surface a different language variant's id than the one actually assigned
+    to the patient, so an exact id match can miss even though "the same"
+    intervention is assigned.
+    """
+
+    def _safe_intervention(a):
+        # Guard against a deleted (dangling) referenced Intervention.
+        try:
+            return a.interventionId
+        except Exception:
+            return None
+
+    target = next(
+        (a for a in plan.interventions if str(getattr(_safe_intervention(a), "id", None)) == str(intervention_id)),
+        None,
+    )
+    if target:
+        return target
+
+    try:
+        requested = Intervention.objects(id=ObjectId(str(intervention_id))).first()
+    except Exception:
+        requested = None
+    requested_ext_id = getattr(requested, "external_id", None)
+    if not requested_ext_id:
+        return None
+
+    matches = [a for a in plan.interventions if getattr(_safe_intervention(a), "external_id", None) == requested_ext_id]
+    if len(matches) > 1:
+        # Ambiguous match - refuse to guess rather than mutate the wrong assignment.
+        logger.warning(
+            "[_find_plan_intervention_assignment] Multiple assignments share external_id=%s; "
+            "refusing to guess which one was intended.",
+            requested_ext_id,
+        )
+        return None
+    return matches[0] if matches else None
+
+
 # English + German short labels
 WEEKDAY_MAP = {
     "Mon": 0,
@@ -2450,10 +2494,7 @@ def modify_intervention_from_date(request):
     # ----------------------
     # Find intervention assignment
     # ----------------------
-    target = next(
-        (a for a in plan.interventions if str(a.interventionId.id) == str(intervention_id)),
-        None,
-    )
+    target = _find_plan_intervention_assignment(plan, intervention_id)
 
     if not target:
         return JsonResponse(
@@ -2725,10 +2766,7 @@ def reschedule_intervention_date(request):
     # ----------------------
     # Find intervention assignment
     # ----------------------
-    target = next(
-        (a for a in plan.interventions if str(a.interventionId.id) == str(intervention_id)),
-        None,
-    )
+    target = _find_plan_intervention_assignment(plan, intervention_id)
 
     if not target:
         return JsonResponse(
@@ -3246,32 +3284,11 @@ def remove_intervention_from_patient(request):
 
     try:
         now = timezone.now()
-        intervention_found = False
         occurrence_found = False
 
-        for assignment in plan.interventions:
-            if str(assignment.interventionId.pk) == str(intervention_id):
-                intervention_found = True
+        assignment = _find_plan_intervention_assignment(plan, intervention_id)
 
-                if occurrence_dt_utc is not None:
-                    # Remove only the single matching future occurrence, leaving
-                    # every other scheduled date (past or future) untouched.
-                    # Matched in UTC (like reschedule_intervention_date) since
-                    # naive Mongo dates are stored as UTC instants, not local time.
-                    now_utc = _as_aware_utc(now)
-                    remaining = []
-                    for d in assignment.dates:
-                        d_utc = _as_aware_utc(d)
-                        if d_utc > now_utc and abs((d_utc - occurrence_dt_utc).total_seconds()) < 1:
-                            occurrence_found = True
-                            continue
-                        remaining.append(d)
-                    assignment.dates = remaining
-                else:
-                    # Keep only past or today's dates
-                    assignment.dates = [d for d in assignment.dates if ensure_aware(d) <= now]
-
-        if not intervention_found:
+        if assignment is None:
             return JsonResponse(
                 {
                     "success": False,
@@ -3280,6 +3297,24 @@ def remove_intervention_from_patient(request):
                 },
                 status=404,
             )
+
+        if occurrence_dt_utc is not None:
+            # Remove only the single matching future occurrence, leaving
+            # every other scheduled date (past or future) untouched.
+            # Matched in UTC (like reschedule_intervention_date) since
+            # naive Mongo dates are stored as UTC instants, not local time.
+            now_utc = _as_aware_utc(now)
+            remaining = []
+            for d in assignment.dates:
+                d_utc = _as_aware_utc(d)
+                if d_utc > now_utc and abs((d_utc - occurrence_dt_utc).total_seconds()) < 1:
+                    occurrence_found = True
+                    continue
+                remaining.append(d)
+            assignment.dates = remaining
+        else:
+            # Keep only past or today's dates
+            assignment.dates = [d for d in assignment.dates if ensure_aware(d) <= now]
 
         if occurrence_dt_utc is not None and not occurrence_found:
             return JsonResponse(

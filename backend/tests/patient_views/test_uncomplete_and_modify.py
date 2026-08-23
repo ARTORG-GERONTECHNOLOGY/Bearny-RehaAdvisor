@@ -342,6 +342,37 @@ def test_modify_intervention_from_date_intervention_not_assigned(mongo_mock):
     assert resp.status_code == 404
 
 
+def test_modify_intervention_from_date_matches_translated_variant(mongo_mock):
+    """
+    Same external_id fallback as reschedule: an interventionId belonging to a
+    different language variant of the assigned intervention must still
+    resolve to the existing assignment.
+    """
+    patient, _, intervention, _ = setup_patient_with_plan()
+    translated = Intervention(
+        external_id=intervention.external_id,
+        language="de",
+        title="Yoga (DE)",
+        description="Yoga Sitzung",
+        content_type="Video",
+    ).save()
+
+    resp = client.post(
+        MODIFY_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(translated.id),
+                "effectiveFrom": "2025-01-01T00:00:00",
+                "keep_current": True,
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+
 def test_modify_intervention_from_date_keep_current(mongo_mock):
     """
     With ``keep_current: true`` the view skips schedule regeneration and only
@@ -809,6 +840,44 @@ def test_reschedule_intervention_date_intervention_not_assigned(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 404
+
+
+def test_reschedule_intervention_date_matches_translated_variant(mongo_mock):
+    """
+    Multilingual interventions are stored as one Intervention document per
+    language, sharing an ``external_id``. The frontend catalog can surface a
+    different language variant's id than the one actually assigned to the
+    patient (e.g. an English document when the patient was assigned the
+    German one) - the assignment lookup must still resolve via external_id.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = Intervention(
+        external_id=intervention.external_id,
+        language="de",
+        title="Yoga (DE)",
+        description="Yoga Sitzung",
+        content_type="Video",
+    ).save()
+
+    assignment = plan.interventions[0]
+    old_dt = assignment.dates[1]
+    new_dt = datetime.now(py_utc.utc) + timedelta(days=5)
+
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(translated.id),
+                "oldDatetime": _as_utc_iso(old_dt),
+                "newDatetime": new_dt.isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json().get("success") is True
 
 
 def test_reschedule_intervention_date_old_datetime_not_found(mongo_mock):
