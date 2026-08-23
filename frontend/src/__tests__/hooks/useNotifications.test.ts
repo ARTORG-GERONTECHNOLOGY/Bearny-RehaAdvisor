@@ -163,6 +163,17 @@ describe('useNotifications', () => {
       expect(mockPushManager.subscribe).not.toHaveBeenCalled();
       expect(result.current.isSubscribedOnThisDevice).toBe(false);
     });
+
+    it("still marks the device subscribed under StrictMode's dev-only double mount/unmount/remount cycle (regression: mountedRef was only set false in the cleanup, never back to true on remount, so it stuck false and setDeviceSubscribed silently no-opped until a full page reload)", async () => {
+      mockNotification.requestPermission = jest.fn().mockResolvedValue('granted');
+      const { result } = renderHook(() => useNotifications(), { reactStrictMode: true });
+
+      await act(async () => {
+        await result.current.enableOnThisDevice('patient-1');
+      });
+
+      expect(result.current.isSubscribedOnThisDevice).toBe(true);
+    });
   });
 
   describe('toggleCategory', () => {

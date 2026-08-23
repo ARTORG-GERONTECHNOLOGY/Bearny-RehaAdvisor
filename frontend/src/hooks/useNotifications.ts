@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   notificationPreferencesStore,
   NOTIFICATION_CATEGORIES,
@@ -129,6 +129,16 @@ export function useNotifications() {
   // mistaken for "nothing happened" and clicked again, and so two switches
   // can't independently subscribe/unsubscribe the device at the same time.
   const [pendingToggle, setPendingToggle] = useState(false);
+  // Guards setDeviceSubscribed against firing after unmount. Reset in the
+  // effect body, not just the useRef initializer, so StrictMode's dev-only
+  // double-invoke doesn't leave it stuck false.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -197,13 +207,13 @@ export function useNotifications() {
     if (!hasPermission) return false;
     const subscribed = await subscribeToPush(patientId);
     if (!subscribed) return false; // doSubscribeToPush already set the error
-    setDeviceSubscribed(true);
+    if (mountedRef.current) setDeviceSubscribed(true);
     return true;
   };
 
   const unsubscribeThisDevice = async (patientId: string): Promise<boolean> => {
     const unsubscribed = await unsubscribeFromPush(patientId);
-    if (unsubscribed) setDeviceSubscribed(false);
+    if (unsubscribed && mountedRef.current) setDeviceSubscribed(false);
     return unsubscribed;
   };
 
