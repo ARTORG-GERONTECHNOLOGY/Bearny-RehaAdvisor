@@ -1729,6 +1729,49 @@ def test_mark_completed_matches_translated_variant(mongo_mock):
     )
 
 
+def test_mark_completed_via_translated_variant_visible_in_patient_plan(mongo_mock):
+    """
+    Regression: the plan assigns the EN variant, but the patient completes it
+    via the DE variant (same external_id, no prior log that day). The log
+    must be stored against the plan's canonically-assigned variant so
+    get_patient_plan's exact-interventionId lookup still finds it as completed.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(translated.id),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    resp2 = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{str(patient.userId.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp2.status_code == 200
+    data = resp2.json()
+    completion_dates = data[0]["completion_dates"]
+    today_key = timezone.localdate().isoformat()
+    assert (
+        today_key in completion_dates
+    ), "Completion via non-assigned language variant is invisible in the patient plan"
+
+
 # ===========================================================================
 # Additional coverage — remove_intervention_from_patient
 # ===========================================================================

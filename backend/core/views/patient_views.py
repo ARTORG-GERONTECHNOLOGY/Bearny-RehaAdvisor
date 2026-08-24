@@ -471,6 +471,8 @@ def mark_intervention_completed(request):
         # -----------------------------
         log_date = day_start  # default: local midnight of target_day
         assignment = _find_plan_intervention_assignment(rehab_plan, intervention.pk)
+        # Log against the plan's assigned variant so get_patient_plan's exact-match lookup finds it.
+        canonical_intervention = _safe_intervention(assignment) or intervention
         if assignment:
             for sched_dt in assignment.dates:
                 if not isinstance(sched_dt, datetime.datetime):
@@ -481,11 +483,11 @@ def mark_intervention_completed(request):
                     log_date = sched_local
                     break
 
-        # Fetch ALL logs for the naive local day window
+        # Fetch ALL logs for the naive local day window, across all language variants of this intervention
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
-            interventionId=intervention,
+            interventionId__in=_intervention_variant_ids(intervention),
             date__gte=day_start,
             date__lte=day_end,
         ).order_by("-date")
@@ -520,8 +522,9 @@ def mark_intervention_completed(request):
 
             keep.updatedAt = timezone.now()
 
-            # Normalise stored date to the canonical log_date for this day
+            # Normalise stored date and interventionId to the canonical values for this day
             keep.date = log_date
+            keep.interventionId = canonical_intervention
 
             if assistance is not None:
                 keep.assistance = assistance
@@ -541,7 +544,7 @@ def mark_intervention_completed(request):
         # No log yet → create ONE canonical log for that day
         log = PatientInterventionLogs(
             userId=patient,
-            interventionId=intervention,
+            interventionId=canonical_intervention,
             rehabilitationPlanId=rehab_plan,
             date=log_date,  # naive local datetime (scheduled time or midnight)
             status=["completed"],
@@ -615,7 +618,7 @@ def unmark_intervention_completed(request):
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
-            interventionId=intervention,
+            interventionId__in=_intervention_variant_ids(intervention),
             date__gte=day_start,
             date__lte=day_end,
         ).order_by("-date")
@@ -1463,9 +1466,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
             if plan:
                 assignment = _find_plan_intervention_assignment(plan, intervention_id)
 
-        # Prefer the requested intervention's own document for content_type/aim -
-        # the assignment may resolve via the external_id fallback to a different
-        # language variant, whose content_type isn't guaranteed to match.
+        # Use the requested intervention's own doc, not the assignment's resolved variant, since content_type may differ across language variants.
         intervention_aim = ""
         if intervention_id:
             try:
@@ -2211,6 +2212,14 @@ def _find_plan_intervention_assignment(plan, intervention_id):
     if not requested_ext_id:
         return None
     return _match_assignment_by_external_id(plan, requested_ext_id)
+
+
+def _intervention_variant_ids(intervention):
+    """All Intervention ids sharing intervention's external_id, so logs recorded under a different language variant are still found."""
+    external_id = getattr(intervention, "external_id", None)
+    if not external_id:
+        return [intervention.pk]
+    return [v.id for v in Intervention.objects(external_id=external_id).only("id")]
 
 
 # English + German short labels

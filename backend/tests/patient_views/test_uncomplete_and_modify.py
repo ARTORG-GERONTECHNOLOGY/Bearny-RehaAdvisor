@@ -52,6 +52,7 @@ from core.models import (
     Intervention,
     InterventionAssignment,
     Patient,
+    PatientInterventionLogs,
     RehabilitationPlan,
     Therapist,
     User,
@@ -183,6 +184,74 @@ def test_unmark_intervention_completed_success(mongo_mock):
     )
     assert resp.status_code == 200, resp.content.decode()
     assert "Unmarked" in resp.json().get("message", "")
+
+
+def test_mark_completed_via_translated_variant_does_not_duplicate_log(mongo_mock):
+    """
+    Completing the same day through two language variants of an intervention
+    (same external_id) must merge into a single log, not create a duplicate.
+    """
+    patient, _, intervention, _ = setup_patient_with_plan()
+    translated = Intervention(
+        external_id=intervention.external_id,
+        language="de",
+        title="Yoga (DE)",
+        description="Yoga Sitzung",
+        content_type="Video",
+    ).save()
+
+    for iv_id in (str(intervention.id), str(translated.id)):
+        resp = client.post(
+            "/api/interventions/complete/",
+            data=json.dumps({"patient_id": str(patient.userId.id), "intervention_id": iv_id}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+        assert resp.status_code == 200, resp.content.decode()
+
+    logs = PatientInterventionLogs.objects(userId=patient)
+    assert logs.count() == 1, "Completing via two language variants created duplicate logs"
+
+
+def test_unmark_intervention_completed_via_translated_variant(mongo_mock):
+    """
+    A log created by completing one language variant must be found and
+    removable when uncompleting via a different variant of the same
+    external_id — otherwise the patient can't revert through the UI variant
+    the frontend happens to surface.
+    """
+    patient, _, intervention, _ = setup_patient_with_plan()
+    translated = Intervention(
+        external_id=intervention.external_id,
+        language="de",
+        title="Yoga (DE)",
+        description="Yoga Sitzung",
+        content_type="Video",
+    ).save()
+
+    client.post(
+        "/api/interventions/complete/",
+        data=json.dumps({"patient_id": str(patient.userId.id), "intervention_id": str(intervention.id)}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    today = timezone.localdate().isoformat()
+    resp = client.post(
+        UNCOMPLETE_URL,
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(translated.id),
+                "date": today,
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert "Unmarked" in resp.json().get("message", "")
+    assert PatientInterventionLogs.objects(userId=patient).count() == 0
 
 
 def test_unmark_intervention_completed_no_log_for_day(mongo_mock):
