@@ -958,6 +958,75 @@ def test_add_intervention_to_patient_accepts_patient_code(mongo_mock):
     assert str(plan.interventions[0].interventionId.id) == str(intervention.id)
 
 
+def test_add_intervention_to_patient_ambiguous_external_id_does_not_corrupt_existing_assignment(mongo_mock):
+    """
+    Regression: if a patient's plan already has two assignments sharing an
+    external_id (e.g. EN and DE variants both assigned), adding a third
+    language variant of the same intervention must not silently repoint
+    either existing assignment's interventionId - it must be rejected as
+    ambiguous, same as modify/reschedule/remove, and land as a new assignment.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=translated,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(1, 6)],
+        )
+    )
+    plan.save()
+
+    fr_variant = Intervention(
+        title="Étirement",
+        description="Exercices d'étirement",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="fr",
+    ).save()
+
+    payload = {
+        "therapistId": str(plan.therapistId.userId.id),
+        "patientId": str(patient.id),
+        "interventions": [
+            {
+                "interval": 1,
+                "interventionId": str(fr_variant.id),
+                "unit": "day",
+                "startDate": datetime.now().isoformat(),
+                "selectedDays": [],
+                "end": {"type": "count", "count": 1, "date": None},
+                "require_video_feedback": False,
+                "notes": "",
+            }
+        ],
+    }
+
+    resp = client.post(
+        "/api/interventions/add-to-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    plan.reload()
+    assert len(plan.interventions) == 3, "Ambiguous match must create a new assignment, not merge into an existing one."
+    resolved_ids = {str(a.interventionId.id) for a in plan.interventions}
+    assert resolved_ids == {
+        str(intervention.id),
+        str(translated.id),
+        str(fr_variant.id),
+    }, "Neither pre-existing assignment's interventionId may be repointed to the new variant."
+
+
 def test_get_patient_plan_no_plan_returns_empty_list(mongo_mock):
     """
     If patient exists but has no RehabilitationPlan, endpoint returns [] with message.
@@ -1617,6 +1686,49 @@ def test_mark_completed_uses_scheduled_datetime_from_plan(mongo_mock):
     )
 
 
+def test_mark_completed_matches_translated_variant(mongo_mock):
+    """
+    Regression: the patient is assigned the EN variant of an intervention,
+    but the frontend catalog surfaces the DE variant's id (same external_id)
+    when completing it. The scheduled datetime lookup must resolve via
+    external_id fallback rather than silently defaulting to local midnight.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    # Mongo stores millisecond precision; truncate before comparing.
+    sched_time = plan.interventions[0].dates[0].replace(microsecond=0)
+    plan.interventions[0].dates[0] = sched_time
+    plan.save()
+
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(translated.id),
+                "date": sched_time.date().isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+
+    log = PatientInterventionLogs.objects(userId=patient).first()
+    assert log is not None, "No log was created"
+    assert log.date == sched_time, (
+        f"Expected scheduled time {sched_time}, got {log.date}. "
+        "External_id fallback not used to resolve the plan assignment."
+    )
+
+
 # ===========================================================================
 # Additional coverage — remove_intervention_from_patient
 # ===========================================================================
@@ -2182,6 +2294,35 @@ def test_get_intervention_feedback_questions_unknown_content_type_gets_fallback_
     assert any(
         k.startswith("rating_stars_") for k in keys
     ), "Expected a star rating question for unknown type but got: " + str(keys)
+
+
+def test_get_intervention_feedback_questions_matches_translated_variant(mongo_mock):
+    """
+    Regression: the patient is assigned the Video-typed EN variant, but the
+    request supplies a DE variant's id (same external_id, deliberately given
+    a different content_type here to prove which document is actually used).
+    The assignment lookup must resolve via external_id fallback and use the
+    *assigned* intervention's content_type, not the requested variant's.
+    """
+    _seed_star_questions()
+    patient, _, intervention, _ = setup_patient_with_plan()  # content_type="Video"
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Exercise",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/get-questions/Intervention/{patient.userId.id}/",
+        {"interventionId": str(translated.id)},
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    keys = [q["questionKey"] for q in resp.json().get("questions", resp.json())]
+    assert "rating_stars_education" in keys
+    assert "rating_stars_exercise" not in keys
 
 
 # ---------------------------------------------------------------------------

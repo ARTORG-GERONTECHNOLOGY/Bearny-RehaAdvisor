@@ -470,19 +470,16 @@ def mark_intervention_completed(request):
         #    matches (e.g. ad-hoc completion not on the planned calendar).
         # -----------------------------
         log_date = day_start  # default: local midnight of target_day
-        for assignment in rehab_plan.interventions:
-            if str(assignment.interventionId.pk) == str(intervention.pk):
-                for sched_dt in assignment.dates:
-                    if not isinstance(sched_dt, datetime.datetime):
-                        continue
-                    # Normalise to naive local time for date comparison and storage
-                    sched_local = (
-                        sched_dt.astimezone(tz).replace(tzinfo=None) if sched_dt.tzinfo is not None else sched_dt
-                    )
-                    if sched_local.date() == target_day:
-                        log_date = sched_local
-                        break
-                break
+        assignment = _find_plan_intervention_assignment(rehab_plan, intervention.pk)
+        if assignment:
+            for sched_dt in assignment.dates:
+                if not isinstance(sched_dt, datetime.datetime):
+                    continue
+                # Normalise to naive local time for date comparison and storage
+                sched_local = sched_dt.astimezone(tz).replace(tzinfo=None) if sched_dt.tzinfo is not None else sched_dt
+                if sched_local.date() == target_day:
+                    log_date = sched_local
+                    break
 
         # Fetch ALL logs for the naive local day window
         logs_qs = PatientInterventionLogs.objects(
@@ -1464,15 +1461,8 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         if intervention_id:
             plan = RehabilitationPlan.objects(patientId=patient).first()
             if plan:
-                assignment = next(
-                    (
-                        a
-                        for a in (plan.interventions or [])
-                        if str(getattr(a.interventionId, "id", a.interventionId)) == str(intervention_id)
-                    ),
-                    None,
-                )
-                if assignment and getattr(assignment, "interventionId", None):
+                assignment = _find_plan_intervention_assignment(plan, intervention_id)
+                if assignment and _safe_intervention(assignment):
                     # normalize to lower for matching
                     raw_type = str(getattr(assignment.interventionId, "content_type", "") or "")
                     intervention_type = raw_type.strip().lower() or None
@@ -2072,15 +2062,9 @@ def add_intervention_to_patient(request):
 
         new_ext = getattr(intervention, "external_id", None)
 
-        existing = next(
-            (
-                a
-                for a in (plan.interventions or [])
-                if (new_ext and getattr(getattr(a, "interventionId", None), "external_id", None) == new_ext)
-                or (str(getattr(getattr(a, "interventionId", None), "id", "")) == str(intervention.id))
-            ),
-            None,
-        )
+        existing = _match_assignment_by_id(plan, intervention.id)
+        if not existing and new_ext:
+            existing = _match_assignment_by_external_id(plan, new_ext)
 
         if existing:
             if new_ext and getattr(existing.interventionId, "id", None) != getattr(intervention, "id", None):
@@ -2183,48 +2167,49 @@ def _ceil_to_day(dt: datetime.datetime) -> datetime.datetime:
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def _find_plan_intervention_assignment(plan, intervention_id):
-    """
-    Match a plan's intervention assignment by interventionId, falling back to
-    external_id. Multilingual interventions exist as separate Intervention
-    documents (one per language, same external_id) - the frontend catalog can
-    surface a different language variant's id than the one actually assigned
-    to the patient, so an exact id match can miss even though "the same"
-    intervention is assigned.
-    """
-
-    def _safe_intervention(a):
-        # Guard against a deleted (dangling) referenced Intervention.
-        try:
-            return a.interventionId
-        except Exception:
-            return None
-
-    target = next(
-        (a for a in plan.interventions if str(getattr(_safe_intervention(a), "id", None)) == str(intervention_id)),
-        None,
-    )
-    if target:
-        return target
-
+def _safe_intervention(a):
+    # Guard against a deleted (dangling) referenced Intervention.
     try:
-        requested = Intervention.objects(id=ObjectId(str(intervention_id))).first()
+        return a.interventionId
     except Exception:
-        requested = None
-    requested_ext_id = getattr(requested, "external_id", None)
-    if not requested_ext_id:
         return None
 
-    matches = [a for a in plan.interventions if getattr(_safe_intervention(a), "external_id", None) == requested_ext_id]
+
+def _match_assignment_by_id(plan, intervention_id):
+    intervention_id = str(intervention_id)
+    for a in plan.interventions or []:
+        iv = _safe_intervention(a)
+        if iv is not None and str(iv.id) == intervention_id:
+            return a
+    return None
+
+
+def _match_assignment_by_external_id(plan, external_id):
+    matches = [
+        a for a in (plan.interventions or []) if getattr(_safe_intervention(a), "external_id", None) == external_id
+    ]
     if len(matches) > 1:
         # Ambiguous match - refuse to guess rather than mutate the wrong assignment.
         logger.warning(
-            "[_find_plan_intervention_assignment] Multiple assignments share external_id=%s; "
-            "refusing to guess which one was intended.",
-            requested_ext_id,
+            "[_match_assignment_by_external_id] Multiple assignments share external_id=%s; refusing to guess.",
+            external_id,
         )
         return None
     return matches[0] if matches else None
+
+
+def _find_plan_intervention_assignment(plan, intervention_id):
+    """Match a plan's assignment by interventionId, falling back to external_id for multilingual variants."""
+    target = _match_assignment_by_id(plan, intervention_id)
+    if target:
+        return target
+
+    oid = _coerce_object_id(intervention_id)
+    requested = Intervention.objects(id=oid).only("external_id").first() if oid else None
+    requested_ext_id = getattr(requested, "external_id", None)
+    if not requested_ext_id:
+        return None
+    return _match_assignment_by_external_id(plan, requested_ext_id)
 
 
 # English + German short labels
