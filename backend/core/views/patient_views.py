@@ -1462,24 +1462,25 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
             plan = RehabilitationPlan.objects(patientId=patient).first()
             if plan:
                 assignment = _find_plan_intervention_assignment(plan, intervention_id)
-                if assignment and _safe_intervention(assignment):
-                    # normalize to lower for matching
-                    raw_type = str(getattr(assignment.interventionId, "content_type", "") or "")
-                    intervention_type = raw_type.strip().lower() or None
 
-        # Fallback: if assignment wasn't found or content_type is empty,
-        # look up the Intervention document directly (handles library-browse path
-        # where the intervention may not be in any rehabilitation plan yet).
+        # Prefer the requested intervention's own document for content_type/aim -
+        # the assignment may resolve via the external_id fallback to a different
+        # language variant, whose content_type isn't guaranteed to match.
         intervention_aim = ""
         if intervention_id:
             try:
                 iv_doc = Intervention.objects.get(pk=ObjectId(intervention_id))
-                if not intervention_type:
-                    raw_type = str(getattr(iv_doc, "content_type", "") or "")
-                    intervention_type = raw_type.strip().lower() or None
+                raw_type = str(getattr(iv_doc, "content_type", "") or "")
+                intervention_type = raw_type.strip().lower() or None
                 intervention_aim = str(getattr(iv_doc, "aim", "") or "").strip()
             except Exception:
                 pass
+
+        # Fallback: if the requested document couldn't be resolved directly
+        # (e.g. invalid id), use the matched assignment's document instead.
+        if not intervention_type and assignment and _safe_intervention(assignment):
+            raw_type = str(getattr(assignment.interventionId, "content_type", "") or "")
+            intervention_type = raw_type.strip().lower() or None
 
         # 1) Core questions (apply to all interventions).
         #    We accept two ways to mark "core":

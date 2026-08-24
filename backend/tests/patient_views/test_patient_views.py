@@ -2296,13 +2296,14 @@ def test_get_intervention_feedback_questions_unknown_content_type_gets_fallback_
     ), "Expected a star rating question for unknown type but got: " + str(keys)
 
 
-def test_get_intervention_feedback_questions_matches_translated_variant(mongo_mock):
+def test_get_intervention_feedback_questions_uses_requested_variant_content_type(mongo_mock):
     """
-    Regression: the patient is assigned the Video-typed EN variant, but the
-    request supplies a DE variant's id (same external_id, deliberately given
-    a different content_type here to prove which document is actually used).
-    The assignment lookup must resolve via external_id fallback and use the
-    *assigned* intervention's content_type, not the requested variant's.
+    The patient is assigned the Video-typed EN variant, but the request
+    supplies a DE variant's id (same external_id, deliberately given a
+    different content_type here to prove which document is actually used).
+    The *requested* document's own content_type must win, even though the
+    plan assignment resolves via the external_id fallback to the EN variant -
+    otherwise a feedback question set could be picked for the wrong document.
     """
     _seed_star_questions()
     patient, _, intervention, _ = setup_patient_with_plan()  # content_type="Video"
@@ -2321,8 +2322,8 @@ def test_get_intervention_feedback_questions_matches_translated_variant(mongo_mo
     )
     assert resp.status_code == 200
     keys = [q["questionKey"] for q in resp.json().get("questions", resp.json())]
-    assert "rating_stars_education" in keys
-    assert "rating_stars_exercise" not in keys
+    assert "rating_stars_exercise" in keys
+    assert "rating_stars_education" not in keys
 
 
 # ---------------------------------------------------------------------------
