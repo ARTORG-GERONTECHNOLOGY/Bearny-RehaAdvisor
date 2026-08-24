@@ -41,11 +41,30 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   other: false,
 };
 
+export type LastSentByCategory = Record<NotificationCategory, string | null>;
+
+const DEFAULT_LAST_SENT: LastSentByCategory = {
+  education: null,
+  exercise: null,
+  instructions: null,
+  reminder: null,
+  behavior_change: null,
+  other: null,
+};
+
 class NotificationPreferencesStore {
   preferences: NotificationPreferences = { ...DEFAULT_PREFERENCES };
+  // null (not 0): distinguishes "not fetched yet" from "confirmed zero devices",
+  // so the therapist-facing card doesn't flash a false "no device" warning.
+  deviceCount: number | null = null;
+  lastSent: LastSentByCategory = { ...DEFAULT_LAST_SENT };
   loading = false;
   saving = false;
   error = '';
+  // Guards against an out-of-order fetchPreferences response overwriting newer state.
+  private fetchToken = 0;
+  // Whose data is currently loaded — distinguishes a patient switch (clear stale data) from a same-patient retry (keep it on failure).
+  private loadedPatientId: string | null = null;
 
   constructor() {
     makeAutoObservable(this);
@@ -61,21 +80,36 @@ class NotificationPreferencesStore {
 
   async fetchPreferences(patientId: string) {
     if (!patientId) return;
+    const token = ++this.fetchToken;
     this.loading = true;
     this.error = '';
+    if (patientId !== this.loadedPatientId) {
+      // New patient: clear old values now, don't wait for the fetch to resolve.
+      this.preferences = { ...DEFAULT_PREFERENCES };
+      this.deviceCount = null;
+      this.lastSent = { ...DEFAULT_LAST_SENT };
+    }
     try {
       const { data } = await apiClient.get(`/patients/${patientId}/notification-preferences/`);
+      if (token !== this.fetchToken) return;
       runInAction(() => {
         this.preferences = { ...DEFAULT_PREFERENCES, ...data.preferences };
+        this.deviceCount = data.device_count ?? 0;
+        this.lastSent = { ...DEFAULT_LAST_SENT, ...data.last_sent };
+        this.loadedPatientId = patientId;
       });
     } catch {
+      if (token !== this.fetchToken) return;
       runInAction(() => {
+        // Keep last-known-good values on failure; only surface the error.
         this.error = 'Failed to load notification preferences';
       });
     } finally {
-      runInAction(() => {
-        this.loading = false;
-      });
+      if (token === this.fetchToken) {
+        runInAction(() => {
+          this.loading = false;
+        });
+      }
     }
   }
 

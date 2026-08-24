@@ -57,8 +57,7 @@ const mockUseNotifications = jest.fn(() => ({
   supportsPush: true,
   toggleCategory: jest.fn(),
   toggleAll: jest.fn(),
-  pendingCategories: new Set<string>(),
-  pendingAll: false,
+  pendingToggle: false,
 }));
 
 jest.mock('@/hooks/useNotifications', () => ({
@@ -139,8 +138,7 @@ beforeEach(() => {
     supportsPush: true,
     toggleCategory: jest.fn(),
     toggleAll: jest.fn(),
-    pendingCategories: new Set<string>(),
-    pendingAll: false,
+    pendingToggle: false,
   });
   mockAuthStore.isAuthenticated = true;
   mockAuthStore.userType = 'Patient';
@@ -169,8 +167,7 @@ describe('PatientProfile - Notifications', () => {
       supportsPush: true,
       toggleCategory: jest.fn(),
       toggleAll: jest.fn(),
-      pendingCategories: new Set<string>(),
-      pendingAll: false,
+      pendingToggle: false,
     });
 
     renderPatientProfile();

@@ -12,7 +12,13 @@ const t = (key: string, options?: Record<string, unknown>) => {
   // Without options, return the raw key
   // With options, look up the real English template so interpolation is meaningful.
   if (!options) return key;
-  const template = translations[key] ?? key;
+  // A `count` option resolves to `_one`/`_other` before the bare key.
+  let template = translations[key];
+  if (typeof options.count === 'number') {
+    const pluralKey = `${key}_${options.count === 1 ? 'one' : 'other'}`;
+    template = translations[pluralKey] ?? template;
+  }
+  template = template ?? key;
   return Object.entries(options).reduce(
     (acc, [k, v]) => acc.replace(new RegExp(`{{${k}}}`, 'g'), String(v)),
     template
