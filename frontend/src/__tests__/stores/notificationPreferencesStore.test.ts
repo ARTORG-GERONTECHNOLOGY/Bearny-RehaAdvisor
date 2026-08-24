@@ -47,6 +47,38 @@ describe('notificationPreferencesStore', () => {
       expect(notificationPreferencesStore.error).toBe('Failed to load notification preferences');
       expect(notificationPreferencesStore.loading).toBe(false);
     });
+
+    it('keeps the last-known-good values on a failed retry for the same patient', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { preferences: { education: true }, device_count: 2, last_sent: {} },
+      });
+      await notificationPreferencesStore.fetchPreferences('patient-1');
+
+      (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('network down'));
+      await notificationPreferencesStore.fetchPreferences('patient-1');
+
+      expect(notificationPreferencesStore.preferences).toEqual({ ...DEFAULTS, education: true });
+      expect(notificationPreferencesStore.deviceCount).toBe(2);
+      expect(notificationPreferencesStore.error).toBe('Failed to load notification preferences');
+    });
+
+    it('clears the previous patient values immediately when switching to a different patient', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { preferences: { education: true }, device_count: 2, last_sent: {} },
+      });
+      await notificationPreferencesStore.fetchPreferences('patient-1');
+
+      let sawClearedStateDuringFetch = false;
+      (apiClient.get as jest.Mock).mockImplementationOnce(() => {
+        sawClearedStateDuringFetch =
+          notificationPreferencesStore.deviceCount === null &&
+          notificationPreferencesStore.preferences.education === false;
+        return Promise.resolve({ data: { preferences: {}, device_count: 0, last_sent: {} } });
+      });
+      await notificationPreferencesStore.fetchPreferences('patient-2');
+
+      expect(sawClearedStateDuringFetch).toBe(true);
+    });
   });
 
   describe('savePreferences', () => {

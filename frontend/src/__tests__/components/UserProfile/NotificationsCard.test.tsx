@@ -58,13 +58,20 @@ jest.mock('@/stores/notificationPreferencesStore', () => {
 
 const mockToggleCategory = jest.fn();
 const mockToggleAll = jest.fn();
+const mockEnableOnThisDevice = jest.fn();
 const mockUseNotifications = jest.fn(() => ({
   permission: 'default' as NotificationPermission,
   supportsPush: true,
+  // Default represents a fully synced device: preferences are on and this
+  // device is subscribed, so the "not on this device" hint stays hidden
+  // unless a test explicitly sets isSubscribedOnThisDevice to false.
+  isSubscribedOnThisDevice: true,
+  deviceCheckComplete: true,
+  enableOnThisDevice: mockEnableOnThisDevice,
+  pendingDeviceEnable: false,
   toggleCategory: mockToggleCategory,
   toggleAll: mockToggleAll,
-  pendingCategories: new Set<string>(),
-  pendingAll: false,
+  pendingToggle: false,
 }));
 
 jest.mock('@/hooks/useNotifications', () => ({
@@ -86,10 +93,13 @@ describe('NotificationsCard', () => {
     mockUseNotifications.mockReturnValue({
       permission: 'default' as NotificationPermission,
       supportsPush: true,
+      isSubscribedOnThisDevice: true,
+      deviceCheckComplete: true,
+      enableOnThisDevice: mockEnableOnThisDevice,
+      pendingDeviceEnable: false,
       toggleCategory: mockToggleCategory,
       toggleAll: mockToggleAll,
-      pendingCategories: new Set<string>(),
-      pendingAll: false,
+      pendingToggle: false,
     });
   });
 
@@ -143,10 +153,13 @@ describe('NotificationsCard', () => {
     mockUseNotifications.mockReturnValue({
       permission: 'denied' as NotificationPermission,
       supportsPush: true,
+      isSubscribedOnThisDevice: true,
+      deviceCheckComplete: true,
+      enableOnThisDevice: mockEnableOnThisDevice,
+      pendingDeviceEnable: false,
       toggleCategory: mockToggleCategory,
       toggleAll: mockToggleAll,
-      pendingCategories: new Set<string>(),
-      pendingAll: false,
+      pendingToggle: false,
     });
     render(<NotificationsCard />);
     expect(
@@ -158,10 +171,13 @@ describe('NotificationsCard', () => {
     mockUseNotifications.mockReturnValue({
       permission: 'default' as NotificationPermission,
       supportsPush: false,
+      isSubscribedOnThisDevice: true,
+      deviceCheckComplete: true,
+      enableOnThisDevice: mockEnableOnThisDevice,
+      pendingDeviceEnable: false,
       toggleCategory: mockToggleCategory,
       toggleAll: mockToggleAll,
-      pendingCategories: new Set<string>(),
-      pendingAll: false,
+      pendingToggle: false,
     });
     render(<NotificationsCard />);
     expect(
@@ -173,10 +189,13 @@ describe('NotificationsCard', () => {
     mockUseNotifications.mockReturnValue({
       permission: 'granted' as NotificationPermission,
       supportsPush: true,
+      isSubscribedOnThisDevice: true,
+      deviceCheckComplete: true,
+      enableOnThisDevice: mockEnableOnThisDevice,
+      pendingDeviceEnable: false,
       toggleCategory: mockToggleCategory,
       toggleAll: mockToggleAll,
-      pendingCategories: new Set<string>(),
-      pendingAll: false,
+      pendingToggle: false,
     });
     render(<NotificationsCard />);
     expect(
@@ -199,50 +218,171 @@ describe('NotificationsCard', () => {
   });
 
   describe('pending state disables the corresponding switch', () => {
-    it('disables the master switch while pendingAll is true', () => {
+    it('disables every switch while pendingToggle is true (a pending subscribe/unsubscribe must finish before another can start against the same device subscription)', () => {
       mockUseNotifications.mockReturnValue({
         permission: 'default' as NotificationPermission,
         supportsPush: true,
+        isSubscribedOnThisDevice: true,
+        deviceCheckComplete: true,
+        enableOnThisDevice: mockEnableOnThisDevice,
+        pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
         toggleAll: mockToggleAll,
-        pendingCategories: new Set<string>(),
-        pendingAll: true,
+        pendingToggle: true,
       });
       render(<NotificationsCard />);
       const switches = screen.getAllByRole('switch');
-      expect(switches[0]).toBeDisabled();
-      // Category switches are also disabled while a bulk operation is in flight.
-      expect(switches[1]).toBeDisabled();
-    });
-
-    it('disables only the pending category switch, not the others', () => {
-      mockUseNotifications.mockReturnValue({
-        permission: 'default' as NotificationPermission,
-        supportsPush: true,
-        toggleCategory: mockToggleCategory,
-        toggleAll: mockToggleAll,
-        pendingCategories: new Set(['education']),
-        pendingAll: false,
-      });
-      render(<NotificationsCard />);
-      const switches = screen.getAllByRole('switch');
-      expect(switches[0]).not.toBeDisabled(); // master
+      expect(switches[0]).toBeDisabled(); // master
       expect(switches[1]).toBeDisabled(); // education (first category)
-      expect(switches[2]).not.toBeDisabled(); // exercise
+      expect(switches[2]).toBeDisabled(); // exercise
     });
 
     it('does not call toggleCategory when clicking a disabled switch', () => {
       mockUseNotifications.mockReturnValue({
         permission: 'default' as NotificationPermission,
         supportsPush: true,
+        isSubscribedOnThisDevice: true,
+        deviceCheckComplete: true,
+        enableOnThisDevice: mockEnableOnThisDevice,
+        pendingDeviceEnable: false,
         toggleCategory: mockToggleCategory,
         toggleAll: mockToggleAll,
-        pendingCategories: new Set(['education']),
-        pendingAll: false,
+        pendingToggle: true,
       });
       render(<NotificationsCard />);
       fireEvent.click(screen.getAllByRole('switch')[1]);
       expect(mockToggleCategory).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('device hint banner', () => {
+    const HINT_TEXT = 'Notifications are enabled on your account, but not on this device.';
+
+    it('shows the hint when a category is enabled but this device has no subscription', () => {
+      mockUseNotifications.mockReturnValue({
+        permission: 'default' as NotificationPermission,
+        supportsPush: true,
+        isSubscribedOnThisDevice: false,
+        deviceCheckComplete: true,
+        enableOnThisDevice: mockEnableOnThisDevice,
+        pendingDeviceEnable: false,
+        toggleCategory: mockToggleCategory,
+        toggleAll: mockToggleAll,
+        pendingToggle: false,
+      });
+      render(<NotificationsCard />);
+      expect(screen.getByText(HINT_TEXT)).toBeInTheDocument();
+      expect(screen.getByText('Enable on this device')).toBeInTheDocument();
+    });
+
+    it('hides the hint while the device subscription check is still in flight (regression: hint flashed on for already-subscribed devices)', () => {
+      mockUseNotifications.mockReturnValue({
+        permission: 'default' as NotificationPermission,
+        supportsPush: true,
+        isSubscribedOnThisDevice: false,
+        deviceCheckComplete: false,
+        enableOnThisDevice: mockEnableOnThisDevice,
+        pendingDeviceEnable: false,
+        toggleCategory: mockToggleCategory,
+        toggleAll: mockToggleAll,
+        pendingToggle: false,
+      });
+      render(<NotificationsCard />);
+      expect(screen.queryByText(HINT_TEXT)).not.toBeInTheDocument();
+    });
+
+    it('hides the hint once this device is subscribed', () => {
+      render(<NotificationsCard />); // default mock: isSubscribedOnThisDevice: true
+      expect(screen.queryByText(HINT_TEXT)).not.toBeInTheDocument();
+    });
+
+    it('hides the hint when no category is enabled, even without a local subscription', () => {
+      mockPreferences = {
+        education: false,
+        exercise: false,
+        instructions: false,
+        reminder: false,
+        behavior_change: false,
+        other: false,
+      };
+      mockUseNotifications.mockReturnValue({
+        permission: 'default' as NotificationPermission,
+        supportsPush: true,
+        isSubscribedOnThisDevice: false,
+        deviceCheckComplete: true,
+        enableOnThisDevice: mockEnableOnThisDevice,
+        pendingDeviceEnable: false,
+        toggleCategory: mockToggleCategory,
+        toggleAll: mockToggleAll,
+        pendingToggle: false,
+      });
+      render(<NotificationsCard />);
+      expect(screen.queryByText(HINT_TEXT)).not.toBeInTheDocument();
+    });
+
+    it('hides the hint when push is not supported in this browser', () => {
+      mockUseNotifications.mockReturnValue({
+        permission: 'default' as NotificationPermission,
+        supportsPush: false,
+        isSubscribedOnThisDevice: false,
+        deviceCheckComplete: true,
+        enableOnThisDevice: mockEnableOnThisDevice,
+        pendingDeviceEnable: false,
+        toggleCategory: mockToggleCategory,
+        toggleAll: mockToggleAll,
+        pendingToggle: false,
+      });
+      render(<NotificationsCard />);
+      expect(screen.queryByText(HINT_TEXT)).not.toBeInTheDocument();
+    });
+
+    it('hides the hint when permission is denied, deferring to the denied warning instead', () => {
+      mockUseNotifications.mockReturnValue({
+        permission: 'denied' as NotificationPermission,
+        supportsPush: true,
+        isSubscribedOnThisDevice: false,
+        deviceCheckComplete: true,
+        enableOnThisDevice: mockEnableOnThisDevice,
+        pendingDeviceEnable: false,
+        toggleCategory: mockToggleCategory,
+        toggleAll: mockToggleAll,
+        pendingToggle: false,
+      });
+      render(<NotificationsCard />);
+      expect(screen.queryByText(HINT_TEXT)).not.toBeInTheDocument();
+    });
+
+    it('calls enableOnThisDevice with the patient id when the hint action is clicked', () => {
+      mockUseNotifications.mockReturnValue({
+        permission: 'default' as NotificationPermission,
+        supportsPush: true,
+        isSubscribedOnThisDevice: false,
+        deviceCheckComplete: true,
+        enableOnThisDevice: mockEnableOnThisDevice,
+        pendingDeviceEnable: false,
+        toggleCategory: mockToggleCategory,
+        toggleAll: mockToggleAll,
+        pendingToggle: false,
+      });
+      render(<NotificationsCard />);
+      fireEvent.click(screen.getByText('Enable on this device'));
+      expect(mockEnableOnThisDevice).toHaveBeenCalledWith('patient-1');
+    });
+
+    it('disables the hint action while pendingDeviceEnable is true', () => {
+      mockUseNotifications.mockReturnValue({
+        permission: 'default' as NotificationPermission,
+        supportsPush: true,
+        isSubscribedOnThisDevice: false,
+        deviceCheckComplete: true,
+        enableOnThisDevice: mockEnableOnThisDevice,
+        pendingDeviceEnable: true,
+        toggleCategory: mockToggleCategory,
+        toggleAll: mockToggleAll,
+        pendingToggle: false,
+      });
+      render(<NotificationsCard />);
+      expect(screen.getByText('Enable on this device')).toBeDisabled();
     });
   });
 });

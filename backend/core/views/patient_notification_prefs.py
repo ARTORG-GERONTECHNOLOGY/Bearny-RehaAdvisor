@@ -27,9 +27,10 @@ from mongoengine.errors import NotUniqueError
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
-from core.models import Patient, PatientNotificationPreferences, PushSubscription
+from core.models import Patient, PatientNotificationPreferences, PushSubscription, SentPushNotification
 from core.notifications.push_endpoints import is_allowed_push_endpoint
 from core.services.redcap_access import get_therapist_for_user
+from core.views.patient_views import _as_aware_utc
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,26 @@ def _preferences_to_dict(prefs: PatientNotificationPreferences) -> Dict[str, boo
     # Fail closed (opt-in): a missing attribute reads as "not enabled", matching
     # PatientNotificationPreferences' own default=False.
     return {field: bool(getattr(prefs, field, False)) for field in PREFERENCE_FIELDS}
+
+
+def _last_sent_by_category(patient: Patient) -> Dict[str, str | None]:
+    """Most recent SentPushNotification.sent_at per category — reflects when a send was
+    last attempted/scheduled, not confirmed delivery (webpush failures aren't persisted).
+
+    Grouped server-side via aggregation, using the (patient, -sent_at) index, so only
+    one row per category comes back regardless of how large the patient's history is.
+    """
+    result: Dict[str, str | None] = dict.fromkeys(PREFERENCE_FIELDS)
+    pipeline = [
+        {"$match": {"patient": patient.pk}},
+        {"$sort": {"sent_at": -1}},
+        {"$group": {"_id": "$category", "sent_at": {"$first": "$sent_at"}}},
+    ]
+    for row in SentPushNotification.objects.aggregate(pipeline):
+        category = row["_id"]
+        if category in result:
+            result[category] = _as_aware_utc(row["sent_at"]).isoformat()
+    return result
 
 
 def _patient_user_id(patient: Patient) -> str:
@@ -155,7 +176,14 @@ def patient_notification_preferences_view(request, patient_id: str):
         if auth_error:
             return auth_error
         prefs = patient.notification_preferences or PatientNotificationPreferences()
-        return ok({"patient_id": str(patient.id), "preferences": _preferences_to_dict(prefs)})
+        return ok(
+            {
+                "patient_id": str(patient.id),
+                "preferences": _preferences_to_dict(prefs),
+                "device_count": PushSubscription.objects(patient=patient).count(),
+                "last_sent": _last_sent_by_category(patient),
+            }
+        )
 
     auth_error = _check_can_write(request, patient, patient_id)
     if auth_error:
