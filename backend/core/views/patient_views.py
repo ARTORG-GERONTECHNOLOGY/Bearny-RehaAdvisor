@@ -250,18 +250,10 @@ def submit_patient_feedback(request):
             if not plan:
                 return JsonResponse({"error": "Rehabilitation plan not found."}, status=404)
 
-            # Resolve against the plan's assignment so feedback lands on the same log as
-            # completion, even when the frontend posts a translated variant's interventionId.
-            assignment = _find_plan_intervention_assignment(plan, intervention.pk)
+            # Resolve against the plan's assignment so feedback lands on the same log as completion, even for a translated variant's interventionId.
+            assignment, canonical_intervention, variant_ids = _resolve_plan_assignment(plan, intervention)
             if assignment is AMBIGUOUS_ASSIGNMENT:
                 return JsonResponse({"error": "This intervention is not assigned to the patient's plan."}, status=404)
-
-            if assignment is None:
-                canonical_intervention = intervention
-                variant_ids = [intervention.pk]
-            else:
-                canonical_intervention = _safe_intervention(assignment) or intervention
-                variant_ids = _intervention_variant_ids(intervention, plan=plan, keep_assignment=assignment)
 
             # ✅ use target_day bounds, NOT "today"
             log = PatientInterventionLogs.objects(
@@ -485,18 +477,13 @@ def mark_intervention_completed(request):
         #    matches (e.g. ad-hoc completion not on the planned calendar).
         # -----------------------------
         log_date = day_start  # default: local midnight of target_day
-        assignment = _find_plan_intervention_assignment(rehab_plan, intervention.pk)
+        assignment, canonical_intervention, variant_ids = _resolve_plan_assignment(rehab_plan, intervention)
         if assignment is AMBIGUOUS_ASSIGNMENT:
             # Multiple plan assignments share this intervention's external_id - refuse to guess.
             return JsonResponse({"error": "This intervention is not assigned to the patient's plan."}, status=404)
 
-        if assignment is None:
-            # Not on the plan at all - ad-hoc completion against the requested intervention directly.
-            canonical_intervention = intervention
-            variant_ids = [intervention.pk]
-        else:
+        if assignment is not None:
             # Log against the plan's assigned variant so get_patient_plan's exact-match lookup finds it.
-            canonical_intervention = _safe_intervention(assignment) or intervention
             for sched_dt in assignment.dates:
                 if not isinstance(sched_dt, datetime.datetime):
                     continue
@@ -505,7 +492,6 @@ def mark_intervention_completed(request):
                 if sched_local.date() == target_day:
                     log_date = sched_local
                     break
-            variant_ids = _intervention_variant_ids(intervention, plan=rehab_plan, keep_assignment=assignment)
 
         # Fetch this assignment's logs for the day, across its own language variants only.
         logs_qs = PatientInterventionLogs.objects(
@@ -640,19 +626,10 @@ def unmark_intervention_completed(request):
         day_end = datetime.datetime.combine(target_day, datetime.time.max)
 
         # Scope to this assignment's own variants, not a same-external_id sibling assignment.
-        assignment = _find_plan_intervention_assignment(rehab_plan, intervention.pk)
+        assignment, canonical_intervention, variant_ids = _resolve_plan_assignment(rehab_plan, intervention)
         if assignment is AMBIGUOUS_ASSIGNMENT:
             # Multiple plan assignments share this intervention's external_id - refuse to guess.
             return JsonResponse({"error": "This intervention is not assigned to the patient's plan."}, status=404)
-
-        # No current plan assignment (e.g. removed from the plan since it was completed) -
-        # still allow un-completing the log recorded directly against this intervention.
-        if assignment is None:
-            canonical_intervention = intervention
-            variant_ids = [intervention.pk]
-        else:
-            canonical_intervention = _safe_intervention(assignment) or intervention
-            variant_ids = _intervention_variant_ids(intervention, plan=rehab_plan, keep_assignment=assignment)
 
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
@@ -1518,8 +1495,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
             except Exception:
                 pass
 
-        # Fallback: if the requested document couldn't be resolved directly
-        # (e.g. invalid id), use the matched assignment's document instead.
+        # Fallback: if the requested document couldn't be resolved directly (e.g. invalid id), use the matched assignment's document instead.
         if not intervention_type and assignment and _safe_intervention(assignment):
             raw_type = str(getattr(assignment.interventionId, "content_type", "") or "")
             intervention_type = raw_type.strip().lower() or None
@@ -2224,8 +2200,7 @@ class _AmbiguousAssignment:
         return False
 
 
-# Distinguishes "matched multiple variants, refuse to guess" from "no match at all" so
-# callers that need to allow ad-hoc completion for a genuinely-unassigned intervention can.
+# Distinguishes "matched multiple variants, refuse to guess" from "no match at all" so callers can still allow ad-hoc completion for a genuinely-unassigned intervention.
 AMBIGUOUS_ASSIGNMENT = _AmbiguousAssignment()
 
 
@@ -2266,6 +2241,22 @@ def _find_plan_intervention_assignment(plan, intervention_id):
     return _match_assignment_by_external_id(plan, requested_ext_id)
 
 
+def _resolve_plan_assignment(plan, intervention):
+    """Resolve intervention against plan's assignment, allowing ad-hoc completion when unassigned.
+
+    Returns (assignment, canonical_intervention, variant_ids). assignment is AMBIGUOUS_ASSIGNMENT when
+    multiple plan assignments share this intervention's external_id - callers must refuse that case.
+    """
+    assignment = _find_plan_intervention_assignment(plan, intervention.pk)
+    if assignment is AMBIGUOUS_ASSIGNMENT:
+        return assignment, None, None
+    if assignment is None:
+        return None, intervention, [intervention.pk]
+    canonical_intervention = _safe_intervention(assignment) or intervention
+    variant_ids = _intervention_variant_ids(intervention, plan=plan, keep_assignment=assignment)
+    return assignment, canonical_intervention, variant_ids
+
+
 def _intervention_variant_ids(intervention, plan=None, keep_assignment=None):
     """Ids sharing intervention's external_id; with `plan`, drop ids owned by other assignments."""
     external_id = getattr(intervention, "external_id", None)
@@ -2278,8 +2269,7 @@ def _intervention_variant_ids(intervention, plan=None, keep_assignment=None):
             if a is keep_assignment:
                 continue
             other_id = getattr(_safe_intervention(a), "id", None)
-            # Never discard keep_assignment's own id, even if another assignment
-            # happens to share it (duplicate interventionId from a race).
+            # Never discard keep_assignment's own id, even if another assignment happens to share it (duplicate interventionId from a race).
             if other_id is not None and other_id != keep_id:
                 variant_ids.discard(other_id)
     return list(variant_ids)
