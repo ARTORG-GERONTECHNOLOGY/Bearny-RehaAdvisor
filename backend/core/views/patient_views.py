@@ -645,11 +645,12 @@ def unmark_intervention_completed(request):
 
         # No current plan assignment (e.g. removed from the plan since it was completed) -
         # still allow un-completing the log recorded directly against this intervention.
-        variant_ids = (
-            _intervention_variant_ids(intervention, plan=rehab_plan, keep_assignment=assignment)
-            if assignment is not None
-            else [intervention.pk]
-        )
+        if assignment is None:
+            canonical_intervention = intervention
+            variant_ids = [intervention.pk]
+        else:
+            canonical_intervention = _safe_intervention(assignment) or intervention
+            variant_ids = _intervention_variant_ids(intervention, plan=rehab_plan, keep_assignment=assignment)
 
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
@@ -695,7 +696,7 @@ def unmark_intervention_completed(request):
             action="INTERVENTION_UNCOMPLETE",
             actor_role="Patient",
             patient=patient,
-            details=f"intervention={intervention.title} date={target_day.isoformat()}",
+            details=f"intervention={canonical_intervention.title} date={target_day.isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Unmarked successfully"}, status=200)
