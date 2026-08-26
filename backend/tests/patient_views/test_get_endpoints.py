@@ -214,6 +214,44 @@ def test_get_patient_plan_post_method_not_allowed(mongo_mock):
     assert resp.status_code == 405
 
 
+def test_get_patient_plan_skips_dangling_intervention_reference(mongo_mock):
+    """
+    Regression: an InterventionAssignment whose referenced Intervention
+    document was deleted (dangling ReferenceField) must be skipped, not crash
+    the whole patient-facing plan view with an uncaught DoesNotExist on
+    dereference.
+    """
+    patient, _, intervention, plan = setup_basic_plan()
+
+    dangling_intervention = Intervention(
+        title="Deleted later",
+        description="desc",
+        content_type="Video",
+        external_id="TEST-EXT-DANGLING",
+        language="en",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=dangling_intervention,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(3)],
+        )
+    )
+    plan.save()
+    dangling_intervention.delete()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    body = resp.json()
+    ext_ids = {iv.get("intervention", {}).get("external_id") for iv in body}
+    assert intervention.external_id in ext_ids
+    assert "TEST-EXT-DANGLING" not in ext_ids
+
+
 # ===========================================================================
 # get_patient_plan_for_therapist
 # — GET /api/patients/rehabilitation-plan/therapist/<patient_id>/

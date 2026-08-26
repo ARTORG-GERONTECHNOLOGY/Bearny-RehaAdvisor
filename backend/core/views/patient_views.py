@@ -250,10 +250,23 @@ def submit_patient_feedback(request):
             if not plan:
                 return JsonResponse({"error": "Rehabilitation plan not found."}, status=404)
 
+            # Resolve against the plan's assignment so feedback lands on the same log as
+            # completion, even when the frontend posts a translated variant's interventionId.
+            assignment = _find_plan_intervention_assignment(plan, intervention.pk)
+            if assignment is AMBIGUOUS_ASSIGNMENT:
+                return JsonResponse({"error": "This intervention is not assigned to the patient's plan."}, status=404)
+
+            if assignment is None:
+                canonical_intervention = intervention
+                variant_ids = [intervention.pk]
+            else:
+                canonical_intervention = _safe_intervention(assignment) or intervention
+                variant_ids = _intervention_variant_ids(intervention, plan=plan, keep_assignment=assignment)
+
             # ✅ use target_day bounds, NOT "today"
             log = PatientInterventionLogs.objects(
                 userId=patient,
-                interventionId=intervention,
+                interventionId__in=variant_ids,
                 date__gte=day_start,
                 date__lte=day_end,
             ).first()
@@ -262,7 +275,7 @@ def submit_patient_feedback(request):
                 # ✅ log.date should be within the target day
                 log = PatientInterventionLogs(
                     userId=patient,
-                    interventionId=intervention,
+                    interventionId=canonical_intervention,
                     rehabilitationPlanId=plan,
                     date=day_start,  # keep consistent day anchor
                     status=[],
@@ -1105,7 +1118,7 @@ def get_patient_plan(request, patient_id):
         seen_ext_ids: set = set()
 
         for assignment in getattr(rehab_plan, "interventions", None) or []:
-            assigned_intervention = getattr(assignment, "interventionId", None)
+            assigned_intervention = _safe_intervention(assignment)
             if not assigned_intervention:
                 continue
 

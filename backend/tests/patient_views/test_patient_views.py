@@ -271,6 +271,52 @@ def test_submit_feedback_success_intervention(mock_getattr, mongo_mock):
     assert "Feedback submitted successfully" in resp.content.decode()
 
 
+def test_submit_feedback_matches_translated_variant(mongo_mock):
+    """
+    Regression: the patient is assigned the EN variant of an intervention,
+    but the frontend catalog surfaces the DE variant's id (same external_id)
+    when submitting feedback for it. Feedback must land on the same
+    PatientInterventionLogs document that mark_intervention_completed would
+    use, not a duplicate log created under the DE variant's id.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention",
+        questionKey="how_did_it_go",
+        answer_type="text",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+    )
+
+    payload = {
+        "userId": str(patient.userId.id),
+        "interventionId": str(translated.id),
+        "how_did_it_go": json.dumps(["Great"]),
+    }
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data=payload,
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    logs = PatientInterventionLogs.objects(userId=patient)
+    assert (
+        logs.count() == 1
+    ), "Feedback for a translated variant created a duplicate log instead of reusing the plan's assigned log."
+    assert logs.first().interventionId.id == intervention.id
+
+
 def test_submit_feedback_no_responses(mongo_mock):
     """
 
