@@ -1821,6 +1821,39 @@ def test_mark_completed_ambiguous_external_id_is_rejected(mongo_mock):
     assert PatientInterventionLogs.objects(userId=patient).count() == 0
 
 
+def test_mark_completed_allows_ad_hoc_intervention_not_on_plan(mongo_mock):
+    """
+    Regression: an intervention that isn't assigned to the plan at all (no id
+    match, no external_id conflict) must still be completable ad-hoc, per the
+    documented fallback in mark_intervention_completed. Only genuinely
+    *ambiguous* multi-variant matches should be rejected with 404.
+    """
+    patient, _, _intervention, _plan = setup_patient_with_plan()
+    unassigned = Intervention(
+        title="Breathing",
+        description="Breathing exercise",
+        content_type="Video",
+        external_id="INT_BREATHING_001",
+        language="en",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(unassigned.id),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    logs = PatientInterventionLogs.objects(userId=patient)
+    assert logs.count() == 1
+    assert logs.first().interventionId.id == unassigned.id
+
+
 def test_mark_completed_does_not_merge_logs_across_distinct_assignments(mongo_mock):
     """
     Regression: two distinct assignments sharing an external_id (EN + DE

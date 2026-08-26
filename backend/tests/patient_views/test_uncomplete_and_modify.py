@@ -313,6 +313,45 @@ def test_unmark_intervention_completed_ambiguous_external_id_is_rejected(mongo_m
     assert PatientInterventionLogs.objects(userId=patient).count() == 1
 
 
+def test_unmark_intervention_completed_after_removed_from_plan(mongo_mock):
+    """
+    Regression: removing an intervention from the plan (which only clears its
+    scheduled dates, not past completion logs) must not block un-completing a
+    log recorded while it was still assigned. The un-complete lookup must fall
+    back to matching the log by intervention id directly when there is no
+    current plan assignment, not 404 just because the assignment is gone.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    client.post(
+        "/api/interventions/complete/",
+        data=json.dumps({"patient_id": str(patient.userId.id), "intervention_id": str(intervention.id)}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert PatientInterventionLogs.objects(userId=patient).count() == 1
+
+    # Simulate remove_intervention_from_patient dropping the now-empty assignment.
+    plan.interventions = []
+    plan.save()
+
+    today = timezone.localdate().isoformat()
+    resp = client.post(
+        UNCOMPLETE_URL,
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+                "date": today,
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert "Unmarked" in resp.json().get("message", "")
+
+
 def test_unmark_intervention_completed_no_log_for_day(mongo_mock):
     """
     When there is no completion log for the given day the view returns 200

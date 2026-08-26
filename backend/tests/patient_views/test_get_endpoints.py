@@ -236,6 +236,43 @@ def test_get_patient_plan_for_therapist_success(mongo_mock):
     assert "interventions" in body or "message" in body
 
 
+def test_get_patient_plan_for_therapist_skips_dangling_intervention_reference(mongo_mock):
+    """
+    Regression: an InterventionAssignment whose referenced Intervention
+    document was deleted (dangling ReferenceField) must be skipped, not crash
+    the whole therapist plan view with an uncaught DoesNotExist on dereference.
+    """
+    patient, _, intervention, plan = setup_basic_plan()
+
+    dangling_intervention = Intervention(
+        title="Deleted later",
+        description="desc",
+        content_type="Video",
+        external_id="TEST-EXT-DANGLING",
+        language="en",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=dangling_intervention,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(3)],
+        )
+    )
+    plan.save()
+    dangling_intervention.delete()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    body = resp.json()
+    ext_ids = {iv.get("external_id") for iv in body.get("interventions", [])}
+    assert intervention.external_id in ext_ids
+    assert "TEST-EXT-DANGLING" not in ext_ids
+
+
 def test_get_patient_plan_for_therapist_patient_not_found(mongo_mock):
     """
     GET with an unknown Patient ObjectId returns 404 with 'Patient not found'.

@@ -471,26 +471,32 @@ def mark_intervention_completed(request):
         # -----------------------------
         log_date = day_start  # default: local midnight of target_day
         assignment = _find_plan_intervention_assignment(rehab_plan, intervention.pk)
-        if assignment is None:
-            # Ambiguous or unmatched assignment - refuse to guess, like reschedule/modify/remove.
+        if assignment is AMBIGUOUS_ASSIGNMENT:
+            # Multiple plan assignments share this intervention's external_id - refuse to guess.
             return JsonResponse({"error": "This intervention is not assigned to the patient's plan."}, status=404)
 
-        # Log against the plan's assigned variant so get_patient_plan's exact-match lookup finds it.
-        canonical_intervention = _safe_intervention(assignment) or intervention
-        for sched_dt in assignment.dates:
-            if not isinstance(sched_dt, datetime.datetime):
-                continue
-            # Normalise to naive local time for date comparison and storage
-            sched_local = sched_dt.astimezone(tz).replace(tzinfo=None) if sched_dt.tzinfo is not None else sched_dt
-            if sched_local.date() == target_day:
-                log_date = sched_local
-                break
+        if assignment is None:
+            # Not on the plan at all - ad-hoc completion against the requested intervention directly.
+            canonical_intervention = intervention
+            variant_ids = [intervention.pk]
+        else:
+            # Log against the plan's assigned variant so get_patient_plan's exact-match lookup finds it.
+            canonical_intervention = _safe_intervention(assignment) or intervention
+            for sched_dt in assignment.dates:
+                if not isinstance(sched_dt, datetime.datetime):
+                    continue
+                # Normalise to naive local time for date comparison and storage
+                sched_local = sched_dt.astimezone(tz).replace(tzinfo=None) if sched_dt.tzinfo is not None else sched_dt
+                if sched_local.date() == target_day:
+                    log_date = sched_local
+                    break
+            variant_ids = _intervention_variant_ids(intervention, plan=rehab_plan, keep_assignment=assignment)
 
         # Fetch this assignment's logs for the day, across its own language variants only.
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
-            interventionId__in=_intervention_variant_ids(intervention, plan=rehab_plan, keep_assignment=assignment),
+            interventionId__in=variant_ids,
             date__gte=day_start,
             date__lte=day_end,
         ).order_by("-date")
@@ -620,14 +626,22 @@ def unmark_intervention_completed(request):
 
         # Scope to this assignment's own variants, not a same-external_id sibling assignment.
         assignment = _find_plan_intervention_assignment(rehab_plan, intervention.pk)
-        if assignment is None:
-            # Ambiguous or unmatched assignment - refuse to guess, like mark/reschedule/modify/remove.
+        if assignment is AMBIGUOUS_ASSIGNMENT:
+            # Multiple plan assignments share this intervention's external_id - refuse to guess.
             return JsonResponse({"error": "This intervention is not assigned to the patient's plan."}, status=404)
+
+        # No current plan assignment (e.g. removed from the plan since it was completed) -
+        # still allow un-completing the log recorded directly against this intervention.
+        variant_ids = (
+            _intervention_variant_ids(intervention, plan=rehab_plan, keep_assignment=assignment)
+            if assignment is not None
+            else [intervention.pk]
+        )
 
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
-            interventionId__in=_intervention_variant_ids(intervention, plan=rehab_plan, keep_assignment=assignment),
+            interventionId__in=variant_ids,
             date__gte=day_start,
             date__lte=day_end,
         ).order_by("-date")
@@ -2186,6 +2200,17 @@ def _safe_intervention(a):
         return None
 
 
+class _AmbiguousAssignment:
+    # Falsy sentinel: existing `if not target` call sites keep treating this like "not found".
+    def __bool__(self):
+        return False
+
+
+# Distinguishes "matched multiple variants, refuse to guess" from "no match at all" so
+# callers that need to allow ad-hoc completion for a genuinely-unassigned intervention can.
+AMBIGUOUS_ASSIGNMENT = _AmbiguousAssignment()
+
+
 def _match_assignment_by_id(plan, intervention_id):
     intervention_id = str(intervention_id)
     for a in plan.interventions or []:
@@ -2205,7 +2230,7 @@ def _match_assignment_by_external_id(plan, external_id):
             "[_match_assignment_by_external_id] Multiple assignments share external_id=%s; refusing to guess.",
             external_id,
         )
-        return None
+        return AMBIGUOUS_ASSIGNMENT
     return matches[0] if matches else None
 
 
@@ -3021,7 +3046,10 @@ def get_patient_plan_for_therapist(request, patient_id):
         # same intervention was added in multiple language variants.
         _seen_ext: dict = {}
         for _a in plan.interventions:
-            _iv = _a.interventionId
+            _iv = _safe_intervention(_a)
+            if _iv is None:
+                # Dangling (deleted) Intervention reference - skip rather than 500 the whole plan.
+                continue
             _ext = getattr(_iv, "external_id", None) or str(_iv.id)
             if _ext not in _seen_ext:
                 _seen_ext[_ext] = {
@@ -3295,7 +3323,7 @@ def remove_intervention_from_patient(request):
 
         assignment = _find_plan_intervention_assignment(plan, intervention_id)
 
-        if assignment is None:
+        if not assignment:
             return JsonResponse(
                 {
                     "success": False,
