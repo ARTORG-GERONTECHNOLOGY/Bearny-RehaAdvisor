@@ -2227,15 +2227,25 @@ def _match_assignment_by_external_id(plan, external_id):
     return matches[0] if matches else None
 
 
-def _find_plan_intervention_assignment(plan, intervention_id):
-    """Match a plan's assignment by interventionId, falling back to external_id for multilingual variants."""
+_UNKNOWN_EXTERNAL_ID = object()
+
+
+def _find_plan_intervention_assignment(plan, intervention_id, known_external_id=_UNKNOWN_EXTERNAL_ID):
+    """Match a plan's assignment by interventionId, falling back to external_id for multilingual variants.
+
+    Pass `known_external_id` when the caller already holds the loaded Intervention, to skip re-fetching it.
+    """
     target = _match_assignment_by_id(plan, intervention_id)
     if target:
         return target
 
-    oid = _coerce_object_id(intervention_id)
-    requested = Intervention.objects(id=oid).only("external_id").first() if oid else None
-    requested_ext_id = getattr(requested, "external_id", None)
+    if known_external_id is _UNKNOWN_EXTERNAL_ID:
+        oid = _coerce_object_id(intervention_id)
+        requested = Intervention.objects(id=oid).only("external_id").first() if oid else None
+        requested_ext_id = getattr(requested, "external_id", None)
+    else:
+        requested_ext_id = known_external_id
+
     if not requested_ext_id:
         return None
     return _match_assignment_by_external_id(plan, requested_ext_id)
@@ -2247,7 +2257,9 @@ def _resolve_plan_assignment(plan, intervention):
     Returns (assignment, canonical_intervention, variant_ids). assignment is AMBIGUOUS_ASSIGNMENT when
     multiple plan assignments share this intervention's external_id - callers must refuse that case.
     """
-    assignment = _find_plan_intervention_assignment(plan, intervention.pk)
+    assignment = _find_plan_intervention_assignment(
+        plan, intervention.pk, known_external_id=getattr(intervention, "external_id", None)
+    )
     if assignment is AMBIGUOUS_ASSIGNMENT:
         return assignment, None, None
     if assignment is None:
