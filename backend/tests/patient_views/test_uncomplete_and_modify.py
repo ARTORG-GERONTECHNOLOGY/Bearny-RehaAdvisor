@@ -254,6 +254,65 @@ def test_unmark_intervention_completed_via_translated_variant(mongo_mock):
     assert PatientInterventionLogs.objects(userId=patient).count() == 0
 
 
+def test_unmark_intervention_completed_ambiguous_external_id_is_rejected(mongo_mock):
+    """
+    Regression: when the plan has two assignments sharing an external_id (e.g.
+    an EN and a DE variant both assigned) and the requested id matches neither
+    assignment exactly, uncompleting must be rejected rather than silently
+    narrowing the log lookup to the unassigned variant, which would miss the
+    real completion log and return a false-success response leaving it intact.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = Intervention(
+        external_id=intervention.external_id,
+        language="de",
+        title="Yoga (DE)",
+        description="Yoga Sitzung",
+        content_type="Video",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=translated,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(1, 6)],
+        )
+    )
+    plan.save()
+
+    unassigned_variant = Intervention(
+        external_id=intervention.external_id,
+        language="fr",
+        title="Yoga (FR)",
+        description="Séance de yoga",
+        content_type="Video",
+    ).save()
+
+    client.post(
+        "/api/interventions/complete/",
+        data=json.dumps({"patient_id": str(patient.userId.id), "intervention_id": str(intervention.id)}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert PatientInterventionLogs.objects(userId=patient).count() == 1
+
+    today = timezone.localdate().isoformat()
+    resp = client.post(
+        UNCOMPLETE_URL,
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(unassigned_variant.id),
+                "date": today,
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404, resp.content.decode()
+    assert PatientInterventionLogs.objects(userId=patient).count() == 1
+
+
 def test_unmark_intervention_completed_no_log_for_day(mongo_mock):
     """
     When there is no completion log for the given day the view returns 200

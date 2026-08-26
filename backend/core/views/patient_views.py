@@ -539,7 +539,7 @@ def mark_intervention_completed(request):
                 action="INTERVENTION_COMPLETE",
                 actor_role="Patient",
                 patient=patient,
-                details=f"intervention={intervention.title} date={target_day.isoformat()}",
+                details=f"intervention={canonical_intervention.title} date={target_day.isoformat()}",
             ).save()
 
             return JsonResponse({"message": "Marked as completed successfully"}, status=200)
@@ -562,7 +562,7 @@ def mark_intervention_completed(request):
             action="INTERVENTION_COMPLETE",
             actor_role="Patient",
             patient=patient,
-            details=f"intervention={intervention.title} date={target_day.isoformat()}",
+            details=f"intervention={canonical_intervention.title} date={target_day.isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Marked as completed successfully"}, status=200)
@@ -620,6 +620,10 @@ def unmark_intervention_completed(request):
 
         # Scope to this assignment's own variants, not a same-external_id sibling assignment.
         assignment = _find_plan_intervention_assignment(rehab_plan, intervention.pk)
+        if assignment is None:
+            # Ambiguous or unmatched assignment - refuse to guess, like mark/reschedule/modify/remove.
+            return JsonResponse({"error": "This intervention is not assigned to the patient's plan."}, status=404)
+
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
