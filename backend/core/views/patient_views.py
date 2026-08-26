@@ -471,23 +471,26 @@ def mark_intervention_completed(request):
         # -----------------------------
         log_date = day_start  # default: local midnight of target_day
         assignment = _find_plan_intervention_assignment(rehab_plan, intervention.pk)
+        if assignment is None:
+            # Ambiguous or unmatched assignment - refuse to guess, like reschedule/modify/remove.
+            return JsonResponse({"error": "This intervention is not assigned to the patient's plan."}, status=404)
+
         # Log against the plan's assigned variant so get_patient_plan's exact-match lookup finds it.
         canonical_intervention = _safe_intervention(assignment) or intervention
-        if assignment:
-            for sched_dt in assignment.dates:
-                if not isinstance(sched_dt, datetime.datetime):
-                    continue
-                # Normalise to naive local time for date comparison and storage
-                sched_local = sched_dt.astimezone(tz).replace(tzinfo=None) if sched_dt.tzinfo is not None else sched_dt
-                if sched_local.date() == target_day:
-                    log_date = sched_local
-                    break
+        for sched_dt in assignment.dates:
+            if not isinstance(sched_dt, datetime.datetime):
+                continue
+            # Normalise to naive local time for date comparison and storage
+            sched_local = sched_dt.astimezone(tz).replace(tzinfo=None) if sched_dt.tzinfo is not None else sched_dt
+            if sched_local.date() == target_day:
+                log_date = sched_local
+                break
 
-        # Fetch ALL logs for the naive local day window, across all language variants of this intervention
+        # Fetch this assignment's logs for the day, across its own language variants only.
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
-            interventionId__in=_intervention_variant_ids(intervention),
+            interventionId__in=_intervention_variant_ids(intervention, plan=rehab_plan, keep_assignment=assignment),
             date__gte=day_start,
             date__lte=day_end,
         ).order_by("-date")
@@ -615,10 +618,12 @@ def unmark_intervention_completed(request):
         day_start = datetime.datetime.combine(target_day, datetime.time.min)
         day_end = datetime.datetime.combine(target_day, datetime.time.max)
 
+        # Scope to this assignment's own variants, not a same-external_id sibling assignment.
+        assignment = _find_plan_intervention_assignment(rehab_plan, intervention.pk)
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
-            interventionId__in=_intervention_variant_ids(intervention),
+            interventionId__in=_intervention_variant_ids(intervention, plan=rehab_plan, keep_assignment=assignment),
             date__gte=day_start,
             date__lte=day_end,
         ).order_by("-date")
@@ -2214,12 +2219,20 @@ def _find_plan_intervention_assignment(plan, intervention_id):
     return _match_assignment_by_external_id(plan, requested_ext_id)
 
 
-def _intervention_variant_ids(intervention):
-    """All Intervention ids sharing intervention's external_id, so logs recorded under a different language variant are still found."""
+def _intervention_variant_ids(intervention, plan=None, keep_assignment=None):
+    """Ids sharing intervention's external_id; with `plan`, drop ids owned by other assignments."""
     external_id = getattr(intervention, "external_id", None)
     if not external_id:
         return [intervention.pk]
-    return [v.id for v in Intervention.objects(external_id=external_id).only("id")]
+    variant_ids = {v.id for v in Intervention.objects(external_id=external_id).only("id")}
+    if plan is not None:
+        for a in plan.interventions or []:
+            if a is keep_assignment:
+                continue
+            other_id = getattr(_safe_intervention(a), "id", None)
+            if other_id is not None:
+                variant_ids.discard(other_id)
+    return list(variant_ids)
 
 
 # English + German short labels
@@ -3010,7 +3023,6 @@ def get_patient_plan_for_therapist(request, patient_id):
                 _seen_ext[_ext] = {
                     "canonical": _a,
                     "all_dates": list(_a.dates),
-                    "all_ids": [_iv.id],
                 }
             else:
                 _existing_days = {_d.date() for _d in _seen_ext[_ext]["all_dates"]}
@@ -3018,7 +3030,6 @@ def get_patient_plan_for_therapist(request, patient_id):
                     if _d.date() not in _existing_days:
                         _seen_ext[_ext]["all_dates"].append(_d)
                         _existing_days.add(_d.date())
-                _seen_ext[_ext]["all_ids"].append(_iv.id)
 
         for _group in _seen_ext.values():
             assignment = _group["canonical"]
@@ -3027,12 +3038,9 @@ def get_patient_plan_for_therapist(request, patient_id):
             # Query logs across ALL language variants of this external_id (not
             # just the ones that happen to be assigned) so that logs recorded
             # under a different variant are still counted.
-            _ext_id = getattr(intervention, "external_id", None)
-            if _ext_id:
-                _all_variant_ids = [_v.id for _v in Intervention.objects(external_id=_ext_id).only("id")]
-            else:
-                _all_variant_ids = _group["all_ids"]
-            logs = PatientInterventionLogs.objects(userId=patient, interventionId__in=_all_variant_ids)
+            logs = PatientInterventionLogs.objects(
+                userId=patient, interventionId__in=_intervention_variant_ids(intervention)
+            )
 
             intervention_dates = []
             completed_count = 0

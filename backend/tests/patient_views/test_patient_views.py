@@ -1772,6 +1772,114 @@ def test_mark_completed_via_translated_variant_visible_in_patient_plan(mongo_moc
     ), "Completion via non-assigned language variant is invisible in the patient plan"
 
 
+def test_mark_completed_ambiguous_external_id_is_rejected(mongo_mock):
+    """
+    Regression: when the plan has two assignments sharing an external_id (e.g.
+    an EN and a DE variant both assigned) and the requested id matches neither
+    assignment exactly, the completion must be rejected rather than silently
+    logged against the unassigned variant, which get_patient_plan could never
+    find (invisible completion despite a 200 response).
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=translated,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(1, 6)],
+        )
+    )
+    plan.save()
+
+    unassigned_variant = Intervention(
+        title="Étirement",
+        description="Exercices d'étirement",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="fr",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(unassigned_variant.id),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404, resp.content.decode()
+    assert PatientInterventionLogs.objects(userId=patient).count() == 0
+
+
+def test_mark_completed_does_not_merge_logs_across_distinct_assignments(mongo_mock):
+    """
+    Regression: two distinct assignments sharing an external_id (EN + DE
+    variants, both individually assigned) must keep independent completion
+    logs. Completing one must not merge into, or wipe out, the other's log
+    for the same day just because they share an external_id.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+
+    today_dt = datetime.now().replace(hour=9, minute=0, second=0, microsecond=0)
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=translated,
+            frequency="Daily",
+            notes="",
+            dates=[today_dt],
+        )
+    )
+    plan.save()
+
+    resp1 = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp1.status_code == 200, resp1.content.decode()
+
+    resp2 = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(translated.id),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp2.status_code == 200, resp2.content.decode()
+
+    logs = PatientInterventionLogs.objects(userId=patient)
+    assert logs.count() == 2, "Two distinct assignments' completions were merged into one log"
+    logged_intervention_ids = {str(l.interventionId.id) for l in logs}
+    assert logged_intervention_ids == {str(intervention.id), str(translated.id)}
+
+
 # ===========================================================================
 # Additional coverage — remove_intervention_from_patient
 # ===========================================================================
