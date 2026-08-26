@@ -341,6 +341,8 @@ def submit_patient_feedback(request):
                 log.feedback.append(FeedbackEntry(**entry_kwargs))
 
             log.updatedAt = timezone.now()
+            # Normalise so get_patient_plan's exact-match lookup keeps finding this log.
+            log.interventionId = canonical_intervention
             log.save()
 
         # =========================
@@ -685,10 +687,12 @@ def unmark_intervention_completed(request):
             except Exception:
                 pass
 
-        # Delete log if nothing remains after uncomplete, else save as-is
+        # Delete log if nothing remains after uncomplete, else normalise and save
         if not keep.status and not keep.feedback:
             keep.delete()
         else:
+            # Normalise so get_patient_plan's exact-match lookup keeps finding this log.
+            keep.interventionId = canonical_intervention
             keep.save()
 
         Logs(
@@ -2269,11 +2273,14 @@ def _intervention_variant_ids(intervention, plan=None, keep_assignment=None):
         return [intervention.pk]
     variant_ids = {v.id for v in Intervention.objects(external_id=external_id).only("id")}
     if plan is not None:
+        keep_id = getattr(_safe_intervention(keep_assignment), "id", None) if keep_assignment is not None else None
         for a in plan.interventions or []:
             if a is keep_assignment:
                 continue
             other_id = getattr(_safe_intervention(a), "id", None)
-            if other_id is not None:
+            # Never discard keep_assignment's own id, even if another assignment
+            # happens to share it (duplicate interventionId from a race).
+            if other_id is not None and other_id != keep_id:
                 variant_ids.discard(other_id)
     return list(variant_ids)
 
