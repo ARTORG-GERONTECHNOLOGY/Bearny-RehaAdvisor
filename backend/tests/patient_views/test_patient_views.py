@@ -66,7 +66,9 @@ Framework: Django Test Client + pytest + mongomock
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import time as dtime
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
@@ -1223,11 +1225,11 @@ def test_get_patient_plan_counts_completion_logged_under_another_variant(mongo_m
     ), "Completion recorded under a sibling language variant is still invisible to the patient."
 
 
-def test_get_patient_plan_does_not_borrow_a_sibling_assignments_logs(mongo_mock):
-    """
-    The widened lookup must stay scoped to one assignment: when two assignments in the same plan hold
-    different language variants of the same external_id, the surviving row must not absorb the other
-    assignment's completions, or a single completion would read as two.
+def _plan_with_duplicate_language_assignments():
+    """A plan holding two language variants of one intervention - the legacy shape both views must agree on.
+
+    Sessions are pinned to local noon so that neither view's UTC/local normalisation rolls a session
+    onto the neighbouring day and makes the assertions depend on the wall clock.
     """
     patient, _, en_variant, plan = setup_patient_with_plan()
     de_variant = Intervention(
@@ -1237,23 +1239,39 @@ def test_get_patient_plan_does_not_borrow_a_sibling_assignments_logs(mongo_mock)
         external_id=en_variant.external_id,
         language="de",
     ).save()
+
+    noon = datetime.combine(timezone.localdate(), dtime(12, 0))
+    canonical_dates = [noon + timedelta(days=i) for i in (-3, 2)]
+    sibling_dates = [noon + timedelta(days=i) for i in (-10, 11)]
+
+    plan.interventions[0].dates = canonical_dates
     plan.interventions.append(
         InterventionAssignment(
             interventionId=de_variant,
             frequency="Daily",
             notes="",
-            dates=[datetime.now() + timedelta(days=i) for i in range(10, 13)],
+            dates=sibling_dates,
         )
     )
     plan.save()
+    return patient, de_variant, plan, canonical_dates, sibling_dates
 
-    day = timezone.localdate()
+
+def test_get_patient_plan_absorbs_a_sibling_assignments_dates_and_logs(mongo_mock):
+    """
+    Two assignments holding different language variants of one external_id collapse to a single row.
+    That row has to carry the sibling's sessions as well as its completions: dropping the sibling
+    entirely hid scheduled sessions from the patient that the therapist view still showed as missed.
+    """
+    patient, de_variant, plan, canonical_dates, sibling_dates = _plan_with_duplicate_language_assignments()
+
     PatientInterventionLogs(
         userId=patient,
         interventionId=de_variant,
         rehabilitationPlanId=plan,
-        date=datetime.combine(day, datetime.min.time()),
+        date=sibling_dates[0],
         status=["completed"],
+        createdAt=sibling_dates[0],  # the therapist timeline places a completion at log.createdAt
     ).save()
 
     resp = client.get(
@@ -1264,9 +1282,160 @@ def test_get_patient_plan_does_not_borrow_a_sibling_assignments_logs(mongo_mock)
 
     rows = json.loads(resp.content.decode())
     assert len(rows) == 1, "external_id deduplication should still collapse the pair into one row."
+
+    shown = {d[:10] for d in rows[0]["dates"]}
+    assert shown == {
+        d.date().isoformat() for d in canonical_dates + sibling_dates
+    }, "The sibling assignment's sessions were hidden from the patient."
     assert (
-        day.isoformat() not in rows[0]["completion_dates"]
-    ), "The EN assignment's row absorbed a completion owned by the DE assignment."
+        sibling_dates[0].date().isoformat() in rows[0]["completion_dates"]
+    ), "The sibling assignment's completion was dropped."
+
+
+def test_get_patient_plan_survives_an_unparseable_date_on_a_duplicate_assignment(mongo_mock):
+    """
+    Merging a sibling assignment's dates compares calendar days, so a legacy entry that is not a
+    datetime must not take the patient's whole plan down - it degrades per-date, the way the
+    serialisation below it always has.
+    """
+    patient, _, plan, _, _ = _plan_with_duplicate_language_assignments()
+
+    RehabilitationPlan._get_collection().update_one(
+        {"_id": plan.id},
+        {"$push": {"interventions.1.dates": "not-a-datetime"}},
+    )
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{str(patient.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert len(json.loads(resp.content.decode())) == 1
+
+
+def test_get_patient_plan_for_therapist_survives_an_unparseable_assignment_date(mongo_mock):
+    """A legacy non-datetime in assignment.dates used to 500 the whole therapist dashboard."""
+    patient, _, plan, canonical_dates, sibling_dates = _plan_with_duplicate_language_assignments()
+
+    RehabilitationPlan._get_collection().update_one(
+        {"_id": plan.id},
+        {"$push": {"interventions.0.dates": "not-a-datetime"}},
+    )
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{str(patient.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    rows = resp.json()["interventions"]
+    assert len(rows) == 1
+    shown = {e["datetime"][:10] for e in rows[0]["dates"]}
+    assert shown == {
+        d.date().isoformat() for d in canonical_dates + sibling_dates
+    }, "The parseable sessions must still be timelined."
+
+
+def test_get_patient_plan_for_therapist_survives_an_unparseable_log_date(mongo_mock):
+    """Same for a log: an unparseable date on one log must not decide the whole plan's fate."""
+    patient, de_variant, plan, _, sibling_dates = _plan_with_duplicate_language_assignments()
+
+    log = PatientInterventionLogs(
+        userId=patient,
+        interventionId=de_variant,
+        rehabilitationPlanId=plan,
+        date=sibling_dates[0],
+        status=["completed"],
+        createdAt=sibling_dates[0],
+    ).save()
+    PatientInterventionLogs._get_collection().update_one({"_id": log.id}, {"$set": {"date": "not-a-datetime"}})
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{str(patient.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert len(resp.json()["interventions"]) == 1
+
+
+def test_patient_and_therapist_plan_views_agree_on_completions(mongo_mock):
+    """
+    Regression: the two views scoped their log lookups differently, so a completion recorded against
+    one of a pair of duplicate assignments counted on the therapist dashboard but not in the patient
+    app. Both must report the same sessions and the same completions.
+    """
+    patient, de_variant, plan, canonical_dates, sibling_dates = _plan_with_duplicate_language_assignments()
+    completed_day = sibling_dates[0].date().isoformat()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=de_variant,
+        rehabilitationPlanId=plan,
+        date=sibling_dates[0],
+        status=["completed"],
+        createdAt=sibling_dates[0],  # the therapist timeline places a completion at log.createdAt
+    ).save()
+
+    patient_resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{str(patient.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    therapist_resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{str(patient.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert patient_resp.status_code == 200, patient_resp.content.decode()
+    assert therapist_resp.status_code == 200, therapist_resp.content.decode()
+
+    patient_row = json.loads(patient_resp.content.decode())[0]
+    therapist_rows = therapist_resp.json()["interventions"]
+    assert len(therapist_rows) == 1
+
+    patient_days = {d[:10] for d in patient_row["dates"]}
+    therapist_days = {e["datetime"][:10] for e in therapist_rows[0]["dates"]}
+    assert patient_days == therapist_days, "The two views disagree about which sessions are scheduled."
+
+    therapist_completed = {e["datetime"][:10] for e in therapist_rows[0]["dates"] if e["status"] == "completed"}
+    assert therapist_completed == {completed_day}
+    assert (
+        set(patient_row["completion_dates"]) == therapist_completed
+    ), "The patient app and the therapist dashboard disagree about what has been completed."
+
+
+def test_get_patient_plan_for_therapist_ignores_a_stale_plans_logs(mongo_mock):
+    """
+    The therapist log lookup had no rehabilitationPlanId filter, so a completion left behind by a
+    replaced plan document still counted against the current plan's sessions - while get_patient_plan,
+    which does filter, ignored it. Models a plan that was recreated for the patient.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    stale_plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=plan.therapistId,
+        startDate=datetime.now(),
+        endDate=datetime.now() + timedelta(days=30),
+        status="active",
+        interventions=[],
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=stale_plan,
+        date=plan.interventions[0].dates[0],
+        status=["completed"],
+    ).save()
+    stale_plan.delete()  # the log keeps pointing at the replaced plan
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{str(patient.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    rows = resp.json()["interventions"]
+    completed = [e for e in rows[0]["dates"] if e["status"] == "completed"]
+    assert not completed, "A completion left behind by a replaced plan was counted against this plan."
 
 
 def test_get_patient_plan_skips_assignment_whose_intervention_was_deleted(mongo_mock):
