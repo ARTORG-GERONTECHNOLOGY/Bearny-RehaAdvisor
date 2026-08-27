@@ -43,6 +43,7 @@ from core.models import (
 from core.services.redcap_access import get_therapist_for_user
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.interventions import (
+    _assignments_by_external_id,
     _match_assignment_by_external_id,
     _match_assignment_by_id,
     _safe_intervention,
@@ -2166,6 +2167,33 @@ def _find_plan_intervention_assignment(plan, intervention_id, known_external_id=
     return _match_assignment_by_external_id(plan, requested_ext_id)
 
 
+def _find_plan_intervention_assignments(plan, intervention_id):
+    """Every assignment on the plan holding this logical intervention, in plan order.
+
+    A plan holding one external_id twice is legacy data, but an edit has to reach all of it: both
+    plan views merge such assignments into a single row, so stripping or rescheduling dates on only
+    the first one leaves the rest on screen as sessions the therapist thought they had dealt with.
+    """
+    target = _match_assignment_by_id(plan, intervention_id)
+
+    external_id = getattr(_safe_intervention(target), "external_id", None) if target else None
+    if not external_id:
+        oid = _coerce_object_id(intervention_id)
+        requested = Intervention.objects(id=oid).only("external_id").first() if oid else None
+        external_id = getattr(requested, "external_id", None)
+
+    if external_id:
+        matches = _assignments_by_external_id(plan, external_id)
+        if matches:
+            return matches
+
+    if target is None:
+        return []
+    # Nothing to group on, so catch a plain duplicate of the same document instead.
+    target_id = getattr(_safe_intervention(target), "id", None)
+    return [a for a in (plan.interventions or []) if getattr(_safe_intervention(a), "id", None) == target_id]
+
+
 def _resolve_plan_assignment(plan, intervention):
     """Resolve intervention against plan's assignment, allowing ad-hoc completion when unassigned.
 
@@ -2511,9 +2539,11 @@ def modify_intervention_from_date(request):
     # ----------------------
     # Find intervention assignment
     # ----------------------
-    target = _find_plan_intervention_assignment(plan, intervention_id)
+    # Every assignment for this intervention: a legacy duplicate must not keep serving the schedule
+    # that is being replaced from effective_from onwards.
+    targets = _find_plan_intervention_assignments(plan, intervention_id)
 
-    if not target:
+    if not targets:
         return JsonResponse(
             {
                 "success": False,
@@ -2544,15 +2574,16 @@ def modify_intervention_from_date(request):
     # ----------------------
     # Update flags always
     # ----------------------
-    target.require_video_feedback = require_video
-    if notes is not None:
-        target.notes = (notes or "").strip()[:1000]
+    for target in targets:
+        target.require_video_feedback = require_video
+        if notes is not None:
+            target.notes = (notes or "").strip()[:1000]
 
     # ----------------------
     # Split past/future dates
     # ----------------------
     try:
-        existing_utc = [_as_aware_utc(d) for d in (target.dates or [])]
+        existing_utc = [[_as_aware_utc(d) for d in (t.dates or [])] for t in targets]
     except Exception:
         logger.exception("[modify_intervention_from_date] Failed to convert existing UTC dates")
         return JsonResponse(
@@ -2565,14 +2596,15 @@ def modify_intervention_from_date(request):
             status=500,
         )
 
-    past_utc = [d for d in existing_utc if d < eff_dt_utc]
-    future_utc = [d for d in existing_utc if d >= eff_dt_utc]
+    past_utc = [[d for d in dates if d < eff_dt_utc] for dates in existing_utc]
+    future_utc = [[d for d in dates if d >= eff_dt_utc] for dates in existing_utc]
 
     # ----------------------
     # If keep_current → only update flags
     # ----------------------
     if keep_current:
-        target.dates = past_utc + future_utc
+        for target, past, future in zip(targets, past_utc, future_utc):
+            target.dates = past + future
         plan.updatedAt = timezone.now()
         plan.save()
 
@@ -2580,7 +2612,7 @@ def modify_intervention_from_date(request):
             {
                 "success": True,
                 "message": "Updated schedule flags.",
-                "updatedCount": len(target.dates),
+                "updatedCount": sum(len(t.dates) for t in targets),
                 "field_errors": {},
                 "non_field_errors": [],
             },
@@ -2625,7 +2657,10 @@ def modify_intervention_from_date(request):
             status=400,
         )
 
-    target.dates = past_utc + new_utc
+    # Each assignment keeps its own past sessions; the regenerated schedule lands on the canonical
+    # one, so the group ends up with exactly one series from effective_from onwards.
+    for i, target in enumerate(targets):
+        target.dates = past_utc[i] + (new_utc if i == 0 else [])
 
     plan.updatedAt = timezone.now()
     plan.save()
@@ -2634,7 +2669,7 @@ def modify_intervention_from_date(request):
         {
             "success": True,
             "message": "Updated schedule.",
-            "updatedCount": len(target.dates),
+            "updatedCount": sum(len(t.dates) for t in targets),
             "field_errors": {},
             "non_field_errors": [],
         },
@@ -2783,9 +2818,11 @@ def reschedule_intervention_date(request):
     # ----------------------
     # Find intervention assignment
     # ----------------------
-    target = _find_plan_intervention_assignment(plan, intervention_id)
+    # Every assignment for this intervention: the occurrence being dragged, and anything it could
+    # collide with, may sit on a legacy duplicate rather than the first assignment.
+    targets = _find_plan_intervention_assignments(plan, intervention_id)
 
-    if not target:
+    if not targets:
         return JsonResponse(
             {
                 "success": False,
@@ -2835,7 +2872,7 @@ def reschedule_intervention_date(request):
     # Locate the occurrence to move
     # ----------------------
     try:
-        existing_utc = [_as_aware_utc(d) for d in (target.dates or [])]
+        existing_utc = [[_as_aware_utc(d) for d in (t.dates or [])] for t in targets]
     except Exception:
         logger.exception("[reschedule_intervention_date] Failed to convert existing UTC dates")
         return JsonResponse(
@@ -2849,7 +2886,12 @@ def reschedule_intervention_date(request):
         )
 
     match_idx = next(
-        (i for i, d in enumerate(existing_utc) if abs((d - old_dt_utc).total_seconds()) < 1),
+        (
+            (ti, di)
+            for ti, dates in enumerate(existing_utc)
+            for di, d in enumerate(dates)
+            if abs((d - old_dt_utc).total_seconds()) < 1
+        ),
         None,
     )
 
@@ -2864,7 +2906,7 @@ def reschedule_intervention_date(request):
             status=404,
         )
 
-    if existing_utc[match_idx] < now_utc:
+    if existing_utc[match_idx[0]][match_idx[1]] < now_utc:
         return JsonResponse(
             {
                 "success": False,
@@ -2888,7 +2930,12 @@ def reschedule_intervention_date(request):
     # the existing completed log to the new, unstarted occurrence.
     # ----------------------
     new_day = _as_aware_local(new_dt_utc).date()
-    collides = any(_as_aware_local(d).date() == new_day for i, d in enumerate(existing_utc) if i != match_idx)
+    collides = any(
+        _as_aware_local(d).date() == new_day
+        for ti, dates in enumerate(existing_utc)
+        for di, d in enumerate(dates)
+        if (ti, di) != match_idx
+    )
     if collides:
         return JsonResponse(
             {
@@ -2903,9 +2950,10 @@ def reschedule_intervention_date(request):
     # ----------------------
     # Apply and save
     # ----------------------
-    existing_utc[match_idx] = new_dt_utc
-    existing_utc.sort()
-    target.dates = existing_utc
+    moved = existing_utc[match_idx[0]]
+    moved[match_idx[1]] = new_dt_utc
+    moved.sort()
+    targets[match_idx[0]].dates = moved
 
     plan.updatedAt = timezone.now()
     plan.save()
@@ -3298,9 +3346,11 @@ def remove_intervention_from_patient(request):
         now = timezone.now()
         occurrence_found = False
 
-        assignment = _find_plan_intervention_assignment(plan, intervention_id)
+        # Every assignment for this intervention, so a legacy duplicate does not keep the sessions
+        # the therapist just removed - both plan views would still show them.
+        assignments = _find_plan_intervention_assignments(plan, intervention_id)
 
-        if not assignment:
+        if not assignments:
             return JsonResponse(
                 {
                     "success": False,
@@ -3310,23 +3360,24 @@ def remove_intervention_from_patient(request):
                 status=404,
             )
 
-        if occurrence_dt_utc is not None:
-            # Remove only the single matching future occurrence, leaving
-            # every other scheduled date (past or future) untouched.
-            # Matched in UTC (like reschedule_intervention_date) since
-            # naive Mongo dates are stored as UTC instants, not local time.
-            now_utc = _as_aware_utc(now)
-            remaining = []
-            for d in assignment.dates:
-                d_utc = _as_aware_utc(d)
-                if d_utc > now_utc and abs((d_utc - occurrence_dt_utc).total_seconds()) < 1:
-                    occurrence_found = True
-                    continue
-                remaining.append(d)
-            assignment.dates = remaining
-        else:
-            # Keep only past or today's dates
-            assignment.dates = [d for d in assignment.dates if ensure_aware(d) <= now]
+        now_utc = _as_aware_utc(now)
+        for assignment in assignments:
+            if occurrence_dt_utc is not None:
+                # Remove only the single matching future occurrence, leaving
+                # every other scheduled date (past or future) untouched.
+                # Matched in UTC (like reschedule_intervention_date) since
+                # naive Mongo dates are stored as UTC instants, not local time.
+                remaining = []
+                for d in assignment.dates:
+                    d_utc = _as_aware_utc(d)
+                    if d_utc > now_utc and abs((d_utc - occurrence_dt_utc).total_seconds()) < 1:
+                        occurrence_found = True
+                        continue
+                    remaining.append(d)
+                assignment.dates = remaining
+            else:
+                # Keep only past or today's dates
+                assignment.dates = [d for d in assignment.dates if ensure_aware(d) <= now]
 
         if occurrence_dt_utc is not None and not occurrence_found:
             return JsonResponse(

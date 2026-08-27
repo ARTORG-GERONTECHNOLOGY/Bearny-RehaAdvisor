@@ -95,6 +95,7 @@ from core.models import (
     Translation,
     User,
 )
+from utils.interventions import _as_utc
 
 
 def _mk_dt_naive(days_offset=0, hour=6, minute=0):
@@ -713,13 +714,8 @@ def test_remove_intervention_matches_translated_variant(mongo_mock):
     assert "Intervention dates removed successfully" in resp.content.decode()
 
 
-def test_remove_intervention_duplicate_external_id_only_affects_one_assignment(mongo_mock):
-    """
-    Regression: if a patient's plan ever ends up with two assignments that
-    share an external_id (e.g. one per language variant), removing one of
-    them must only clear that assignment's dates, not the other assignment's
-    dates too.
-    """
+def _plan_with_duplicate_assignments_and_past_sessions():
+    """Two assignments sharing an external_id, each with one past and two future sessions."""
     patient, _, intervention, plan = setup_patient_with_plan()
     translated = Intervention(
         title="Dehnung",
@@ -727,87 +723,162 @@ def test_remove_intervention_duplicate_external_id_only_affects_one_assignment(m
         content_type="Video",
         external_id=intervention.external_id,
         language="de",
-    )
-    translated.save()
+    ).save()
 
-    other_dates = [datetime.now() + timedelta(days=i) for i in range(1, 6)]
+    noon = datetime.combine(timezone.localdate(), dtime(12, 0))
+    plan.interventions[0].dates = [noon - timedelta(days=3), noon + timedelta(days=1), noon + timedelta(days=2)]
     plan.interventions.append(
         InterventionAssignment(
             interventionId=translated,
             frequency="Daily",
             notes="",
-            dates=other_dates,
+            dates=[noon - timedelta(days=4), noon + timedelta(days=5), noon + timedelta(days=6)],
         )
     )
     plan.save()
+    return patient, intervention, translated, plan
 
-    payload = {"intervention": str(intervention.id), "patientId": str(patient.id)}
+
+def _assignment_for(plan, intervention):
+    return next(a for a in plan.interventions if a.interventionId.id == intervention.id)
+
+
+def test_remove_intervention_clears_every_duplicate_assignment(mongo_mock):
+    """
+    Removing an intervention has to reach every assignment holding it. Trimming only the first left
+    the duplicate's future sessions on the plan, and both plan views merge the two into one row - so
+    the therapist removed the intervention and watched its sessions stay put.
+    """
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
+
     resp = client.post(
         "/api/interventions/remove-from-patient/",
-        data=json.dumps(payload),
+        data=json.dumps({"intervention": str(intervention.id), "patientId": str(patient.id)}),
         content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 200, resp.content.decode()
 
     plan.reload()
-    remaining_assignments = [a for a in plan.interventions if a.interventionId.id == translated.id]
-    assert len(remaining_assignments) == 1
-    assert len(remaining_assignments[0].dates) == len(other_dates), (
-        "Removing one language variant's assignment must not touch the other "
-        "assignment sharing the same external_id."
-    )
+    for iv in (intervention, translated):
+        dates = _assignment_for(plan, iv).dates
+        assert len(dates) == 1, f"Future sessions survived on the {iv.language} assignment: {dates}"
+        assert _as_utc(dates[0]) < timezone.now(), "Past sessions must be preserved."
 
 
-def test_remove_intervention_resolves_duplicate_plan_to_first_assignment(mongo_mock):
+def test_remove_intervention_via_an_unassigned_variant_clears_the_whole_group(mongo_mock):
     """
-    Regression: when the requested id matches no assignment exactly and more
-    than one assignment shares its external_id (e.g. both an EN and a DE
-    variant are assigned), the lookup must refuse to guess which assignment
-    was intended rather than silently acting on the first one.
+    The requested id may match no assignment exactly and both via external_id - a third language
+    variant nobody assigned. That still identifies one logical intervention, so both go.
     """
-    patient, _, intervention, plan = setup_patient_with_plan()
-    translated = Intervention(
-        title="Dehnung",
-        description="Dehnübungen",
-        content_type="Video",
-        external_id=intervention.external_id,
-        language="de",
-    )
-    translated.save()
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
 
-    plan.interventions.append(
-        InterventionAssignment(
-            interventionId=translated,
-            frequency="Daily",
-            notes="",
-            dates=[datetime.now() + timedelta(days=i) for i in range(1, 6)],
-        )
-    )
-    plan.save()
-
-    # A third variant sharing the same external_id, assigned to neither
-    # assignment - matches neither exactly, and matches both via external_id.
     unassigned_variant = Intervention(
         title="Étirement",
         description="Exercices d'étirement",
         content_type="Video",
         external_id=intervention.external_id,
         language="fr",
-    )
-    unassigned_variant.save()
+    ).save()
 
-    payload = {"intervention": str(unassigned_variant.id), "patientId": str(patient.id)}
     resp = client.post(
         "/api/interventions/remove-from-patient/",
-        data=json.dumps(payload),
+        data=json.dumps({"intervention": str(unassigned_variant.id), "patientId": str(patient.id)}),
         content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 200, resp.content.decode()
 
     plan.reload()
-    assert len(plan.interventions) == 2, "Only the first assignment is trimmed; the sibling is untouched."
+    assert len(plan.interventions) == 2, "Both assignments keep their past session, so neither is dropped."
+    for iv in (intervention, translated):
+        assert len(_assignment_for(plan, iv).dates) == 1
+
+
+def test_reschedule_moves_an_occurrence_held_by_a_duplicate_assignment(mongo_mock):
+    """
+    The occurrence being dragged may sit on the duplicate rather than the first assignment. Scoped to
+    the first, the drag came back "occurrence not found" for a session plainly on screen.
+    """
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
+    sibling_session = _assignment_for(plan, translated).dates[1]
+    new_dt = sibling_session + timedelta(days=3)  # a day no assignment in the group uses
+
+    resp = client.post(
+        "/api/interventions/reschedule-date/",
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": _as_utc(sibling_session).isoformat(),
+                "newDatetime": _as_utc(new_dt).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    moved = {_as_utc(d) for d in _assignment_for(plan, translated).dates}
+    assert _as_utc(new_dt) in moved
+    assert _as_utc(sibling_session) not in moved
+
+
+def test_reschedule_rejects_a_collision_with_a_duplicate_assignments_session(mongo_mock):
+    """
+    Both plan views merge the two assignments into one row, so a day already used by the duplicate is
+    taken. Checking only the first assignment let two sessions land on one visible day.
+    """
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
+    own_session = _assignment_for(plan, intervention).dates[1]
+    sibling_session = _assignment_for(plan, translated).dates[1]
+
+    resp = client.post(
+        "/api/interventions/reschedule-date/",
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": _as_utc(own_session).isoformat(),
+                "newDatetime": _as_utc(sibling_session).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    assert "already exists" in resp.json()["message"]
+
+
+def test_modify_from_date_replaces_the_whole_groups_future_schedule(mongo_mock):
+    """
+    A from-date modification regenerates the series. The duplicate's future sessions have to go with
+    it, or the patient keeps seeing the schedule the therapist just replaced.
+    """
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
+    effective_from = datetime.combine(timezone.localdate(), dtime(12, 0))
+
+    resp = client.post(
+        "/api/interventions/modify-patient/",
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "effectiveFrom": effective_from.isoformat(),
+                "keep_current": False,
+                "schedule": {"unit": "week", "interval": 1, "selectedDays": ["Mon"], "end": {"type": "never"}},
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    sibling_dates = _assignment_for(plan, translated).dates
+    assert len(sibling_dates) == 1, f"The duplicate kept its replaced future sessions: {sibling_dates}"
+    assert _as_utc(sibling_dates[0]) < timezone.now()
 
 
 def test_remove_intervention_missing_params(mongo_mock):
