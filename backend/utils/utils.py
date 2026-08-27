@@ -256,6 +256,13 @@ def generate_repeat_dates(patient_end_date, repeat_data):
     interval = repeat_data.get("interval", 1)
     unit = repeat_data.get("unit")
 
+    # Neither an unrecognised unit nor a non-positive interval advances current_date in the loop
+    # below, so without this the generator spins forever and the request never returns.
+    if unit not in ("day", "week", "month"):
+        raise ValueError(f"Unsupported repeat unit: {unit!r}")
+    if not isinstance(interval, (int, float)) or interval < 1:
+        raise ValueError(f"Repeat interval must be a number >= 1, got {interval!r}")
+
     selected_days = repeat_data.get("selected_days") or repeat_data.get("selectedDays") or []
 
     # ---- NEW FORMAT ----

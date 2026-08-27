@@ -119,15 +119,10 @@ def submit_patient_feedback(request):
         else:
             target_day = timezone.localdate()
 
-        # create day bounds in local time
+        # Naive local day bounds, matching how PatientInterventionLogs store dates (see
+        # mark_intervention_completed). Converting to UTC here shifts the window off the stored values.
         day_start = datetime.datetime.combine(target_day, datetime.time.min)
         day_end = datetime.datetime.combine(target_day, datetime.time.max)
-
-        # make aware if timezone is used
-        if timezone.is_naive(day_start):
-            day_start = timezone.make_aware(day_start, timezone.get_current_timezone())
-        if timezone.is_naive(day_end):
-            day_end = timezone.make_aware(day_end, timezone.get_current_timezone())
 
         recognizer = sr.Recognizer()
         answers = {}
@@ -258,8 +253,8 @@ def submit_patient_feedback(request):
                 return JsonResponse({"error": AMBIGUOUS_ASSIGNMENT_MESSAGE}, status=404)
 
             # ✅ use target_day bounds, NOT "today"
-            # Scoped and ordered exactly like mark_intervention_completed, so feedback lands on the very
-            # log that endpoint keeps for the day rather than a same-day duplicate or an older plan's.
+            # Scoped, windowed and ordered exactly like mark_intervention_completed, so feedback lands
+            # on the very log that endpoint keeps for the day rather than a same-day duplicate.
             log = (
                 PatientInterventionLogs.objects(
                     userId=patient,
@@ -350,6 +345,9 @@ def submit_patient_feedback(request):
         # HEALTHSTATUS feedback path
         # =========================
         else:
+            # PatientICFRating stores an aware date, unlike the naive day bounds above.
+            rating_date = timezone.make_aware(day_start, timezone.get_current_timezone())
+
             for qkey, answer_val in answers.items():
                 qobj = FeedbackQuestion.objects.filter(questionKey=qkey, questionSubject="Healthstatus").first()
                 if not qobj:
@@ -386,7 +384,7 @@ def submit_patient_feedback(request):
                     patientId=patient,
                     icfCode=qobj.icfCode,
                     # ✅ align rating date too (important for time-series charts)
-                    date=day_start,
+                    date=rating_date,
                     rating=int(text_ans) if text_ans.isdigit() else None,
                     notes=notes,
                     feedback_entries=[entry],

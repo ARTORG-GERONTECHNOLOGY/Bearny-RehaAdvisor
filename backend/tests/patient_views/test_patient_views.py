@@ -422,6 +422,53 @@ def test_submit_feedback_uses_the_same_log_completion_keeps(mongo_mock):
     assert not older.feedback
 
 
+@pytest.mark.parametrize("hour", [0, 9, 21, 22, 23])
+def test_submit_feedback_finds_log_scheduled_late_in_the_day(mongo_mock, hour):
+    """
+    Regression: the day window was built from timezone-aware bounds while mark_intervention_completed
+    stores naive local datetimes, so the window was shifted by the UTC offset. A session scheduled in
+    the last hours of the day fell outside it and every feedback submission opened a second log for a
+    day that already had one - splitting the patient's feedback off from their completion.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    day_start = datetime.combine(timezone.localdate(), datetime.min.time())
+    completion_log = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=day_start + timedelta(hours=hour),
+        status=["completed"],
+        feedback=[],
+    ).save()
+
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention",
+        questionKey="how_did_it_go",
+        answer_type="text",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+    )
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(intervention.id),
+            "how_did_it_go": json.dumps(["Great"]),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    completion_log.reload()
+    assert PatientInterventionLogs.objects.count() == 1, (
+        f"A session logged at {hour:02d}:00 local fell outside the feedback day window, "
+        "so feedback opened a duplicate log for the day."
+    )
+    assert len(completion_log.feedback) == 1
+
+
 def test_submit_feedback_no_responses(mongo_mock):
     """
 
