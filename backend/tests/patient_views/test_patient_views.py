@@ -1150,6 +1150,63 @@ def test_add_intervention_to_patient_success(mongo_mock):
 
 
 @pytest.mark.django_db
+def test_add_intervention_switches_language_variant_without_new_sessions(mongo_mock):
+    """
+    Regression: re-adding an intervention in another language with the same schedule swapped
+    existing.interventionId, but added no session - so neither counter moved, plan.save() was
+    skipped and the swap was silently discarded. The therapist saw "no new sessions" and the plan
+    kept the old language.
+    """
+    patient, therapist, en, plan = setup_patient_with_plan()
+    plan.interventions = []
+    plan.save()
+
+    de = Intervention(
+        external_id=en.external_id,
+        language="de",
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+    ).save()
+
+    def add(intervention_id):
+        return client.post(
+            "/api/interventions/add-to-patient/",
+            data=json.dumps(
+                {
+                    "therapistId": str(therapist.userId.id),
+                    "patientId": str(patient.id),
+                    "interventions": [
+                        {
+                            "interval": 1,
+                            "interventionId": str(intervention_id),
+                            "unit": "day",
+                            "startDate": "2026-02-25T07:00:00.000Z",
+                            "selectedDays": [],
+                            "end": {"type": "never", "date": None, "count": None},
+                            "require_video_feedback": False,
+                            "notes": "",
+                        }
+                    ],
+                }
+            ),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    first = add(en.id)
+    assert first.status_code in (200, 201), first.content.decode()
+
+    # Identical schedule, so no session is added - only the language changes.
+    second = add(de.id)
+    assert second.status_code in (200, 201), second.content.decode()
+
+    plan.reload()
+    assert len(plan.interventions) == 1, "The variant should merge into the existing assignment."
+    assert plan.interventions[0].interventionId.id == de.id, "The language switch was not persisted."
+
+
+@pytest.mark.django_db
 def test_add_intervention_to_patient_accepts_patient_code(mongo_mock):
     """
     Regression: patientId in add-to-patient may be sent as patient_code (e.g. "1234").

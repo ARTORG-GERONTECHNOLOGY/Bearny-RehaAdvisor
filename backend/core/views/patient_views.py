@@ -253,7 +253,7 @@ def submit_patient_feedback(request):
                 return JsonResponse({"error": "Rehabilitation plan not found."}, status=404)
 
             # Resolve against the plan's assignment so feedback lands on the same log as completion, even for a translated variant's interventionId.
-            assignment, canonical_intervention, variant_ids = _resolve_plan_assignment(plan, intervention)
+            _, canonical_intervention, variant_ids = _resolve_plan_assignment(plan, intervention)
 
             # ✅ use target_day bounds, NOT "today"
             # Scoped, windowed and ordered exactly like mark_intervention_completed, so feedback lands
@@ -1964,6 +1964,7 @@ def add_intervention_to_patient(request):
 
     total_added = 0
     created_assignments = 0
+    variant_switches = 0
 
     for raw in items:
         item = normalize_schedule(raw)
@@ -2044,6 +2045,7 @@ def add_intervention_to_patient(request):
         if existing:
             if new_ext and getattr(existing.interventionId, "id", None) != getattr(intervention, "id", None):
                 existing.interventionId = intervention
+                variant_switches += 1
 
             merged, added_cnt = _merge_dates(existing.dates, dates)
             if added_cnt > 0:
@@ -2064,7 +2066,7 @@ def add_intervention_to_patient(request):
             created_assignments += 1
             total_added += len(dates)
 
-    if created_assignments or total_added:
+    if created_assignments or total_added or variant_switches:
         plan.updatedAt = timezone.now()
         plan.save()
 
@@ -2073,6 +2075,8 @@ def add_intervention_to_patient(request):
         msg.append(f"created {created_assignments} assignment(s)")
     if total_added:
         msg.append(f"added {total_added} session(s)")
+    if variant_switches:
+        msg.append(f"switched {variant_switches} intervention(s) to the requested language")
 
     if not msg:
         return JsonResponse(
