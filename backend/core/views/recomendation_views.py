@@ -50,6 +50,7 @@ from utils.interventions import (
     _available_language_variants,
     _build_external_media,
     _build_file_media,
+    _canonical_assignment_for,
     _detect_file_media_type,
     _first_str_from_any,
     _is_valid_url,
@@ -1419,11 +1420,9 @@ def assign_intervention_to_types(request, therapist_id):
             if not dates:
                 continue
 
-            existing = None
-            for ia in plan.interventions or []:
-                if getattr(getattr(ia, "interventionId", None), "id", None) == inter_obj.id:
-                    existing = ia
-                    break
+            # Matched across language variants, so re-applying in a different language merges into
+            # the assignment the plan already has instead of duplicating it for every patient.
+            existing = _canonical_assignment_for(plan, inter_obj)
             if existing:
                 before = len(existing.dates or [])
                 have = {d.replace(microsecond=0) for d in (existing.dates or [])}

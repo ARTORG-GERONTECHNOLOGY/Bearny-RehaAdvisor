@@ -4,6 +4,7 @@ import mimetypes
 import os
 import re
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -14,6 +15,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import now as dj_now
 from django.views.decorators.csrf import csrf_exempt
+from mongoengine.errors import DoesNotExist
 from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -43,6 +45,9 @@ EMBED_HINTS = [
     r"/iframe(?:/|$)",
     r"[?&]embed=1\b",
 ]
+
+
+logger = logging.getLogger(__name__)
 
 
 def _url_ext(u: str) -> str:
@@ -100,6 +105,86 @@ def _variant_ids_for_external_id(external_id: str) -> List[ObjectId]:
     if not external_id:
         return []
     return [v.id for v in Intervention.objects(external_id=external_id).only("id")]
+
+
+# --------------------------------------------------------------------------------------
+# Plan-assignment resolution
+#
+# Matching on interventionId alone treats two language variants of one intervention as
+# unrelated, which is how a plan ends up holding the same intervention twice.
+# --------------------------------------------------------------------------------------
+
+
+def _safe_intervention(assignment):
+    """An assignment's Intervention, or None when the reference dangles.
+
+    A deleted Intervention raises the base DoesNotExist on dereference, which getattr's default
+    does not catch - so every caller that walks plan.interventions needs this, not getattr.
+    """
+    try:
+        return assignment.interventionId
+    except DoesNotExist:
+        return None
+
+
+class _AmbiguousAssignment:
+    # Falsy sentinel: existing `if not target` call sites keep treating this like "not found".
+    def __bool__(self):
+        return False
+
+
+# Shared wording for the AMBIGUOUS_ASSIGNMENT branch, distinct from the plain "not assigned" message -
+# a therapist seeing this should go fix the duplicate on the plan, not re-add the intervention.
+AMBIGUOUS_ASSIGNMENT_MESSAGE = (
+    "This intervention is assigned to the patient's plan more than once (duplicate language-variant "
+    "assignments) and can't be resolved automatically. Please review the patient's plan."
+)
+
+
+# Distinguishes "matched multiple variants, refuse to guess" from "no match at all" so callers can still allow ad-hoc completion for a genuinely-unassigned intervention.
+AMBIGUOUS_ASSIGNMENT = _AmbiguousAssignment()
+
+
+def _match_assignment_by_id(plan, intervention_id):
+    intervention_id = str(intervention_id)
+    for a in plan.interventions or []:
+        iv = _safe_intervention(a)
+        if iv is not None and str(iv.id) == intervention_id:
+            return a
+    return None
+
+
+def _assignments_by_external_id(plan, external_id):
+    """Every assignment on the plan holding a variant of this external_id, in plan order."""
+    if not external_id:
+        return []
+    return [a for a in (plan.interventions or []) if getattr(_safe_intervention(a), "external_id", None) == external_id]
+
+
+def _match_assignment_by_external_id(plan, external_id):
+    matches = _assignments_by_external_id(plan, external_id)
+    if len(matches) > 1:
+        # Ambiguous match - refuse to guess rather than mutate the wrong assignment.
+        logger.warning(
+            "[_match_assignment_by_external_id] Multiple assignments share external_id=%s; refusing to guess.",
+            external_id,
+        )
+        return AMBIGUOUS_ASSIGNMENT
+    return matches[0] if matches else None
+
+
+def _canonical_assignment_for(plan, intervention):
+    """The assignment a writer should merge into, or None to append a new one.
+
+    Unlike _match_assignment_by_external_id this never refuses: on a plan that already holds
+    duplicates it returns the first of them - the one get_patient_plan and
+    get_patient_plan_for_therapist both treat as canonical - so a bulk or non-interactive caller
+    merges into the assignment the UIs actually display instead of appending yet another duplicate.
+    """
+    matches = _assignments_by_external_id(plan, getattr(intervention, "external_id", None))
+    if matches:
+        return matches[0]
+    return _match_assignment_by_id(plan, intervention.id)
 
 
 def _available_language_variants(external_id: str) -> List[dict]:
@@ -304,6 +389,11 @@ def _anchor_date_for_day(day_n: int) -> str:
     return start.date().isoformat()
 
 
+def _as_utc(value: datetime) -> datetime:
+    """Assignment dates are stored as UTC instants, so a naive value is UTC and not local time."""
+    return value.replace(tzinfo=dt_timezone.utc) if value.tzinfo is None else value.astimezone(dt_timezone.utc)
+
+
 def _dedup_dates(dt_list):
     seen = set()
     out = []
@@ -324,18 +414,16 @@ def _upsert_intervention(
     overwrite=False,
     effective_from=None,
 ):
-    found = None
-    for ia in plan.interventions or []:
-        if getattr(getattr(ia, "interventionId", None), "id", None) == intervention.id:
-            found = ia
-            break
+    found = _canonical_assignment_for(plan, intervention)
 
     dates = _dedup_dates(dates)
 
     if found:
         if overwrite and effective_from:
-            eff = make_aware(effective_from) if is_naive(effective_from) else effective_from
-            kept = [d for d in (found.dates or []) if d < eff]
+            # effective_from arrives in local time; found.dates come back from Mongo naive, where
+            # naive means UTC. Comparing the two frames unnormalised raises TypeError.
+            eff = effective_from if effective_from.tzinfo else timezone.make_aware(effective_from)
+            kept = [d for d in (found.dates or []) if _as_utc(d) < eff]
             found.dates = kept + dates
         else:
             existing = {d.replace(microsecond=0) for d in (found.dates or [])}

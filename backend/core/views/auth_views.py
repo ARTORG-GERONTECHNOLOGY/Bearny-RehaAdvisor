@@ -41,6 +41,7 @@ from core.throttles import LoginRateThrottle
 from core.token_revocation import invalidate_user_tokens, revoke_jti
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.config import WEARABLE_DEVICE_CHOICES, config
+from utils.interventions import _canonical_assignment_for
 from utils.scheduling import _expand_dates
 from utils.utils import (
     check_rate_limit,
@@ -274,11 +275,9 @@ def create_rehab_plan(patient, therapist):
                 continue
             new_dates = dates_by_intervention[key]
 
-            existing = None
-            for ia in plan.interventions or []:
-                if getattr(getattr(ia, "interventionId", None), "id", None) == intervention.id:
-                    existing = ia
-                    break
+            # Matched across language variants, so a default recommendation in one language does
+            # not add a second assignment beside a variant the plan already holds.
+            existing = _canonical_assignment_for(plan, intervention)
 
             if existing:
                 # keep all past; merge future without dupes

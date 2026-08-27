@@ -43,7 +43,14 @@ from core.models import (
 )
 from core.services.redcap_access import get_therapist_for_user
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
-from utils.interventions import _variant_ids_for_external_id
+from utils.interventions import (
+    AMBIGUOUS_ASSIGNMENT,
+    AMBIGUOUS_ASSIGNMENT_MESSAGE,
+    _match_assignment_by_external_id,
+    _match_assignment_by_id,
+    _safe_intervention,
+    _variant_ids_for_external_id,
+)
 from utils.utils import (
     _adherence,
     convert_to_serializable,
@@ -2181,56 +2188,6 @@ def _parse_iso(s: str) -> datetime.datetime:
 
 def _ceil_to_day(dt: datetime.datetime) -> datetime.datetime:
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
-
-
-def _safe_intervention(a):
-    # Dangling (deleted) Intervention ref raises the base DoesNotExist, not Intervention.DoesNotExist.
-    try:
-        return a.interventionId
-    except DoesNotExist:
-        return None
-
-
-class _AmbiguousAssignment:
-    # Falsy sentinel: existing `if not target` call sites keep treating this like "not found".
-    def __bool__(self):
-        return False
-
-
-# Shared wording for the AMBIGUOUS_ASSIGNMENT branch, distinct from the plain "not assigned" message -
-# a therapist seeing this should go fix the duplicate on the plan, not re-add the intervention (which
-# would only be consolidated back onto whichever variant they just requested, see _consolidate_duplicate_assignments).
-AMBIGUOUS_ASSIGNMENT_MESSAGE = (
-    "This intervention is assigned to the patient's plan more than once (duplicate language-variant "
-    "assignments) and can't be resolved automatically. Please review the patient's plan."
-)
-
-
-# Distinguishes "matched multiple variants, refuse to guess" from "no match at all" so callers can still allow ad-hoc completion for a genuinely-unassigned intervention.
-AMBIGUOUS_ASSIGNMENT = _AmbiguousAssignment()
-
-
-def _match_assignment_by_id(plan, intervention_id):
-    intervention_id = str(intervention_id)
-    for a in plan.interventions or []:
-        iv = _safe_intervention(a)
-        if iv is not None and str(iv.id) == intervention_id:
-            return a
-    return None
-
-
-def _match_assignment_by_external_id(plan, external_id):
-    matches = [
-        a for a in (plan.interventions or []) if getattr(_safe_intervention(a), "external_id", None) == external_id
-    ]
-    if len(matches) > 1:
-        # Ambiguous match - refuse to guess rather than mutate the wrong assignment.
-        logger.warning(
-            "[_match_assignment_by_external_id] Multiple assignments share external_id=%s; refusing to guess.",
-            external_id,
-        )
-        return AMBIGUOUS_ASSIGNMENT
-    return matches[0] if matches else None
 
 
 _UNKNOWN_EXTERNAL_ID = object()
