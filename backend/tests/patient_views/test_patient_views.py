@@ -1642,6 +1642,79 @@ def test_add_intervention_to_patient_consolidation_writes_an_audit_entry(mongo_m
     assert "logs_repointed=1" in details, details
 
 
+def test_get_patient_plan_skips_assignment_whose_intervention_was_deleted(mongo_mock):
+    """
+    A deleted Intervention leaves a dangling DBRef on the plan. Dereferencing it raises mongoengine's
+    base DoesNotExist - not Intervention.DoesNotExist - so the guard has to catch the base class or the
+    whole plan 500s on one bad reference.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    doomed = Intervention(
+        title="Removed",
+        description="Deleted from the library",
+        content_type="Video",
+        external_id="INT_REMOVED_001",
+        language="en",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=doomed,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=1)],
+        )
+    )
+    plan.save()
+    doomed.delete()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{str(patient.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    rows = json.loads(resp.content.decode())
+    assert len(rows) == 1, "The dangling assignment should be skipped, the healthy one still served."
+    assert rows[0]["intervention_id"] == str(intervention.id)
+
+
+def test_safe_intervention_does_not_swallow_unrelated_errors(mongo_mock):
+    """
+    The guard used to catch bare Exception, so a transient database fault read as "this intervention
+    was deleted" and quietly shortened a patient's plan. Only an unresolvable reference may be
+    swallowed; everything else has to surface.
+    """
+    from core.views.patient_views import _safe_intervention
+
+    class Exploding:
+        @property
+        def interventionId(self):
+            raise RuntimeError("connection reset")
+
+    with pytest.raises(RuntimeError):
+        _safe_intervention(Exploding())
+
+
+def test_consolidate_duplicate_assignments_is_a_noop_without_duplicates(mongo_mock):
+    """
+    The helper recomputes its own match predicate instead of being handed the matches, so it must not
+    assume the caller only reaches it with two or more. Fewer than two means there is nothing to
+    collapse - and nothing to migrate.
+    """
+    from core.views.patient_views import _consolidate_duplicate_assignments
+
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    survivor, stale_ids = _consolidate_duplicate_assignments(plan, "NO_SUCH_EXTERNAL_ID", intervention)
+    assert survivor is None
+    assert stale_ids == set()
+
+    survivor, stale_ids = _consolidate_duplicate_assignments(plan, intervention.external_id, intervention)
+    assert survivor is plan.interventions[0]
+    assert stale_ids == set()
+    assert len(plan.interventions) == 1, "A single match must be left exactly as it was."
+
+
 def test_get_patient_plan_no_plan_returns_empty_list(mongo_mock):
     """
     If patient exists but has no RehabilitationPlan, endpoint returns [] with message.

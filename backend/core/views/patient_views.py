@@ -16,6 +16,7 @@ from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import now as dj_now
+from mongoengine.errors import DoesNotExist
 from mongoengine.queryset.visitor import Q
 from pydub import AudioSegment
 from pydub.utils import which as pd_which
@@ -2174,10 +2175,10 @@ def _ceil_to_day(dt: datetime.datetime) -> datetime.datetime:
 
 
 def _safe_intervention(a):
-    # Guard against a deleted (dangling) referenced Intervention.
+    # Dangling (deleted) Intervention ref raises the base DoesNotExist, not Intervention.DoesNotExist.
     try:
         return a.interventionId
-    except Exception:
+    except DoesNotExist:
         return None
 
 
@@ -2298,6 +2299,10 @@ def _consolidate_duplicate_assignments(plan, external_id, target_intervention):
     duplicates = [
         a for a in (plan.interventions or []) if getattr(_safe_intervention(a), "external_id", None) == external_id
     ]
+    if len(duplicates) < 2:
+        # Unreachable from the AMBIGUOUS_ASSIGNMENT call site, but the predicate is recomputed here.
+        return (duplicates[0] if duplicates else None), set()
+
     canonical, siblings = duplicates[0], duplicates[1:]
 
     stale_ids = {getattr(_safe_intervention(a), "id", None) for a in duplicates}
