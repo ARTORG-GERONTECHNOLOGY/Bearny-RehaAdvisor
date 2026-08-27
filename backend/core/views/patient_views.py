@@ -1975,6 +1975,7 @@ def add_intervention_to_patient(request):
 
     total_added = 0
     created_assignments = 0
+    pending_log_repoints = []
 
     for raw in items:
         item = normalize_schedule(raw)
@@ -2048,7 +2049,11 @@ def add_intervention_to_patient(request):
         if not existing and new_ext:
             existing = _match_assignment_by_external_id(plan, new_ext)
             if existing is AMBIGUOUS_ASSIGNMENT:
-                existing = _consolidate_duplicate_assignments(plan, new_ext, intervention)
+                existing, stale_ids = _consolidate_duplicate_assignments(plan, new_ext, intervention)
+                if stale_ids:
+                    # Hold the surviving assignment, not today's intervention: a later item in the same
+                    # request can repoint it again, and the logs must follow where it actually ends up.
+                    pending_log_repoints.append((stale_ids, existing))
 
         if existing:
             if new_ext and getattr(existing.interventionId, "id", None) != getattr(intervention, "id", None):
@@ -2073,6 +2078,14 @@ def add_intervention_to_patient(request):
             created_assignments += 1
             total_added += len(dates)
 
+    # A consolidation must be persisted even when it added no sessions, otherwise the plan keeps its
+    # duplicate assignments while the logs below have already moved off them.
+    if created_assignments or total_added or pending_log_repoints:
+        plan.updatedAt = timezone.now()
+        plan.save()
+        for stale_ids, survivor in pending_log_repoints:
+            _repoint_plan_logs_to_intervention(plan, stale_ids, _safe_intervention(survivor))
+
     if created_assignments == 0 and total_added == 0:
         return JsonResponse(
             {
@@ -2083,9 +2096,6 @@ def add_intervention_to_patient(request):
             },
             status=200,
         )
-
-    plan.updatedAt = timezone.now()
-    plan.save()
 
     msg = []
     if created_assignments:
@@ -2267,7 +2277,11 @@ def _consolidate_duplicate_assignments(plan, external_id, target_intervention):
     Two assignments for the same logical intervention are always a data artifact (legacy data, or a race
     between two concurrent adds) rather than an intended state, so add_intervention_to_patient heals it
     here instead of leaving _match_assignment_by_external_id's AMBIGUOUS_ASSIGNMENT fall through to
-    creating yet another duplicate. Returns the surviving assignment.
+    creating yet another duplicate.
+
+    Mutates `plan` in memory only. Returns (surviving assignment, stale interventionIds); the caller must
+    save the plan and then hand those ids to _repoint_plan_logs_to_intervention, so a plan write that never
+    happens can't leave logs pointing at an assignment the plan no longer has.
     """
     duplicates = [
         a for a in (plan.interventions or []) if getattr(_safe_intervention(a), "external_id", None) == external_id
@@ -2286,17 +2300,29 @@ def _consolidate_duplicate_assignments(plan, external_id, target_intervention):
 
     plan.interventions = [a for a in plan.interventions if not any(a is s for s in siblings)]
 
-    if stale_ids:
-        for log in PatientInterventionLogs.objects(interventionId__in=list(stale_ids)):
-            log.interventionId = target_intervention
-            log.save()
-
     logger.warning(
         "[_consolidate_duplicate_assignments] Collapsed %d assignments sharing external_id=%s into one.",
         len(duplicates),
         external_id,
     )
-    return canonical
+    return canonical, stale_ids
+
+
+def _repoint_plan_logs_to_intervention(plan, stale_ids, target_intervention):
+    """Move this plan's logs off `stale_ids` onto `target_intervention` after a consolidation.
+
+    Scoped to the plan and its patient: `stale_ids` are Intervention documents, which are shared across
+    every patient, so an unscoped query would rewrite unrelated patients' logs onto this plan's variant.
+    """
+    if not stale_ids or target_intervention is None:
+        return
+    for log in PatientInterventionLogs.objects(
+        userId=plan.patientId,
+        rehabilitationPlanId=plan,
+        interventionId__in=list(stale_ids),
+    ):
+        log.interventionId = target_intervention
+        log.save()
 
 
 # English + German short labels

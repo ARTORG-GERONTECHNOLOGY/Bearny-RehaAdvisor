@@ -1157,6 +1157,250 @@ def test_add_intervention_to_patient_ambiguous_external_id_migrates_logs(mongo_m
     ), "Log left pointing at a discarded assignment's interventionId after consolidation."
 
 
+def _add_to_patient_payload(plan, patient, intervention_id, start_date):
+    return {
+        "therapistId": str(plan.therapistId.userId.id),
+        "patientId": str(patient.id),
+        "interventions": [
+            {
+                "interval": 1,
+                "interventionId": str(intervention_id),
+                "unit": "day",
+                "startDate": start_date.isoformat(),
+                "selectedDays": [],
+                "end": {"type": "count", "count": 1, "date": None},
+                "require_video_feedback": False,
+                "notes": "",
+            }
+        ],
+    }
+
+
+def _post_add_to_patient(payload):
+    return client.post(
+        "/api/interventions/add-to-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+
+def test_add_intervention_to_patient_consolidation_leaves_other_patients_logs_alone(mongo_mock):
+    """
+    Regression: consolidating one patient's duplicate assignments must not touch any other patient's
+    logs. The discarded interventionIds are Intervention documents, which every patient shares, so a
+    log-migration query scoped only by interventionId rewrites unrelated patients' completions onto
+    whichever language variant this therapist happened to request - and get_patient_plan, which matches
+    logs by the exact assigned interventionId, then shows those completions as missing.
+    """
+    patient_a, therapist, en_variant, plan_a = setup_patient_with_plan()
+    de_variant = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="de",
+    ).save()
+    fr_variant = Intervention(
+        title="Étirement",
+        description="Exercices d'étirement",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="fr",
+    ).save()
+
+    # Patient A's plan carries the duplicate pair that triggers consolidation.
+    plan_a.interventions.append(
+        InterventionAssignment(
+            interventionId=de_variant,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(10, 13)],
+        )
+    )
+    plan_a.save()
+
+    # Patient B is unrelated: own plan, own completion log against the EN variant.
+    patient_b_user = User(
+        username="p2",
+        email="p2@example.com",
+        phone="789",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    patient_b = Patient(
+        userId=patient_b_user,
+        patient_code="PAT002",
+        name="Patient",
+        first_name="Two",
+        age="40",
+        therapist=therapist,
+        sex="Male",
+        diagnosis=["Stroke"],
+        function=["Cardiology"],
+        level_of_education="High School",
+        professional_status="Employed Full-Time",
+        marital_status="Single",
+        lifestyle=["Moderate Exercise"],
+        personal_goals=["Improved Mobility"],
+        reha_end_date=datetime.now() + timedelta(days=30),
+    ).save()
+    plan_b = RehabilitationPlan(
+        patientId=patient_b,
+        therapistId=therapist,
+        startDate=datetime.now(),
+        endDate=datetime.now() + timedelta(days=30),
+        status="active",
+        interventions=[
+            InterventionAssignment(
+                interventionId=en_variant,
+                frequency="Daily",
+                notes="",
+                dates=[datetime.now()],
+            )
+        ],
+    ).save()
+    log_b = PatientInterventionLogs(
+        userId=patient_b,
+        interventionId=en_variant,
+        rehabilitationPlanId=plan_b,
+        date=datetime.now(),
+        status=["completed"],
+    ).save()
+
+    resp = _post_add_to_patient(
+        _add_to_patient_payload(plan_a, patient_a, fr_variant.id, datetime.now() + timedelta(days=3))
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    log_b.reload()
+    assert str(log_b.interventionId.id) == str(
+        en_variant.id
+    ), "Consolidating patient A's plan rewrote patient B's log onto a variant B's plan does not reference."
+
+
+def test_add_intervention_to_patient_consolidation_persists_when_no_new_dates(mongo_mock):
+    """
+    Regression: consolidation must be saved even when the request adds no new sessions. The "no new
+    sessions to add" branch used to return before plan.save(), so a re-add of an already-scheduled
+    intervention migrated the logs onto the surviving assignment while the plan kept its duplicate
+    pair - leaving the logs pointing at an interventionId no assignment referenced, invisible to
+    get_patient_plan's exact-match lookup.
+    """
+    patient, _, en_variant, plan = setup_patient_with_plan()
+    de_variant = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="de",
+    ).save()
+    it_variant = Intervention(
+        title="Stiramento",
+        description="Esercizi di stiramento",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="it",
+    ).save()
+
+    start_date = datetime.now() + timedelta(days=2)
+    payload = _add_to_patient_payload(plan, patient, it_variant.id, start_date)
+
+    # First add against a single assignment, to learn the exact dates this payload generates.
+    assert _post_add_to_patient(payload).status_code in (200, 201)
+    plan.reload()
+    already_scheduled = list(plan.interventions[0].dates)
+
+    # Rebuild the ambiguous pair, with the survivor already holding every date the payload generates.
+    plan.interventions = [
+        InterventionAssignment(interventionId=en_variant, frequency="Daily", notes="", dates=already_scheduled),
+        InterventionAssignment(interventionId=de_variant, frequency="Daily", notes="", dates=[]),
+    ]
+    plan.save()
+    log = PatientInterventionLogs(
+        userId=patient,
+        interventionId=en_variant,
+        rehabilitationPlanId=plan,
+        date=already_scheduled[0],
+        status=["completed"],
+    ).save()
+
+    resp = _post_add_to_patient(payload)
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    plan.reload()
+    log.reload()
+    assert len(plan.interventions) == 1, "Consolidation was discarded because the request added no new sessions."
+    assert str(plan.interventions[0].interventionId.id) == str(it_variant.id)
+    assert str(log.interventionId.id) == str(
+        plan.interventions[0].interventionId.id
+    ), "Log and surviving assignment must point at the same intervention document."
+
+
+def test_add_intervention_to_patient_consolidation_follows_later_repoint_in_same_request(mongo_mock):
+    """
+    Regression: when one request carries two language variants of the same external_id, the first item
+    consolidates the duplicate pair and the second repoints the surviving assignment again. The log
+    migration must follow the assignment's final interventionId - snapshotting the first item's variant
+    leaves the logs on a document the plan no longer references, which is the same desync the
+    consolidation exists to heal.
+    """
+    patient, _, en_variant, plan = setup_patient_with_plan()
+    de_variant = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="de",
+    ).save()
+    it_variant = Intervention(
+        title="Stiramento",
+        description="Esercizi di stiramento",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="it",
+    ).save()
+    fr_variant = Intervention(
+        title="Étirement",
+        description="Exercices d'étirement",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="fr",
+    ).save()
+
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=de_variant,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(10, 13)],
+        )
+    )
+    plan.save()
+    log = PatientInterventionLogs(
+        userId=patient,
+        interventionId=en_variant,
+        rehabilitationPlanId=plan,
+        date=plan.interventions[0].dates[0],
+        status=["completed"],
+    ).save()
+
+    payload = _add_to_patient_payload(plan, patient, it_variant.id, datetime.now() + timedelta(days=3))
+    payload["interventions"].append(
+        _add_to_patient_payload(plan, patient, fr_variant.id, datetime.now() + timedelta(days=4))["interventions"][0]
+    )
+
+    resp = _post_add_to_patient(payload)
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    plan.reload()
+    log.reload()
+    assert len(plan.interventions) == 1
+    assert str(log.interventionId.id) == str(
+        plan.interventions[0].interventionId.id
+    ), "Log was migrated to the first item's variant instead of the assignment's final one."
+
+
 def test_get_patient_plan_no_plan_returns_empty_list(mongo_mock):
     """
     If patient exists but has no RehabilitationPlan, endpoint returns [] with message.
