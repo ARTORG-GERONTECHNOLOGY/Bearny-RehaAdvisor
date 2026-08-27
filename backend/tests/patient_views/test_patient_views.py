@@ -651,6 +651,9 @@ def test_remove_intervention_ambiguous_external_id_is_rejected(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 404, resp.content.decode()
+    assert "more than once" in resp.json().get(
+        "message", ""
+    ), "Ambiguous rejection must say why, not just 'not assigned'."
 
     plan.reload()
     assert len(plan.interventions) == 2, "Ambiguous match must not mutate either assignment."
@@ -1004,15 +1007,18 @@ def test_add_intervention_to_patient_accepts_patient_code(mongo_mock):
     assert str(plan.interventions[0].interventionId.id) == str(intervention.id)
 
 
-def test_add_intervention_to_patient_ambiguous_external_id_does_not_corrupt_existing_assignment(mongo_mock):
+def test_add_intervention_to_patient_ambiguous_external_id_consolidates_existing_assignments(mongo_mock):
     """
     Regression: if a patient's plan already has two assignments sharing an
-    external_id (e.g. EN and DE variants both assigned), adding a third
-    language variant of the same intervention must not silently repoint
-    either existing assignment's interventionId - it must be rejected as
-    ambiguous, same as modify/reschedule/remove, and land as a new assignment.
+    external_id (e.g. EN and DE variants both assigned - always a data
+    artifact, never an intended state), adding a third language variant of
+    the same intervention must consolidate the existing pair into one
+    assignment repointed at the newly requested variant, merging their
+    dates, rather than piling a third duplicate assignment on top of an
+    already-broken plan.
     """
     patient, _, intervention, plan = setup_patient_with_plan()
+    en_dates = list(plan.interventions[0].dates)
     translated = Intervention(
         title="Dehnung",
         description="Dehnübungen",
@@ -1020,12 +1026,13 @@ def test_add_intervention_to_patient_ambiguous_external_id_does_not_corrupt_exis
         external_id=intervention.external_id,
         language="de",
     ).save()
+    de_dates = [datetime.now() + timedelta(days=i) for i in range(10, 15)]
     plan.interventions.append(
         InterventionAssignment(
             interventionId=translated,
             frequency="Daily",
             notes="",
-            dates=[datetime.now() + timedelta(days=i) for i in range(1, 6)],
+            dates=de_dates,
         )
     )
     plan.save()
@@ -1064,13 +1071,90 @@ def test_add_intervention_to_patient_ambiguous_external_id_does_not_corrupt_exis
     assert resp.status_code in (200, 201), resp.content.decode()
 
     plan.reload()
-    assert len(plan.interventions) == 3, "Ambiguous match must create a new assignment, not merge into an existing one."
-    resolved_ids = {str(a.interventionId.id) for a in plan.interventions}
-    assert resolved_ids == {
-        str(intervention.id),
-        str(translated.id),
-        str(fr_variant.id),
-    }, "Neither pre-existing assignment's interventionId may be repointed to the new variant."
+    assert (
+        len(plan.interventions) == 1
+    ), "The pre-existing ambiguous pair must be consolidated, not left standing alongside a new third assignment."
+    survivor = plan.interventions[0]
+    assert str(survivor.interventionId.id) == str(fr_variant.id)
+
+    survivor_days = {d.date() for d in survivor.dates}
+    for d in en_dates + de_dates:
+        assert d.date() in survivor_days, "Consolidating must not drop either pre-existing assignment's schedule."
+
+
+def test_add_intervention_to_patient_ambiguous_external_id_migrates_logs(mongo_mock):
+    """
+    Regression: consolidating an ambiguous pair of assignments must repoint
+    any PatientInterventionLogs recorded against either of the discarded
+    assignments' interventionIds to the surviving assignment's new
+    interventionId, so past completions/feedback stay attached to the plan
+    instead of becoming orphaned under an interventionId nothing points to
+    anymore.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    log = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=plan.interventions[0].dates[0],
+        status=["completed"],
+    )
+    log.save()
+
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=translated,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(10, 15)],
+        )
+    )
+    plan.save()
+
+    fr_variant = Intervention(
+        title="Étirement",
+        description="Exercices d'étirement",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="fr",
+    ).save()
+
+    payload = {
+        "therapistId": str(plan.therapistId.userId.id),
+        "patientId": str(patient.id),
+        "interventions": [
+            {
+                "interval": 1,
+                "interventionId": str(fr_variant.id),
+                "unit": "day",
+                "startDate": datetime.now().isoformat(),
+                "selectedDays": [],
+                "end": {"type": "count", "count": 1, "date": None},
+                "require_video_feedback": False,
+                "notes": "",
+            }
+        ],
+    }
+
+    resp = client.post(
+        "/api/interventions/add-to-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    log.reload()
+    assert str(log.interventionId.id) == str(
+        fr_variant.id
+    ), "Log left pointing at a discarded assignment's interventionId after consolidation."
 
 
 def test_get_patient_plan_no_plan_returns_empty_list(mongo_mock):
@@ -1864,6 +1948,9 @@ def test_mark_completed_ambiguous_external_id_is_rejected(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 404, resp.content.decode()
+    assert "more than once" in resp.json().get(
+        "error", ""
+    ), "Ambiguous rejection must say why, not just 'not assigned'."
     assert PatientInterventionLogs.objects(userId=patient).count() == 0
 
 

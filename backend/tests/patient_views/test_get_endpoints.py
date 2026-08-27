@@ -1124,6 +1124,59 @@ def test_therapist_plan_deduplicates_multilingual_assignments(mongo_mock):
     assert interventions[0]["totalCount"] == 2
 
 
+def test_therapist_plan_view_does_not_write_to_database(mongo_mock):
+    """
+    get_patient_plan_for_therapist is a GET and must stay side-effect-free -
+    the merge from Fix #347 above is a display-only trick recomputed on every
+    request, not a persisted consolidation, so it can't race with a concurrent
+    write to the same plan. Only add_intervention_to_patient (a POST) is
+    allowed to actually consolidate duplicate assignments in the database.
+    """
+    patient, therapist, _, plan = setup_basic_plan()
+
+    int_de = Intervention(
+        title="Blutdruck Grundlagen",
+        description="DE",
+        content_type="Video",
+        external_id="MULTI-002",
+        language="de",
+    )
+    int_de.save()
+    int_en = Intervention(
+        title="Blood Pressure Basics",
+        description="EN",
+        content_type="Video",
+        external_id="MULTI-002",
+        language="en",
+    )
+    int_en.save()
+
+    plan.interventions = [
+        InterventionAssignment(
+            interventionId=int_de,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=1)],
+        ),
+        InterventionAssignment(
+            interventionId=int_en,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=2)],
+        ),
+    ]
+    plan.save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+
+    plan.reload()
+    assert len(plan.interventions) == 2, "get_patient_plan_for_therapist must not write to the plan it's reading."
+
+
 def test_therapist_plan_feedback_visible_for_other_language_variant(mongo_mock):
     """
     Fix #347 Bug 3: feedback logged under the DE variant's ObjectId must appear

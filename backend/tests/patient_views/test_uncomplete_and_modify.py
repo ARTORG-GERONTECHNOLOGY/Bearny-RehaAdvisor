@@ -310,6 +310,9 @@ def test_unmark_intervention_completed_ambiguous_external_id_is_rejected(mongo_m
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 404, resp.content.decode()
+    assert "more than once" in resp.json().get(
+        "error", ""
+    ), "Ambiguous rejection must say why, not just 'not assigned'."
     assert PatientInterventionLogs.objects(userId=patient).count() == 1
 
 

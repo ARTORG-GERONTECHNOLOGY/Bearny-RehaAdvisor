@@ -95,6 +95,13 @@ def _pick_best_variant(external_id: str, lang_chain: List[str]) -> Optional["Int
     return Intervention.objects(external_id=external_id).first()
 
 
+def _variant_ids_for_external_id(external_id: str) -> List[ObjectId]:
+    """Ids of all Intervention documents sharing this external_id (its language variants)."""
+    if not external_id:
+        return []
+    return [v.id for v in Intervention.objects(external_id=external_id).only("id")]
+
+
 def _available_language_variants(external_id: str) -> List[dict]:
     """
     Return all variants for UI dropdown.

@@ -67,6 +67,7 @@ from utils.interventions import (
     _save_file,
     _serialize_media,
     _split_taglist_into_fields,
+    _variant_ids_for_external_id,
     normalize_content_type,
 )
 from utils.scheduling import _expand_dates  # you already use this
@@ -900,8 +901,9 @@ def get_intervention_detail(request, intervention_id):
         # Query across ALL language variants so logs recorded under a different
         # language variant of the same intervention are included.
         if external_id:
-            _variant_ids = [v.id for v in Intervention.objects(external_id=external_id).only("id")]
-            patient_logs = PatientInterventionLogs.objects.filter(interventionId__in=_variant_ids)
+            patient_logs = PatientInterventionLogs.objects.filter(
+                interventionId__in=_variant_ids_for_external_id(external_id)
+            )
         else:
             patient_logs = PatientInterventionLogs.objects.filter(interventionId=base_doc)
         for log in patient_logs:
