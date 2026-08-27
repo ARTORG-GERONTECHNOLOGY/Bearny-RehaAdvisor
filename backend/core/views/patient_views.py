@@ -1121,15 +1121,18 @@ def get_patient_plan(request, patient_id):
                     continue
                 seen_ext_ids.add(ext_id)
 
-            # Use the language-preferred variant for title/metadata display, but
-            # always look up logs against the originally assigned document so that
-            # completion records are not lost when a language variant is swapped in.
+            # Use the language-preferred variant for title/metadata display, but look logs up across
+            # this assignment's own language variants - matching get_patient_plan_for_therapist - so a
+            # completion recorded under a variant that was later swapped out still counts here. Scoped
+            # to the assignment, so a sibling assignment's logs never leak into this row.
             intervention = _best_variant(assigned_intervention, ui_lang) if ui_lang else assigned_intervention
 
             logs = PatientInterventionLogs.objects(
                 userId=patient,
                 rehabilitationPlanId=rehab_plan,
-                interventionId=assigned_intervention,
+                interventionId__in=_intervention_variant_ids(
+                    assigned_intervention, plan=rehab_plan, keep_assignment=assignment
+                ),
             )
 
             completion_dates = _completion_day_keys_from_logs(logs)

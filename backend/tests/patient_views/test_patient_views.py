@@ -1505,6 +1505,91 @@ def test_add_intervention_to_patient_consolidation_follows_later_repoint_in_same
     ), "Log was migrated to the first item's variant instead of the assignment's final one."
 
 
+def test_get_patient_plan_counts_completion_logged_under_another_variant(mongo_mock):
+    """
+    Regression: the patient plan matched logs by the assigned interventionId exactly, while
+    get_patient_plan_for_therapist matched across every language variant. A completion recorded under a
+    variant that was later swapped out therefore showed as done to the therapist and as missing to the
+    patient. Both views must agree.
+    """
+    patient, _, en_variant, plan = setup_patient_with_plan()
+    de_variant = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="de",
+    ).save()
+
+    # Historic log written under the DE variant while the plan is assigned the EN one.
+    day = timezone.localdate()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=de_variant,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(day, datetime.min.time()),
+        status=["completed"],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{str(patient.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    rows = json.loads(resp.content.decode())
+    assert len(rows) == 1
+    assert (
+        day.isoformat() in rows[0]["completion_dates"]
+    ), "Completion recorded under a sibling language variant is still invisible to the patient."
+
+
+def test_get_patient_plan_does_not_borrow_a_sibling_assignments_logs(mongo_mock):
+    """
+    The widened lookup must stay scoped to one assignment: when two assignments in the same plan hold
+    different language variants of the same external_id, the surviving row must not absorb the other
+    assignment's completions, or a single completion would read as two.
+    """
+    patient, _, en_variant, plan = setup_patient_with_plan()
+    de_variant = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="de",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=de_variant,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(10, 13)],
+        )
+    )
+    plan.save()
+
+    day = timezone.localdate()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=de_variant,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(day, datetime.min.time()),
+        status=["completed"],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{str(patient.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    rows = json.loads(resp.content.decode())
+    assert len(rows) == 1, "external_id deduplication should still collapse the pair into one row."
+    assert (
+        day.isoformat() not in rows[0]["completion_dates"]
+    ), "The EN assignment's row absorbed a completion owned by the DE assignment."
+
+
 def test_get_patient_plan_no_plan_returns_empty_list(mongo_mock):
     """
     If patient exists but has no RehabilitationPlan, endpoint returns [] with message.
