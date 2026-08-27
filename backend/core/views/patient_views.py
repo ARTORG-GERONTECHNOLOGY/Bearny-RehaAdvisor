@@ -2063,7 +2063,7 @@ def add_intervention_to_patient(request):
                 if stale_ids:
                     # Hold the surviving assignment, not today's intervention: a later item in the same
                     # request can repoint it again, and the logs must follow where it actually ends up.
-                    pending_log_repoints.append((stale_ids, existing))
+                    pending_log_repoints.append((stale_ids, existing, new_ext))
 
         if existing:
             if new_ext and getattr(existing.interventionId, "id", None) != getattr(intervention, "id", None):
@@ -2093,8 +2093,10 @@ def add_intervention_to_patient(request):
     if created_assignments or total_added or pending_log_repoints:
         plan.updatedAt = timezone.now()
         plan.save()
-        for stale_ids, survivor in pending_log_repoints:
-            _repoint_plan_logs_to_intervention(plan, stale_ids, _safe_intervention(survivor))
+        for stale_ids, survivor, consolidated_ext in pending_log_repoints:
+            target_intervention = _safe_intervention(survivor)
+            repointed = _repoint_plan_logs_to_intervention(plan, stale_ids, target_intervention)
+            _log_plan_consolidation(request, therapist, patient, consolidated_ext, target_intervention, repointed)
 
     if created_assignments == 0 and total_added == 0:
         return JsonResponse(
@@ -2323,9 +2325,11 @@ def _repoint_plan_logs_to_intervention(plan, stale_ids, target_intervention):
 
     Scoped to the plan and its patient: `stale_ids` are Intervention documents, which are shared across
     every patient, so an unscoped query would rewrite unrelated patients' logs onto this plan's variant.
+    Returns how many logs were moved, for the audit entry.
     """
     if not stale_ids or target_intervention is None:
-        return
+        return 0
+    repointed = 0
     for log in PatientInterventionLogs.objects(
         userId=plan.patientId,
         rehabilitationPlanId=plan,
@@ -2333,6 +2337,31 @@ def _repoint_plan_logs_to_intervention(plan, stale_ids, target_intervention):
     ):
         log.interventionId = target_intervention
         log.save()
+        repointed += 1
+    return repointed
+
+
+def _log_plan_consolidation(request, therapist, patient, external_id, target_intervention, repointed):
+    """Audit entry for a consolidation, which restructures a plan and rewrites completion history.
+
+    Every other mutation in this module leaves a Logs trail; without one, a therapist's add silently
+    collapses assignments and moves logs with nothing but a server-side warning to show for it.
+    """
+    try:
+        Logs.objects.create(
+            userId=therapist.userId,
+            action="UPDATE_PLAN",
+            actor_role="Therapist",
+            user_agent=(request.headers.get("User-Agent", "") or "")[:300],
+            patient=patient,
+            details=(
+                f"consolidated duplicate assignments external_id={external_id} "
+                f"intervention={getattr(target_intervention, 'title', '')} logs_repointed={repointed}"
+            ),
+        )
+    except Exception:
+        # Never fail the add over its audit entry, but say so - a missing trail is the gap being closed.
+        logger.error("[_log_plan_consolidation] Failed to write audit entry", exc_info=True)
 
 
 # English + German short labels

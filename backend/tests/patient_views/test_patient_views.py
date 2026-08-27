@@ -82,6 +82,7 @@ from core.models import (
     HealthQuestionnaire,
     Intervention,
     InterventionAssignment,
+    Logs,
     Patient,
     PatientICFRating,
     PatientInterventionLogs,
@@ -1588,6 +1589,57 @@ def test_get_patient_plan_does_not_borrow_a_sibling_assignments_logs(mongo_mock)
     assert (
         day.isoformat() not in rows[0]["completion_dates"]
     ), "The EN assignment's row absorbed a completion owned by the DE assignment."
+
+
+def test_add_intervention_to_patient_consolidation_writes_an_audit_entry(mongo_mock):
+    """
+    Consolidation restructures a patient's plan and repoints their completion history. Every other
+    mutation in this module leaves a Logs trail, so this one must too - otherwise the only record that
+    a therapist's add collapsed two assignments and moved logs is a server-side warning.
+    """
+    patient, _, en_variant, plan = setup_patient_with_plan()
+    de_variant = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="de",
+    ).save()
+    fr_variant = Intervention(
+        title="Étirement",
+        description="Exercices d'étirement",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="fr",
+    ).save()
+
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=de_variant,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(10, 13)],
+        )
+    )
+    plan.save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=en_variant,
+        rehabilitationPlanId=plan,
+        date=plan.interventions[0].dates[0],
+        status=["completed"],
+    ).save()
+
+    resp = _post_add_to_patient(
+        _add_to_patient_payload(plan, patient, fr_variant.id, datetime.now() + timedelta(days=3))
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    entries = Logs.objects(action="UPDATE_PLAN", patient=patient)
+    assert entries.count() == 1, "Consolidation left no audit trail."
+    details = entries.first().details
+    assert en_variant.external_id in details
+    assert "logs_repointed=1" in details, details
 
 
 def test_get_patient_plan_no_plan_returns_empty_list(mongo_mock):
