@@ -33,6 +33,7 @@ from core.models import (
 )
 from utils.interventions import (
     _canonical_assignment_for,
+    _instant_key,
     _match_assignment_by_id,
     _safe_intervention,
     _upsert_intervention,
@@ -197,3 +198,56 @@ def test_upsert_intervention_overwrite_replaces_the_assigned_variants_future_dat
     assert past.date() in days, "Sessions before effective_from must survive an overwrite."
     assert superseded.date() not in days, "The superseded future session should have been dropped."
     assert {d.date() for d in new_dates} <= days
+
+
+def test_instant_key_normalises_naive_and_aware_to_the_same_instant():
+    """Mongo returns naive UTC; callers pass aware local. Both must key to one value."""
+    stored_naive_utc = datetime(2026, 8, 27, 8, 0, 0)
+    incoming_aware_local = make_aware(datetime(2026, 8, 27, 10, 0, 0))  # Europe/Zurich, +02:00
+
+    assert stored_naive_utc != incoming_aware_local, "naive != aware is what broke the dedup"
+    assert _instant_key(stored_naive_utc) == _instant_key(incoming_aware_local)
+
+
+def test_upsert_intervention_does_not_duplicate_a_date_already_stored():
+    """
+    Regression: the merge branch compared Mongo's naive dates against the aware local ones
+    _expand_dates produces. Those never compare equal, so re-applying a template appended every
+    session a second time - the assignment stopped duplicating, the sessions on it started to.
+    """
+    en = _variant("EXT_1", "en", "Stretching")
+    de = _variant("EXT_1", "de", "Dehnung")
+    plan = _plan(de)
+
+    stored = datetime(2026, 8, 27, 8, 0, 0)  # local 10:00 CEST, as Mongo holds it
+    plan.interventions[0].dates = [stored]
+    plan.save()
+    plan.reload()  # dates come back naive, the way every real caller sees them
+
+    same_session = make_aware(datetime(2026, 8, 27, 10, 0, 0))
+    new_session = make_aware(datetime(2026, 8, 28, 10, 0, 0))
+
+    _upsert_intervention(plan, en, [same_session, new_session], notes="from template")
+
+    dates = plan.interventions[0].dates
+    assert len(plan.interventions) == 1
+    assert len(dates) == 2, f"the already-scheduled session was appended again: {dates}"
+    assert {_instant_key(d) for d in dates} == {_instant_key(same_session), _instant_key(new_session)}
+
+
+def test_upsert_intervention_merge_leaves_stored_dates_untouched():
+    """
+    The merge used to rebuild found.dates from a set of microsecond-truncated copies, rewriting
+    already-scheduled sessions on every template apply. Only the new session should be added.
+    """
+    en = _variant("EXT_1", "en", "Stretching")
+    plan = _plan(en)
+
+    stored = [datetime(2026, 8, 25 + i, 8, 0, 0, 500_000) for i in range(4)]
+    plan.interventions[0].dates = list(stored)
+    plan.save()
+    plan.reload()
+
+    _upsert_intervention(plan, en, [make_aware(datetime(2026, 8, 29, 10, 0, 0))])
+
+    assert plan.interventions[0].dates[: len(stored)] == stored

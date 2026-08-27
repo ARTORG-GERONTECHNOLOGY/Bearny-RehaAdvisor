@@ -373,6 +373,15 @@ def _as_utc(value: datetime) -> datetime:
     return value.replace(tzinfo=dt_timezone.utc) if value.tzinfo is None else value.astimezone(dt_timezone.utc)
 
 
+def _instant_key(value: datetime) -> datetime:
+    """Second-precision UTC key for date dedup.
+
+    Mongo hands assignment dates back naive while callers pass aware local ones; comparing the two
+    frames unnormalised never matches, so the same session gets appended twice.
+    """
+    return _as_utc(value).replace(microsecond=0)
+
+
 def _dedup_dates(dt_list):
     seen = set()
     out = []
@@ -405,11 +414,14 @@ def _upsert_intervention(
             kept = [d for d in (found.dates or []) if _as_utc(d) < eff]
             found.dates = kept + dates
         else:
-            existing = {d.replace(microsecond=0) for d in (found.dates or [])}
-            found.dates = list(existing)
+            seen = {_instant_key(d) for d in (found.dates or [])}
+            merged = list(found.dates or [])
             for d in dates:
-                if d.replace(microsecond=0) not in existing:
-                    found.dates.append(d)
+                key = _instant_key(d)
+                if key not in seen:
+                    seen.add(key)
+                    merged.append(d)
+            found.dates = merged
         if notes:
             found.notes = notes
         found.require_video_feedback = bool(require_video or found.require_video_feedback)

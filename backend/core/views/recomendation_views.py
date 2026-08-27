@@ -53,6 +53,7 @@ from utils.interventions import (
     _canonical_assignment_for,
     _detect_file_media_type,
     _first_str_from_any,
+    _instant_key,
     _is_valid_url,
     _lang_fallback_chain,
     _list_of_str,
@@ -1425,12 +1426,14 @@ def assign_intervention_to_types(request, therapist_id):
             existing = _canonical_assignment_for(plan, inter_obj)
             if existing:
                 before = len(existing.dates or [])
-                have = {d.replace(microsecond=0) for d in (existing.dates or [])}
+                # Keyed in UTC because existing.dates come back from Mongo naive while the
+                # generated dates are aware local; unnormalised, nothing ever dedups.
+                have = {_instant_key(d) for d in (existing.dates or [])}
                 for d in dates:
-                    dt = d.replace(microsecond=0)
-                    if dt not in have:
+                    key = _instant_key(d)
+                    if key not in have:
                         existing.dates.append(d)
-                        have.add(dt)
+                        have.add(key)
                 added = len(existing.dates or []) - before
                 if added > 0:
                     existing_patients_applied["patients_affected"] += 1
