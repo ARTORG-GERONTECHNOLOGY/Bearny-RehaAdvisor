@@ -1986,6 +1986,7 @@ def add_intervention_to_patient(request):
 
     total_added = 0
     created_assignments = 0
+    consolidated_assignments = 0
     pending_log_repoints = []
 
     for raw in items:
@@ -2056,15 +2057,21 @@ def add_intervention_to_patient(request):
 
         new_ext = getattr(intervention, "external_id", None)
 
-        existing = _match_assignment_by_id(plan, intervention.id)
-        if not existing and new_ext:
+        # external_id first, so a plan already holding duplicate language variants is consolidated
+        # whichever variant this request resolved to - including one of the duplicates themselves.
+        # A lone external_id match is the same assignment an id match would find, so nothing is lost.
+        if new_ext:
             existing = _match_assignment_by_external_id(plan, new_ext)
             if existing is AMBIGUOUS_ASSIGNMENT:
+                before = len(plan.interventions or [])
                 existing, stale_ids = _consolidate_duplicate_assignments(plan, new_ext, intervention)
+                consolidated_assignments += before - len(plan.interventions or [])
                 if stale_ids:
                     # Hold the surviving assignment, not today's intervention: a later item in the same
                     # request can repoint it again, and the logs must follow where it actually ends up.
                     pending_log_repoints.append((stale_ids, existing, new_ext))
+        else:
+            existing = _match_assignment_by_id(plan, intervention.id)
 
         if existing:
             if new_ext and getattr(existing.interventionId, "id", None) != getattr(intervention, "id", None):
@@ -2091,7 +2098,7 @@ def add_intervention_to_patient(request):
 
     # A consolidation must be persisted even when it added no sessions, otherwise the plan keeps its
     # duplicate assignments while the logs below have already moved off them.
-    if created_assignments or total_added or pending_log_repoints:
+    if created_assignments or total_added or consolidated_assignments or pending_log_repoints:
         plan.updatedAt = timezone.now()
         plan.save()
         for stale_ids, survivor, consolidated_ext in pending_log_repoints:
@@ -2099,7 +2106,17 @@ def add_intervention_to_patient(request):
             repointed = _repoint_plan_logs_to_intervention(plan, stale_ids, target_intervention)
             _log_plan_consolidation(request, therapist, patient, consolidated_ext, target_intervention, repointed)
 
-    if created_assignments == 0 and total_added == 0:
+    msg = []
+    if created_assignments:
+        msg.append(f"created {created_assignments} assignment(s)")
+    if total_added:
+        msg.append(f"added {total_added} session(s)")
+    # Reported alongside the counts above: a consolidation restructures the plan and repoints
+    # completion history, so a request that only did that must not answer "nothing happened".
+    if consolidated_assignments:
+        msg.append(f"consolidated {consolidated_assignments} duplicate assignment(s)")
+
+    if not msg:
         return JsonResponse(
             {
                 "success": True,
@@ -2109,12 +2126,6 @@ def add_intervention_to_patient(request):
             },
             status=200,
         )
-
-    msg = []
-    if created_assignments:
-        msg.append(f"created {created_assignments} assignment(s)")
-    if total_added:
-        msg.append(f"added {total_added} session(s)")
 
     return JsonResponse(
         {

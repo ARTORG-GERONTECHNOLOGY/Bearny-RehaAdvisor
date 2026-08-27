@@ -1442,6 +1442,89 @@ def test_add_intervention_to_patient_consolidation_persists_when_no_new_dates(mo
     ), "Log and surviving assignment must point at the same intervention document."
 
 
+def test_add_intervention_to_patient_consolidates_when_requested_variant_is_already_assigned(mongo_mock):
+    """
+    Regression: matching by interventionId before external_id meant a re-add of a variant that was
+    itself one of the duplicates short-circuited on the id match, leaving the ambiguous pair standing.
+    Only an unassigned third variant ever triggered consolidation - so the repair AMBIGUOUS_ASSIGNMENT_
+    MESSAGE sends the therapist off to perform silently did nothing in the common case.
+    """
+    patient, _, en_variant, plan = setup_patient_with_plan()
+    de_variant = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="de",
+    ).save()
+    de_dates = [datetime.now() + timedelta(days=i) for i in range(10, 13)]
+    plan.interventions.append(
+        InterventionAssignment(interventionId=de_variant, frequency="Daily", notes="", dates=de_dates)
+    )
+    plan.save()
+    log = PatientInterventionLogs(
+        userId=patient,
+        interventionId=de_variant,
+        rehabilitationPlanId=plan,
+        date=de_dates[0],
+        status=["completed"],
+    ).save()
+
+    # Re-add the EN variant, which is already one of the two duplicate assignments.
+    resp = _post_add_to_patient(
+        _add_to_patient_payload(plan, patient, en_variant.id, datetime.now() + timedelta(days=2))
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    plan.reload()
+    log.reload()
+    assert len(plan.interventions) == 1, "Re-adding an already-assigned variant left the duplicate pair standing."
+    survivor = plan.interventions[0]
+    assert str(survivor.interventionId.id) == str(en_variant.id)
+    assert {d.date() for d in de_dates} <= {
+        d.date() for d in survivor.dates
+    }, "Consolidation dropped the sibling assignment's dates."
+    assert str(log.interventionId.id) == str(en_variant.id), "The sibling's completion log was not repointed."
+
+
+def test_add_intervention_to_patient_consolidation_only_request_reports_what_it_did(mongo_mock):
+    """
+    Regression: a request that only consolidated answered "No new sessions to add" while having
+    restructured the plan and rewritten completion history, leaving the audit entry as the only trace.
+    """
+    patient, _, en_variant, plan = setup_patient_with_plan()
+    de_variant = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="de",
+    ).save()
+
+    payload = _add_to_patient_payload(plan, patient, en_variant.id, datetime.now() + timedelta(days=2))
+
+    # First add against a single assignment, to learn the exact dates this payload generates.
+    assert _post_add_to_patient(payload).status_code in (200, 201)
+    plan.reload()
+    already_scheduled = list(plan.interventions[0].dates)
+
+    # Rebuild the ambiguous pair, with the survivor already holding every date the payload generates,
+    # so the re-add can only consolidate and has no sessions to report.
+    plan.interventions = [
+        InterventionAssignment(interventionId=en_variant, frequency="Daily", notes="", dates=already_scheduled),
+        InterventionAssignment(interventionId=de_variant, frequency="Daily", notes="", dates=[]),
+    ]
+    plan.save()
+
+    resp = _post_add_to_patient(payload)
+    assert resp.status_code in (200, 201), resp.content.decode()
+    body = json.loads(resp.content.decode())
+    assert "consolidated 1 duplicate assignment(s)" in body["message"], body["message"]
+
+    plan.reload()
+    assert len(plan.interventions) == 1
+
+
 def test_add_intervention_to_patient_consolidation_follows_later_repoint_in_same_request(mongo_mock):
     """
     Regression: when one request carries two language variants of the same external_id, the first item
