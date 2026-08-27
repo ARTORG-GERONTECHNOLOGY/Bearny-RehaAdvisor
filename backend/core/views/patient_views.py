@@ -257,12 +257,19 @@ def submit_patient_feedback(request):
                 return JsonResponse({"error": AMBIGUOUS_ASSIGNMENT_MESSAGE}, status=404)
 
             # ✅ use target_day bounds, NOT "today"
-            log = PatientInterventionLogs.objects(
-                userId=patient,
-                interventionId__in=variant_ids,
-                date__gte=day_start,
-                date__lte=day_end,
-            ).first()
+            # Scoped and ordered exactly like mark_intervention_completed, so feedback lands on the very
+            # log that endpoint keeps for the day rather than a same-day duplicate or an older plan's.
+            log = (
+                PatientInterventionLogs.objects(
+                    userId=patient,
+                    rehabilitationPlanId=plan,
+                    interventionId__in=variant_ids,
+                    date__gte=day_start,
+                    date__lte=day_end,
+                )
+                .order_by("-date")
+                .first()
+            )
 
             if not log:
                 # ✅ log.date should be within the target day

@@ -317,6 +317,110 @@ def test_submit_feedback_matches_translated_variant(mongo_mock):
     assert logs.first().interventionId.id == intervention.id
 
 
+def test_submit_feedback_ignores_logs_belonging_to_another_plan(mongo_mock):
+    """
+    Regression: the feedback lookup was scoped only by patient + intervention + day, while
+    mark_intervention_completed scopes by rehabilitation plan too. A same-day log left over from an
+    earlier plan would swallow the feedback - and then get normalised onto the current plan's
+    intervention - so get_patient_plan, which filters logs by the current plan, showed nothing.
+    """
+    patient, therapist, intervention, plan = setup_patient_with_plan()
+
+    old_plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=90),
+        endDate=datetime.now() - timedelta(days=30),
+        status="completed",
+        interventions=[],
+    ).save()
+    stale_log = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=old_plan,
+        date=datetime.combine(timezone.localdate(), datetime.min.time()),
+        status=["completed"],
+        feedback=[],
+    ).save()
+
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention",
+        questionKey="how_did_it_go",
+        answer_type="text",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+    )
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(intervention.id),
+            "how_did_it_go": json.dumps(["Great"]),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    stale_log.reload()
+    assert not stale_log.feedback, "Feedback was appended to a log belonging to a different plan."
+
+    current = PatientInterventionLogs.objects(userId=patient, rehabilitationPlanId=plan).first()
+    assert current is not None, "No log was created under the patient's current plan."
+    assert len(current.feedback) == 1
+
+
+def test_submit_feedback_uses_the_same_log_completion_keeps(mongo_mock):
+    """
+    Regression: the feedback lookup had no ordering, so with two same-day logs it could pick either.
+    mark_intervention_completed keeps the newest (order_by -date) and deletes the rest, so feedback
+    landing on the older one is discarded the next time the patient toggles completion.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    day_start = datetime.combine(timezone.localdate(), datetime.min.time())
+    older = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=day_start,
+        status=[],
+        feedback=[],
+    ).save()
+    newest = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=day_start + timedelta(hours=9),
+        status=["completed"],
+        feedback=[],
+    ).save()
+
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention",
+        questionKey="how_did_it_go",
+        answer_type="text",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+    )
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(intervention.id),
+            "how_did_it_go": json.dumps(["Great"]),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    older.reload()
+    newest.reload()
+    assert len(newest.feedback) == 1, "Feedback did not land on the log mark_intervention_completed keeps."
+    assert not older.feedback
+
+
 def test_submit_feedback_no_responses(mongo_mock):
     """
 
