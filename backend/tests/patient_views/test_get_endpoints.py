@@ -1128,9 +1128,8 @@ def test_therapist_plan_view_does_not_write_to_database(mongo_mock):
     """
     get_patient_plan_for_therapist is a GET and must stay side-effect-free -
     the merge from Fix #347 above is a display-only trick recomputed on every
-    request, not a persisted consolidation, so it can't race with a concurrent
-    write to the same plan. Only add_intervention_to_patient (a POST) is
-    allowed to actually consolidate duplicate assignments in the database.
+    request, so it can't race with a concurrent write to the same plan. Duplicate
+    assignments stay on the plan as they are; nothing rewrites them on read.
     """
     patient, therapist, _, plan = setup_basic_plan()
 

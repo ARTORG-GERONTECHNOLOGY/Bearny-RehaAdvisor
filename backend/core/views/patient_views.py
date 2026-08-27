@@ -16,7 +16,6 @@ from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import now as dj_now
-from mongoengine.errors import DoesNotExist
 from mongoengine.queryset.visitor import Q
 from pydub import AudioSegment
 from pydub.utils import which as pd_which
@@ -44,8 +43,6 @@ from core.models import (
 from core.services.redcap_access import get_therapist_for_user
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.interventions import (
-    AMBIGUOUS_ASSIGNMENT,
-    AMBIGUOUS_ASSIGNMENT_MESSAGE,
     _match_assignment_by_external_id,
     _match_assignment_by_id,
     _safe_intervention,
@@ -256,8 +253,6 @@ def submit_patient_feedback(request):
 
             # Resolve against the plan's assignment so feedback lands on the same log as completion, even for a translated variant's interventionId.
             assignment, canonical_intervention, variant_ids = _resolve_plan_assignment(plan, intervention)
-            if assignment is AMBIGUOUS_ASSIGNMENT:
-                return JsonResponse({"error": AMBIGUOUS_ASSIGNMENT_MESSAGE}, status=404)
 
             # ✅ use target_day bounds, NOT "today"
             # Scoped, windowed and ordered exactly like mark_intervention_completed, so feedback lands
@@ -492,9 +487,6 @@ def mark_intervention_completed(request):
         # -----------------------------
         log_date = day_start  # default: local midnight of target_day
         assignment, canonical_intervention, variant_ids = _resolve_plan_assignment(rehab_plan, intervention)
-        if assignment is AMBIGUOUS_ASSIGNMENT:
-            # Multiple plan assignments share this intervention's external_id - refuse to guess.
-            return JsonResponse({"error": AMBIGUOUS_ASSIGNMENT_MESSAGE}, status=404)
 
         if assignment is not None:
             # Log against the plan's assigned variant so get_patient_plan's exact-match lookup finds it.
@@ -640,10 +632,7 @@ def unmark_intervention_completed(request):
         day_end = datetime.datetime.combine(target_day, datetime.time.max)
 
         # Scope to this assignment's own variants, not a same-external_id sibling assignment.
-        assignment, canonical_intervention, variant_ids = _resolve_plan_assignment(rehab_plan, intervention)
-        if assignment is AMBIGUOUS_ASSIGNMENT:
-            # Multiple plan assignments share this intervention's external_id - refuse to guess.
-            return JsonResponse({"error": AMBIGUOUS_ASSIGNMENT_MESSAGE}, status=404)
+        _, canonical_intervention, variant_ids = _resolve_plan_assignment(rehab_plan, intervention)
 
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
@@ -1991,8 +1980,6 @@ def add_intervention_to_patient(request):
 
     total_added = 0
     created_assignments = 0
-    consolidated_assignments = 0
-    pending_log_repoints = []
 
     for raw in items:
         item = normalize_schedule(raw)
@@ -2062,19 +2049,11 @@ def add_intervention_to_patient(request):
 
         new_ext = getattr(intervention, "external_id", None)
 
-        # external_id first, so a plan already holding duplicate language variants is consolidated
-        # whichever variant this request resolved to - including one of the duplicates themselves.
-        # A lone external_id match is the same assignment an id match would find, so nothing is lost.
+        # external_id first, so re-adding in a different language merges into the assignment the plan
+        # already has. A lone external_id match is the same assignment an id match would find, so
+        # nothing is lost by preferring it.
         if new_ext:
             existing = _match_assignment_by_external_id(plan, new_ext)
-            if existing is AMBIGUOUS_ASSIGNMENT:
-                before = len(plan.interventions or [])
-                existing, stale_ids = _consolidate_duplicate_assignments(plan, new_ext, intervention)
-                consolidated_assignments += before - len(plan.interventions or [])
-                if stale_ids:
-                    # Hold the surviving assignment, not today's intervention: a later item in the same
-                    # request can repoint it again, and the logs must follow where it actually ends up.
-                    pending_log_repoints.append((stale_ids, existing, new_ext))
         else:
             existing = _match_assignment_by_id(plan, intervention.id)
 
@@ -2101,25 +2080,15 @@ def add_intervention_to_patient(request):
             created_assignments += 1
             total_added += len(dates)
 
-    # A consolidation must be persisted even when it added no sessions, otherwise the plan keeps its
-    # duplicate assignments while the logs below have already moved off them.
-    if created_assignments or total_added or consolidated_assignments or pending_log_repoints:
+    if created_assignments or total_added:
         plan.updatedAt = timezone.now()
         plan.save()
-        for stale_ids, survivor, consolidated_ext in pending_log_repoints:
-            target_intervention = _safe_intervention(survivor)
-            repointed = _repoint_plan_logs_to_intervention(plan, stale_ids, target_intervention)
-            _log_plan_consolidation(request, therapist, patient, consolidated_ext, target_intervention, repointed)
 
     msg = []
     if created_assignments:
         msg.append(f"created {created_assignments} assignment(s)")
     if total_added:
         msg.append(f"added {total_added} session(s)")
-    # Reported alongside the counts above: a consolidation restructures the plan and repoints
-    # completion history, so a request that only did that must not answer "nothing happened".
-    if consolidated_assignments:
-        msg.append(f"consolidated {consolidated_assignments} duplicate assignment(s)")
 
     if not msg:
         return JsonResponse(
@@ -2217,14 +2186,11 @@ def _find_plan_intervention_assignment(plan, intervention_id, known_external_id=
 def _resolve_plan_assignment(plan, intervention):
     """Resolve intervention against plan's assignment, allowing ad-hoc completion when unassigned.
 
-    Returns (assignment, canonical_intervention, variant_ids). assignment is AMBIGUOUS_ASSIGNMENT when
-    multiple plan assignments share this intervention's external_id - callers must refuse that case.
+    Returns (assignment, canonical_intervention, variant_ids).
     """
     assignment = _find_plan_intervention_assignment(
         plan, intervention.pk, known_external_id=getattr(intervention, "external_id", None)
     )
-    if assignment is AMBIGUOUS_ASSIGNMENT:
-        return assignment, None, None
     if assignment is None:
         return None, intervention, [intervention.pk]
     canonical_intervention = _safe_intervention(assignment) or intervention
@@ -2248,91 +2214,6 @@ def _intervention_variant_ids(intervention, plan=None, keep_assignment=None):
             if other_id is not None and other_id != keep_id:
                 variant_ids.discard(other_id)
     return list(variant_ids)
-
-
-def _consolidate_duplicate_assignments(plan, external_id, target_intervention):
-    """Collapse plan assignments that already share `external_id` into one, repointed at `target_intervention`.
-
-    Two assignments for the same logical intervention are always a data artifact (legacy data, or a race
-    between two concurrent adds) rather than an intended state, so add_intervention_to_patient heals it
-    here instead of leaving _match_assignment_by_external_id's AMBIGUOUS_ASSIGNMENT fall through to
-    creating yet another duplicate.
-
-    Mutates `plan` in memory only. Returns (surviving assignment, stale interventionIds); the caller must
-    save the plan and then hand those ids to _repoint_plan_logs_to_intervention, so a plan write that never
-    happens can't leave logs pointing at an assignment the plan no longer has.
-    """
-    duplicates = [
-        a for a in (plan.interventions or []) if getattr(_safe_intervention(a), "external_id", None) == external_id
-    ]
-    if len(duplicates) < 2:
-        # Unreachable from the AMBIGUOUS_ASSIGNMENT call site, but the predicate is recomputed here.
-        return (duplicates[0] if duplicates else None), set()
-
-    canonical, siblings = duplicates[0], duplicates[1:]
-
-    stale_ids = {getattr(_safe_intervention(a), "id", None) for a in duplicates}
-    stale_ids.discard(None)
-    stale_ids.discard(target_intervention.id)
-
-    merged_dates = canonical.dates
-    for sibling in siblings:
-        merged_dates, _ = _merge_dates(merged_dates, sibling.dates)
-    canonical.dates = merged_dates
-    canonical.interventionId = target_intervention
-
-    plan.interventions = [a for a in plan.interventions if not any(a is s for s in siblings)]
-
-    logger.warning(
-        "[_consolidate_duplicate_assignments] Collapsed %d assignments sharing external_id=%s into one.",
-        len(duplicates),
-        external_id,
-    )
-    return canonical, stale_ids
-
-
-def _repoint_plan_logs_to_intervention(plan, stale_ids, target_intervention):
-    """Move this plan's logs off `stale_ids` onto `target_intervention` after a consolidation.
-
-    Scoped to the plan and its patient: `stale_ids` are Intervention documents, which are shared across
-    every patient, so an unscoped query would rewrite unrelated patients' logs onto this plan's variant.
-    Returns how many logs were moved, for the audit entry.
-    """
-    if not stale_ids or target_intervention is None:
-        return 0
-    repointed = 0
-    for log in PatientInterventionLogs.objects(
-        userId=plan.patientId,
-        rehabilitationPlanId=plan,
-        interventionId__in=list(stale_ids),
-    ):
-        log.interventionId = target_intervention
-        log.save()
-        repointed += 1
-    return repointed
-
-
-def _log_plan_consolidation(request, therapist, patient, external_id, target_intervention, repointed):
-    """Audit entry for a consolidation, which restructures a plan and rewrites completion history.
-
-    Every other mutation in this module leaves a Logs trail; without one, a therapist's add silently
-    collapses assignments and moves logs with nothing but a server-side warning to show for it.
-    """
-    try:
-        Logs.objects.create(
-            userId=therapist.userId,
-            action="UPDATE_PLAN",
-            actor_role="Therapist",
-            user_agent=(request.headers.get("User-Agent", "") or "")[:300],
-            patient=patient,
-            details=(
-                f"consolidated duplicate assignments external_id={external_id} "
-                f"intervention={getattr(target_intervention, 'title', '')} logs_repointed={repointed}"
-            ),
-        )
-    except Exception:
-        # Never fail the add over its audit entry, but say so - a missing trail is the gap being closed.
-        logger.error("[_log_plan_consolidation] Failed to write audit entry", exc_info=True)
 
 
 # English + German short labels
@@ -2603,17 +2484,6 @@ def modify_intervention_from_date(request):
     # Find intervention assignment
     # ----------------------
     target = _find_plan_intervention_assignment(plan, intervention_id)
-
-    if target is AMBIGUOUS_ASSIGNMENT:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": AMBIGUOUS_ASSIGNMENT_MESSAGE,
-                "field_errors": {"interventionId": [AMBIGUOUS_ASSIGNMENT_MESSAGE]},
-                "non_field_errors": [],
-            },
-            status=404,
-        )
 
     if not target:
         return JsonResponse(
@@ -2886,17 +2756,6 @@ def reschedule_intervention_date(request):
     # Find intervention assignment
     # ----------------------
     target = _find_plan_intervention_assignment(plan, intervention_id)
-
-    if target is AMBIGUOUS_ASSIGNMENT:
-        return JsonResponse(
-            {
-                "success": False,
-                "message": AMBIGUOUS_ASSIGNMENT_MESSAGE,
-                "field_errors": {"interventionId": [AMBIGUOUS_ASSIGNMENT_MESSAGE]},
-                "non_field_errors": [],
-            },
-            status=404,
-        )
 
     if not target:
         return JsonResponse(
@@ -3415,16 +3274,6 @@ def remove_intervention_from_patient(request):
         occurrence_found = False
 
         assignment = _find_plan_intervention_assignment(plan, intervention_id)
-
-        if assignment is AMBIGUOUS_ASSIGNMENT:
-            return JsonResponse(
-                {
-                    "success": False,
-                    "message": AMBIGUOUS_ASSIGNMENT_MESSAGE,
-                    "error": "AmbiguousAssignment",
-                },
-                status=404,
-            )
 
         if not assignment:
             return JsonResponse(

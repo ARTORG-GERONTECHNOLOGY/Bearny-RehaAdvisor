@@ -127,24 +127,6 @@ def _safe_intervention(assignment):
         return None
 
 
-class _AmbiguousAssignment:
-    # Falsy sentinel: existing `if not target` call sites keep treating this like "not found".
-    def __bool__(self):
-        return False
-
-
-# Shared wording for the AMBIGUOUS_ASSIGNMENT branch, distinct from the plain "not assigned" message -
-# a therapist seeing this should go fix the duplicate on the plan, not re-add the intervention.
-AMBIGUOUS_ASSIGNMENT_MESSAGE = (
-    "This intervention is assigned to the patient's plan more than once (duplicate language-variant "
-    "assignments) and can't be resolved automatically. Please review the patient's plan."
-)
-
-
-# Distinguishes "matched multiple variants, refuse to guess" from "no match at all" so callers can still allow ad-hoc completion for a genuinely-unassigned intervention.
-AMBIGUOUS_ASSIGNMENT = _AmbiguousAssignment()
-
-
 def _match_assignment_by_id(plan, intervention_id):
     intervention_id = str(intervention_id)
     for a in plan.interventions or []:
@@ -162,25 +144,22 @@ def _assignments_by_external_id(plan, external_id):
 
 
 def _match_assignment_by_external_id(plan, external_id):
+    """The plan's assignment holding a variant of this external_id, or None.
+
+    A plan holding duplicates is legacy data, so the first match wins - it is the one
+    get_patient_plan and get_patient_plan_for_therapist both already display as canonical.
+    """
     matches = _assignments_by_external_id(plan, external_id)
     if len(matches) > 1:
-        # Ambiguous match - refuse to guess rather than mutate the wrong assignment.
         logger.warning(
-            "[_match_assignment_by_external_id] Multiple assignments share external_id=%s; refusing to guess.",
+            "[_match_assignment_by_external_id] Multiple assignments share external_id=%s; using the first.",
             external_id,
         )
-        return AMBIGUOUS_ASSIGNMENT
     return matches[0] if matches else None
 
 
 def _canonical_assignment_for(plan, intervention):
-    """The assignment a writer should merge into, or None to append a new one.
-
-    Unlike _match_assignment_by_external_id this never refuses: on a plan that already holds
-    duplicates it returns the first of them - the one get_patient_plan and
-    get_patient_plan_for_therapist both treat as canonical - so a bulk or non-interactive caller
-    merges into the assignment the UIs actually display instead of appending yet another duplicate.
-    """
+    """The assignment a writer should merge into, or None to append a new one."""
     matches = _assignments_by_external_id(plan, getattr(intervention, "external_id", None))
     if matches:
         return matches[0]

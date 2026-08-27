@@ -254,13 +254,12 @@ def test_unmark_intervention_completed_via_translated_variant(mongo_mock):
     assert PatientInterventionLogs.objects(userId=patient).count() == 0
 
 
-def test_unmark_intervention_completed_ambiguous_external_id_is_rejected(mongo_mock):
+def test_unmark_intervention_completed_resolves_duplicate_plan_to_first_assignment(mongo_mock):
     """
-    Regression: when the plan has two assignments sharing an external_id (e.g.
-    an EN and a DE variant both assigned) and the requested id matches neither
-    assignment exactly, uncompleting must be rejected rather than silently
-    narrowing the log lookup to the unassigned variant, which would miss the
-    real completion log and return a false-success response leaving it intact.
+    A plan holding two assignments for one external_id (an EN and a DE variant) is legacy data.
+    When the requested id matches neither assignment exactly, resolution falls back to the first
+    assignment - the one get_patient_plan already shows the patient - so the uncomplete lands on
+    the real completion log instead of silently missing it against the unassigned variant.
     """
     patient, _, intervention, plan = setup_patient_with_plan()
     translated = Intervention(
@@ -309,11 +308,10 @@ def test_unmark_intervention_completed_ambiguous_external_id_is_rejected(mongo_m
         content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",
     )
-    assert resp.status_code == 404, resp.content.decode()
-    assert "more than once" in resp.json().get(
-        "error", ""
-    ), "Ambiguous rejection must say why, not just 'not assigned'."
-    assert PatientInterventionLogs.objects(userId=patient).count() == 1
+    assert resp.status_code == 200, resp.content.decode()
+    assert (
+        PatientInterventionLogs.objects(userId=patient).count() == 0
+    ), "The completion log on the first assignment's variant must actually be removed."
 
 
 def test_unmark_intervention_completed_after_removed_from_plan(mongo_mock):
