@@ -1100,12 +1100,32 @@ def get_patient_plan(request, patient_id):
         today = timezone.localdate()
         out = []
 
-        grouped = list(_group_assignments_by_external_id(rehab_plan))
-        variant_ids = _variant_ids_by_intervention(iv for _, iv, _ in grouped)
+        seen_ext_ids: set = set()
 
-        for assignment, assigned_intervention, assignment_dates in grouped:
-            # Preferred variant for display, but logs across every variant of the external_id -
-            # the same set the therapist view reads, so both report the same completions.
+        assignments = []
+        for assignment in getattr(rehab_plan, "interventions", None) or []:
+            # _safe_intervention, not getattr: a deleted Intervention raises on dereference, which
+            # getattr's default does not catch, and one dangling ref took the whole plan down.
+            assigned_intervention = _safe_intervention(assignment)
+            if assigned_intervention is None:
+                logger.warning("[get_patient_plan] Skipping dangling assignment on plan=%s", rehab_plan.id)
+                continue
+
+            # Deduplicate by external_id: the same intervention content (same external_id)
+            # should not appear twice in the patient plan even if assigned twice.
+            ext_id = getattr(assigned_intervention, "external_id", None)
+            if ext_id:
+                if ext_id in seen_ext_ids:
+                    logger.warning("[get_patient_plan] Skipping duplicate assignment for external_id=%s", ext_id)
+                    continue
+                seen_ext_ids.add(ext_id)
+            assignments.append((assignment, assigned_intervention))
+
+        variant_ids = _variant_ids_by_intervention(iv for _, iv in assignments)
+
+        for assignment, assigned_intervention in assignments:
+            # Preferred variant for display, but logs across every variant of the external_id, so a
+            # completion recorded under another language still counts.
             intervention = _best_variant(assigned_intervention, ui_lang) if ui_lang else assigned_intervention
 
             logs = PatientInterventionLogs.objects(
@@ -1139,7 +1159,7 @@ def get_patient_plan(request, patient_id):
 
             # assignment dates -> keep as iso
             dates_iso = []
-            for d in assignment_dates:
+            for d in getattr(assignment, "dates", None) or []:
                 try:
                     dates_iso.append(_as_aware_utc(d).isoformat())
                 except Exception:
@@ -1436,21 +1456,24 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
             if plan:
                 assignment = _find_plan_intervention_assignment(plan, intervention_id)
 
-        # The requested doc, not the assignment's variant: content_type can differ across languages.
+        if assignment is not None and _safe_intervention(assignment) is not None:
+            # normalize to lower for matching
+            raw_type = str(getattr(assignment.interventionId, "content_type", "") or "")
+            intervention_type = raw_type.strip().lower() or None
+
+        # Fallback: if assignment wasn't found or content_type is empty,
+        # look up the Intervention document directly (handles library-browse path
+        # where the intervention may not be in any rehabilitation plan yet).
         intervention_aim = ""
         if intervention_id:
             try:
                 iv_doc = Intervention.objects.get(pk=ObjectId(intervention_id))
-                raw_type = str(getattr(iv_doc, "content_type", "") or "")
-                intervention_type = raw_type.strip().lower() or None
+                if not intervention_type:
+                    raw_type = str(getattr(iv_doc, "content_type", "") or "")
+                    intervention_type = raw_type.strip().lower() or None
                 intervention_aim = str(getattr(iv_doc, "aim", "") or "").strip()
             except Exception:
                 pass
-
-        # Fallback for an unresolvable id: take content_type from the matched assignment instead.
-        if not intervention_type and assignment and _safe_intervention(assignment):
-            raw_type = str(getattr(assignment.interventionId, "content_type", "") or "")
-            intervention_type = raw_type.strip().lower() or None
 
         # 1) Core questions (apply to all interventions).
         #    We accept two ways to mark "core":
@@ -2185,9 +2208,9 @@ def _find_plan_intervention_assignment(plan, intervention_id, known_external_id=
 def _find_plan_intervention_assignments(plan, intervention_id):
     """Every assignment on the plan holding this logical intervention, in plan order.
 
-    A plan holding one external_id twice is legacy data, but an edit has to reach all of it: both
-    plan views merge such assignments into a single row, so stripping or rescheduling dates on only
-    the first one leaves the rest on screen as sessions the therapist thought they had dealt with.
+    A plan holding one external_id twice is legacy data, but an edit has to reach all of it: the
+    therapist plan view merges such assignments into a single row, so editing only the first one
+    leaves the rest on screen as sessions the therapist thought they had dealt with.
     """
     target = _match_assignment_by_id(plan, intervention_id)
 
@@ -2220,74 +2243,15 @@ def _resolve_plan_assignment(plan, intervention):
     if assignment is None:
         return None, intervention, _intervention_variant_ids(intervention)
     canonical_intervention = _safe_intervention(assignment) or intervention
-    # The same set both plan views read, so a completion they display is one these endpoints can find.
+    # The same set both plan views query logs with, so a completion they display is findable here.
     return assignment, canonical_intervention, _intervention_variant_ids(canonical_intervention)
-
-
-def _merge_sibling_dates(assignments):
-    """The dates the plan views render for one group of duplicate assignments.
-
-    The first assignment's dates are kept wholesale; every later one contributes only calendar days
-    the group does not already hold - two assignments scheduling the same day are one session to the
-    patient. Legacy plans hold the odd unparseable entry, so a sibling merge must not be the thing
-    that takes the whole plan down: keep what we cannot compare rather than dropping it.
-    """
-    assignments = list(assignments)
-    if not assignments:
-        return []
-
-    dates = list(assignments[0].dates or [])
-    days = {day for day in map(_local_day, dates) if day is not None}
-
-    for assignment in assignments[1:]:
-        for d in assignment.dates or []:
-            day = _local_day(d)
-            if day is None:
-                dates.append(d)
-                continue
-            if day not in days:
-                dates.append(d)
-                days.add(day)
-
-    return dates
-
-
-def _group_assignments_by_external_id(plan):
-    """Collapse a plan's assignments into one entry per logical intervention.
-
-    Yields (canonical_assignment, canonical_intervention, dates) in plan order. A plan holding the
-    same external_id twice is legacy data: the first assignment is canonical and the later ones
-    contribute their dates, so neither plan view silently hides sessions the other one shows.
-    Assignments whose Intervention was deleted are skipped.
-    """
-    groups: dict = {}
-    order: list = []
-
-    for assignment in getattr(plan, "interventions", None) or []:
-        intervention = _safe_intervention(assignment)
-        if intervention is None:
-            logger.warning("[_group_assignments_by_external_id] Skipping dangling assignment on plan=%s", plan.id)
-            continue
-
-        key = getattr(intervention, "external_id", None) or str(intervention.id)
-        group = groups.get(key)
-        if group is None:
-            groups[key] = {"intervention": intervention, "assignments": [assignment]}
-            order.append(key)
-        else:
-            group["assignments"].append(assignment)
-
-    for key in order:
-        group = groups[key]
-        yield group["assignments"][0], group["intervention"], _merge_sibling_dates(group["assignments"])
 
 
 def _intervention_variant_ids(intervention):
     """Every Intervention id sharing this one's external_id, i.e. its language variants.
 
-    Readers and writers must resolve the same set: both plan views merge a legacy plan's duplicate
-    assignments into one row, so narrowing this for the writers would leave completions the views
-    display but complete/uncomplete cannot find.
+    Readers and writers must resolve the same set, or a completion recorded under one language
+    variant is one the plan views display but complete/uncomplete cannot find.
     """
     external_id = getattr(intervention, "external_id", None)
     # An external_id with no rows behind it cannot happen for a loaded document, but falling back
@@ -2298,8 +2262,8 @@ def _intervention_variant_ids(intervention):
 def _variant_ids_by_intervention(interventions):
     """{intervention pk -> its variant ids} for a whole plan, resolved in one query.
 
-    Returns what _intervention_variant_ids would return for each one. That helper costs a round
-    trip per call, which the plan-view loops paid once per assignment.
+    Returns what _intervention_variant_ids would return for each one, which costs a round trip
+    per call - the plan-view loops would otherwise pay that once per assignment.
     """
     interventions = list(interventions)
     by_ext = _variant_ids_by_external_id(getattr(iv, "external_id", None) for iv in interventions)
@@ -2646,7 +2610,7 @@ def modify_intervention_from_date(request):
             {
                 "success": True,
                 "message": "Updated schedule flags.",
-                "updatedCount": len(_merge_sibling_dates(targets)),
+                "updatedCount": sum(len(t.dates or []) for t in targets),
                 "field_errors": {},
                 "non_field_errors": [],
             },
@@ -2703,7 +2667,7 @@ def modify_intervention_from_date(request):
         {
             "success": True,
             "message": "Updated schedule.",
-            "updatedCount": len(_merge_sibling_dates(targets)),
+            "updatedCount": sum(len(t.dates or []) for t in targets),
             "field_errors": {},
             "non_field_errors": [],
         },
@@ -2963,23 +2927,12 @@ def reschedule_intervention_date(request):
     # second same-day occurrence would make the therapist view misattribute
     # the existing completed log to the new, unstarted occurrence.
     # ----------------------
-    # Copies the plan views hide behind this occurrence must travel with it, or the day it vacates
-    # resurfaces. _merge_sibling_dates keeps targets[0] wholesale, so "hidden" is "that day, ti > 0".
-    old_day = _as_aware_local(existing_utc[match_idx[0]][match_idx[1]]).date()
-    moving = {match_idx}
-    for ti, dates in enumerate(existing_utc):
-        if ti == 0:
-            continue
-        for di, d in enumerate(dates):
-            if _as_aware_local(d).date() == old_day:
-                moving.add((ti, di))
-
     new_day = _as_aware_local(new_dt_utc).date()
     collides = any(
         _as_aware_local(d).date() == new_day
         for ti, dates in enumerate(existing_utc)
         for di, d in enumerate(dates)
-        if (ti, di) not in moving
+        if (ti, di) != match_idx
     )
     if collides:
         return JsonResponse(
@@ -2995,18 +2948,10 @@ def reschedule_intervention_date(request):
     # ----------------------
     # Apply and save
     # ----------------------
-    moved_by_assignment: dict = {}
-    for ti, di in moving:
-        moved_by_assignment.setdefault(ti, set()).add(di)
-
-    for ti, dis in moved_by_assignment.items():
-        # One date out, one date in: several copies hidden behind each other were a single session on
-        # screen, so stamping each in place would leave the assignment holding the new instant twice.
-        kept = [d for di, d in enumerate(existing_utc[ti]) if di not in dis]
-        kept.append(new_dt_utc)
-        kept.sort()
-        existing_utc[ti] = kept
-        targets[ti].dates = kept
+    ti, di = match_idx
+    existing_utc[ti][di] = new_dt_utc
+    existing_utc[ti].sort()
+    targets[ti].dates = existing_utc[ti]
 
     plan.updatedAt = timezone.now()
     plan.save()
@@ -3123,27 +3068,44 @@ def get_patient_plan_for_therapist(request, patient_id):
             "interventions": [],
         }
 
-        grouped = list(_group_assignments_by_external_id(plan))
-        variant_ids = _variant_ids_by_intervention(iv for _, iv, _ in grouped)
+        # Group assignments by external_id to avoid showing duplicates when the
+        # same intervention was added in multiple language variants.
+        _seen_ext: dict = {}
+        for _a in plan.interventions:
+            # _safe_intervention, not attribute access: a deleted Intervention raises on
+            # dereference, and one dangling ref took the whole dashboard down.
+            _iv = _safe_intervention(_a)
+            if _iv is None:
+                logger.warning("[get_patient_plan_for_therapist] Skipping dangling assignment on plan=%s", plan.id)
+                continue
+            _ext = getattr(_iv, "external_id", None) or str(_iv.id)
+            if _ext not in _seen_ext:
+                _seen_ext[_ext] = {
+                    "canonical": _a,
+                    "intervention": _iv,
+                    "all_dates": list(_a.dates),
+                }
+            else:
+                # Compared on the local day, like every consumer of these dates: naive values come
+                # back from Mongo as UTC, so _d.date() dropped a session sitting either side of
+                # local midnight into the wrong day and deduped it against the wrong neighbour.
+                _existing_days = {_local_day(_d) for _d in _seen_ext[_ext]["all_dates"]}
+                for _d in _a.dates:
+                    _day = _local_day(_d)
+                    if _day not in _existing_days:
+                        _seen_ext[_ext]["all_dates"].append(_d)
+                        _existing_days.add(_day)
 
-        for assignment, intervention, group_dates in grouped:
-            # A legacy entry that is not a datetime has no slot on the timeline - drop it rather
-            # than take the whole dashboard down sorting or normalising it.
-            all_dates = sorted(d for d in group_dates if isinstance(d, datetime.datetime))
-            if len(all_dates) != len(group_dates):
-                logger.warning(
-                    "[get_patient_plan_for_therapist] Skipped %d unparseable date(s) on plan=%s intervention=%s",
-                    len(group_dates) - len(all_dates),
-                    plan.id,
-                    intervention.id,
-                )
-            # Every variant of the external_id, not just the assigned ones, so a log recorded under
-            # another variant still counts - scoped to this plan the way get_patient_plan scopes it.
-            logs = PatientInterventionLogs.objects(
-                userId=patient,
-                rehabilitationPlanId=plan,
-                interventionId__in=variant_ids[intervention.pk],
-            )
+        _groups = list(_seen_ext.values())
+        variant_ids = _variant_ids_by_intervention(g["intervention"] for g in _groups)
+
+        for _group in _groups:
+            assignment = _group["canonical"]
+            intervention = _group["intervention"]
+            all_dates = sorted(_group["all_dates"])
+            # Every variant of the external_id, not just the assigned ones, so a log recorded
+            # under a different variant is still counted.
+            logs = PatientInterventionLogs.objects(userId=patient, interventionId__in=variant_ids[intervention.pk])
 
             intervention_dates = []
             completed_count = 0
@@ -3153,16 +3115,7 @@ def get_patient_plan_for_therapist(request, patient_id):
 
             for date in all_dates:
                 date_local = timezone.localtime(_as_aware_utc(date)).date()
-                # Guarded like _completion_day_keys_from_logs: a log with an unparseable date
-                # must not decide the whole plan's fate.
-                log = next(
-                    (
-                        l
-                        for l in logs
-                        if isinstance(l.date, datetime.datetime) and _as_aware_local(l.date).date() == date_local
-                    ),
-                    None,
-                )
+                log = next((l for l in logs if _as_aware_local(l.date).date() == date_local), None)
 
                 if log and "completed" in (log.status or []):
                     status = "completed"
@@ -3422,25 +3375,15 @@ def remove_intervention_from_patient(request):
             # every other scheduled date (past or future) untouched.
             # Matched in UTC (like reschedule_intervention_date) since
             # naive Mongo dates are stored as UTC instants, not local time.
-            removed_day = None
             for assignment in assignments:
                 remaining = []
                 for d in assignment.dates:
                     d_utc = _as_aware_utc(d)
                     if d_utc > now_utc and abs((d_utc - occurrence_dt_utc).total_seconds()) < 1:
                         occurrence_found = True
-                        removed_day = _local_day(d)
                         continue
                     remaining.append(d)
                 assignment.dates = remaining
-
-            # Same hidden-copy rule as reschedule: a sibling's date on the vacated day resurfaces
-            # unless it goes too. Future copies only - a past one is history nobody asked to delete.
-            if removed_day is not None:
-                for assignment in assignments[1:]:
-                    assignment.dates = [
-                        d for d in assignment.dates if not (_as_aware_utc(d) > now_utc and _local_day(d) == removed_day)
-                    ]
         else:
             # Keep only past dates. Compared in UTC like the branch above, since naive Mongo
             # dates are stored as UTC instants; reading them as local dated them back by the
