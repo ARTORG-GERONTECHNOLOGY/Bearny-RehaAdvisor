@@ -284,9 +284,9 @@ def create_rehab_plan(patient, therapist):
                 # come back from Mongo naive while new_dates are aware local.
                 have = {_instant_key(d) for d in (existing.dates or [])}
                 for d in new_dates:
-                    key = _instant_key(d)
-                    if key not in have:
-                        have.add(key)
+                    instant = _instant_key(d)
+                    if instant not in have:
+                        have.add(instant)
                         existing.dates.append(d)
             else:
                 plan.interventions.append(

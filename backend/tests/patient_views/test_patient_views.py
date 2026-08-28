@@ -2263,14 +2263,15 @@ def test_mark_completed_uses_scheduled_datetime_from_plan(mongo_mock):
         content_type="Video",
     ).save()
 
-    # Schedule the intervention for a specific time on a fixed past date
-    target_day = datetime(2026, 1, 15, 0, 0, 0).date()
-    sched_time = datetime(2026, 1, 15, 8, 30, 0)  # 08:30 naive local
+    # Schedule the intervention for a specific time on a fixed past date. Stored aware, the way
+    # every plan writer stores dates: Mongo hands them back naive, and naive there means UTC.
+    sched_local = datetime(2026, 1, 15, 8, 30, 0)  # 08:30 Europe/Zurich
+    target_day = sched_local.date()
 
     assignment = InterventionAssignment(
         interventionId=intervention,
         frequency="Daily",
-        dates=[sched_time],
+        dates=[timezone.make_aware(sched_local)],
     )
     RehabilitationPlan(
         patientId=patient,
@@ -2297,9 +2298,9 @@ def test_mark_completed_uses_scheduled_datetime_from_plan(mongo_mock):
 
     log = PatientInterventionLogs.objects(userId=patient).first()
     assert log is not None, "No log was created"
-    # The stored datetime should be the scheduled 08:30, not midnight
-    assert log.date == sched_time, (
-        f"Expected scheduled time {sched_time}, got {log.date}. " "Scheduled datetime from plan not used for storage."
+    # The stored datetime should be the scheduled 08:30 local, not midnight
+    assert log.date == sched_local, (
+        f"Expected scheduled time {sched_local}, got {log.date}. " "Scheduled datetime from plan not used for storage."
     )
 
 
@@ -2311,9 +2312,10 @@ def test_mark_completed_matches_translated_variant(mongo_mock):
     external_id fallback rather than silently defaulting to local midnight.
     """
     patient, _, intervention, plan = setup_patient_with_plan()
+    # Stored aware like every plan writer stores dates; Mongo hands it back naive, meaning UTC.
     # Mongo stores millisecond precision; truncate before comparing.
-    sched_time = plan.interventions[0].dates[0].replace(microsecond=0)
-    plan.interventions[0].dates[0] = sched_time
+    sched_local = (datetime.now() + timedelta(days=1)).replace(microsecond=0)
+    plan.interventions[0].dates[0] = timezone.make_aware(sched_local)
     plan.save()
 
     translated = Intervention(
@@ -2330,7 +2332,7 @@ def test_mark_completed_matches_translated_variant(mongo_mock):
             {
                 "patient_id": str(patient.userId.id),
                 "intervention_id": str(translated.id),
-                "date": sched_time.date().isoformat(),
+                "date": sched_local.date().isoformat(),
             }
         ),
         content_type="application/json",
@@ -2340,9 +2342,49 @@ def test_mark_completed_matches_translated_variant(mongo_mock):
 
     log = PatientInterventionLogs.objects(userId=patient).first()
     assert log is not None, "No log was created"
-    assert log.date == sched_time, (
-        f"Expected scheduled time {sched_time}, got {log.date}. "
+    assert log.date == sched_local, (
+        f"Expected scheduled time {sched_local}, got {log.date}. "
         "External_id fallback not used to resolve the plan assignment."
+    )
+
+
+def test_mark_completed_uses_the_local_day_of_a_session_stored_late_in_the_utc_day(mongo_mock):
+    """
+    Regression: the scheduled-time lookup read a naive stored date as local wall clock while every
+    other reader resolves it through UTC. A session at 23:30 UTC is 01:30 the *next* local day, so
+    the plan views showed it on the later day, the completion arrived for that day, and the lookup
+    matched nothing - the log silently fell back to midnight instead of the session's time.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    # 23:30 UTC → 01:30 local the following day (Europe/Zurich is ahead of UTC year-round).
+    utc_dt = (datetime.now(py_timezone.utc) + timedelta(days=2)).replace(hour=23, minute=30, second=0, microsecond=0)
+    plan.interventions[0].dates = [utc_dt]
+    plan.save()
+
+    local_dt = timezone.localtime(utc_dt)
+    assert local_dt.date() != utc_dt.date(), "Fixture must straddle the local/UTC day boundary."
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+                # The day both plan views render this session on.
+                "date": local_dt.date().isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    log = PatientInterventionLogs.objects(userId=patient).first()
+    assert log is not None, "No log was created"
+    assert log.date == local_dt.replace(tzinfo=None), (
+        f"Expected the session's local time {local_dt.replace(tzinfo=None)}, got {log.date}. "
+        "The scheduled-time lookup fell back to midnight."
     )
 
 

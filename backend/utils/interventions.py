@@ -107,6 +107,21 @@ def _variant_ids_for_external_id(external_id: str) -> List[ObjectId]:
     return [v.id for v in Intervention.objects(external_id=external_id).only("id")]
 
 
+def _variant_ids_by_external_id(external_ids) -> Dict[str, List[ObjectId]]:
+    """The same mapping for many external_ids at once, in a single query.
+
+    Callers rendering a whole plan would otherwise pay one round trip per assignment.
+    """
+    wanted = {e for e in external_ids if e}
+    if not wanted:
+        return {}
+
+    out: Dict[str, List[ObjectId]] = {e: [] for e in wanted}
+    for v in Intervention.objects(external_id__in=list(wanted)).only("id", "external_id"):
+        out[v.external_id].append(v.id)
+    return out
+
+
 # --------------------------------------------------------------------------------------
 # Plan-assignment resolution
 #

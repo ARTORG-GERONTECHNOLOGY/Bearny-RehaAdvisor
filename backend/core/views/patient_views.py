@@ -47,6 +47,7 @@ from utils.interventions import (
     _match_assignment_by_external_id,
     _match_assignment_by_id,
     _safe_intervention,
+    _variant_ids_by_external_id,
     _variant_ids_for_external_id,
 )
 from utils.utils import (
@@ -472,8 +473,6 @@ def mark_intervention_completed(request):
         else:
             target_day = timezone.localdate()
 
-        tz = timezone.get_current_timezone()
-
         # Naive local day boundaries — no UTC conversion to avoid day-shift.
         day_start = datetime.datetime.combine(target_day, datetime.time.min)
         day_end = datetime.datetime.combine(target_day, datetime.time.max)
@@ -493,8 +492,9 @@ def mark_intervention_completed(request):
             for sched_dt in assignment.dates:
                 if not isinstance(sched_dt, datetime.datetime):
                     continue
-                # Normalise to naive local time for date comparison and storage
-                sched_local = sched_dt.astimezone(tz).replace(tzinfo=None) if sched_dt.tzinfo is not None else sched_dt
+                # Naive local, matching how this endpoint stores log dates. Resolved through UTC
+                # like _local_day, so the day matched here is the day the plan views display it on.
+                sched_local = timezone.localtime(_as_aware_utc(sched_dt)).replace(tzinfo=None)
                 if sched_local.date() == target_day:
                     log_date = sched_local
                     break
@@ -1102,7 +1102,10 @@ def get_patient_plan(request, patient_id):
         today = timezone.localdate()
         out = []
 
-        for assignment, assigned_intervention, assignment_dates in _group_assignments_by_external_id(rehab_plan):
+        grouped = list(_group_assignments_by_external_id(rehab_plan))
+        variant_ids = _variant_ids_by_intervention(iv for _, iv, _ in grouped)
+
+        for assignment, assigned_intervention, assignment_dates in grouped:
             # Use the language-preferred variant for title/metadata display, but look logs up across
             # every variant of this external_id - the same set get_patient_plan_for_therapist uses, so
             # both views report the same completions - scoped to this plan.
@@ -1111,7 +1114,7 @@ def get_patient_plan(request, patient_id):
             logs = PatientInterventionLogs.objects(
                 userId=patient,
                 rehabilitationPlanId=rehab_plan,
-                interventionId__in=_intervention_variant_ids(assigned_intervention),
+                interventionId__in=variant_ids[assigned_intervention.pk],
             )
 
             completion_dates = _completion_day_keys_from_logs(logs)
@@ -2226,14 +2229,41 @@ def _resolve_plan_assignment(plan, intervention):
     return assignment, canonical_intervention, _intervention_variant_ids(canonical_intervention)
 
 
+def _merge_sibling_dates(assignments):
+    """The dates the plan views render for one group of duplicate assignments.
+
+    The first assignment's dates are kept wholesale; every later one contributes only calendar days
+    the group does not already hold - two assignments scheduling the same day are one session to the
+    patient. Legacy plans hold the odd unparseable entry, so a sibling merge must not be the thing
+    that takes the whole plan down: keep what we cannot compare rather than dropping it.
+    """
+    assignments = list(assignments)
+    if not assignments:
+        return []
+
+    dates = list(assignments[0].dates or [])
+    days = {day for day in map(_local_day, dates) if day is not None}
+
+    for assignment in assignments[1:]:
+        for d in assignment.dates or []:
+            day = _local_day(d)
+            if day is None:
+                dates.append(d)
+                continue
+            if day not in days:
+                dates.append(d)
+                days.add(day)
+
+    return dates
+
+
 def _group_assignments_by_external_id(plan):
     """Collapse a plan's assignments into one entry per logical intervention.
 
     Yields (canonical_assignment, canonical_intervention, dates) in plan order. A plan holding the
     same external_id twice is legacy data: the first assignment is canonical and the later ones
     contribute their dates, so neither plan view silently hides sessions the other one shows.
-    Sibling dates are merged by calendar day - two assignments scheduling the same day are one
-    session to the patient. Assignments whose Intervention was deleted are skipped.
+    Assignments whose Intervention was deleted are skipped.
     """
     groups: dict = {}
     order: list = []
@@ -2247,29 +2277,14 @@ def _group_assignments_by_external_id(plan):
         key = getattr(intervention, "external_id", None) or str(intervention.id)
         group = groups.get(key)
         if group is None:
-            groups[key] = {
-                "assignment": assignment,
-                "intervention": intervention,
-                "dates": list(assignment.dates or []),
-            }
+            groups[key] = {"intervention": intervention, "assignments": [assignment]}
             order.append(key)
-            continue
-
-        # Legacy plans hold the odd unparseable entry, so a sibling merge must not be the thing that
-        # takes the whole plan down; keep what we cannot compare rather than dropping it.
-        days = {day for day in map(_local_day, group["dates"]) if day is not None}
-        for d in assignment.dates or []:
-            day = _local_day(d)
-            if day is None:
-                group["dates"].append(d)
-                continue
-            if day not in days:
-                group["dates"].append(d)
-                days.add(day)
+        else:
+            group["assignments"].append(assignment)
 
     for key in order:
         group = groups[key]
-        yield group["assignment"], group["intervention"], group["dates"]
+        yield group["assignments"][0], group["intervention"], _merge_sibling_dates(group["assignments"])
 
 
 def _intervention_variant_ids(intervention):
@@ -2280,9 +2295,20 @@ def _intervention_variant_ids(intervention):
     display but complete/uncomplete cannot find.
     """
     external_id = getattr(intervention, "external_id", None)
-    if not external_id:
-        return [intervention.pk]
-    return _variant_ids_for_external_id(external_id)
+    # An external_id with no rows behind it cannot happen for a loaded document, but falling back
+    # to its own id keeps a caller from querying logs on an empty id list, which matches nothing.
+    return _variant_ids_for_external_id(external_id) or [intervention.pk]
+
+
+def _variant_ids_by_intervention(interventions):
+    """{intervention pk -> its variant ids} for a whole plan, resolved in one query.
+
+    Returns what _intervention_variant_ids would return for each one. That helper costs a round
+    trip per call, which the plan-view loops paid once per assignment.
+    """
+    interventions = list(interventions)
+    by_ext = _variant_ids_by_external_id(getattr(iv, "external_id", None) for iv in interventions)
+    return {iv.pk: by_ext.get(getattr(iv, "external_id", None)) or [iv.pk] for iv in interventions}
 
 
 # English + German short labels
@@ -2625,7 +2651,7 @@ def modify_intervention_from_date(request):
             {
                 "success": True,
                 "message": "Updated schedule flags.",
-                "updatedCount": sum(len(t.dates) for t in targets),
+                "updatedCount": len(_merge_sibling_dates(targets)),
                 "field_errors": {},
                 "non_field_errors": [],
             },
@@ -2682,7 +2708,7 @@ def modify_intervention_from_date(request):
         {
             "success": True,
             "message": "Updated schedule.",
-            "updatedCount": sum(len(t.dates) for t in targets),
+            "updatedCount": len(_merge_sibling_dates(targets)),
             "field_errors": {},
             "non_field_errors": [],
         },
@@ -3105,7 +3131,10 @@ def get_patient_plan_for_therapist(request, patient_id):
             "interventions": [],
         }
 
-        for assignment, intervention, group_dates in _group_assignments_by_external_id(plan):
+        grouped = list(_group_assignments_by_external_id(plan))
+        variant_ids = _variant_ids_by_intervention(iv for _, iv, _ in grouped)
+
+        for assignment, intervention, group_dates in grouped:
             # A legacy entry that is not a datetime has no slot on the timeline - drop it rather
             # than take the whole dashboard down sorting or normalising it.
             all_dates = sorted(d for d in group_dates if isinstance(d, datetime.datetime))
@@ -3122,7 +3151,7 @@ def get_patient_plan_for_therapist(request, patient_id):
             logs = PatientInterventionLogs.objects(
                 userId=patient,
                 rehabilitationPlanId=plan,
-                interventionId__in=_intervention_variant_ids(intervention),
+                interventionId__in=variant_ids[intervention.pk],
             )
 
             intervention_dates = []
