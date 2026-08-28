@@ -1124,6 +1124,62 @@ def test_therapist_plan_deduplicates_multilingual_assignments(mongo_mock):
     assert interventions[0]["totalCount"] == 2
 
 
+def _plan_with_two_variant_assignments(dates_a, dates_b):
+    """A plan holding one external_id twice, each assignment carrying the given stored dates."""
+    patient, therapist, _, plan = setup_basic_plan()
+    int_de = Intervention(
+        title="Blutdruck", description="DE", content_type="Video", external_id="TZ-001", language="de"
+    ).save()
+    int_en = Intervention(
+        title="Blood Pressure", description="EN", content_type="Video", external_id="TZ-001", language="en"
+    ).save()
+    plan.interventions = [
+        InterventionAssignment(interventionId=int_de, frequency="Daily", notes="", dates=dates_a),
+        InterventionAssignment(interventionId=int_en, frequency="Daily", notes="", dates=dates_b),
+    ]
+    plan.save()
+    return patient
+
+
+def _therapist_plan_rows(patient):
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    return resp.json()["interventions"]
+
+
+def test_therapist_plan_keeps_sibling_sessions_that_cross_local_midnight(mongo_mock):
+    """
+    Regression: assignment dates are stored as UTC instants, so merging siblings on the raw
+    ``d.date()`` compared UTC days while every consumer reads local ones. Two sessions on one UTC day
+    that fall either side of local midnight are two days to the patient - merging them dropped the
+    later one, and it vanished from the plan entirely.
+    """
+    base = (datetime.now() + timedelta(days=10)).replace(hour=12, minute=0, second=0, microsecond=0)
+    # 23:30 UTC is the next local day at every Zurich offset (+1 and +2), so this is DST-independent.
+    patient = _plan_with_two_variant_assignments([base], [base.replace(hour=23, minute=30)])
+
+    rows = _therapist_plan_rows(patient)
+    assert len(rows) == 1, "The duplicate assignments must still collapse into one row."
+    assert rows[0]["totalCount"] == 2, "The session after local midnight must not be dropped."
+
+
+def test_therapist_plan_merges_sibling_sessions_sharing_a_local_day(mongo_mock):
+    """
+    The mirror case: two sessions on different UTC days that land on the same local day are one
+    session to the patient, and must merge rather than show up as a duplicate row's second date.
+    """
+    base = (datetime.now() + timedelta(days=10)).replace(hour=23, minute=30, second=0, microsecond=0)
+    next_day_noon = (base + timedelta(days=1)).replace(hour=12, minute=0)
+    patient = _plan_with_two_variant_assignments([base], [next_day_noon])
+
+    rows = _therapist_plan_rows(patient)
+    assert len(rows) == 1
+    assert rows[0]["totalCount"] == 1, "Both sessions fall on one local day and must merge."
+
+
 def test_therapist_plan_view_does_not_write_to_database(mongo_mock):
     """
     get_patient_plan_for_therapist is a GET and must stay side-effect-free -

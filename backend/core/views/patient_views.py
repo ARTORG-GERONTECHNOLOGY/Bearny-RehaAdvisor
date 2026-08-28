@@ -2115,6 +2115,19 @@ def _as_aware_local(d: datetime.datetime) -> datetime.datetime:
     return d.astimezone(_tz_local())
 
 
+def _local_day(d: datetime.datetime):
+    """The local calendar day of a stored assignment date, or None when it cannot be read.
+
+    Resolved through UTC because Mongo hands these back naive, where naive means UTC: d.date() would
+    report the UTC day, and every consumer - both plan views, the reschedule collision check - reads
+    them in local time. Within the local offset of midnight the two disagree.
+    """
+    try:
+        return timezone.localtime(_as_aware_utc(d)).date()
+    except Exception:
+        return None
+
+
 def _as_aware_utc(d: datetime.datetime) -> datetime.datetime:
     """Return tz-aware datetime in UTC (uses datetime.timezone.utc)."""
     if timezone.is_naive(d):
@@ -2244,14 +2257,15 @@ def _group_assignments_by_external_id(plan):
 
         # Legacy plans hold the odd unparseable entry, so a sibling merge must not be the thing that
         # takes the whole plan down; keep what we cannot compare rather than dropping it.
-        days = {d.date() for d in group["dates"] if isinstance(d, datetime.datetime)}
+        days = {day for day in map(_local_day, group["dates"]) if day is not None}
         for d in assignment.dates or []:
-            if not isinstance(d, datetime.datetime):
+            day = _local_day(d)
+            if day is None:
                 group["dates"].append(d)
                 continue
-            if d.date() not in days:
+            if day not in days:
                 group["dates"].append(d)
-                days.add(d.date())
+                days.add(day)
 
     for key in order:
         group = groups[key]
