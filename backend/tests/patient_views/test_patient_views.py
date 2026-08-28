@@ -69,6 +69,7 @@ import json
 from datetime import datetime
 from datetime import time as dtime
 from datetime import timedelta
+from datetime import timezone as py_timezone
 from unittest.mock import patch
 
 import pytest
@@ -683,6 +684,30 @@ def test_remove_intervention_success(mongo_mock):
     )
     assert resp.status_code == 200
     assert "Intervention dates removed successfully" in resp.content.decode()
+
+
+def test_remove_intervention_drops_a_session_due_within_the_local_utc_offset(mongo_mock):
+    """
+    Regression: assignment dates come back from Mongo naive, where naive means UTC. Reading them as
+    local time (Europe/Zurich) shifted the cutoff back by the local offset, so a session due within
+    the next hour or two counted as past and survived a removal the therapist had just performed.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    soon = datetime.now(py_timezone.utc).replace(tzinfo=None) + timedelta(minutes=30)
+    plan.interventions[0].dates = [soon]
+    plan.save()
+
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps({"intervention": str(intervention.id), "patientId": str(patient.id)}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    # The endpoint drops assignments left with no dates, so a cancelled-out assignment disappears.
+    assert plan.interventions == [], "A session still in the future must be cancelled."
 
 
 def test_remove_intervention_matches_translated_variant(mongo_mock):

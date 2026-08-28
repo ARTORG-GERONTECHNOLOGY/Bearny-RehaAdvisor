@@ -52,7 +52,6 @@ from utils.interventions import (
 from utils.utils import (
     _adherence,
     convert_to_serializable,
-    ensure_aware,
     generate_custom_id,
     generate_repeat_dates,
     get_labels,
@@ -2929,12 +2928,26 @@ def reschedule_intervention_date(request):
     # second same-day occurrence would make the therapist view misattribute
     # the existing completed log to the new, unstarted occurrence.
     # ----------------------
+    # Every date on the day being vacated that the plan views hide behind this one occurrence has to
+    # travel with it - left behind it resurfaces on the old day, and the drag reads as a duplicate
+    # rather than a move. _group_assignments_by_external_id renders targets[0]'s dates wholesale and
+    # day-dedups every later assignment against them, so "hidden" is exactly "on that day, outside
+    # targets[0]" - including a second date inside the assignment the dragged occurrence lives in.
+    old_day = _as_aware_local(existing_utc[match_idx[0]][match_idx[1]]).date()
+    moving = {match_idx}
+    for ti, dates in enumerate(existing_utc):
+        if ti == 0:
+            continue
+        for di, d in enumerate(dates):
+            if _as_aware_local(d).date() == old_day:
+                moving.add((ti, di))
+
     new_day = _as_aware_local(new_dt_utc).date()
     collides = any(
         _as_aware_local(d).date() == new_day
         for ti, dates in enumerate(existing_utc)
         for di, d in enumerate(dates)
-        if (ti, di) != match_idx
+        if (ti, di) not in moving
     )
     if collides:
         return JsonResponse(
@@ -2950,10 +2963,18 @@ def reschedule_intervention_date(request):
     # ----------------------
     # Apply and save
     # ----------------------
-    moved = existing_utc[match_idx[0]]
-    moved[match_idx[1]] = new_dt_utc
-    moved.sort()
-    targets[match_idx[0]].dates = moved
+    moved_by_assignment: dict = {}
+    for ti, di in moving:
+        moved_by_assignment.setdefault(ti, set()).add(di)
+
+    for ti, dis in moved_by_assignment.items():
+        # One date out, one date in: several copies hidden behind each other were a single session on
+        # screen, so stamping each in place would leave the assignment holding the new instant twice.
+        kept = [d for di, d in enumerate(existing_utc[ti]) if di not in dis]
+        kept.append(new_dt_utc)
+        kept.sort()
+        existing_utc[ti] = kept
+        targets[ti].dates = kept
 
     plan.updatedAt = timezone.now()
     plan.save()
@@ -3376,8 +3397,10 @@ def remove_intervention_from_patient(request):
                     remaining.append(d)
                 assignment.dates = remaining
             else:
-                # Keep only past or today's dates
-                assignment.dates = [d for d in assignment.dates if ensure_aware(d) <= now]
+                # Keep only past dates. Compared in UTC like the branch above, since naive Mongo
+                # dates are stored as UTC instants; reading them as local dated them back by the
+                # local offset, so a session due within it looked past and survived the removal.
+                assignment.dates = [d for d in assignment.dates if _as_aware_utc(d) <= now_utc]
 
         if occurrence_dt_utc is not None and not occurrence_found:
             return JsonResponse(

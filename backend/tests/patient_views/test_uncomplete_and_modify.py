@@ -949,6 +949,159 @@ def _as_utc_iso(naive_dt):
     return naive_dt.replace(tzinfo=py_utc.utc).isoformat()
 
 
+def test_reschedule_moves_a_duplicate_assignments_copy_of_the_same_day(mongo_mock):
+    """
+    Regression: both plan views merge duplicate assignments by calendar day, so a sibling's date on
+    the day being vacated sits hidden behind the very occurrence being dragged. Left in place it
+    resurfaces on the old day and the drag looks like a duplicate instead of a move.
+    """
+    patient, canonical, translated, plan = _plan_with_duplicate_assignments()
+
+    shared_day = datetime.now() + timedelta(days=4)
+    old_dt = shared_day.replace(hour=9, minute=0, second=0, microsecond=0)
+    plan.interventions[0].dates = [old_dt]
+    # The sibling holds the same day at a different time - invisible in both views.
+    plan.interventions[1].dates = [old_dt.replace(hour=17)]
+    plan.save()
+
+    new_dt = (old_dt + timedelta(days=2)).replace(tzinfo=py_utc.utc)
+
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(canonical.id),
+                "oldDatetime": _as_utc_iso(old_dt),
+                "newDatetime": new_dt.isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan_view = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    rows = json.loads(plan_view.content)
+    assert len(rows) == 1
+    shown_days = sorted({d[:10] for d in rows[0]["dates"]})
+    assert shown_days == [new_dt.date().isoformat()], "The vacated day must not still show a session."
+
+
+def test_reschedule_moves_a_copy_hidden_inside_the_dragged_assignment(mongo_mock):
+    """
+    Regression: _group_assignments_by_external_id renders the canonical assignment's dates wholesale
+    and day-dedups every later one against them. So when the canonical assignment has nothing on the
+    dragged day, the occurrence lives on a sibling - and a *second* date that sibling holds on the
+    same day is hidden too. Skipping the matched assignment left it behind, and it resurfaced on the
+    day the therapist had just cleared.
+    """
+    patient, canonical, translated, plan = _plan_with_duplicate_assignments()
+    base = (datetime.now() + timedelta(days=4)).replace(hour=9, minute=0, second=0, microsecond=0)
+    # The canonical assignment holds a different day, so the dragged occurrence is the sibling's.
+    plan.interventions[0].dates = [base + timedelta(days=5)]
+    plan.interventions[1].dates = [base, base.replace(hour=17)]
+    plan.save()
+
+    def shown_days():
+        view = client.get(
+            f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+        return sorted({d[:10] for d in json.loads(view.content)[0]["dates"]})
+
+    old_day = base.date().isoformat()
+    assert old_day in shown_days(), "The 17:00 copy must start out hidden behind the 09:00 one."
+
+    new_dt = (base + timedelta(days=2)).replace(tzinfo=py_utc.utc)
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(canonical.id),
+                "oldDatetime": _as_utc_iso(base),
+                "newDatetime": new_dt.isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    after = shown_days()
+    assert old_day not in after, "The vacated day must not resurface from the hidden copy."
+    assert new_dt.date().isoformat() in after
+
+    # Both hidden copies were one session on screen, so the assignment keeps one date, not two
+    # identical ones.
+    plan.reload()
+    assert plan.interventions[1].dates == [new_dt.replace(tzinfo=None)]
+
+
+def test_reschedule_onto_a_duplicate_assignments_day_still_collides(mongo_mock):
+    """The sibling's dates stay part of the collision check: only the vacated day is exempt."""
+    patient, canonical, translated, plan = _plan_with_duplicate_assignments()
+
+    old_dt = (datetime.now() + timedelta(days=4)).replace(hour=9, minute=0, second=0, microsecond=0)
+    occupied = old_dt + timedelta(days=2)
+    plan.interventions[0].dates = [old_dt]
+    plan.interventions[1].dates = [occupied]
+    plan.save()
+
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(canonical.id),
+                "oldDatetime": _as_utc_iso(old_dt),
+                "newDatetime": occupied.replace(tzinfo=py_utc.utc).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    assert "already exists" in resp.json()["message"]
+
+
+def test_reschedule_leaves_a_second_same_day_session_on_its_own_assignment(mongo_mock):
+    """
+    Two sessions on one day within a *single* assignment are both displayed, so they are independent
+    occurrences - moving one must not drag the other along with it.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    day = (datetime.now() + timedelta(days=4)).replace(hour=9, minute=0, second=0, microsecond=0)
+    other = day.replace(hour=17)
+    plan.interventions[0].dates = [day, other]
+    plan.save()
+
+    new_dt = (day + timedelta(days=2)).replace(tzinfo=py_utc.utc)
+
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": _as_utc_iso(day),
+                "newDatetime": new_dt.isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    kept = sorted(plan.interventions[0].dates)
+    assert kept == sorted([other, new_dt.replace(tzinfo=None)]), "The 17:00 session must stay put."
+
+
 def test_reschedule_intervention_date_success(mongo_mock):
     """
     Moving one of the seeded future dates to a new future datetime updates
