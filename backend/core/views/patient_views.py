@@ -500,7 +500,8 @@ def mark_intervention_completed(request):
                     log_date = sched_local
                     break
 
-        # Fetch this assignment's logs for the day, across its own language variants only.
+        # Fetch the day's logs across every language variant of this intervention, so a legacy
+        # duplicate assignment's log is merged into one rather than joined by a second one.
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
@@ -632,7 +633,7 @@ def unmark_intervention_completed(request):
         day_start = datetime.datetime.combine(target_day, datetime.time.min)
         day_end = datetime.datetime.combine(target_day, datetime.time.max)
 
-        # Scope to this assignment's own variants, not a same-external_id sibling assignment.
+        # Across every language variant, so a log the plan views display is one we can also clear.
         _, canonical_intervention, variant_ids = _resolve_plan_assignment(rehab_plan, intervention)
 
         logs_qs = PatientInterventionLogs.objects(
@@ -2207,10 +2208,10 @@ def _resolve_plan_assignment(plan, intervention):
         plan, intervention.pk, known_external_id=getattr(intervention, "external_id", None)
     )
     if assignment is None:
-        return None, intervention, [intervention.pk]
+        return None, intervention, _intervention_variant_ids(intervention)
     canonical_intervention = _safe_intervention(assignment) or intervention
-    variant_ids = _intervention_variant_ids(intervention, plan=plan, keep_assignment=assignment)
-    return assignment, canonical_intervention, variant_ids
+    # The same set both plan views read, so a completion they display is one these endpoints can find.
+    return assignment, canonical_intervention, _intervention_variant_ids(canonical_intervention)
 
 
 def _group_assignments_by_external_id(plan):
@@ -2258,22 +2259,17 @@ def _group_assignments_by_external_id(plan):
         yield group["assignment"], group["intervention"], group["dates"]
 
 
-def _intervention_variant_ids(intervention, plan=None, keep_assignment=None):
-    """Ids sharing intervention's external_id; with `plan`, drop ids owned by other assignments."""
+def _intervention_variant_ids(intervention):
+    """Every Intervention id sharing this one's external_id, i.e. its language variants.
+
+    Readers and writers must resolve the same set: both plan views merge a legacy plan's duplicate
+    assignments into one row, so narrowing this for the writers would leave completions the views
+    display but complete/uncomplete cannot find.
+    """
     external_id = getattr(intervention, "external_id", None)
     if not external_id:
         return [intervention.pk]
-    variant_ids = set(_variant_ids_for_external_id(external_id))
-    if plan is not None:
-        keep_id = getattr(_safe_intervention(keep_assignment), "id", None) if keep_assignment is not None else None
-        for a in plan.interventions or []:
-            if a is keep_assignment:
-                continue
-            other_id = getattr(_safe_intervention(a), "id", None)
-            # Never discard keep_assignment's own id, even if another assignment happens to share it (duplicate interventionId from a race).
-            if other_id is not None and other_id != keep_id:
-                variant_ids.discard(other_id)
-    return list(variant_ids)
+    return _variant_ids_for_external_id(external_id)
 
 
 # English + German short labels

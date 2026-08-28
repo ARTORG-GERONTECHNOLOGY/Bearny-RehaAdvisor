@@ -314,6 +314,99 @@ def test_unmark_intervention_completed_resolves_duplicate_plan_to_first_assignme
     ), "The completion log on the first assignment's variant must actually be removed."
 
 
+def _plan_with_duplicate_assignments():
+    """A legacy plan holding the same external_id twice, EN then DE.
+
+    Both plan views merge the two into a single row, so the endpoints have to treat them as one
+    logical intervention too.
+    """
+    patient, _, canonical, plan = setup_patient_with_plan()
+    translated = Intervention(
+        external_id=canonical.external_id,
+        language="de",
+        title="Yoga (DE)",
+        description="Yoga Sitzung",
+        content_type="Video",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=translated,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(1, 4)],
+        )
+    )
+    plan.save()
+    return patient, canonical, translated, plan
+
+
+def _completed_today_on(patient, intervention, plan):
+    return PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(timezone.localdate(), datetime.min.time()),
+        status=["completed"],
+    ).save()
+
+
+def test_unmark_clears_a_log_stored_on_a_duplicate_sibling_assignment(mongo_mock):
+    """
+    Regression: a completion recorded against the *second* duplicate assignment's variant is one
+    get_patient_plan displays, because that view matches every variant of the external_id. Uncomplete
+    has to match the same set, or the log survives and the patient's checkbox stays ticked forever.
+    """
+    patient, canonical, translated, plan = _plan_with_duplicate_assignments()
+    _completed_today_on(patient, translated, plan)
+
+    today = timezone.localdate().isoformat()
+
+    plan_view = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    rows = json.loads(plan_view.content)
+    assert len(rows) == 1, "The duplicate assignments must be merged into one row."
+    assert today in rows[0]["completion_dates"]
+    # The id the plan view hands the frontend is the one it will post back.
+    shown_id = rows[0]["intervention_id"]
+    assert shown_id == str(canonical.id)
+
+    resp = client.post(
+        UNCOMPLETE_URL,
+        data=json.dumps({"patient_id": str(patient.userId.id), "intervention_id": shown_id, "date": today}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert (
+        PatientInterventionLogs.objects(userId=patient).count() == 0
+    ), "The sibling assignment's completion log must be cleared, not left behind."
+
+
+def test_mark_completed_reuses_a_log_stored_on_a_duplicate_sibling_assignment(mongo_mock):
+    """
+    Regression: completing must merge into the existing log for the day rather than adding a second
+    one beside it, even when that log sits on the duplicate sibling assignment's variant.
+    """
+    patient, canonical, translated, plan = _plan_with_duplicate_assignments()
+    existing = _completed_today_on(patient, translated, plan)
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps({"patient_id": str(patient.userId.id), "intervention_id": str(canonical.id)}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    logs = PatientInterventionLogs.objects(userId=patient)
+    assert logs.count() == 1, "A second log for the same day must not be created."
+    kept = logs.first()
+    assert kept.id == existing.id, "The pre-existing log is the one that must be kept."
+    assert kept.interventionId.id == canonical.id, "The kept log must be normalised to the canonical variant."
+
+
 def test_unmark_intervention_completed_after_removed_from_plan(mongo_mock):
     """
     Regression: removing an intervention from the plan (which only clears its

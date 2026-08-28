@@ -2448,12 +2448,12 @@ def test_mark_completed_allows_ad_hoc_intervention_not_on_plan(mongo_mock):
     assert logs.first().interventionId.id == unassigned.id
 
 
-def test_mark_completed_does_not_merge_logs_across_distinct_assignments(mongo_mock):
+def test_mark_completed_merges_logs_across_duplicate_assignments(mongo_mock):
     """
-    Regression: two distinct assignments sharing an external_id (EN + DE
-    variants, both individually assigned) must keep independent completion
-    logs. Completing one must not merge into, or wipe out, the other's log
-    for the same day just because they share an external_id.
+    Two assignments sharing an external_id (EN + DE variants) are legacy data, and both plan views
+    merge them into a single row. Completing that row therefore has to land on a single log: keeping
+    one log per assignment would leave the patient a checkbox the views show as ticked but neither
+    complete nor uncomplete can reach.
     """
     patient, _, intervention, plan = setup_patient_with_plan()
     translated = Intervention(
@@ -2502,9 +2502,17 @@ def test_mark_completed_does_not_merge_logs_across_distinct_assignments(mongo_mo
     assert resp2.status_code == 200, resp2.content.decode()
 
     logs = PatientInterventionLogs.objects(userId=patient)
-    assert logs.count() == 2, "Two distinct assignments' completions were merged into one log"
-    logged_intervention_ids = {str(l.interventionId.id) for l in logs}
-    assert logged_intervention_ids == {str(intervention.id), str(translated.id)}
+    assert logs.count() == 1, "The merged plan row must be backed by a single completion log"
+    assert "completed" in (logs.first().status or [])
+
+    # The row the patient actually sees: one entry, completed once for today.
+    plan_view = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    rows = json.loads(plan_view.content)
+    assert len(rows) == 1
+    assert rows[0]["completion_dates"] == [timezone.localdate().isoformat()]
 
 
 # ===========================================================================
