@@ -166,7 +166,8 @@ def _match_assignment_by_external_id(plan, external_id):
     """
     matches = _assignments_by_external_id(plan, external_id)
     if len(matches) > 1:
-        logger.warning(
+        # debug, not warning: duplicates are a supported steady state, and this runs per request.
+        logger.debug(
             "[_match_assignment_by_external_id] Multiple assignments share external_id=%s; using the first.",
             external_id,
         )

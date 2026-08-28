@@ -252,7 +252,7 @@ def submit_patient_feedback(request):
             if not plan:
                 return JsonResponse({"error": "Rehabilitation plan not found."}, status=404)
 
-            # Resolve against the plan's assignment so feedback lands on the same log as completion, even for a translated variant's interventionId.
+            # Resolve via the plan's assignment: a translated variant must land on completion's log.
             _, canonical_intervention, variant_ids = _resolve_plan_assignment(plan, intervention)
 
             # ✅ use target_day bounds, NOT "today"
@@ -348,9 +348,6 @@ def submit_patient_feedback(request):
         # HEALTHSTATUS feedback path
         # =========================
         else:
-            # PatientICFRating stores an aware date, unlike the naive day bounds above.
-            rating_date = timezone.make_aware(day_start, timezone.get_current_timezone())
-
             for qkey, answer_val in answers.items():
                 qobj = FeedbackQuestion.objects.filter(questionKey=qkey, questionSubject="Healthstatus").first()
                 if not qobj:
@@ -386,8 +383,9 @@ def submit_patient_feedback(request):
                     questionId=qobj,
                     patientId=patient,
                     icfCode=qobj.icfCode,
-                    # ✅ align rating date too (important for time-series charts)
-                    date=rating_date,
+                    # Naive local, like the day bounds above: the health-overview readers render
+                    # this value as stored, so an aware one comes back shifted into the day before.
+                    date=day_start,
                     rating=int(text_ans) if text_ans.isdigit() else None,
                     notes=notes,
                     feedback_entries=[entry],
@@ -1106,9 +1104,8 @@ def get_patient_plan(request, patient_id):
         variant_ids = _variant_ids_by_intervention(iv for _, iv, _ in grouped)
 
         for assignment, assigned_intervention, assignment_dates in grouped:
-            # Use the language-preferred variant for title/metadata display, but look logs up across
-            # every variant of this external_id - the same set get_patient_plan_for_therapist uses, so
-            # both views report the same completions - scoped to this plan.
+            # Preferred variant for display, but logs across every variant of the external_id -
+            # the same set the therapist view reads, so both report the same completions.
             intervention = _best_variant(assigned_intervention, ui_lang) if ui_lang else assigned_intervention
 
             logs = PatientInterventionLogs.objects(
@@ -1439,7 +1436,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
             if plan:
                 assignment = _find_plan_intervention_assignment(plan, intervention_id)
 
-        # Use the requested intervention's own doc, not the assignment's resolved variant, since content_type may differ across language variants.
+        # The requested doc, not the assignment's variant: content_type can differ across languages.
         intervention_aim = ""
         if intervention_id:
             try:
@@ -1450,7 +1447,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
             except Exception:
                 pass
 
-        # Fallback: if the requested document couldn't be resolved directly (e.g. invalid id), use the matched assignment's document instead.
+        # Fallback for an unresolvable id: take content_type from the matched assignment instead.
         if not intervention_type and assignment and _safe_intervention(assignment):
             raw_type = str(getattr(assignment.interventionId, "content_type", "") or "")
             intervention_type = raw_type.strip().lower() or None
@@ -2037,9 +2034,7 @@ def add_intervention_to_patient(request):
 
         new_ext = getattr(intervention, "external_id", None)
 
-        # external_id first, so re-adding in a different language merges into the assignment the plan
-        # already has. A lone external_id match is the same assignment an id match would find, so
-        # nothing is lost by preferring it.
+        # external_id first, so re-adding in another language merges into the existing assignment.
         if new_ext:
             existing = _match_assignment_by_external_id(plan, new_ext)
         else:
@@ -2968,11 +2963,8 @@ def reschedule_intervention_date(request):
     # second same-day occurrence would make the therapist view misattribute
     # the existing completed log to the new, unstarted occurrence.
     # ----------------------
-    # Every date on the day being vacated that the plan views hide behind this one occurrence has to
-    # travel with it - left behind it resurfaces on the old day, and the drag reads as a duplicate
-    # rather than a move. _group_assignments_by_external_id renders targets[0]'s dates wholesale and
-    # day-dedups every later assignment against them, so "hidden" is exactly "on that day, outside
-    # targets[0]" - including a second date inside the assignment the dragged occurrence lives in.
+    # Copies the plan views hide behind this occurrence must travel with it, or the day it vacates
+    # resurfaces. _merge_sibling_dates keeps targets[0] wholesale, so "hidden" is "that day, ti > 0".
     old_day = _as_aware_local(existing_utc[match_idx[0]][match_idx[1]]).date()
     moving = {match_idx}
     for ti, dates in enumerate(existing_utc):
@@ -3145,9 +3137,8 @@ def get_patient_plan_for_therapist(request, patient_id):
                     plan.id,
                     intervention.id,
                 )
-            # Query logs across ALL language variants of this external_id (not just the ones that
-            # happen to be assigned) so that logs recorded under a different variant are still
-            # counted, scoped to this plan the way get_patient_plan scopes them.
+            # Every variant of the external_id, not just the assigned ones, so a log recorded under
+            # another variant still counts - scoped to this plan the way get_patient_plan scopes it.
             logs = PatientInterventionLogs.objects(
                 userId=patient,
                 rehabilitationPlanId=plan,
@@ -3393,9 +3384,10 @@ def remove_intervention_from_patient(request):
             status=404,
         )
 
-    try:
-        plan = RehabilitationPlan.objects.get(patientId=patient)
-    except RehabilitationPlan.DoesNotExist:
+    # .first(), like every other plan reader: .get() raised an uncaught MultipleObjectsReturned
+    # for a patient who ended up with two plan docs, and there is no unique index preventing that.
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    if plan is None:
         logger.warning("[remove_intervention_from_patient] Plan not found for supplied patient identifier.")
         return JsonResponse(
             {
@@ -3425,24 +3417,35 @@ def remove_intervention_from_patient(request):
             )
 
         now_utc = _as_aware_utc(now)
-        for assignment in assignments:
-            if occurrence_dt_utc is not None:
-                # Remove only the single matching future occurrence, leaving
-                # every other scheduled date (past or future) untouched.
-                # Matched in UTC (like reschedule_intervention_date) since
-                # naive Mongo dates are stored as UTC instants, not local time.
+        if occurrence_dt_utc is not None:
+            # Remove only the single matching future occurrence, leaving
+            # every other scheduled date (past or future) untouched.
+            # Matched in UTC (like reschedule_intervention_date) since
+            # naive Mongo dates are stored as UTC instants, not local time.
+            removed_day = None
+            for assignment in assignments:
                 remaining = []
                 for d in assignment.dates:
                     d_utc = _as_aware_utc(d)
                     if d_utc > now_utc and abs((d_utc - occurrence_dt_utc).total_seconds()) < 1:
                         occurrence_found = True
+                        removed_day = _local_day(d)
                         continue
                     remaining.append(d)
                 assignment.dates = remaining
-            else:
-                # Keep only past dates. Compared in UTC like the branch above, since naive Mongo
-                # dates are stored as UTC instants; reading them as local dated them back by the
-                # local offset, so a session due within it looked past and survived the removal.
+
+            # Same hidden-copy rule as reschedule: a sibling's date on the vacated day resurfaces
+            # unless it goes too. Future copies only - a past one is history nobody asked to delete.
+            if removed_day is not None:
+                for assignment in assignments[1:]:
+                    assignment.dates = [
+                        d for d in assignment.dates if not (_as_aware_utc(d) > now_utc and _local_day(d) == removed_day)
+                    ]
+        else:
+            # Keep only past dates. Compared in UTC like the branch above, since naive Mongo
+            # dates are stored as UTC instants; reading them as local dated them back by the
+            # local offset, so a session due within it looked past and survived the removal.
+            for assignment in assignments:
                 assignment.dates = [d for d in assignment.dates if _as_aware_utc(d) <= now_utc]
 
         if occurrence_dt_utc is not None and not occurrence_found:

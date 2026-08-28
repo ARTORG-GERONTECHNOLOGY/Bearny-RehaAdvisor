@@ -473,6 +473,44 @@ def test_submit_feedback_finds_log_scheduled_late_in_the_day(mongo_mock, hour):
     assert len(completion_log.feedback) == 1
 
 
+def test_submit_healthstatus_feedback_stores_the_local_day(mongo_mock):
+    """
+    Regression: PatientICFRating.date is written naive-local, like the day bounds it comes from.
+    Mongo runs tz_aware=False, so an aware value is converted to UTC on write and read back naive -
+    east of UTC that lands in the *previous* day, and the health-overview readers render the stored
+    value as-is (google_health_view / fitbit_view via .date(), healthstatus-history via .isoformat()).
+    An aware write therefore plotted every rating a day early, and disagreed with existing rows.
+    """
+    patient, _, _, _ = setup_patient_with_plan()
+
+    FeedbackQuestion.objects.create(
+        questionSubject="Healthstatus",
+        questionKey="mobility",
+        icfCode="d450",
+        answer_type="text",
+        translations=[Translation(language="en", text="How is your mobility?")],
+        possibleAnswers=[],
+    )
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": "",  # Healthstatus path
+            "mobility": json.dumps(["3"]),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    rating = PatientICFRating.objects(patientId=patient).first()
+    assert rating is not None
+    today = timezone.localdate()
+    # .date() is exactly what google_health_view and fitbit_view render.
+    assert rating.date.date() == today, f"Rating stored on {rating.date} but submitted on {today}"
+    assert rating.date.hour == 0, "Expected local midnight, not a UTC-shifted instant."
+
+
 def test_submit_feedback_no_responses(mongo_mock):
     """
 
@@ -1021,6 +1059,78 @@ def test_remove_single_occurrence_local_midnight_not_confused_with_neighbor_day(
     assert len(remaining) == 2
     for actual, exp in zip(remaining, expected):
         assert abs((actual - exp).total_seconds()) < 1
+
+
+def test_remove_single_occurrence_also_drops_a_hidden_duplicate_copy(mongo_mock):
+    """
+    Regression: both plan views day-dedup a duplicate assignment against the canonical one, so a
+    sibling's date on the same day sits hidden behind the occurrence being removed. Matching only on
+    the exact UTC instant left it in place and the day resurfaced - the therapist deleted a session,
+    got a 200, and watched the day stay on the plan. Mirrors the reschedule endpoint's handling.
+    """
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
+
+    noon = datetime.combine(timezone.localdate(), dtime(12, 0))
+    target = noon + timedelta(days=3)
+    plan.interventions[0].dates = [target]
+    # Same day, different time - invisible in both plan views.
+    plan.interventions[1].dates = [target.replace(hour=17)]
+    plan.save()
+
+    def shown_days():
+        view = client.get(
+            f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+        # Flattened across rows: once both copies go the assignment is pruned and no row remains.
+        return sorted({d[:10] for row in json.loads(view.content) for d in row["dates"]})
+
+    target_day = target.date().isoformat()
+    assert shown_days() == [target_day], "The 17:00 copy must start out hidden behind the 12:00 one."
+
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps(
+            {
+                "intervention": str(intervention.id),
+                "patientId": str(patient.id),
+                "datetime": _as_utc(target).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert shown_days() == [], "The removed day must not resurface from the hidden copy."
+
+
+def test_remove_single_occurrence_keeps_a_past_copy_on_the_removed_day(mongo_mock):
+    """A same-day copy already in the past is history, not something the therapist asked to delete."""
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
+
+    now = timezone.localtime()
+    target = now.replace(hour=23, minute=0, second=0, microsecond=0).replace(tzinfo=None)
+    past_same_day = now.replace(hour=0, minute=1, second=0, microsecond=0).replace(tzinfo=None)
+    plan.interventions[0].dates = [target]
+    plan.interventions[1].dates = [past_same_day]
+    plan.save()
+
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps(
+            {
+                "intervention": str(intervention.id),
+                "patientId": str(patient.id),
+                "datetime": _as_utc(target).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    assert _assignment_for(plan, translated).dates == [past_same_day], "Past session must survive."
 
 
 def test_remove_single_occurrence_not_found(mongo_mock):
