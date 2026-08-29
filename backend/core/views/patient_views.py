@@ -340,7 +340,7 @@ def submit_patient_feedback(request):
                 log.feedback.append(FeedbackEntry(**entry_kwargs))
 
             log.updatedAt = timezone.now()
-            # Normalise so get_patient_plan's exact-match lookup keeps finding this log.
+            # Collapse the day onto one variant, so duplicate logs stop accumulating per language.
             log.interventionId = canonical_intervention
             log.save()
 
@@ -408,6 +408,37 @@ def submit_patient_feedback(request):
     except Exception as e:
         logger.exception("Unexpected error in submit_patient_feedback")
         return JsonResponse({"error": str(e)}, status=500)
+
+
+def _absorb_duplicate_logs(keep, others):
+    """Fold same-day duplicate logs into `keep`, then delete them.
+
+    Every field has to come across, not just status and feedback: the day query spans an
+    intervention's language variants, so a video or note recorded under one variant would
+    otherwise be deleted when the patient completes the day under another.
+    """
+    keep.status = list(dict.fromkeys((keep.status or []) + [s for l in others for s in (l.status or [])]))
+
+    merged_feedback = list(keep.feedback or [])
+    for l in others:
+        merged_feedback.extend(l.feedback or [])
+    keep.feedback = merged_feedback
+
+    for l in others:
+        if not getattr(keep, "video_url", None) and getattr(l, "video_url", None):
+            keep.video_url = l.video_url
+            keep.video_expired = bool(getattr(l, "video_expired", False))
+        if not getattr(keep, "assistance", None) and getattr(l, "assistance", None):
+            keep.assistance = l.assistance
+        extra = (getattr(l, "comments", "") or "").strip()
+        if extra and extra not in (keep.comments or ""):
+            keep.comments = f"{(keep.comments or '').rstrip()}\n{extra}".strip()
+
+    for l in others:
+        try:
+            l.delete()
+        except Exception:
+            logger.warning("[_absorb_duplicate_logs] Could not delete duplicate log %s", l.id, exc_info=True)
 
 
 @api_view(["POST"])
@@ -486,7 +517,7 @@ def mark_intervention_completed(request):
         assignment, canonical_intervention, variant_ids = _resolve_plan_assignment(rehab_plan, intervention)
 
         if assignment is not None:
-            # Log against the plan's assigned variant so get_patient_plan's exact-match lookup finds it.
+            # Log against the plan's assigned variant, the one both plan views render.
             for sched_dt in assignment.dates:
                 if not isinstance(sched_dt, datetime.datetime):
                     continue
@@ -511,25 +542,7 @@ def mark_intervention_completed(request):
 
         if logs:
             keep = logs[0]
-            others = logs[1:]
-
-            # merge status unique
-            merged_status = list(dict.fromkeys((keep.status or []) + sum([(l.status or []) for l in others], [])))
-            keep.status = merged_status
-
-            # merge feedback
-            merged_feedback = keep.feedback or []
-            for l in others:
-                if l.feedback:
-                    merged_feedback.extend(l.feedback)
-            keep.feedback = merged_feedback
-
-            # delete duplicates
-            for l in others:
-                try:
-                    l.delete()
-                except Exception:
-                    pass
+            _absorb_duplicate_logs(keep, logs[1:])
 
             # ensure completed
             if "completed" not in (keep.status or []):
@@ -647,30 +660,17 @@ def unmark_intervention_completed(request):
 
         # ✅ keep newest, merge others, delete duplicates
         keep = logs[0]
-        others = logs[1:]
+        _absorb_duplicate_logs(keep, logs[1:])
 
-        merged_status = list(dict.fromkeys((keep.status or []) + sum([(l.status or []) for l in others], [])))
-        keep.status = [s for s in merged_status if str(s).lower() != "completed"]
-
-        merged_feedback = keep.feedback or []
-        for l in others:
-            if l.feedback:
-                merged_feedback.extend(l.feedback)
-        keep.feedback = merged_feedback
-
+        keep.status = [s for s in (keep.status or []) if str(s).lower() != "completed"]
         keep.updatedAt = timezone.now()
 
-        for l in others:
-            try:
-                l.delete()
-            except Exception:
-                pass
-
-        # Delete log if nothing remains after uncomplete, else normalise and save
-        if not keep.status and not keep.feedback:
+        # Delete log if nothing remains after uncomplete, else normalise and save.
+        # video_url counts as content: uncompleting a day must not destroy an uploaded video.
+        if not keep.status and not keep.feedback and not getattr(keep, "video_url", None):
             keep.delete()
         else:
-            # Normalise so get_patient_plan's exact-match lookup keeps finding this log.
+            # Collapse the day onto one variant, so duplicate logs stop accumulating per language.
             keep.interventionId = canonical_intervention
             keep.save()
 
@@ -3037,9 +3037,10 @@ def get_patient_plan_for_therapist(request, patient_id):
                         status=403,
                     )
 
-        try:
-            plan = RehabilitationPlan.objects.get(patientId=patient)
-        except RehabilitationPlan.DoesNotExist:
+        # .first(), like every other plan reader: .get() raised an uncaught MultipleObjectsReturned
+        # for a patient who ended up with two plan docs, and there is no unique index preventing that.
+        plan = RehabilitationPlan.objects(patientId=patient).first()
+        if plan is None:
             logger.info(
                 "[get_patient_plan_for_therapist] No rehab plan found for resolved patient (identifier redacted)"
             )
@@ -3104,8 +3105,13 @@ def get_patient_plan_for_therapist(request, patient_id):
             intervention = _group["intervention"]
             all_dates = sorted(_group["all_dates"])
             # Every variant of the external_id, not just the assigned ones, so a log recorded
-            # under a different variant is still counted.
-            logs = PatientInterventionLogs.objects(userId=patient, interventionId__in=variant_ids[intervention.pk])
+            # under a different variant is still counted. Scoped to this plan like get_patient_plan,
+            # or a patient with a second plan doc gets different counts in the two views.
+            logs = PatientInterventionLogs.objects(
+                userId=patient,
+                rehabilitationPlanId=plan,
+                interventionId__in=variant_ids[intervention.pk],
+            )
 
             intervention_dates = []
             completed_count = 0
@@ -3908,7 +3914,10 @@ def get_combined_health_data(request, patient_id):
                     if timezone.is_naive(dt):
                         dt = timezone.make_aware(dt, datetime.timezone.utc)
                     if from_datetime <= dt <= to_datetime:
-                        day = dt.date()
+                        # Local day, not dt.date(): the completed buckets below key off naive-local
+                        # log dates, so a UTC day here put a session and its completion on
+                        # different rows whenever the session sat within the offset of midnight.
+                        day = timezone.localtime(dt).date()
                         scheduled_by_day[day] = scheduled_by_day.get(day, 0) + 1
 
         completed_by_day: dict[datetime.date, int] = {}

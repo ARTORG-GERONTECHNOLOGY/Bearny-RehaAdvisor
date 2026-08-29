@@ -1367,3 +1367,159 @@ def test_reschedule_intervention_date_invalid_json_body(mongo_mock):
     )
     assert resp.status_code == 400
     assert "Invalid JSON body" in resp.json()["message"]
+
+
+# ===========================================================================
+# Duplicate-log merge  —  field preservation
+# ===========================================================================
+
+
+def _variant_of(intervention, language="de"):
+    return Intervention(
+        external_id=intervention.external_id,
+        language=language,
+        title=f"Yoga ({language.upper()})",
+        description="Yoga Sitzung",
+        content_type="Video",
+    ).save()
+
+
+def test_completing_preserves_video_from_a_duplicate_variant_log(mongo_mock):
+    """
+    The day query spans an intervention's language variants, so completing under one variant
+    pulls in a log recorded under another and deletes it. Everything on that log has to come
+    across first - a feedback video recorded in German must survive completing in English.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = _variant_of(intervention)
+
+    today = timezone.localdate()
+    midnight = datetime.combine(today, datetime.min.time())
+
+    # The German log carries the video and sorts oldest, so the merge keeps the English one.
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=translated,
+        rehabilitationPlanId=plan,
+        date=midnight,
+        status=[],
+        feedback=[],
+        comments="Video uploaded at 2026-08-28 10:00",
+        video_url="/media/videos/patient_clip.mp4",
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=midnight + timedelta(hours=9),
+        status=[],
+        feedback=[],
+        comments="",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+                "date": today.isoformat(),
+                "assistance": "alone",
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    logs = list(PatientInterventionLogs.objects(userId=patient))
+    assert len(logs) == 1, "duplicate variant logs should be merged into one"
+    assert logs[0].video_url == "/media/videos/patient_clip.mp4", "video was destroyed by the merge"
+    assert "Video uploaded at" in (logs[0].comments or ""), "comments were destroyed by the merge"
+    assert "completed" in logs[0].status
+
+
+def test_completing_keeps_assistance_recorded_on_a_duplicate_log(mongo_mock):
+    """`assistance` lives only on the log, so it must survive the same merge."""
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = _variant_of(intervention)
+
+    today = timezone.localdate()
+    midnight = datetime.combine(today, datetime.min.time())
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=translated,
+        rehabilitationPlanId=plan,
+        date=midnight,
+        status=[],
+        feedback=[],
+        comments="",
+        assistance="with_help",
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=midnight + timedelta(hours=9),
+        status=[],
+        feedback=[],
+        comments="",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+                "date": today.isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    logs = list(PatientInterventionLogs.objects(userId=patient))
+    assert len(logs) == 1
+    assert logs[0].assistance == "with_help"
+
+
+def test_uncompleting_keeps_a_log_that_still_holds_a_video(mongo_mock):
+    """
+    Uncompleting drops the log once nothing is left on it, but an uploaded video is content:
+    reverting an accidental completion tap must not delete the patient's recording.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    today = timezone.localdate()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(today, datetime.min.time()),
+        status=["completed"],
+        feedback=[],
+        comments="",
+        video_url="/media/videos/patient_clip.mp4",
+    ).save()
+
+    resp = client.post(
+        UNCOMPLETE_URL,
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+                "date": today.isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    logs = list(PatientInterventionLogs.objects(userId=patient))
+    assert len(logs) == 1, "the log carrying the video must survive uncompletion"
+    assert logs[0].video_url == "/media/videos/patient_clip.mp4"
+    assert "completed" not in (logs[0].status or [])

@@ -48,7 +48,6 @@ from utils.utils import (
     check_verify_rate_limit,
     convert_to_serializable,
     generate_custom_id,
-    generate_repeat_dates,
     get_labels,
     increment_attempt,
     increment_verify_attempt,

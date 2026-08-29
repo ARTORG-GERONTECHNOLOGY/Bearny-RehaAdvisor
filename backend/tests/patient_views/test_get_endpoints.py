@@ -35,6 +35,7 @@ User → Therapist → Patient → optional RehabilitationPlan chain.
 """
 
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from unittest.mock import patch
 
 import mongomock
@@ -1385,3 +1386,54 @@ def test_therapist_plan_external_id_enables_cross_variant_merge(mongo_mock):
     # Both identifiers must be present
     assert entry["_id"] == str(int_en.id)
     assert entry["external_id"] == "PROD-CHOL-001"
+
+
+# ===========================================================================
+# get_combined_health_data  —  GET /api/patients/health-combined-history/<id>/
+# ===========================================================================
+
+
+def test_combined_health_adherence_buckets_scheduled_and_completed_on_the_same_day(mongo_mock):
+    """
+    The daily adherence rows pair a scheduled count with a completed count, and the two come from
+    collections storing datetimes under different conventions: assignment dates are naive UTC,
+    log dates naive local. Bucketing the scheduled side on its UTC day split a session and its
+    own completion across two rows - one showing 0%, the next crediting a completion nothing
+    was scheduled for.
+    """
+    patient, therapist, intervention, _ = setup_basic_plan(with_plan=False)
+
+    # 22:30 UTC is 00:30 local the *next* day in Europe/Zurich.
+    day_local = timezone.localdate() - timedelta(days=3)
+    scheduled_utc = datetime.combine(day_local - timedelta(days=1), datetime.min.time()).replace(hour=22, minute=30)
+    assert timezone.localtime(scheduled_utc.replace(tzinfo=dt_timezone.utc)).date() == day_local
+
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=10),
+        endDate=datetime.now() + timedelta(days=10),
+        status="active",
+        interventions=[InterventionAssignment(interventionId=intervention, frequency="Daily", dates=[scheduled_utc])],
+    ).save()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(day_local, datetime.min.time()).replace(hour=9),
+        status=["completed"],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/health-combined-history/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    rows = {r["date"]: r for r in resp.json().get("adherence", [])}
+    row = rows.get(day_local.isoformat())
+    assert row is not None, f"no adherence row for {day_local}"
+    assert row["scheduled"] == 1, "the session was bucketed on its UTC day, not the local one"
+    assert row["completed"] == 1
+    assert row["pct"] == 100

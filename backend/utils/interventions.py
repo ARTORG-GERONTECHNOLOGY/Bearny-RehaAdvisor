@@ -430,9 +430,11 @@ def _upsert_intervention(
             kept = [d for d in (found.dates or []) if _as_utc(d) < eff]
             found.dates = kept + dates
         else:
-            seen = {_instant_key(d) for d in (found.dates or [])}
-            merged = list(found.dates or [])
-            for d in dates:
+            # Existing dates are filtered too, not just carried over: a legacy assignment holding
+            # the same instant twice would otherwise keep serving two sessions for one day.
+            seen = set()
+            merged = []
+            for d in list(found.dates or []) + list(dates):
                 key = _instant_key(d)
                 if key not in seen:
                     seen.add(key)

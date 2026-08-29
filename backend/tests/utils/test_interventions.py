@@ -251,3 +251,25 @@ def test_upsert_intervention_merge_leaves_stored_dates_untouched():
     _upsert_intervention(plan, en, [make_aware(datetime(2026, 8, 29, 10, 0, 0))])
 
     assert plan.interventions[0].dates[: len(stored)] == stored
+
+
+def test_upsert_intervention_collapses_a_date_stored_twice_on_one_assignment():
+    """
+    A legacy assignment can hold the same instant twice, from back when the merge compared naive
+    against aware and deduped nothing. The merge has to filter the stored dates too, not just
+    carry them over, or the plan keeps serving two sessions for that one day forever.
+    """
+    en = _variant("EXT_1", "en", "Stretching")
+    plan = _plan(en)
+
+    stored = datetime(2026, 8, 27, 8, 0, 0)  # local 10:00 CEST, as Mongo holds it
+    plan.interventions[0].dates = [stored, stored, datetime(2026, 8, 28, 8, 0, 0)]
+    plan.save()
+    plan.reload()
+
+    _upsert_intervention(plan, en, [make_aware(datetime(2026, 8, 29, 10, 0, 0))])
+
+    dates = plan.interventions[0].dates
+    keys = [_instant_key(d) for d in dates]
+    assert len(keys) == len(set(keys)), f"the duplicated stored date survived the merge: {dates}"
+    assert len(dates) == 3
