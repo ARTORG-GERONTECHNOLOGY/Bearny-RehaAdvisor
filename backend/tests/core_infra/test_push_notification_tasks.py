@@ -316,3 +316,24 @@ def test_deleted_intervention_is_skipped_without_aborting_the_run():
     assert SentPushNotification.objects(patient=patient_b).count() == 1
     assert SentPushNotification.objects(patient=patient_a).count() == 0
     assert mocked_webpush.call_count == 1
+
+
+def test_deleted_patient_is_skipped_without_aborting_the_run():
+    """
+    The same hazard one level up: a deleted Patient raises DoesNotExist when plan.patientId is
+    dereferenced, so the `if patient is None` guard never fired. The exception escaped the task,
+    burned both autoretries and dropped that hour's notifications for every other patient.
+    """
+    patient_a, _, _, _ = create_patient_with_plan("Education")
+    add_subscription(patient_a)
+    patient_b, _, _, _ = create_patient_with_plan("Education")
+    add_subscription(patient_b)
+
+    patient_a.delete()
+
+    with patch("pywebpush.webpush") as mocked_webpush:
+        result = send_due_intervention_push_notifications()
+
+    assert result["sent"] == 1, "The plan with the dangling patient should be skipped, not raise."
+    assert SentPushNotification.objects(patient=patient_b).count() == 1
+    assert mocked_webpush.call_count == 1

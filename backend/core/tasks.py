@@ -11,7 +11,7 @@ from celery import shared_task
 from django.conf import settings
 from django.core.management import call_command
 from django.utils import timezone
-from mongoengine.errors import NotUniqueError
+from mongoengine.errors import DoesNotExist, NotUniqueError
 
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from core.views.google_health_sync import fetch_google_health_today_for_user
@@ -491,7 +491,13 @@ def send_due_intervention_push_notifications():
 
     counts = {"sent": 0, "skipped": 0, "duplicate": 0}
     for plan in candidates:
-        patient = plan.patientId
+        try:
+            patient = plan.patientId
+        except DoesNotExist:
+            # A deleted Patient raises on dereference rather than returning None, so the check
+            # below never caught it. This loop covers every active plan: one stale reference took
+            # the whole hourly run down, and with it that hour's notifications for everyone else.
+            patient = None
         if patient is None:
             continue
         for assignment, dt in _due_assignment_dates(plan, window_start, window_end):

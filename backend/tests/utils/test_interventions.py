@@ -34,7 +34,7 @@ from core.models import (
 from utils.interventions import (
     _canonical_assignment_for,
     _instant_key,
-    _match_assignment_by_id,
+    _plan_assignments_for,
     _safe_intervention,
     _upsert_intervention,
 )
@@ -94,8 +94,10 @@ def test_canonical_assignment_matches_a_different_language_variant():
     plan = _plan(de)
 
     assert _canonical_assignment_for(plan, en) is plan.interventions[0]
-    assert _match_assignment_by_id(plan, en.id) is None, "id matching alone is what misses the variant"
     assert str(_safe_intervention(_canonical_assignment_for(plan, en)).id) == str(de.id)
+    assert not [
+        a for a in plan.interventions if str(_safe_intervention(a).id) == str(en.id)
+    ], "id matching alone is what misses the variant"
 
 
 def test_canonical_assignment_picks_the_first_of_several_duplicates():
@@ -110,6 +112,7 @@ def test_canonical_assignment_picks_the_first_of_several_duplicates():
     plan = _plan(de, en)
 
     assert _canonical_assignment_for(plan, fr) is plan.interventions[0]
+    assert _plan_assignments_for(plan, fr) == [plan.interventions[0], plan.interventions[1]]
 
 
 def test_canonical_assignment_returns_none_when_not_on_the_plan():

@@ -142,44 +142,38 @@ def _safe_intervention(assignment):
         return None
 
 
-def _match_assignment_by_id(plan, intervention_id):
-    intervention_id = str(intervention_id)
+def _plan_assignments_for(plan, intervention):
+    """Every assignment on the plan holding this logical intervention, in plan order.
+
+    Grouped by external_id, which is what makes two language variants one intervention: the plan
+    stores whichever variant document was assigned, while callers arrive holding another. A
+    document without an external_id can only be matched by its own id.
+    """
+    external_id = getattr(intervention, "external_id", None)
+    target_id = str(getattr(intervention, "id", None))
+
+    out = []
     for a in plan.interventions or []:
         iv = _safe_intervention(a)
-        if iv is not None and str(iv.id) == intervention_id:
-            return a
-    return None
-
-
-def _assignments_by_external_id(plan, external_id):
-    """Every assignment on the plan holding a variant of this external_id, in plan order."""
-    if not external_id:
-        return []
-    return [a for a in (plan.interventions or []) if getattr(_safe_intervention(a), "external_id", None) == external_id]
-
-
-def _match_assignment_by_external_id(plan, external_id):
-    """The plan's assignment holding a variant of this external_id, or None.
-
-    A plan holding duplicates is legacy data, so the first match wins - it is the one
-    get_patient_plan and get_patient_plan_for_therapist both already display as canonical.
-    """
-    matches = _assignments_by_external_id(plan, external_id)
-    if len(matches) > 1:
-        # debug, not warning: duplicates are a supported steady state, and this runs per request.
-        logger.debug(
-            "[_match_assignment_by_external_id] Multiple assignments share external_id=%s; using the first.",
-            external_id,
-        )
-    return matches[0] if matches else None
+        if iv is None:
+            continue
+        if external_id:
+            matched = getattr(iv, "external_id", None) == external_id
+        else:
+            matched = str(iv.id) == target_id
+        if matched:
+            out.append(a)
+    return out
 
 
 def _canonical_assignment_for(plan, intervention):
-    """The assignment a writer should merge into, or None to append a new one."""
-    matches = _assignments_by_external_id(plan, getattr(intervention, "external_id", None))
-    if matches:
-        return matches[0]
-    return _match_assignment_by_id(plan, intervention.id)
+    """The one assignment readers display and writers merge into, or None.
+
+    A plan holding the same intervention twice is legacy data, so the first in plan order wins:
+    it is the row both plan views already render as canonical.
+    """
+    matches = _plan_assignments_for(plan, intervention)
+    return matches[0] if matches else None
 
 
 def _available_language_variants(external_id: str) -> List[dict]:

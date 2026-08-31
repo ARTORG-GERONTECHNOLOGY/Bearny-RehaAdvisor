@@ -43,9 +43,8 @@ from core.models import (
 from core.services.redcap_access import get_therapist_for_user
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.interventions import (
-    _assignments_by_external_id,
-    _match_assignment_by_external_id,
-    _match_assignment_by_id,
+    _canonical_assignment_for,
+    _plan_assignments_for,
     _safe_intervention,
     _variant_ids_by_external_id,
     _variant_ids_for_external_id,
@@ -287,7 +286,10 @@ def submit_patient_feedback(request):
                 if qkey == "video_example" and isinstance(answer_val, dict) and "video_url" in answer_val:
                     log.video_url = answer_val["video_url"]
                     log.video_expired = False
-                    log.comments += f"\nVideo uploaded at {answer_val['uploaded_at']:%Y-%m-%d %H:%M}"
+                    # `or ""`: comments has no default, so a log written before this endpoint
+                    # started passing comments="" holds None, and None += str raises.
+                    note = f"Video uploaded at {answer_val['uploaded_at']:%Y-%m-%d %H:%M}"
+                    log.comments = f"{log.comments or ''}\n{note}".strip()
                     continue
 
                 qobj = FeedbackQuestion.objects.filter(questionKey=qkey).first()
@@ -410,12 +412,12 @@ def submit_patient_feedback(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-def _absorb_duplicate_logs(keep, others):
-    """Fold same-day duplicate logs into `keep`, then delete them.
+def _merge_duplicate_logs(keep, others):
+    """Fold same-day duplicate logs into `keep`. Does not delete them - see _discard_merged_logs.
 
     Every field has to come across, not just status and feedback: the day query spans an
     intervention's language variants, so a video or note recorded under one variant would
-    otherwise be deleted when the patient completes the day under another.
+    otherwise be lost when the patient completes the day under another.
     """
     keep.status = list(dict.fromkeys((keep.status or []) + [s for l in others for s in (l.status or [])]))
 
@@ -434,11 +436,18 @@ def _absorb_duplicate_logs(keep, others):
         if extra and extra not in (keep.comments or ""):
             keep.comments = f"{(keep.comments or '').rstrip()}\n{extra}".strip()
 
+
+def _discard_merged_logs(others):
+    """Delete logs whose content has been merged elsewhere.
+
+    Only ever called after the log holding that content is saved: dropping the originals first
+    would lose a merged video or note outright if the save then failed.
+    """
     for l in others:
         try:
             l.delete()
         except Exception:
-            logger.warning("[_absorb_duplicate_logs] Could not delete duplicate log %s", l.id, exc_info=True)
+            logger.warning("[_discard_merged_logs] Could not delete duplicate log %s", l.id, exc_info=True)
 
 
 @api_view(["POST"])
@@ -514,19 +523,19 @@ def mark_intervention_completed(request):
         #    matches (e.g. ad-hoc completion not on the planned calendar).
         # -----------------------------
         log_date = day_start  # default: local midnight of target_day
-        assignment, canonical_intervention, variant_ids = _resolve_plan_assignment(rehab_plan, intervention)
+        assignments, canonical_intervention, variant_ids = _resolve_plan_assignment(rehab_plan, intervention)
 
-        if assignment is not None:
-            # Log against the plan's assigned variant, the one both plan views render.
-            for sched_dt in assignment.dates:
-                if not isinstance(sched_dt, datetime.datetime):
-                    continue
-                # Naive local, matching how this endpoint stores log dates. Resolved through UTC
-                # like _local_day, so the day matched here is the day the plan views display it on.
-                sched_local = timezone.localtime(_as_aware_utc(sched_dt)).replace(tzinfo=None)
-                if sched_local.date() == target_day:
-                    log_date = sched_local
-                    break
+        # Across every assignment for this intervention, since a legacy plan holding it twice shows
+        # the union of their sessions and the completed day may sit on either one.
+        for sched_dt in (d for a in assignments for d in (a.dates or [])):
+            if not isinstance(sched_dt, datetime.datetime):
+                continue
+            # Naive local, matching how this endpoint stores log dates. Resolved through UTC like
+            # _local_day, so the day matched here is the day the plan views display it on.
+            sched_local = timezone.localtime(_as_aware_utc(sched_dt)).replace(tzinfo=None)
+            if sched_local.date() == target_day:
+                log_date = sched_local
+                break
 
         # Fetch the day's logs across every language variant of this intervention, so a legacy
         # duplicate assignment's log is merged into one rather than joined by a second one.
@@ -542,7 +551,8 @@ def mark_intervention_completed(request):
 
         if logs:
             keep = logs[0]
-            _absorb_duplicate_logs(keep, logs[1:])
+            duplicates = logs[1:]
+            _merge_duplicate_logs(keep, duplicates)
 
             # ensure completed
             if "completed" not in (keep.status or []):
@@ -558,6 +568,7 @@ def mark_intervention_completed(request):
                 keep.assistance = assistance
 
             keep.save()
+            _discard_merged_logs(duplicates)
 
             Logs(
                 userId=patient.userId,
@@ -660,19 +671,32 @@ def unmark_intervention_completed(request):
 
         # ✅ keep newest, merge others, delete duplicates
         keep = logs[0]
-        _absorb_duplicate_logs(keep, logs[1:])
+        duplicates = logs[1:]
+        _merge_duplicate_logs(keep, duplicates)
 
         keep.status = [s for s in (keep.status or []) if str(s).lower() != "completed"]
+        # Assistance describes how much help the session needed, so it goes with the completion
+        # being retracted. Leaving it would silently reattach to the next completion, which does
+        # not send the field unless the patient picks one.
+        keep.assistance = None
         keep.updatedAt = timezone.now()
 
-        # Delete log if nothing remains after uncomplete, else normalise and save.
-        # video_url counts as content: uncompleting a day must not destroy an uploaded video.
-        if not keep.status and not keep.feedback and not getattr(keep, "video_url", None):
+        # Delete log if nothing remains after uncomplete, else normalise and save. A video or a
+        # comment is content the patient produced, not a property of the completion: undoing a
+        # completion tap must not take either with it.
+        if (
+            not keep.status
+            and not keep.feedback
+            and not getattr(keep, "video_url", None)
+            and not (keep.comments or "").strip()
+        ):
             keep.delete()
         else:
             # Collapse the day onto one variant, so duplicate logs stop accumulating per language.
             keep.interventionId = canonical_intervention
             keep.save()
+
+        _discard_merged_logs(duplicates)
 
         Logs(
             userId=patient.userId,
@@ -1450,30 +1474,36 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         # Try to resolve the assignment + intervention type
         assignment = None
         intervention_type = None
-
-        if intervention_id:
-            plan = RehabilitationPlan.objects(patientId=patient).first()
-            if plan:
-                assignment = _find_plan_intervention_assignment(plan, intervention_id)
-
-        if assignment is not None and _safe_intervention(assignment) is not None:
-            # normalize to lower for matching
-            raw_type = str(getattr(assignment.interventionId, "content_type", "") or "")
-            intervention_type = raw_type.strip().lower() or None
-
-        # Fallback: if assignment wasn't found or content_type is empty,
-        # look up the Intervention document directly (handles library-browse path
-        # where the intervention may not be in any rehabilitation plan yet).
         intervention_aim = ""
+
+        iv_doc = None
         if intervention_id:
             try:
                 iv_doc = Intervention.objects.get(pk=ObjectId(intervention_id))
-                if not intervention_type:
-                    raw_type = str(getattr(iv_doc, "content_type", "") or "")
-                    intervention_type = raw_type.strip().lower() or None
-                intervention_aim = str(getattr(iv_doc, "aim", "") or "").strip()
             except Exception:
-                pass
+                iv_doc = None
+
+        if iv_doc is not None:
+            plan = RehabilitationPlan.objects(patientId=patient).first()
+            if plan:
+                # Via the document, so a request naming a language variant the plan does not hold
+                # still finds the assignment (see _plan_assignments_for_id).
+                assignment = _canonical_assignment_for(plan, iv_doc)
+
+        assigned_intervention = _safe_intervention(assignment) if assignment is not None else None
+        if assigned_intervention is not None:
+            # normalize to lower for matching
+            raw_type = str(getattr(assigned_intervention, "content_type", "") or "")
+            intervention_type = raw_type.strip().lower() or None
+
+        # Fallback: if assignment wasn't found or content_type is empty, take it from the
+        # Intervention document itself (handles the library-browse path, where the intervention
+        # may not be in any rehabilitation plan yet).
+        if iv_doc is not None:
+            if not intervention_type:
+                raw_type = str(getattr(iv_doc, "content_type", "") or "")
+                intervention_type = raw_type.strip().lower() or None
+            intervention_aim = str(getattr(iv_doc, "aim", "") or "").strip()
 
         # 1) Core questions (apply to all interventions).
         #    We accept two ways to mark "core":
@@ -2057,11 +2087,9 @@ def add_intervention_to_patient(request):
 
         new_ext = getattr(intervention, "external_id", None)
 
-        # external_id first, so re-adding in another language merges into the existing assignment.
-        if new_ext:
-            existing = _match_assignment_by_external_id(plan, new_ext)
-        else:
-            existing = _match_assignment_by_id(plan, intervention.id)
+        # Matched across language variants, so re-adding in another language merges into the
+        # assignment the plan already holds instead of appending a duplicate beside it.
+        existing = _canonical_assignment_for(plan, intervention)
 
         if existing:
             if new_ext and getattr(existing.interventionId, "id", None) != getattr(intervention, "id", None):
@@ -2181,89 +2209,42 @@ def _ceil_to_day(dt: datetime.datetime) -> datetime.datetime:
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-_UNKNOWN_EXTERNAL_ID = object()
+def _plan_assignments_for_id(plan, intervention_id):
+    """Every assignment on the plan holding the intervention with this id, in plan order.
 
-
-def _find_plan_intervention_assignment(plan, intervention_id, known_external_id=_UNKNOWN_EXTERNAL_ID):
-    """Match a plan's assignment by interventionId, falling back to external_id for multilingual variants.
-
-    Pass `known_external_id` when the caller already holds the loaded Intervention, to skip re-fetching it.
+    This is issue #537: the plan stores whichever language variant was assigned, while the plan
+    views hand the client a different variant's id, so matching the id against the assignments
+    directly found nothing and the endpoint answered "not assigned to the patient". Resolving the
+    id to its document first lets _plan_assignments_for group by external_id instead.
     """
-    target = _match_assignment_by_id(plan, intervention_id)
-    if target:
-        return target
-
-    if known_external_id is _UNKNOWN_EXTERNAL_ID:
-        oid = _coerce_object_id(intervention_id)
-        requested = Intervention.objects(id=oid).only("external_id").first() if oid else None
-        requested_ext_id = getattr(requested, "external_id", None)
-    else:
-        requested_ext_id = known_external_id
-
-    if not requested_ext_id:
-        return None
-    return _match_assignment_by_external_id(plan, requested_ext_id)
-
-
-def _find_plan_intervention_assignments(plan, intervention_id):
-    """Every assignment on the plan holding this logical intervention, in plan order.
-
-    A plan holding one external_id twice is legacy data, but an edit has to reach all of it: the
-    therapist plan view merges such assignments into a single row, so editing only the first one
-    leaves the rest on screen as sessions the therapist thought they had dealt with.
-    """
-    target = _match_assignment_by_id(plan, intervention_id)
-
-    external_id = getattr(_safe_intervention(target), "external_id", None) if target else None
-    if not external_id:
-        oid = _coerce_object_id(intervention_id)
-        requested = Intervention.objects(id=oid).only("external_id").first() if oid else None
-        external_id = getattr(requested, "external_id", None)
-
-    if external_id:
-        matches = _assignments_by_external_id(plan, external_id)
-        if matches:
-            return matches
-
-    if target is None:
+    oid = _coerce_object_id(intervention_id)
+    intervention = Intervention.objects(id=oid).only("id", "external_id").first() if oid else None
+    if intervention is None:
         return []
-    # Nothing to group on, so catch a plain duplicate of the same document instead.
-    target_id = getattr(_safe_intervention(target), "id", None)
-    return [a for a in (plan.interventions or []) if getattr(_safe_intervention(a), "id", None) == target_id]
+    return _plan_assignments_for(plan, intervention)
 
 
 def _resolve_plan_assignment(plan, intervention):
     """Resolve intervention against plan's assignment, allowing ad-hoc completion when unassigned.
 
-    Returns (assignment, canonical_intervention, variant_ids).
+    Returns (assignments, canonical_intervention, variant_ids).
     """
-    assignment = _find_plan_intervention_assignment(
-        plan, intervention.pk, known_external_id=getattr(intervention, "external_id", None)
-    )
-    if assignment is None:
-        return None, intervention, _intervention_variant_ids(intervention)
-    canonical_intervention = _safe_intervention(assignment) or intervention
-    # The same set both plan views query logs with, so a completion they display is findable here.
-    return assignment, canonical_intervention, _intervention_variant_ids(canonical_intervention)
-
-
-def _intervention_variant_ids(intervention):
-    """Every Intervention id sharing this one's external_id, i.e. its language variants.
-
-    Readers and writers must resolve the same set, or a completion recorded under one language
-    variant is one the plan views display but complete/uncomplete cannot find.
-    """
-    external_id = getattr(intervention, "external_id", None)
-    # An external_id with no rows behind it cannot happen for a loaded document, but falling back
-    # to its own id keeps a caller from querying logs on an empty id list, which matches nothing.
-    return _variant_ids_for_external_id(external_id) or [intervention.pk]
+    assignments = _plan_assignments_for(plan, intervention)
+    canonical = _safe_intervention(assignments[0]) if assignments else None
+    canonical = canonical or intervention
+    # Every variant of the external_id: readers and writers must resolve the same set, or a
+    # completion recorded under one language is one the plan views display but complete and
+    # uncomplete cannot find. Falling back to the document's own id keeps the query from running
+    # on an empty id list, which would match nothing at all.
+    variant_ids = _variant_ids_for_external_id(getattr(canonical, "external_id", None)) or [canonical.pk]
+    return assignments, canonical, variant_ids
 
 
 def _variant_ids_by_intervention(interventions):
-    """{intervention pk -> its variant ids} for a whole plan, resolved in one query.
+    """{intervention pk -> ids of every Intervention sharing its external_id}, in one query.
 
-    Returns what _intervention_variant_ids would return for each one, which costs a round trip
-    per call - the plan-view loops would otherwise pay that once per assignment.
+    The per-intervention lookup costs a round trip, which the plan-view loops would otherwise pay
+    once per assignment.
     """
     interventions = list(interventions)
     by_ext = _variant_ids_by_external_id(getattr(iv, "external_id", None) for iv in interventions)
@@ -2539,7 +2520,7 @@ def modify_intervention_from_date(request):
     # ----------------------
     # Every assignment for this intervention: a legacy duplicate must not keep serving the schedule
     # that is being replaced from effective_from onwards.
-    targets = _find_plan_intervention_assignments(plan, intervention_id)
+    targets = _plan_assignments_for_id(plan, intervention_id)
 
     if not targets:
         return JsonResponse(
@@ -2581,7 +2562,9 @@ def modify_intervention_from_date(request):
     # Split past/future dates
     # ----------------------
     try:
-        existing_utc = [[_as_aware_utc(d) for d in (t.dates or [])] for t in targets]
+        # Per assignment, since a legacy plan can hold this intervention more than once and the
+        # replaced schedule has to come off all of them.
+        dates_utc = [[_as_aware_utc(d) for d in (t.dates or [])] for t in targets]
     except Exception:
         logger.exception("[modify_intervention_from_date] Failed to convert existing UTC dates")
         return JsonResponse(
@@ -2594,15 +2577,16 @@ def modify_intervention_from_date(request):
             status=500,
         )
 
-    past_utc = [[d for d in dates if d < eff_dt_utc] for dates in existing_utc]
-    future_utc = [[d for d in dates if d >= eff_dt_utc] for dates in existing_utc]
+    past_utc = [[d for d in dates if d < eff_dt_utc] for dates in dates_utc]
 
     # ----------------------
     # If keep_current → only update flags
     # ----------------------
     if keep_current:
-        for target, past, future in zip(targets, past_utc, future_utc):
-            target.dates = past + future
+        # Same dates, only rewritten as aware UTC. Sorted because the previous past-then-future
+        # reassembly was, and get_patient_plan renders them in stored order.
+        for target, dates in zip(targets, dates_utc):
+            target.dates = sorted(dates)
         plan.updatedAt = timezone.now()
         plan.save()
 
@@ -2818,7 +2802,7 @@ def reschedule_intervention_date(request):
     # ----------------------
     # Every assignment for this intervention: the occurrence being dragged, and anything it could
     # collide with, may sit on a legacy duplicate rather than the first assignment.
-    targets = _find_plan_intervention_assignments(plan, intervention_id)
+    targets = _plan_assignments_for_id(plan, intervention_id)
 
     if not targets:
         return JsonResponse(
@@ -2870,7 +2854,10 @@ def reschedule_intervention_date(request):
     # Locate the occurrence to move
     # ----------------------
     try:
-        existing_utc = [[_as_aware_utc(d) for d in (t.dates or [])] for t in targets]
+        # One flat list over the whole group: a legacy plan holding this intervention twice shows
+        # the union of their sessions, so the occurrence being dragged - and anything it could
+        # collide with - may sit on either assignment.
+        occurrences = [(t, i, _as_aware_utc(d)) for t in targets for i, d in enumerate(t.dates or [])]
     except Exception:
         logger.exception("[reschedule_intervention_date] Failed to convert existing UTC dates")
         return JsonResponse(
@@ -2883,17 +2870,9 @@ def reschedule_intervention_date(request):
             status=500,
         )
 
-    match_idx = next(
-        (
-            (ti, di)
-            for ti, dates in enumerate(existing_utc)
-            for di, d in enumerate(dates)
-            if abs((d - old_dt_utc).total_seconds()) < 1
-        ),
-        None,
-    )
+    match = next((o for o in occurrences if abs((o[2] - old_dt_utc).total_seconds()) < 1), None)
 
-    if match_idx is None:
+    if match is None:
         return JsonResponse(
             {
                 "success": False,
@@ -2904,7 +2883,9 @@ def reschedule_intervention_date(request):
             status=404,
         )
 
-    if existing_utc[match_idx[0]][match_idx[1]] < now_utc:
+    target, match_index, match_utc = match
+
+    if match_utc < now_utc:
         return JsonResponse(
             {
                 "success": False,
@@ -2928,11 +2909,9 @@ def reschedule_intervention_date(request):
     # the existing completed log to the new, unstarted occurrence.
     # ----------------------
     new_day = _as_aware_local(new_dt_utc).date()
+    # `is` on the assignment, not `==`: two duplicate assignments can compare equal by value.
     collides = any(
-        _as_aware_local(d).date() == new_day
-        for ti, dates in enumerate(existing_utc)
-        for di, d in enumerate(dates)
-        if (ti, di) != match_idx
+        _as_aware_local(d).date() == new_day for t, i, d in occurrences if not (t is target and i == match_index)
     )
     if collides:
         return JsonResponse(
@@ -2948,10 +2927,9 @@ def reschedule_intervention_date(request):
     # ----------------------
     # Apply and save
     # ----------------------
-    ti, di = match_idx
-    existing_utc[ti][di] = new_dt_utc
-    existing_utc[ti].sort()
-    targets[ti].dates = existing_utc[ti]
+    moved = [d for t, i, d in occurrences if t is target and i != match_index]
+    moved.append(new_dt_utc)
+    target.dates = sorted(moved)
 
     plan.updatedAt = timezone.now()
     plan.save()
@@ -3363,7 +3341,7 @@ def remove_intervention_from_patient(request):
 
         # Every assignment for this intervention, so a legacy duplicate does not keep the sessions
         # the therapist just removed - both plan views would still show them.
-        assignments = _find_plan_intervention_assignments(plan, intervention_id)
+        assignments = _plan_assignments_for_id(plan, intervention_id)
 
         if not assignments:
             return JsonResponse(
