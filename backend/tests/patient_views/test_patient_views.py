@@ -74,6 +74,7 @@ from unittest.mock import patch
 
 import pytest
 from bson import ObjectId
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.utils import timezone
 
@@ -3415,3 +3416,43 @@ def test_get_patient_plan_dedup_lang_prefers_requested_language(mongo_mock):
     assert data[0]["intervention_title"] == "Der Blutdruck - Die Grundlagen"
     # intervention_id is still the originally assigned (EN) document
     assert data[0]["intervention_id"] == str(int_a.id)
+
+
+def test_video_feedback_on_a_log_with_no_comments_field(mongo_mock, settings, tmp_path):
+    """
+    Regression: PatientInterventionLogs.comments is a StringField with no default, so a log written
+    before this endpoint started passing comments="" holds None. Appending the video note with +=
+    raised TypeError, and the resulting 500 discarded the whole submission - including the video
+    that had just been uploaded.
+    """
+    # The endpoint really writes the upload through default_storage; keep it out of the repo.
+    settings.MEDIA_ROOT = str(tmp_path)
+
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    today = timezone.localdate()
+    legacy = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(today, datetime.min.time()).replace(hour=9),
+        status=["completed"],
+    )
+    legacy.save()
+    legacy.reload()
+    assert legacy.comments is None, "fixture is not modelling a log without a comments value"
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(intervention.id),
+            "video_example": SimpleUploadedFile("clip.mp4", b"not-really-a-video", content_type="video/mp4"),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    stored = PatientInterventionLogs.objects(userId=patient).first()
+    assert stored.video_url and stored.video_url.endswith(".mp4"), "the uploaded video was discarded"
+    assert "Video uploaded at" in (stored.comments or "")

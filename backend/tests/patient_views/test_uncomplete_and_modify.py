@@ -1523,3 +1523,131 @@ def test_uncompleting_keeps_a_log_that_still_holds_a_video(mongo_mock):
     assert len(logs) == 1, "the log carrying the video must survive uncompletion"
     assert logs[0].video_url == "/media/videos/patient_clip.mp4"
     assert "completed" not in (logs[0].status or [])
+
+
+def test_uncompleting_keeps_a_log_that_still_holds_a_comment(mongo_mock):
+    """
+    Same reasoning as the video above: a comment the patient typed is content, not a property of
+    the completion. The delete-when-empty guard only counted status, feedback and video, so undoing
+    a completion tap destroyed the note as well.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    today = timezone.localdate()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(today, datetime.min.time()),
+        status=["completed"],
+        comments="knee felt stiff today",
+    ).save()
+
+    resp = client.post(
+        UNCOMPLETE_URL,
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+                "date": today.isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    logs = list(PatientInterventionLogs.objects(userId=patient))
+    assert len(logs) == 1, "the log carrying the comment must survive uncompletion"
+    assert logs[0].comments == "knee felt stiff today"
+
+
+def test_uncompleting_does_not_leave_assistance_for_the_next_completion(mongo_mock):
+    """
+    Assistance describes the completion being retracted, so it must not outlive it on a log that
+    survives for other reasons: mark_intervention_completed only writes that field when the request
+    carries one, so a stale value would silently reattach to the next completion.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    today = timezone.localdate()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(today, datetime.min.time()),
+        status=[],
+        comments="something the patient typed",
+    ).save()
+
+    def post(url, payload):
+        resp = client.post(
+            url,
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+        assert resp.status_code == 200, resp.content.decode()
+
+    base = {
+        "patient_id": str(patient.userId.id),
+        "intervention_id": str(intervention.id),
+        "date": today.isoformat(),
+    }
+
+    post("/api/interventions/complete/", {**base, "assistance": "with_help"})
+    assert PatientInterventionLogs.objects(userId=patient).first().assistance == "with_help"
+
+    post(UNCOMPLETE_URL, base)
+    kept = PatientInterventionLogs.objects(userId=patient).first()
+    assert kept is not None, "the comment should have kept the log alive"
+    assert kept.assistance is None
+
+    # Re-completed without an assistance field: the earlier answer must not come back.
+    post("/api/interventions/complete/", base)
+    assert PatientInterventionLogs.objects(userId=patient).first().assistance is None
+
+
+def test_a_failed_save_does_not_destroy_the_log_it_was_merging(mongo_mock):
+    """
+    Completing merges the day's duplicate logs, moving a video and any notes onto the log that is
+    kept. Deleting the originals before that log is durably saved lost them outright when the save
+    then failed, with nothing left to recover them from.
+    """
+    patient, canonical, translated, plan = _plan_with_duplicate_assignments()
+
+    today = timezone.localdate()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=canonical,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(today, datetime.min.time()).replace(hour=9),
+        status=[],
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=translated,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(today, datetime.min.time()).replace(hour=8),
+        status=[],
+        video_url="/media/videos/only_copy.mp4",
+    ).save()
+
+    with patch.object(PatientInterventionLogs, "save", side_effect=RuntimeError("mongo is down")):
+        resp = client.post(
+            "/api/interventions/complete/",
+            data=json.dumps(
+                {
+                    "patient_id": str(patient.userId.id),
+                    "intervention_id": str(canonical.id),
+                    "date": today.isoformat(),
+                }
+            ),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    assert resp.status_code == 500, resp.content.decode()
+
+    videos = [l.video_url for l in PatientInterventionLogs.objects(userId=patient) if l.video_url]
+    assert videos == ["/media/videos/only_copy.mp4"], "the only copy of the video was deleted"

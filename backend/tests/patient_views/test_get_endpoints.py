@@ -1437,3 +1437,27 @@ def test_combined_health_adherence_buckets_scheduled_and_completed_on_the_same_d
     assert row["scheduled"] == 1, "the session was bucketed on its UTC day, not the local one"
     assert row["completed"] == 1
     assert row["pct"] == 100
+
+
+def test_therapist_plan_for_a_patient_with_two_plan_documents(mongo_mock):
+    """
+    Regression: nothing enforces one RehabilitationPlan per patient and a few patients have two.
+    Fetching with .get() raised MultipleObjectsReturned, which no caller handled, so the therapist
+    dashboard 500'd for them. Every other plan reader already used .first().
+    """
+    patient, therapist, intervention, plan = setup_basic_plan()
+
+    RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=10),
+        endDate=datetime.now() + timedelta(days=10),
+        status="active",
+        interventions=[],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
