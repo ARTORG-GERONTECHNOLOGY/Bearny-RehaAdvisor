@@ -3454,3 +3454,79 @@ def test_video_feedback_on_a_log_with_no_comments_field(mongo_mock, settings, tm
     stored = PatientInterventionLogs.objects(userId=patient).first()
     assert stored.video_url and stored.video_url.endswith(".mp4"), "the uploaded video was discarded"
     assert "Video uploaded at" in (stored.comments or "")
+
+
+def test_video_feedback_note_is_not_duplicated_on_a_retried_submission(mongo_mock, settings, tmp_path):
+    """
+    Regression: the video-upload note was appended unconditionally, so a retried or double-submitted
+    request for the same upload landed the identical note twice. The fix replaces any previous
+    "Video uploaded at" line rather than appending it, matching how video_url itself is always
+    overwritten - so this must hold even when the two attempts cross a minute boundary, which a
+    timestamp-string dedup guard (an earlier, rejected version of this fix) would have missed.
+    """
+    settings.MEDIA_ROOT = str(tmp_path)
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    for minute in (0, 1):
+        fixed_now = timezone.make_aware(datetime(2026, 8, 31, 10, minute))
+        with patch("django.utils.timezone.now", return_value=fixed_now):
+            resp = client.post(
+                "/api/patients/feedback/questionaire/",
+                data={
+                    "userId": str(patient.userId.id),
+                    "interventionId": str(intervention.id),
+                    "video_example": SimpleUploadedFile("clip.mp4", b"not-really-a-video", content_type="video/mp4"),
+                },
+                HTTP_AUTHORIZATION="Bearer test",
+            )
+            assert resp.status_code in (200, 201), resp.content.decode()
+
+    stored = PatientInterventionLogs.objects(userId=patient).first()
+    assert (stored.comments or "").count("Video uploaded at") == 1, "the note was duplicated on retry"
+    assert "10:01" in stored.comments, "the note must reflect the retry's actual completion time"
+
+
+def test_video_feedback_note_reflects_a_second_different_video_in_the_same_minute(mongo_mock, settings, tmp_path):
+    """
+    Regression: a timestamp-string dedup guard (an earlier, rejected version of this fix) matched
+    on minute-precision text alone, so two genuinely different videos uploaded in the same minute
+    produced identical note text - the second video's note was silently suppressed even though
+    video_url was legitimately overwritten to it. The note must always describe the video actually
+    stored, and any other comment text the patient already had must survive the replacement.
+    """
+    settings.MEDIA_ROOT = str(tmp_path)
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    fixed_now = timezone.make_aware(datetime(2026, 8, 31, 10, 0))
+    with patch("django.utils.timezone.now", return_value=fixed_now):
+        # Dated inside the patch too: the endpoint keys its log lookup off timezone.localdate(),
+        # so a fixture dated against the real "today" would land on a different day and never
+        # be found, leaving the assertions below reading a log the request never touched.
+        log = PatientInterventionLogs(
+            userId=patient,
+            interventionId=intervention,
+            rehabilitationPlanId=plan,
+            date=datetime.combine(timezone.localdate(), datetime.min.time()),
+            status=[],
+            comments="Knee felt stiff today.",
+        )
+        log.save()
+
+        for filename in ("first.mp4", "second.mp4"):
+            resp = client.post(
+                "/api/patients/feedback/questionaire/",
+                data={
+                    "userId": str(patient.userId.id),
+                    "interventionId": str(intervention.id),
+                    "video_example": SimpleUploadedFile(filename, b"not-really-a-video", content_type="video/mp4"),
+                },
+                HTTP_AUTHORIZATION="Bearer test",
+            )
+            assert resp.status_code in (200, 201), resp.content.decode()
+
+    logs = list(PatientInterventionLogs.objects(userId=patient))
+    assert len(logs) == 1, "both uploads should have landed on the one pre-existing log for the day"
+    stored = logs[0]
+    assert stored.video_url and stored.video_url.endswith("second.mp4"), "the second video must be the one stored"
+    assert (stored.comments or "").count("Video uploaded at") == 1, "only the current video's note should remain"
+    assert "Knee felt stiff today." in stored.comments, "unrelated comment text must survive the replacement"

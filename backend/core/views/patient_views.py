@@ -286,10 +286,15 @@ def submit_patient_feedback(request):
                 if qkey == "video_example" and isinstance(answer_val, dict) and "video_url" in answer_val:
                     log.video_url = answer_val["video_url"]
                     log.video_expired = False
-                    # `or ""`: comments has no default, so a log written before this endpoint
-                    # started passing comments="" holds None, and None += str raises.
+                    # Replace any previous "Video uploaded at" line rather than appending with a
+                    # dedup guard: video_url itself is always overwritten to the latest upload, so
+                    # a timestamp-matched guard either misses a retry that crosses a minute boundary
+                    # or wrongly suppresses a genuinely different video uploaded in the same minute.
+                    other_lines = [
+                        ln for ln in (log.comments or "").splitlines() if not ln.startswith("Video uploaded at ")
+                    ]
                     note = f"Video uploaded at {answer_val['uploaded_at']:%Y-%m-%d %H:%M}"
-                    log.comments = f"{log.comments or ''}\n{note}".strip()
+                    log.comments = "\n".join(other_lines + [note]).strip()
                     continue
 
                 qobj = FeedbackQuestion.objects.filter(questionKey=qkey).first()
@@ -427,9 +432,20 @@ def _merge_duplicate_logs(keep, others):
     keep.feedback = merged_feedback
 
     for l in others:
-        if not getattr(keep, "video_url", None) and getattr(l, "video_url", None):
-            keep.video_url = l.video_url
+        other_video = getattr(l, "video_url", None)
+        if other_video and not getattr(keep, "video_url", None):
+            keep.video_url = other_video
             keep.video_expired = bool(getattr(l, "video_expired", False))
+        elif other_video and other_video != keep.video_url:
+            # video_url holds one value, so a second, different video can't move there too. Logged,
+            # not written into comments - that field is rendered verbatim to the therapist as the
+            # patient's video-feedback caption, which is no place for a raw internal media path.
+            logger.warning(
+                "[_merge_duplicate_logs] Discarding a second video on merge (log=%s, kept=%s): %s",
+                l.id,
+                keep.id,
+                other_video,
+            )
         if not getattr(keep, "assistance", None) and getattr(l, "assistance", None):
             keep.assistance = l.assistance
         extra = (getattr(l, "comments", "") or "").strip()

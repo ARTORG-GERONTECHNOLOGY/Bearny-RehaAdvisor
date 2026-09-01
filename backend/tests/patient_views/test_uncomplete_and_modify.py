@@ -1486,6 +1486,69 @@ def test_completing_keeps_assistance_recorded_on_a_duplicate_log(mongo_mock):
     assert logs[0].assistance == "with_help"
 
 
+def test_completing_preserves_a_second_video_from_a_duplicate_log(mongo_mock):
+    """
+    Regression: video_url is first-write-wins - if the kept log already has its own video, a
+    duplicate's *different* video was silently dropped, then destroyed for good when
+    _discard_merged_logs deleted that log. video_url can only hold one value, so the second
+    video's reference has to survive somewhere instead of being lost outright.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = _variant_of(intervention)
+
+    today = timezone.localdate()
+    midnight = datetime.combine(today, datetime.min.time())
+
+    # Sorts oldest, so the merge keeps the English log below and this one becomes "others".
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=translated,
+        rehabilitationPlanId=plan,
+        date=midnight,
+        status=[],
+        feedback=[],
+        comments="",
+        video_url="/media/videos/german_clip.mp4",
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=midnight + timedelta(hours=9),
+        status=[],
+        feedback=[],
+        comments="",
+        video_url="/media/videos/english_clip.mp4",
+    ).save()
+
+    # patient_views' logger has propagate=False (see api/settings/base.py), so caplog - which
+    # attaches at the root logger - never sees it; patch the logger directly instead.
+    with patch("core.views.patient_views.logger.warning") as mock_warning:
+        resp = client.post(
+            "/api/interventions/complete/",
+            data=json.dumps(
+                {
+                    "patient_id": str(patient.userId.id),
+                    "intervention_id": str(intervention.id),
+                    "date": today.isoformat(),
+                }
+            ),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+    assert resp.status_code == 200, resp.content.decode()
+
+    logs = list(PatientInterventionLogs.objects(userId=patient))
+    assert len(logs) == 1, "duplicate variant logs should be merged into one"
+    assert logs[0].video_url == "/media/videos/english_clip.mp4", "the kept log's own video must survive"
+    assert "german_clip.mp4" not in (
+        logs[0].comments or ""
+    ), "a raw media path must not land in the field rendered to the therapist as the patient's comment"
+    assert any(
+        "german_clip.mp4" in str(call.args) for call in mock_warning.call_args_list
+    ), "the discarded video's reference must still be recoverable somewhere"
+
+
 def test_uncompleting_keeps_a_log_that_still_holds_a_video(mongo_mock):
     """
     Uncompleting drops the log once nothing is left on it, but an uploaded video is content:
