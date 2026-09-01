@@ -92,6 +92,8 @@ FFMPEG_OK = bool(pd_which("ffmpeg") and pd_which("ffprobe"))
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
+_VIDEO_UPLOAD_NOTE_PREFIX = "Video uploaded at "
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -286,14 +288,11 @@ def submit_patient_feedback(request):
                 if qkey == "video_example" and isinstance(answer_val, dict) and "video_url" in answer_val:
                     log.video_url = answer_val["video_url"]
                     log.video_expired = False
-                    # Replace any previous "Video uploaded at" line rather than appending with a
-                    # dedup guard: video_url itself is always overwritten to the latest upload, so
-                    # a timestamp-matched guard either misses a retry that crosses a minute boundary
-                    # or wrongly suppresses a genuinely different video uploaded in the same minute.
+                    # Replace, don't append-with-a-dedup-guard: video_url is always overwritten too.
                     other_lines = [
-                        ln for ln in (log.comments or "").splitlines() if not ln.startswith("Video uploaded at ")
+                        ln for ln in (log.comments or "").splitlines() if not ln.startswith(_VIDEO_UPLOAD_NOTE_PREFIX)
                     ]
-                    note = f"Video uploaded at {answer_val['uploaded_at']:%Y-%m-%d %H:%M}"
+                    note = f"{_VIDEO_UPLOAD_NOTE_PREFIX}{answer_val['uploaded_at']:%Y-%m-%d %H:%M}"
                     log.comments = "\n".join(other_lines + [note]).strip()
                     continue
 
@@ -437,15 +436,20 @@ def _merge_duplicate_logs(keep, others):
             keep.video_url = other_video
             keep.video_expired = bool(getattr(l, "video_expired", False))
         elif other_video and other_video != keep.video_url:
-            # video_url holds one value, so a second, different video can't move there too. Logged,
-            # not written into comments - that field is rendered verbatim to the therapist as the
-            # patient's video-feedback caption, which is no place for a raw internal media path.
+            # video_url holds one value, so a second, different video can't move there too - logged
+            # rather than written into comments, which the therapist reads as the patient's caption.
             logger.warning(
                 "[_merge_duplicate_logs] Discarding a second video on merge (log=%s, kept=%s): %s",
                 l.id,
                 keep.id,
                 other_video,
             )
+            # l's own "Video uploaded at" line now describes a video that's gone, so drop it before
+            # the general comment merge below folds l's remaining text into keep.
+            if l.comments:
+                l.comments = "\n".join(
+                    ln for ln in l.comments.splitlines() if not ln.startswith(_VIDEO_UPLOAD_NOTE_PREFIX)
+                ).strip()
         if not getattr(keep, "assistance", None) and getattr(l, "assistance", None):
             keep.assistance = l.assistance
         extra = (getattr(l, "comments", "") or "").strip()

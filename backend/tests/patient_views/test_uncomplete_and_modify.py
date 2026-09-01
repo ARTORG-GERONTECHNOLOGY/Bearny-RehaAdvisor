@@ -1549,6 +1549,60 @@ def test_completing_preserves_a_second_video_from_a_duplicate_log(mongo_mock):
     ), "the discarded video's reference must still be recoverable somewhere"
 
 
+def test_completing_does_not_leave_a_stale_video_note_from_a_discarded_duplicate(mongo_mock):
+    """
+    Regression: the discarded log's own "Video uploaded at" note (describing the video that was
+    just dropped) survived into keep.comments via the general comment-merge below, since that block
+    folds in any text not already present verbatim. Left in place, it describes a video no longer
+    stored anywhere on the kept log - misleading, not just untidy.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = _variant_of(intervention)
+
+    today = timezone.localdate()
+    midnight = datetime.combine(today, datetime.min.time())
+
+    # Sorts oldest, so the merge keeps the English log below and this one becomes "others".
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=translated,
+        rehabilitationPlanId=plan,
+        date=midnight,
+        status=[],
+        feedback=[],
+        comments="Video uploaded at 2026-08-28 10:00",
+        video_url="/media/videos/german_clip.mp4",
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=midnight + timedelta(hours=9),
+        status=[],
+        feedback=[],
+        comments="",
+        video_url="/media/videos/english_clip.mp4",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+                "date": today.isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    kept = PatientInterventionLogs.objects(userId=patient).first()
+    assert kept.video_url == "/media/videos/english_clip.mp4"
+    assert "Video uploaded at" not in (kept.comments or ""), "a note for the discarded video must not survive"
+
+
 def test_uncompleting_keeps_a_log_that_still_holds_a_video(mongo_mock):
     """
     Uncompleting drops the log once nothing is left on it, but an uploaded video is content:
