@@ -292,3 +292,48 @@ def test_generic_exception_for_one_patient_does_not_abort_others_in_the_batch():
     assert result["sent"] == 2
     assert SentPushNotification.objects(patient=patient_a).count() == 1
     assert SentPushNotification.objects(patient=patient_b).count() == 1
+
+
+def test_deleted_intervention_is_skipped_without_aborting_the_run():
+    """
+    Regression: _notify_if_due dereferenced assignment.interventionId directly, and a deleted
+    Intervention raises DoesNotExist on dereference rather than returning None. One patient whose
+    plan still referenced a removed intervention therefore took down the whole hourly run, so every
+    other patient due in that window silently got no notification.
+    """
+    patient_a, plan_a, doomed, _ = create_patient_with_plan("Education")
+    add_subscription(patient_a)
+    patient_b, _, _, _ = create_patient_with_plan("Education")
+    add_subscription(patient_b)
+
+    doomed.delete()
+
+    with patch("pywebpush.webpush") as mocked_webpush:
+        result = send_due_intervention_push_notifications()
+
+    assert result["skipped"] == 1, "The dangling assignment should be skipped, not raise."
+    assert result["sent"] == 1
+    assert SentPushNotification.objects(patient=patient_b).count() == 1
+    assert SentPushNotification.objects(patient=patient_a).count() == 0
+    assert mocked_webpush.call_count == 1
+
+
+def test_deleted_patient_is_skipped_without_aborting_the_run():
+    """
+    The same hazard one level up: a deleted Patient raises DoesNotExist when plan.patientId is
+    dereferenced, so the `if patient is None` guard never fired. The exception escaped the task,
+    burned both autoretries and dropped that hour's notifications for every other patient.
+    """
+    patient_a, _, _, _ = create_patient_with_plan("Education")
+    add_subscription(patient_a)
+    patient_b, _, _, _ = create_patient_with_plan("Education")
+    add_subscription(patient_b)
+
+    patient_a.delete()
+
+    with patch("pywebpush.webpush") as mocked_webpush:
+        result = send_due_intervention_push_notifications()
+
+    assert result["sent"] == 1, "The plan with the dangling patient should be skipped, not raise."
+    assert SentPushNotification.objects(patient=patient_b).count() == 1
+    assert mocked_webpush.call_count == 1

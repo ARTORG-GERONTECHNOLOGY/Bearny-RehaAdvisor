@@ -66,11 +66,15 @@ Framework: Django Test Client + pytest + mongomock
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import time as dtime
+from datetime import timedelta
+from datetime import timezone as py_timezone
 from unittest.mock import patch
 
 import pytest
 from bson import ObjectId
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.utils import timezone
 
@@ -82,6 +86,7 @@ from core.models import (
     HealthQuestionnaire,
     Intervention,
     InterventionAssignment,
+    Logs,
     Patient,
     PatientICFRating,
     PatientInterventionLogs,
@@ -92,6 +97,7 @@ from core.models import (
     Translation,
     User,
 )
+from utils.interventions import _as_utc
 
 
 def _mk_dt_naive(days_offset=0, hour=6, minute=0):
@@ -269,6 +275,241 @@ def test_submit_feedback_success_intervention(mock_getattr, mongo_mock):
 
     assert resp.status_code in (200, 201)
     assert "Feedback submitted successfully" in resp.content.decode()
+
+
+def test_submit_feedback_matches_translated_variant(mongo_mock):
+    """
+    Regression: the patient is assigned the EN variant of an intervention,
+    but the frontend catalog surfaces the DE variant's id (same external_id)
+    when submitting feedback for it. Feedback must land on the same
+    PatientInterventionLogs document that mark_intervention_completed would
+    use, not a duplicate log created under the DE variant's id.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention",
+        questionKey="how_did_it_go",
+        answer_type="text",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+    )
+
+    payload = {
+        "userId": str(patient.userId.id),
+        "interventionId": str(translated.id),
+        "how_did_it_go": json.dumps(["Great"]),
+    }
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data=payload,
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    logs = PatientInterventionLogs.objects(userId=patient)
+    assert (
+        logs.count() == 1
+    ), "Feedback for a translated variant created a duplicate log instead of reusing the plan's assigned log."
+    assert logs.first().interventionId.id == intervention.id
+
+
+def test_submit_feedback_ignores_logs_belonging_to_another_plan(mongo_mock):
+    """
+    Regression: the feedback lookup was scoped only by patient + intervention + day, while
+    mark_intervention_completed scopes by rehabilitation plan too. A same-day log left over from an
+    earlier plan would swallow the feedback - and then get normalised onto the current plan's
+    intervention - so get_patient_plan, which filters logs by the current plan, showed nothing.
+    """
+    patient, therapist, intervention, plan = setup_patient_with_plan()
+
+    old_plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=90),
+        endDate=datetime.now() - timedelta(days=30),
+        status="completed",
+        interventions=[],
+    ).save()
+    stale_log = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=old_plan,
+        date=datetime.combine(timezone.localdate(), datetime.min.time()),
+        status=["completed"],
+        feedback=[],
+    ).save()
+
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention",
+        questionKey="how_did_it_go",
+        answer_type="text",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+    )
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(intervention.id),
+            "how_did_it_go": json.dumps(["Great"]),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    stale_log.reload()
+    assert not stale_log.feedback, "Feedback was appended to a log belonging to a different plan."
+
+    current = PatientInterventionLogs.objects(userId=patient, rehabilitationPlanId=plan).first()
+    assert current is not None, "No log was created under the patient's current plan."
+    assert len(current.feedback) == 1
+
+
+def test_submit_feedback_uses_the_same_log_completion_keeps(mongo_mock):
+    """
+    Regression: the feedback lookup had no ordering, so with two same-day logs it could pick either.
+    mark_intervention_completed keeps the newest (order_by -date) and deletes the rest, so feedback
+    landing on the older one is discarded the next time the patient toggles completion.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    day_start = datetime.combine(timezone.localdate(), datetime.min.time())
+    older = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=day_start,
+        status=[],
+        feedback=[],
+    ).save()
+    newest = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=day_start + timedelta(hours=9),
+        status=["completed"],
+        feedback=[],
+    ).save()
+
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention",
+        questionKey="how_did_it_go",
+        answer_type="text",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+    )
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(intervention.id),
+            "how_did_it_go": json.dumps(["Great"]),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    older.reload()
+    newest.reload()
+    assert len(newest.feedback) == 1, "Feedback did not land on the log mark_intervention_completed keeps."
+    assert not older.feedback
+
+
+@pytest.mark.parametrize("hour", [0, 9, 21, 22, 23])
+def test_submit_feedback_finds_log_scheduled_late_in_the_day(mongo_mock, hour):
+    """
+    Regression: the day window was built from timezone-aware bounds while mark_intervention_completed
+    stores naive local datetimes, so the window was shifted by the UTC offset. A session scheduled in
+    the last hours of the day fell outside it and every feedback submission opened a second log for a
+    day that already had one - splitting the patient's feedback off from their completion.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    day_start = datetime.combine(timezone.localdate(), datetime.min.time())
+    completion_log = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=day_start + timedelta(hours=hour),
+        status=["completed"],
+        feedback=[],
+    ).save()
+
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention",
+        questionKey="how_did_it_go",
+        answer_type="text",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+    )
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(intervention.id),
+            "how_did_it_go": json.dumps(["Great"]),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    completion_log.reload()
+    assert PatientInterventionLogs.objects.count() == 1, (
+        f"A session logged at {hour:02d}:00 local fell outside the feedback day window, "
+        "so feedback opened a duplicate log for the day."
+    )
+    assert len(completion_log.feedback) == 1
+
+
+def test_submit_healthstatus_feedback_stores_the_local_day(mongo_mock):
+    """
+    Regression: PatientICFRating.date is written naive-local, like the day bounds it comes from.
+    Mongo runs tz_aware=False, so an aware value is converted to UTC on write and read back naive -
+    east of UTC that lands in the *previous* day, and the health-overview readers render the stored
+    value as-is (google_health_view / fitbit_view via .date(), healthstatus-history via .isoformat()).
+    An aware write therefore plotted every rating a day early, and disagreed with existing rows.
+    """
+    patient, _, _, _ = setup_patient_with_plan()
+
+    FeedbackQuestion.objects.create(
+        questionSubject="Healthstatus",
+        questionKey="mobility",
+        icfCode="d450",
+        answer_type="text",
+        translations=[Translation(language="en", text="How is your mobility?")],
+        possibleAnswers=[],
+    )
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": "",  # Healthstatus path
+            "mobility": json.dumps(["3"]),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    rating = PatientICFRating.objects(patientId=patient).first()
+    assert rating is not None
+    today = timezone.localdate()
+    # .date() is exactly what google_health_view and fitbit_view render.
+    assert rating.date.date() == today, f"Rating stored on {rating.date} but submitted on {today}"
+    assert rating.date.hour == 0, "Expected local midnight, not a UTC-shifted instant."
 
 
 def test_submit_feedback_no_responses(mongo_mock):
@@ -484,6 +725,226 @@ def test_remove_intervention_success(mongo_mock):
     assert "Intervention dates removed successfully" in resp.content.decode()
 
 
+def test_remove_intervention_drops_a_session_due_within_the_local_utc_offset(mongo_mock):
+    """
+    Regression: assignment dates come back from Mongo naive, where naive means UTC. Reading them as
+    local time (Europe/Zurich) shifted the cutoff back by the local offset, so a session due within
+    the next hour or two counted as past and survived a removal the therapist had just performed.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    soon = datetime.now(py_timezone.utc).replace(tzinfo=None) + timedelta(minutes=30)
+    plan.interventions[0].dates = [soon]
+    plan.save()
+
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps({"intervention": str(intervention.id), "patientId": str(patient.id)}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    # The endpoint drops assignments left with no dates, so a cancelled-out assignment disappears.
+    assert plan.interventions == [], "A session still in the future must be cancelled."
+
+
+def test_remove_intervention_matches_translated_variant(mongo_mock):
+    """
+    Multilingual interventions exist as one Intervention document per language
+    sharing an external_id. The therapist calendar's catalog merge can surface
+    a different language variant's id than the one actually assigned - the
+    removal lookup must still resolve via external_id instead of returning
+    "Intervention not assigned to this patient."
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    )
+    translated.save()
+
+    payload = {"intervention": str(translated.id), "patientId": str(patient.id)}
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert "Intervention dates removed successfully" in resp.content.decode()
+
+
+def _plan_with_duplicate_assignments_and_past_sessions():
+    """Two assignments sharing an external_id, each with one past and two future sessions."""
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+
+    noon = datetime.combine(timezone.localdate(), dtime(12, 0))
+    plan.interventions[0].dates = [noon - timedelta(days=3), noon + timedelta(days=1), noon + timedelta(days=2)]
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=translated,
+            frequency="Daily",
+            notes="",
+            dates=[noon - timedelta(days=4), noon + timedelta(days=5), noon + timedelta(days=6)],
+        )
+    )
+    plan.save()
+    return patient, intervention, translated, plan
+
+
+def _assignment_for(plan, intervention):
+    return next(a for a in plan.interventions if a.interventionId.id == intervention.id)
+
+
+def test_remove_intervention_clears_every_duplicate_assignment(mongo_mock):
+    """
+    Removing an intervention has to reach every assignment holding it. Trimming only the first left
+    the duplicate's future sessions on the plan, and both plan views merge the two into one row - so
+    the therapist removed the intervention and watched its sessions stay put.
+    """
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
+
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps({"intervention": str(intervention.id), "patientId": str(patient.id)}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    for iv in (intervention, translated):
+        dates = _assignment_for(plan, iv).dates
+        assert len(dates) == 1, f"Future sessions survived on the {iv.language} assignment: {dates}"
+        assert _as_utc(dates[0]) < timezone.now(), "Past sessions must be preserved."
+
+
+def test_remove_intervention_via_an_unassigned_variant_clears_the_whole_group(mongo_mock):
+    """
+    The requested id may match no assignment exactly and both via external_id - a third language
+    variant nobody assigned. That still identifies one logical intervention, so both go.
+    """
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
+
+    unassigned_variant = Intervention(
+        title="Étirement",
+        description="Exercices d'étirement",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="fr",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps({"intervention": str(unassigned_variant.id), "patientId": str(patient.id)}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    assert len(plan.interventions) == 2, "Both assignments keep their past session, so neither is dropped."
+    for iv in (intervention, translated):
+        assert len(_assignment_for(plan, iv).dates) == 1
+
+
+def test_reschedule_moves_an_occurrence_held_by_a_duplicate_assignment(mongo_mock):
+    """
+    The occurrence being dragged may sit on the duplicate rather than the first assignment. Scoped to
+    the first, the drag came back "occurrence not found" for a session plainly on screen.
+    """
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
+    sibling_session = _assignment_for(plan, translated).dates[1]
+    new_dt = sibling_session + timedelta(days=3)  # a day no assignment in the group uses
+
+    resp = client.post(
+        "/api/interventions/reschedule-date/",
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": _as_utc(sibling_session).isoformat(),
+                "newDatetime": _as_utc(new_dt).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    moved = {_as_utc(d) for d in _assignment_for(plan, translated).dates}
+    assert _as_utc(new_dt) in moved
+    assert _as_utc(sibling_session) not in moved
+
+
+def test_reschedule_rejects_a_collision_with_a_duplicate_assignments_session(mongo_mock):
+    """
+    Both plan views merge the two assignments into one row, so a day already used by the duplicate is
+    taken. Checking only the first assignment let two sessions land on one visible day.
+    """
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
+    own_session = _assignment_for(plan, intervention).dates[1]
+    sibling_session = _assignment_for(plan, translated).dates[1]
+
+    resp = client.post(
+        "/api/interventions/reschedule-date/",
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": _as_utc(own_session).isoformat(),
+                "newDatetime": _as_utc(sibling_session).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    assert "already exists" in resp.json()["message"]
+
+
+def test_modify_from_date_replaces_the_whole_groups_future_schedule(mongo_mock):
+    """
+    A from-date modification regenerates the series. The duplicate's future sessions have to go with
+    it, or the patient keeps seeing the schedule the therapist just replaced.
+    """
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
+    effective_from = datetime.combine(timezone.localdate(), dtime(12, 0))
+
+    resp = client.post(
+        "/api/interventions/modify-patient/",
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "effectiveFrom": effective_from.isoformat(),
+                "keep_current": False,
+                "schedule": {"unit": "week", "interval": 1, "selectedDays": ["Mon"], "end": {"type": "never"}},
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    sibling_dates = _assignment_for(plan, translated).dates
+    assert len(sibling_dates) == 1, f"The duplicate kept its replaced future sessions: {sibling_dates}"
+    assert _as_utc(sibling_dates[0]) < timezone.now()
+
+
 def test_remove_intervention_missing_params(mongo_mock):
     """
 
@@ -599,6 +1060,35 @@ def test_remove_single_occurrence_local_midnight_not_confused_with_neighbor_day(
     assert len(remaining) == 2
     for actual, exp in zip(remaining, expected):
         assert abs((actual - exp).total_seconds()) < 1
+
+
+def test_remove_single_occurrence_keeps_a_past_copy_on_the_removed_day(mongo_mock):
+    """A same-day copy already in the past is history, not something the therapist asked to delete."""
+    patient, intervention, translated, plan = _plan_with_duplicate_assignments_and_past_sessions()
+
+    now = timezone.localtime()
+    target = now.replace(hour=23, minute=0, second=0, microsecond=0).replace(tzinfo=None)
+    past_same_day = now.replace(hour=0, minute=1, second=0, microsecond=0).replace(tzinfo=None)
+    plan.interventions[0].dates = [target]
+    plan.interventions[1].dates = [past_same_day]
+    plan.save()
+
+    resp = client.post(
+        "/api/interventions/remove-from-patient/",
+        data=json.dumps(
+            {
+                "intervention": str(intervention.id),
+                "patientId": str(patient.id),
+                "datetime": _as_utc(target).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    plan.reload()
+    assert _assignment_for(plan, translated).dates == [past_same_day], "Past session must survive."
 
 
 def test_remove_single_occurrence_not_found(mongo_mock):
@@ -753,6 +1243,63 @@ def test_add_intervention_to_patient_success(mongo_mock):
 
 
 @pytest.mark.django_db
+def test_add_intervention_switches_language_variant_without_new_sessions(mongo_mock):
+    """
+    Regression: re-adding an intervention in another language with the same schedule swapped
+    existing.interventionId, but added no session - so neither counter moved, plan.save() was
+    skipped and the swap was silently discarded. The therapist saw "no new sessions" and the plan
+    kept the old language.
+    """
+    patient, therapist, en, plan = setup_patient_with_plan()
+    plan.interventions = []
+    plan.save()
+
+    de = Intervention(
+        external_id=en.external_id,
+        language="de",
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+    ).save()
+
+    def add(intervention_id):
+        return client.post(
+            "/api/interventions/add-to-patient/",
+            data=json.dumps(
+                {
+                    "therapistId": str(therapist.userId.id),
+                    "patientId": str(patient.id),
+                    "interventions": [
+                        {
+                            "interval": 1,
+                            "interventionId": str(intervention_id),
+                            "unit": "day",
+                            "startDate": "2026-02-25T07:00:00.000Z",
+                            "selectedDays": [],
+                            "end": {"type": "never", "date": None, "count": None},
+                            "require_video_feedback": False,
+                            "notes": "",
+                        }
+                    ],
+                }
+            ),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    first = add(en.id)
+    assert first.status_code in (200, 201), first.content.decode()
+
+    # Identical schedule, so no session is added - only the language changes.
+    second = add(de.id)
+    assert second.status_code in (200, 201), second.content.decode()
+
+    plan.reload()
+    assert len(plan.interventions) == 1, "The variant should merge into the existing assignment."
+    assert plan.interventions[0].interventionId.id == de.id, "The language switch was not persisted."
+
+
+@pytest.mark.django_db
 def test_add_intervention_to_patient_accepts_patient_code(mongo_mock):
     """
     Regression: patientId in add-to-patient may be sent as patient_code (e.g. "1234").
@@ -830,6 +1377,179 @@ def test_add_intervention_to_patient_accepts_patient_code(mongo_mock):
     assert plan is not None
     assert len(plan.interventions or []) == 1
     assert str(plan.interventions[0].interventionId.id) == str(intervention.id)
+
+
+def _add_to_patient_payload(plan, patient, intervention_id, start_date):
+    return {
+        "therapistId": str(plan.therapistId.userId.id),
+        "patientId": str(patient.id),
+        "interventions": [
+            {
+                "interval": 1,
+                "interventionId": str(intervention_id),
+                "unit": "day",
+                "startDate": start_date.isoformat(),
+                "selectedDays": [],
+                "end": {"type": "count", "count": 1, "date": None},
+                "require_video_feedback": False,
+                "notes": "",
+            }
+        ],
+    }
+
+
+def _post_add_to_patient(payload):
+    return client.post(
+        "/api/interventions/add-to-patient/",
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+
+def test_get_patient_plan_counts_completion_logged_under_another_variant(mongo_mock):
+    """
+    Regression: the patient plan matched logs by the assigned interventionId exactly, while
+    get_patient_plan_for_therapist matched across every language variant. A completion recorded under a
+    variant that was later swapped out therefore showed as done to the therapist and as missing to the
+    patient. Both views must agree.
+    """
+    patient, _, en_variant, plan = setup_patient_with_plan()
+    de_variant = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="de",
+    ).save()
+
+    # Historic log written under the DE variant while the plan is assigned the EN one.
+    day = timezone.localdate()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=de_variant,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(day, datetime.min.time()),
+        status=["completed"],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{str(patient.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    rows = json.loads(resp.content.decode())
+    assert len(rows) == 1
+    assert (
+        day.isoformat() in rows[0]["completion_dates"]
+    ), "Completion recorded under a sibling language variant is still invisible to the patient."
+
+
+def _plan_with_duplicate_language_assignments():
+    """A plan holding two language variants of one intervention - the legacy shape both views must agree on.
+
+    Sessions are pinned to local noon so that neither view's UTC/local normalisation rolls a session
+    onto the neighbouring day and makes the assertions depend on the wall clock.
+    """
+    patient, _, en_variant, plan = setup_patient_with_plan()
+    de_variant = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=en_variant.external_id,
+        language="de",
+    ).save()
+
+    noon = datetime.combine(timezone.localdate(), dtime(12, 0))
+    canonical_dates = [noon + timedelta(days=i) for i in (-3, 2)]
+    sibling_dates = [noon + timedelta(days=i) for i in (-10, 11)]
+
+    plan.interventions[0].dates = canonical_dates
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=de_variant,
+            frequency="Daily",
+            notes="",
+            dates=sibling_dates,
+        )
+    )
+    plan.save()
+    return patient, de_variant, plan, canonical_dates, sibling_dates
+
+
+def test_get_patient_plan_survives_an_unparseable_date_on_a_duplicate_assignment(mongo_mock):
+    """
+    Merging a sibling assignment's dates compares calendar days, so a legacy entry that is not a
+    datetime must not take the patient's whole plan down - it degrades per-date, the way the
+    serialisation below it always has.
+    """
+    patient, _, plan, _, _ = _plan_with_duplicate_language_assignments()
+
+    RehabilitationPlan._get_collection().update_one(
+        {"_id": plan.id},
+        {"$push": {"interventions.1.dates": "not-a-datetime"}},
+    )
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{str(patient.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert len(json.loads(resp.content.decode())) == 1
+
+
+def test_get_patient_plan_skips_assignment_whose_intervention_was_deleted(mongo_mock):
+    """
+    A deleted Intervention leaves a dangling DBRef on the plan. Dereferencing it raises mongoengine's
+    base DoesNotExist - not Intervention.DoesNotExist - so the guard has to catch the base class or the
+    whole plan 500s on one bad reference.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    doomed = Intervention(
+        title="Removed",
+        description="Deleted from the library",
+        content_type="Video",
+        external_id="INT_REMOVED_001",
+        language="en",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=doomed,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=1)],
+        )
+    )
+    plan.save()
+    doomed.delete()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{str(patient.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    rows = json.loads(resp.content.decode())
+    assert len(rows) == 1, "The dangling assignment should be skipped, the healthy one still served."
+    assert rows[0]["intervention_id"] == str(intervention.id)
+
+
+def test_safe_intervention_does_not_swallow_unrelated_errors(mongo_mock):
+    """
+    The guard used to catch bare Exception, so a transient database fault read as "this intervention
+    was deleted" and quietly shortened a patient's plan. Only an unresolvable reference may be
+    swallowed; everything else has to surface.
+    """
+    from core.views.patient_views import _safe_intervention
+
+    class Exploding:
+        @property
+        def interventionId(self):
+            raise RuntimeError("connection reset")
+
+    with pytest.raises(RuntimeError):
+        _safe_intervention(Exploding())
 
 
 def test_get_patient_plan_no_plan_returns_empty_list(mongo_mock):
@@ -1451,14 +2171,15 @@ def test_mark_completed_uses_scheduled_datetime_from_plan(mongo_mock):
         content_type="Video",
     ).save()
 
-    # Schedule the intervention for a specific time on a fixed past date
-    target_day = datetime(2026, 1, 15, 0, 0, 0).date()
-    sched_time = datetime(2026, 1, 15, 8, 30, 0)  # 08:30 naive local
+    # Schedule the intervention for a specific time on a fixed past date. Stored aware, the way
+    # every plan writer stores dates: Mongo hands them back naive, and naive there means UTC.
+    sched_local = datetime(2026, 1, 15, 8, 30, 0)  # 08:30 Europe/Zurich
+    target_day = sched_local.date()
 
     assignment = InterventionAssignment(
         interventionId=intervention,
         frequency="Daily",
-        dates=[sched_time],
+        dates=[timezone.make_aware(sched_local)],
     )
     RehabilitationPlan(
         patientId=patient,
@@ -1485,10 +2206,286 @@ def test_mark_completed_uses_scheduled_datetime_from_plan(mongo_mock):
 
     log = PatientInterventionLogs.objects(userId=patient).first()
     assert log is not None, "No log was created"
-    # The stored datetime should be the scheduled 08:30, not midnight
-    assert log.date == sched_time, (
-        f"Expected scheduled time {sched_time}, got {log.date}. " "Scheduled datetime from plan not used for storage."
+    # The stored datetime should be the scheduled 08:30 local, not midnight
+    assert log.date == sched_local, (
+        f"Expected scheduled time {sched_local}, got {log.date}. " "Scheduled datetime from plan not used for storage."
     )
+
+
+def test_mark_completed_matches_translated_variant(mongo_mock):
+    """
+    Regression: the patient is assigned the EN variant of an intervention,
+    but the frontend catalog surfaces the DE variant's id (same external_id)
+    when completing it. The scheduled datetime lookup must resolve via
+    external_id fallback rather than silently defaulting to local midnight.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    # Stored aware like every plan writer stores dates; Mongo hands it back naive, meaning UTC.
+    # Mongo stores millisecond precision; truncate before comparing.
+    sched_local = (datetime.now() + timedelta(days=1)).replace(microsecond=0)
+    plan.interventions[0].dates[0] = timezone.make_aware(sched_local)
+    plan.save()
+
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(translated.id),
+                "date": sched_local.date().isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+
+    log = PatientInterventionLogs.objects(userId=patient).first()
+    assert log is not None, "No log was created"
+    assert log.date == sched_local, (
+        f"Expected scheduled time {sched_local}, got {log.date}. "
+        "External_id fallback not used to resolve the plan assignment."
+    )
+
+
+def test_mark_completed_uses_the_local_day_of_a_session_stored_late_in_the_utc_day(mongo_mock):
+    """
+    Regression: the scheduled-time lookup read a naive stored date as local wall clock while every
+    other reader resolves it through UTC. A session at 23:30 UTC is 01:30 the *next* local day, so
+    the plan views showed it on the later day, the completion arrived for that day, and the lookup
+    matched nothing - the log silently fell back to midnight instead of the session's time.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    # 23:30 UTC → 01:30 local the following day (Europe/Zurich is ahead of UTC year-round).
+    utc_dt = (datetime.now(py_timezone.utc) + timedelta(days=2)).replace(hour=23, minute=30, second=0, microsecond=0)
+    plan.interventions[0].dates = [utc_dt]
+    plan.save()
+
+    local_dt = timezone.localtime(utc_dt)
+    assert local_dt.date() != utc_dt.date(), "Fixture must straddle the local/UTC day boundary."
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+                # The day both plan views render this session on.
+                "date": local_dt.date().isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    log = PatientInterventionLogs.objects(userId=patient).first()
+    assert log is not None, "No log was created"
+    assert log.date == local_dt.replace(tzinfo=None), (
+        f"Expected the session's local time {local_dt.replace(tzinfo=None)}, got {log.date}. "
+        "The scheduled-time lookup fell back to midnight."
+    )
+
+
+def test_mark_completed_via_translated_variant_visible_in_patient_plan(mongo_mock):
+    """
+    Regression: the plan assigns the EN variant, but the patient completes it
+    via the DE variant (same external_id, no prior log that day). The log
+    must be stored against the plan's canonically-assigned variant so
+    get_patient_plan's exact-interventionId lookup still finds it as completed.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(translated.id),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    resp2 = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{str(patient.userId.id)}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp2.status_code == 200
+    data = resp2.json()
+    completion_dates = data[0]["completion_dates"]
+    today_key = timezone.localdate().isoformat()
+    assert (
+        today_key in completion_dates
+    ), "Completion via non-assigned language variant is invisible in the patient plan"
+
+
+def test_mark_completed_resolves_duplicate_plan_to_first_assignment(mongo_mock):
+    """
+    Regression: when the plan has two assignments sharing an external_id (e.g.
+    an EN and a DE variant both assigned) and the requested id matches neither
+    assignment exactly, the completion must be rejected rather than silently
+    logged against the unassigned variant, which get_patient_plan could never
+    find (invisible completion despite a 200 response).
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=translated,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(1, 6)],
+        )
+    )
+    plan.save()
+
+    unassigned_variant = Intervention(
+        title="Étirement",
+        description="Exercices d'étirement",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="fr",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(unassigned_variant.id),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    logs = PatientInterventionLogs.objects(userId=patient)
+    assert logs.count() == 1, "Exactly one log, on the first assignment's variant."
+    assert logs.first().interventionId.id == intervention.id
+
+
+def test_mark_completed_allows_ad_hoc_intervention_not_on_plan(mongo_mock):
+    """
+    An intervention that isn't assigned to the plan at all (no id match, no external_id conflict)
+    must still be completable ad-hoc, per the documented fallback in mark_intervention_completed.
+    """
+    patient, _, _intervention, _plan = setup_patient_with_plan()
+    unassigned = Intervention(
+        title="Breathing",
+        description="Breathing exercise",
+        content_type="Video",
+        external_id="INT_BREATHING_001",
+        language="en",
+    ).save()
+
+    resp = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(unassigned.id),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    logs = PatientInterventionLogs.objects(userId=patient)
+    assert logs.count() == 1
+    assert logs.first().interventionId.id == unassigned.id
+
+
+def test_mark_completed_merges_logs_across_duplicate_assignments(mongo_mock):
+    """
+    Two assignments sharing an external_id (EN + DE variants) are legacy data, and both plan views
+    merge them into a single row. Completing that row therefore has to land on a single log: keeping
+    one log per assignment would leave the patient a checkbox the views show as ticked but neither
+    complete nor uncomplete can reach.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    translated = Intervention(
+        title="Dehnung",
+        description="Dehnübungen",
+        content_type="Video",
+        external_id=intervention.external_id,
+        language="de",
+    ).save()
+
+    today_dt = datetime.now().replace(hour=9, minute=0, second=0, microsecond=0)
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=translated,
+            frequency="Daily",
+            notes="",
+            dates=[today_dt],
+        )
+    )
+    plan.save()
+
+    resp1 = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp1.status_code == 200, resp1.content.decode()
+
+    resp2 = client.post(
+        "/api/interventions/complete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(translated.id),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp2.status_code == 200, resp2.content.decode()
+
+    logs = PatientInterventionLogs.objects(userId=patient)
+    assert logs.count() == 1, "The merged plan row must be backed by a single completion log"
+    assert "completed" in (logs.first().status or [])
+
+    # The row the patient actually sees: one entry, completed once for today.
+    plan_view = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    rows = json.loads(plan_view.content)
+    assert len(rows) == 1
+    assert rows[0]["completion_dates"] == [timezone.localdate().isoformat()]
 
 
 # ===========================================================================
@@ -2417,3 +3414,119 @@ def test_get_patient_plan_dedup_lang_prefers_requested_language(mongo_mock):
     assert data[0]["intervention_title"] == "Der Blutdruck - Die Grundlagen"
     # intervention_id is still the originally assigned (EN) document
     assert data[0]["intervention_id"] == str(int_a.id)
+
+
+def test_video_feedback_on_a_log_with_no_comments_field(mongo_mock, settings, tmp_path):
+    """
+    Regression: PatientInterventionLogs.comments is a StringField with no default, so a log written
+    before this endpoint started passing comments="" holds None. Appending the video note with +=
+    raised TypeError, and the resulting 500 discarded the whole submission - including the video
+    that had just been uploaded.
+    """
+    # The endpoint really writes the upload through default_storage; keep it out of the repo.
+    settings.MEDIA_ROOT = str(tmp_path)
+
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    today = timezone.localdate()
+    legacy = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(today, datetime.min.time()).replace(hour=9),
+        status=["completed"],
+    )
+    legacy.save()
+    legacy.reload()
+    assert legacy.comments is None, "fixture is not modelling a log without a comments value"
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(intervention.id),
+            "video_example": SimpleUploadedFile("clip.mp4", b"not-really-a-video", content_type="video/mp4"),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    stored = PatientInterventionLogs.objects(userId=patient).first()
+    assert stored.video_url and stored.video_url.endswith(".mp4"), "the uploaded video was discarded"
+    assert "Video uploaded at" in (stored.comments or "")
+
+
+def test_video_feedback_note_is_not_duplicated_on_a_retried_submission(mongo_mock, settings, tmp_path):
+    """
+    Regression: the video-upload note was appended unconditionally, so a retried or double-submitted
+    request for the same upload landed the identical note twice. The fix replaces any previous
+    "Video uploaded at" line rather than appending it, matching how video_url itself is always
+    overwritten - so this must hold even when the two attempts cross a minute boundary, which a
+    timestamp-string dedup guard (an earlier, rejected version of this fix) would have missed.
+    """
+    settings.MEDIA_ROOT = str(tmp_path)
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    for minute in (0, 1):
+        fixed_now = timezone.make_aware(datetime(2026, 8, 31, 10, minute))
+        with patch("django.utils.timezone.now", return_value=fixed_now):
+            resp = client.post(
+                "/api/patients/feedback/questionaire/",
+                data={
+                    "userId": str(patient.userId.id),
+                    "interventionId": str(intervention.id),
+                    "video_example": SimpleUploadedFile("clip.mp4", b"not-really-a-video", content_type="video/mp4"),
+                },
+                HTTP_AUTHORIZATION="Bearer test",
+            )
+            assert resp.status_code in (200, 201), resp.content.decode()
+
+    stored = PatientInterventionLogs.objects(userId=patient).first()
+    assert (stored.comments or "").count("Video uploaded at") == 1, "the note was duplicated on retry"
+    assert "10:01" in stored.comments, "the note must reflect the retry's actual completion time"
+
+
+def test_video_feedback_note_reflects_a_second_different_video_in_the_same_minute(mongo_mock, settings, tmp_path):
+    """
+    Regression: a timestamp-string dedup guard (an earlier, rejected version of this fix) matched
+    on minute-precision text alone, so two genuinely different videos uploaded in the same minute
+    produced identical note text - the second video's note was silently suppressed even though
+    video_url was legitimately overwritten to it. The note must always describe the video actually
+    stored, and any other comment text the patient already had must survive the replacement.
+    """
+    settings.MEDIA_ROOT = str(tmp_path)
+    patient, _, intervention, plan = setup_patient_with_plan()
+
+    fixed_now = timezone.make_aware(datetime(2026, 8, 31, 10, 0))
+    with patch("django.utils.timezone.now", return_value=fixed_now):
+        # Dated inside the patch too: the endpoint keys its log lookup off timezone.localdate(),
+        # so a fixture dated against the real "today" would land on a different day and never
+        # be found, leaving the assertions below reading a log the request never touched.
+        log = PatientInterventionLogs(
+            userId=patient,
+            interventionId=intervention,
+            rehabilitationPlanId=plan,
+            date=datetime.combine(timezone.localdate(), datetime.min.time()),
+            status=[],
+            comments="Knee felt stiff today.",
+        )
+        log.save()
+
+        for filename in ("first.mp4", "second.mp4"):
+            resp = client.post(
+                "/api/patients/feedback/questionaire/",
+                data={
+                    "userId": str(patient.userId.id),
+                    "interventionId": str(intervention.id),
+                    "video_example": SimpleUploadedFile(filename, b"not-really-a-video", content_type="video/mp4"),
+                },
+                HTTP_AUTHORIZATION="Bearer test",
+            )
+            assert resp.status_code in (200, 201), resp.content.decode()
+
+    logs = list(PatientInterventionLogs.objects(userId=patient))
+    assert len(logs) == 1, "both uploads should have landed on the one pre-existing log for the day"
+    stored = logs[0]
+    assert stored.video_url and stored.video_url.endswith("second.mp4"), "the second video must be the one stored"
+    assert (stored.comments or "").count("Video uploaded at") == 1, "only the current video's note should remain"
+    assert "Knee felt stiff today." in stored.comments, "unrelated comment text must survive the replacement"

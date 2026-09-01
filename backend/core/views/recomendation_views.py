@@ -50,8 +50,10 @@ from utils.interventions import (
     _available_language_variants,
     _build_external_media,
     _build_file_media,
+    _canonical_assignment_for,
     _detect_file_media_type,
     _first_str_from_any,
+    _instant_key,
     _is_valid_url,
     _lang_fallback_chain,
     _list_of_str,
@@ -67,6 +69,7 @@ from utils.interventions import (
     _save_file,
     _serialize_media,
     _split_taglist_into_fields,
+    _variant_ids_for_external_id,
     normalize_content_type,
 )
 from utils.scheduling import _expand_dates  # you already use this
@@ -900,8 +903,9 @@ def get_intervention_detail(request, intervention_id):
         # Query across ALL language variants so logs recorded under a different
         # language variant of the same intervention are included.
         if external_id:
-            _variant_ids = [v.id for v in Intervention.objects(external_id=external_id).only("id")]
-            patient_logs = PatientInterventionLogs.objects.filter(interventionId__in=_variant_ids)
+            patient_logs = PatientInterventionLogs.objects.filter(
+                interventionId__in=_variant_ids_for_external_id(external_id)
+            )
         else:
             patient_logs = PatientInterventionLogs.objects.filter(interventionId=base_doc)
         for log in patient_logs:
@@ -1417,19 +1421,19 @@ def assign_intervention_to_types(request, therapist_id):
             if not dates:
                 continue
 
-            existing = None
-            for ia in plan.interventions or []:
-                if getattr(getattr(ia, "interventionId", None), "id", None) == inter_obj.id:
-                    existing = ia
-                    break
+            # Matched across language variants, so re-applying in a different language merges into
+            # the assignment the plan already has instead of duplicating it for every patient.
+            existing = _canonical_assignment_for(plan, inter_obj)
             if existing:
                 before = len(existing.dates or [])
-                have = {d.replace(microsecond=0) for d in (existing.dates or [])}
+                # Keyed in UTC because existing.dates come back from Mongo naive while the
+                # generated dates are aware local; unnormalised, nothing ever dedups.
+                have = {_instant_key(d) for d in (existing.dates or [])}
                 for d in dates:
-                    dt = d.replace(microsecond=0)
-                    if dt not in have:
+                    key = _instant_key(d)
+                    if key not in have:
                         existing.dates.append(d)
-                        have.add(dt)
+                        have.add(key)
                 added = len(existing.dates or []) - before
                 if added > 0:
                     existing_patients_applied["patients_affected"] += 1

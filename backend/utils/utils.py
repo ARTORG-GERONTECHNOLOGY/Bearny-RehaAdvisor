@@ -1,5 +1,6 @@
 import logging
 from datetime import date, datetime, timedelta
+from datetime import timezone as dt_timezone
 
 from bson import ObjectId
 from dateutil.relativedelta import relativedelta
@@ -256,6 +257,13 @@ def generate_repeat_dates(patient_end_date, repeat_data):
     interval = repeat_data.get("interval", 1)
     unit = repeat_data.get("unit")
 
+    # Neither an unrecognised unit nor a non-positive interval advances current_date in the loop
+    # below, so without this the generator spins forever and the request never returns.
+    if unit not in ("day", "week", "month"):
+        raise ValueError(f"Unsupported repeat unit: {unit!r}")
+    if not isinstance(interval, (int, float)) or interval < 1:
+        raise ValueError(f"Repeat interval must be a number >= 1, got {interval!r}")
+
     selected_days = repeat_data.get("selected_days") or repeat_data.get("selectedDays") or []
 
     # ---- NEW FORMAT ----
@@ -456,14 +464,26 @@ def _adherence(patient, lookback_days: int = 7):
         return None
 
     def _aware(dt: datetime | None) -> datetime | None:
+        """Log dates: naive means local, matching how mark_intervention_completed stores them."""
         if not isinstance(dt, datetime):
             return None
         if timezone.is_naive(dt):
             try:
                 return timezone.make_aware(dt, timezone.get_current_timezone())
             except Exception:
-                return timezone.make_aware(dt, timezone.utc)
+                # make_aware raises on the ambiguous/nonexistent local times a DST switch creates.
+                return dt.replace(tzinfo=dt_timezone.utc)
         return dt
+
+    def _aware_plan_date(value: datetime | None) -> datetime | None:
+        """Assignment dates: naive means UTC, the instant Mongo stored — not local time.
+
+        Reading them as local dates a session within the UTC offset of midnight onto the
+        previous day, so adherence disagreed with the plan views about which day it fell on.
+        """
+        if not isinstance(value, datetime):
+            return None
+        return value.replace(tzinfo=dt_timezone.utc) if timezone.is_naive(value) else value
 
     # ---- unique scheduled calendar days from the plan ----------------------
     sched_days_total: set[date] = set()
@@ -472,7 +492,7 @@ def _adherence(patient, lookback_days: int = 7):
     if plan:
         for ia in getattr(plan, "interventions", []) or []:
             for d in getattr(ia, "dates", []) or []:
-                dt = _aware(_to_dt(d))
+                dt = _aware_plan_date(_to_dt(d))
                 if not dt:
                     continue
                 day = dt.astimezone(local_tz).date()

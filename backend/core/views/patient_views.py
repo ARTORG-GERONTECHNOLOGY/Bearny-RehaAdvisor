@@ -42,10 +42,16 @@ from core.models import (
 )
 from core.services.redcap_access import get_therapist_for_user
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
+from utils.interventions import (
+    _canonical_assignment_for,
+    _plan_assignments_for,
+    _safe_intervention,
+    _variant_ids_by_external_id,
+    _variant_ids_for_external_id,
+)
 from utils.utils import (
     _adherence,
     convert_to_serializable,
-    ensure_aware,
     generate_custom_id,
     generate_repeat_dates,
     get_labels,
@@ -86,6 +92,8 @@ FFMPEG_OK = bool(pd_which("ffmpeg") and pd_which("ffprobe"))
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
+_VIDEO_UPLOAD_NOTE_PREFIX = "Video uploaded at "
+
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -117,15 +125,10 @@ def submit_patient_feedback(request):
         else:
             target_day = timezone.localdate()
 
-        # create day bounds in local time
+        # Naive local day bounds, matching how PatientInterventionLogs store dates (see
+        # mark_intervention_completed). Converting to UTC here shifts the window off the stored values.
         day_start = datetime.datetime.combine(target_day, datetime.time.min)
         day_end = datetime.datetime.combine(target_day, datetime.time.max)
-
-        # make aware if timezone is used
-        if timezone.is_naive(day_start):
-            day_start = timezone.make_aware(day_start, timezone.get_current_timezone())
-        if timezone.is_naive(day_end):
-            day_end = timezone.make_aware(day_end, timezone.get_current_timezone())
 
         recognizer = sr.Recognizer()
         answers = {}
@@ -250,19 +253,29 @@ def submit_patient_feedback(request):
             if not plan:
                 return JsonResponse({"error": "Rehabilitation plan not found."}, status=404)
 
+            # Resolve via the plan's assignment: a translated variant must land on completion's log.
+            _, canonical_intervention, variant_ids = _resolve_plan_assignment(plan, intervention)
+
             # ✅ use target_day bounds, NOT "today"
-            log = PatientInterventionLogs.objects(
-                userId=patient,
-                interventionId=intervention,
-                date__gte=day_start,
-                date__lte=day_end,
-            ).first()
+            # Scoped, windowed and ordered exactly like mark_intervention_completed, so feedback lands
+            # on the very log that endpoint keeps for the day rather than a same-day duplicate.
+            log = (
+                PatientInterventionLogs.objects(
+                    userId=patient,
+                    rehabilitationPlanId=plan,
+                    interventionId__in=variant_ids,
+                    date__gte=day_start,
+                    date__lte=day_end,
+                )
+                .order_by("-date")
+                .first()
+            )
 
             if not log:
                 # ✅ log.date should be within the target day
                 log = PatientInterventionLogs(
                     userId=patient,
-                    interventionId=intervention,
+                    interventionId=canonical_intervention,
                     rehabilitationPlanId=plan,
                     date=day_start,  # keep consistent day anchor
                     status=[],
@@ -275,7 +288,12 @@ def submit_patient_feedback(request):
                 if qkey == "video_example" and isinstance(answer_val, dict) and "video_url" in answer_val:
                     log.video_url = answer_val["video_url"]
                     log.video_expired = False
-                    log.comments += f"\nVideo uploaded at {answer_val['uploaded_at']:%Y-%m-%d %H:%M}"
+                    # Replace, don't append-with-a-dedup-guard: video_url is always overwritten too.
+                    other_lines = [
+                        ln for ln in (log.comments or "").splitlines() if not ln.startswith(_VIDEO_UPLOAD_NOTE_PREFIX)
+                    ]
+                    note = f"{_VIDEO_UPLOAD_NOTE_PREFIX}{answer_val['uploaded_at']:%Y-%m-%d %H:%M}"
+                    log.comments = "\n".join(other_lines + [note]).strip()
                     continue
 
                 qobj = FeedbackQuestion.objects.filter(questionKey=qkey).first()
@@ -328,6 +346,8 @@ def submit_patient_feedback(request):
                 log.feedback.append(FeedbackEntry(**entry_kwargs))
 
             log.updatedAt = timezone.now()
+            # Collapse the day onto one variant, so duplicate logs stop accumulating per language.
+            log.interventionId = canonical_intervention
             log.save()
 
         # =========================
@@ -369,7 +389,8 @@ def submit_patient_feedback(request):
                     questionId=qobj,
                     patientId=patient,
                     icfCode=qobj.icfCode,
-                    # ✅ align rating date too (important for time-series charts)
+                    # Naive local, like the day bounds above: the health-overview readers render
+                    # this value as stored, so an aware one comes back shifted into the day before.
                     date=day_start,
                     rating=int(text_ans) if text_ans.isdigit() else None,
                     notes=notes,
@@ -393,6 +414,60 @@ def submit_patient_feedback(request):
     except Exception as e:
         logger.exception("Unexpected error in submit_patient_feedback")
         return JsonResponse({"error": str(e)}, status=500)
+
+
+def _merge_duplicate_logs(keep, others):
+    """Fold same-day duplicate logs into `keep`. Does not delete them - see _discard_merged_logs.
+
+    Every field has to come across, not just status and feedback: the day query spans an
+    intervention's language variants, so a video or note recorded under one variant would
+    otherwise be lost when the patient completes the day under another.
+    """
+    keep.status = list(dict.fromkeys((keep.status or []) + [s for l in others for s in (l.status or [])]))
+
+    merged_feedback = list(keep.feedback or [])
+    for l in others:
+        merged_feedback.extend(l.feedback or [])
+    keep.feedback = merged_feedback
+
+    for l in others:
+        other_video = getattr(l, "video_url", None)
+        if other_video and not getattr(keep, "video_url", None):
+            keep.video_url = other_video
+            keep.video_expired = bool(getattr(l, "video_expired", False))
+        elif other_video and other_video != keep.video_url:
+            # video_url holds one value, so a second, different video can't move there too - logged
+            # rather than written into comments, which the therapist reads as the patient's caption.
+            logger.warning(
+                "[_merge_duplicate_logs] Discarding a second video on merge (log=%s, kept=%s): %s",
+                l.id,
+                keep.id,
+                other_video,
+            )
+            # l's own "Video uploaded at" line now describes a video that's gone, so drop it before
+            # the general comment merge below folds l's remaining text into keep.
+            if l.comments:
+                l.comments = "\n".join(
+                    ln for ln in l.comments.splitlines() if not ln.startswith(_VIDEO_UPLOAD_NOTE_PREFIX)
+                ).strip()
+        if not getattr(keep, "assistance", None) and getattr(l, "assistance", None):
+            keep.assistance = l.assistance
+        extra = (getattr(l, "comments", "") or "").strip()
+        if extra and extra not in (keep.comments or ""):
+            keep.comments = f"{(keep.comments or '').rstrip()}\n{extra}".strip()
+
+
+def _discard_merged_logs(others):
+    """Delete logs whose content has been merged elsewhere.
+
+    Only ever called after the log holding that content is saved: dropping the originals first
+    would lose a merged video or note outright if the save then failed.
+    """
+    for l in others:
+        try:
+            l.delete()
+        except Exception:
+            logger.warning("[_discard_merged_logs] Could not delete duplicate log %s", l.id, exc_info=True)
 
 
 @api_view(["POST"])
@@ -456,8 +531,6 @@ def mark_intervention_completed(request):
         else:
             target_day = timezone.localdate()
 
-        tz = timezone.get_current_timezone()
-
         # Naive local day boundaries — no UTC conversion to avoid day-shift.
         day_start = datetime.datetime.combine(target_day, datetime.time.min)
         day_end = datetime.datetime.combine(target_day, datetime.time.max)
@@ -470,25 +543,26 @@ def mark_intervention_completed(request):
         #    matches (e.g. ad-hoc completion not on the planned calendar).
         # -----------------------------
         log_date = day_start  # default: local midnight of target_day
-        for assignment in rehab_plan.interventions:
-            if str(assignment.interventionId.pk) == str(intervention.pk):
-                for sched_dt in assignment.dates:
-                    if not isinstance(sched_dt, datetime.datetime):
-                        continue
-                    # Normalise to naive local time for date comparison and storage
-                    sched_local = (
-                        sched_dt.astimezone(tz).replace(tzinfo=None) if sched_dt.tzinfo is not None else sched_dt
-                    )
-                    if sched_local.date() == target_day:
-                        log_date = sched_local
-                        break
+        assignments, canonical_intervention, variant_ids = _resolve_plan_assignment(rehab_plan, intervention)
+
+        # Across every assignment for this intervention, since a legacy plan holding it twice shows
+        # the union of their sessions and the completed day may sit on either one.
+        for sched_dt in (d for a in assignments for d in (a.dates or [])):
+            if not isinstance(sched_dt, datetime.datetime):
+                continue
+            # Naive local, matching how this endpoint stores log dates. Resolved through UTC like
+            # _local_day, so the day matched here is the day the plan views display it on.
+            sched_local = timezone.localtime(_as_aware_utc(sched_dt)).replace(tzinfo=None)
+            if sched_local.date() == target_day:
+                log_date = sched_local
                 break
 
-        # Fetch ALL logs for the naive local day window
+        # Fetch the day's logs across every language variant of this intervention, so a legacy
+        # duplicate assignment's log is merged into one rather than joined by a second one.
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
-            interventionId=intervention,
+            interventionId__in=variant_ids,
             date__gte=day_start,
             date__lte=day_end,
         ).order_by("-date")
@@ -497,25 +571,8 @@ def mark_intervention_completed(request):
 
         if logs:
             keep = logs[0]
-            others = logs[1:]
-
-            # merge status unique
-            merged_status = list(dict.fromkeys((keep.status or []) + sum([(l.status or []) for l in others], [])))
-            keep.status = merged_status
-
-            # merge feedback
-            merged_feedback = keep.feedback or []
-            for l in others:
-                if l.feedback:
-                    merged_feedback.extend(l.feedback)
-            keep.feedback = merged_feedback
-
-            # delete duplicates
-            for l in others:
-                try:
-                    l.delete()
-                except Exception:
-                    pass
+            duplicates = logs[1:]
+            _merge_duplicate_logs(keep, duplicates)
 
             # ensure completed
             if "completed" not in (keep.status or []):
@@ -523,20 +580,22 @@ def mark_intervention_completed(request):
 
             keep.updatedAt = timezone.now()
 
-            # Normalise stored date to the canonical log_date for this day
+            # Normalise stored date and interventionId to the canonical values for this day
             keep.date = log_date
+            keep.interventionId = canonical_intervention
 
             if assistance is not None:
                 keep.assistance = assistance
 
             keep.save()
+            _discard_merged_logs(duplicates)
 
             Logs(
                 userId=patient.userId,
                 action="INTERVENTION_COMPLETE",
                 actor_role="Patient",
                 patient=patient,
-                details=f"intervention={intervention.title} date={target_day.isoformat()}",
+                details=f"intervention={canonical_intervention.title} date={target_day.isoformat()}",
             ).save()
 
             return JsonResponse({"message": "Marked as completed successfully"}, status=200)
@@ -544,7 +603,7 @@ def mark_intervention_completed(request):
         # No log yet → create ONE canonical log for that day
         log = PatientInterventionLogs(
             userId=patient,
-            interventionId=intervention,
+            interventionId=canonical_intervention,
             rehabilitationPlanId=rehab_plan,
             date=log_date,  # naive local datetime (scheduled time or midnight)
             status=["completed"],
@@ -559,7 +618,7 @@ def mark_intervention_completed(request):
             action="INTERVENTION_COMPLETE",
             actor_role="Patient",
             patient=patient,
-            details=f"intervention={intervention.title} date={target_day.isoformat()}",
+            details=f"intervention={canonical_intervention.title} date={target_day.isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Marked as completed successfully"}, status=200)
@@ -615,10 +674,13 @@ def unmark_intervention_completed(request):
         day_start = datetime.datetime.combine(target_day, datetime.time.min)
         day_end = datetime.datetime.combine(target_day, datetime.time.max)
 
+        # Across every language variant, so a log the plan views display is one we can also clear.
+        _, canonical_intervention, variant_ids = _resolve_plan_assignment(rehab_plan, intervention)
+
         logs_qs = PatientInterventionLogs.objects(
             userId=patient,
             rehabilitationPlanId=rehab_plan,
-            interventionId=intervention,
+            interventionId__in=variant_ids,
             date__gte=day_start,
             date__lte=day_end,
         ).order_by("-date")
@@ -629,37 +691,39 @@ def unmark_intervention_completed(request):
 
         # ✅ keep newest, merge others, delete duplicates
         keep = logs[0]
-        others = logs[1:]
+        duplicates = logs[1:]
+        _merge_duplicate_logs(keep, duplicates)
 
-        merged_status = list(dict.fromkeys((keep.status or []) + sum([(l.status or []) for l in others], [])))
-        keep.status = [s for s in merged_status if str(s).lower() != "completed"]
-
-        merged_feedback = keep.feedback or []
-        for l in others:
-            if l.feedback:
-                merged_feedback.extend(l.feedback)
-        keep.feedback = merged_feedback
-
+        keep.status = [s for s in (keep.status or []) if str(s).lower() != "completed"]
+        # Assistance describes how much help the session needed, so it goes with the completion
+        # being retracted. Leaving it would silently reattach to the next completion, which does
+        # not send the field unless the patient picks one.
+        keep.assistance = None
         keep.updatedAt = timezone.now()
 
-        for l in others:
-            try:
-                l.delete()
-            except Exception:
-                pass
-
-        # Delete log if nothing remains after uncomplete, else save as-is
-        if not keep.status and not keep.feedback:
+        # Delete log if nothing remains after uncomplete, else normalise and save. A video or a
+        # comment is content the patient produced, not a property of the completion: undoing a
+        # completion tap must not take either with it.
+        if (
+            not keep.status
+            and not keep.feedback
+            and not getattr(keep, "video_url", None)
+            and not (keep.comments or "").strip()
+        ):
             keep.delete()
         else:
+            # Collapse the day onto one variant, so duplicate logs stop accumulating per language.
+            keep.interventionId = canonical_intervention
             keep.save()
+
+        _discard_merged_logs(duplicates)
 
         Logs(
             userId=patient.userId,
             action="INTERVENTION_UNCOMPLETE",
             actor_role="Patient",
             patient=patient,
-            details=f"intervention={intervention.title} date={target_day.isoformat()}",
+            details=f"intervention={canonical_intervention.title} date={target_day.isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Unmarked successfully"}, status=200)
@@ -1079,11 +1143,16 @@ def get_patient_plan(request, patient_id):
 
         today = timezone.localdate()
         out = []
+
         seen_ext_ids: set = set()
 
+        assignments = []
         for assignment in getattr(rehab_plan, "interventions", None) or []:
-            assigned_intervention = getattr(assignment, "interventionId", None)
-            if not assigned_intervention:
+            # _safe_intervention, not getattr: a deleted Intervention raises on dereference, which
+            # getattr's default does not catch, and one dangling ref took the whole plan down.
+            assigned_intervention = _safe_intervention(assignment)
+            if assigned_intervention is None:
+                logger.warning("[get_patient_plan] Skipping dangling assignment on plan=%s", rehab_plan.id)
                 continue
 
             # Deduplicate by external_id: the same intervention content (same external_id)
@@ -1094,16 +1163,19 @@ def get_patient_plan(request, patient_id):
                     logger.warning("[get_patient_plan] Skipping duplicate assignment for external_id=%s", ext_id)
                     continue
                 seen_ext_ids.add(ext_id)
+            assignments.append((assignment, assigned_intervention))
 
-            # Use the language-preferred variant for title/metadata display, but
-            # always look up logs against the originally assigned document so that
-            # completion records are not lost when a language variant is swapped in.
+        variant_ids = _variant_ids_by_intervention(iv for _, iv in assignments)
+
+        for assignment, assigned_intervention in assignments:
+            # Preferred variant for display, but logs across every variant of the external_id, so a
+            # completion recorded under another language still counts.
             intervention = _best_variant(assigned_intervention, ui_lang) if ui_lang else assigned_intervention
 
             logs = PatientInterventionLogs.objects(
                 userId=patient,
                 rehabilitationPlanId=rehab_plan,
-                interventionId=assigned_intervention,
+                interventionId__in=variant_ids[assigned_intervention.pk],
             )
 
             completion_dates = _completion_day_keys_from_logs(logs)
@@ -1163,44 +1235,6 @@ def get_patient_plan(request, patient_id):
     except Exception:
         logger.error("[get_patient_plan] Error while resolving/serializing patient plan", exc_info=True)
         return JsonResponse({"error": "Internal server error."}, status=500)
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def create_patient_intervention_log(request):
-    """
-    POST /api/patients/intervention-log/
-    Creates a patient intervention log entry.
-    """
-    try:
-        data = json.loads(request.body)
-        patient = Patient.objects.get(id=ObjectId(data.get("patientId")))
-        intervention = Intervention.objects.get(id=ObjectId(data.get("interventionId")))
-
-        log = PatientInterventionLogs(
-            userId=patient,
-            interventionId=intervention,
-            rehabilitationPlanId=rehab_plan,
-            date=timezone.now(),
-            status=["completed"],
-            feedback=[],
-            comments="",
-        )
-
-        log.save()
-
-        return JsonResponse({"message": "Patient Intervention Log created successfully"}, status=201)
-
-    except (Patient.DoesNotExist, Intervention.DoesNotExist) as e:
-        logger.warning(f"[create_patient_intervention_log] Entity not found: {e}")
-        return JsonResponse({"error": str(e)}, status=404)
-
-    except Exception as e:
-        logger.error(
-            f"[create_patient_intervention_log] Unexpected error: {str(e)}",
-            exc_info=True,
-        )
-        return JsonResponse({"error": "Internal Server Error"}, status=500)
 
 
 TYPE_PREFIX_MAP = {
@@ -1460,36 +1494,36 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         # Try to resolve the assignment + intervention type
         assignment = None
         intervention_type = None
-
-        if intervention_id:
-            plan = RehabilitationPlan.objects(patientId=patient).first()
-            if plan:
-                assignment = next(
-                    (
-                        a
-                        for a in (plan.interventions or [])
-                        if str(getattr(a.interventionId, "id", a.interventionId)) == str(intervention_id)
-                    ),
-                    None,
-                )
-                if assignment and getattr(assignment, "interventionId", None):
-                    # normalize to lower for matching
-                    raw_type = str(getattr(assignment.interventionId, "content_type", "") or "")
-                    intervention_type = raw_type.strip().lower() or None
-
-        # Fallback: if assignment wasn't found or content_type is empty,
-        # look up the Intervention document directly (handles library-browse path
-        # where the intervention may not be in any rehabilitation plan yet).
         intervention_aim = ""
+
+        iv_doc = None
         if intervention_id:
             try:
                 iv_doc = Intervention.objects.get(pk=ObjectId(intervention_id))
-                if not intervention_type:
-                    raw_type = str(getattr(iv_doc, "content_type", "") or "")
-                    intervention_type = raw_type.strip().lower() or None
-                intervention_aim = str(getattr(iv_doc, "aim", "") or "").strip()
             except Exception:
-                pass
+                iv_doc = None
+
+        if iv_doc is not None:
+            plan = RehabilitationPlan.objects(patientId=patient).first()
+            if plan:
+                # Via the document, so a request naming a language variant the plan does not hold
+                # still finds the assignment (see _plan_assignments_for_id).
+                assignment = _canonical_assignment_for(plan, iv_doc)
+
+        assigned_intervention = _safe_intervention(assignment) if assignment is not None else None
+        if assigned_intervention is not None:
+            # normalize to lower for matching
+            raw_type = str(getattr(assigned_intervention, "content_type", "") or "")
+            intervention_type = raw_type.strip().lower() or None
+
+        # Fallback: if assignment wasn't found or content_type is empty, take it from the
+        # Intervention document itself (handles the library-browse path, where the intervention
+        # may not be in any rehabilitation plan yet).
+        if iv_doc is not None:
+            if not intervention_type:
+                raw_type = str(getattr(iv_doc, "content_type", "") or "")
+                intervention_type = raw_type.strip().lower() or None
+            intervention_aim = str(getattr(iv_doc, "aim", "") or "").strip()
 
         # 1) Core questions (apply to all interventions).
         #    We accept two ways to mark "core":
@@ -2003,6 +2037,7 @@ def add_intervention_to_patient(request):
 
     total_added = 0
     created_assignments = 0
+    variant_switches = 0
 
     for raw in items:
         item = normalize_schedule(raw)
@@ -2072,19 +2107,14 @@ def add_intervention_to_patient(request):
 
         new_ext = getattr(intervention, "external_id", None)
 
-        existing = next(
-            (
-                a
-                for a in (plan.interventions or [])
-                if (new_ext and getattr(getattr(a, "interventionId", None), "external_id", None) == new_ext)
-                or (str(getattr(getattr(a, "interventionId", None), "id", "")) == str(intervention.id))
-            ),
-            None,
-        )
+        # Matched across language variants, so re-adding in another language merges into the
+        # assignment the plan already holds instead of appending a duplicate beside it.
+        existing = _canonical_assignment_for(plan, intervention)
 
         if existing:
             if new_ext and getattr(existing.interventionId, "id", None) != getattr(intervention, "id", None):
                 existing.interventionId = intervention
+                variant_switches += 1
 
             merged, added_cnt = _merge_dates(existing.dates, dates)
             if added_cnt > 0:
@@ -2105,7 +2135,19 @@ def add_intervention_to_patient(request):
             created_assignments += 1
             total_added += len(dates)
 
-    if created_assignments == 0 and total_added == 0:
+    if created_assignments or total_added or variant_switches:
+        plan.updatedAt = timezone.now()
+        plan.save()
+
+    msg = []
+    if created_assignments:
+        msg.append(f"created {created_assignments} assignment(s)")
+    if total_added:
+        msg.append(f"added {total_added} session(s)")
+    if variant_switches:
+        msg.append(f"switched {variant_switches} intervention(s) to the requested language")
+
+    if not msg:
         return JsonResponse(
             {
                 "success": True,
@@ -2115,15 +2157,6 @@ def add_intervention_to_patient(request):
             },
             status=200,
         )
-
-    plan.updatedAt = timezone.now()
-    plan.save()
-
-    msg = []
-    if created_assignments:
-        msg.append(f"created {created_assignments} assignment(s)")
-    if total_added:
-        msg.append(f"added {total_added} session(s)")
 
     return JsonResponse(
         {
@@ -2149,6 +2182,19 @@ def _as_aware_local(d: datetime.datetime) -> datetime.datetime:
     if timezone.is_naive(d):
         return timezone.make_aware(d, _tz_local())
     return d.astimezone(_tz_local())
+
+
+def _local_day(d: datetime.datetime):
+    """The local calendar day of a stored assignment date, or None when it cannot be read.
+
+    Resolved through UTC because Mongo hands these back naive, where naive means UTC: d.date() would
+    report the UTC day, and every consumer - both plan views, the reschedule collision check - reads
+    them in local time. Within the local offset of midnight the two disagree.
+    """
+    try:
+        return timezone.localtime(_as_aware_utc(d)).date()
+    except Exception:
+        return None
 
 
 def _as_aware_utc(d: datetime.datetime) -> datetime.datetime:
@@ -2181,6 +2227,48 @@ def _parse_iso(s: str) -> datetime.datetime:
 
 def _ceil_to_day(dt: datetime.datetime) -> datetime.datetime:
     return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _plan_assignments_for_id(plan, intervention_id):
+    """Every assignment on the plan holding the intervention with this id, in plan order.
+
+    This is issue #537: the plan stores whichever language variant was assigned, while the plan
+    views hand the client a different variant's id, so matching the id against the assignments
+    directly found nothing and the endpoint answered "not assigned to the patient". Resolving the
+    id to its document first lets _plan_assignments_for group by external_id instead.
+    """
+    oid = _coerce_object_id(intervention_id)
+    intervention = Intervention.objects(id=oid).only("id", "external_id").first() if oid else None
+    if intervention is None:
+        return []
+    return _plan_assignments_for(plan, intervention)
+
+
+def _resolve_plan_assignment(plan, intervention):
+    """Resolve intervention against plan's assignment, allowing ad-hoc completion when unassigned.
+
+    Returns (assignments, canonical_intervention, variant_ids).
+    """
+    assignments = _plan_assignments_for(plan, intervention)
+    canonical = _safe_intervention(assignments[0]) if assignments else None
+    canonical = canonical or intervention
+    # Every variant of the external_id: readers and writers must resolve the same set, or a
+    # completion recorded under one language is one the plan views display but complete and
+    # uncomplete cannot find. Falling back to the document's own id keeps the query from running
+    # on an empty id list, which would match nothing at all.
+    variant_ids = _variant_ids_for_external_id(getattr(canonical, "external_id", None)) or [canonical.pk]
+    return assignments, canonical, variant_ids
+
+
+def _variant_ids_by_intervention(interventions):
+    """{intervention pk -> ids of every Intervention sharing its external_id}, in one query.
+
+    The per-intervention lookup costs a round trip, which the plan-view loops would otherwise pay
+    once per assignment.
+    """
+    interventions = list(interventions)
+    by_ext = _variant_ids_by_external_id(getattr(iv, "external_id", None) for iv in interventions)
+    return {iv.pk: by_ext.get(getattr(iv, "external_id", None)) or [iv.pk] for iv in interventions}
 
 
 # English + German short labels
@@ -2450,12 +2538,11 @@ def modify_intervention_from_date(request):
     # ----------------------
     # Find intervention assignment
     # ----------------------
-    target = next(
-        (a for a in plan.interventions if str(a.interventionId.id) == str(intervention_id)),
-        None,
-    )
+    # Every assignment for this intervention: a legacy duplicate must not keep serving the schedule
+    # that is being replaced from effective_from onwards.
+    targets = _plan_assignments_for_id(plan, intervention_id)
 
-    if not target:
+    if not targets:
         return JsonResponse(
             {
                 "success": False,
@@ -2486,15 +2573,18 @@ def modify_intervention_from_date(request):
     # ----------------------
     # Update flags always
     # ----------------------
-    target.require_video_feedback = require_video
-    if notes is not None:
-        target.notes = (notes or "").strip()[:1000]
+    for target in targets:
+        target.require_video_feedback = require_video
+        if notes is not None:
+            target.notes = (notes or "").strip()[:1000]
 
     # ----------------------
     # Split past/future dates
     # ----------------------
     try:
-        existing_utc = [_as_aware_utc(d) for d in (target.dates or [])]
+        # Per assignment, since a legacy plan can hold this intervention more than once and the
+        # replaced schedule has to come off all of them.
+        dates_utc = [[_as_aware_utc(d) for d in (t.dates or [])] for t in targets]
     except Exception:
         logger.exception("[modify_intervention_from_date] Failed to convert existing UTC dates")
         return JsonResponse(
@@ -2507,14 +2597,16 @@ def modify_intervention_from_date(request):
             status=500,
         )
 
-    past_utc = [d for d in existing_utc if d < eff_dt_utc]
-    future_utc = [d for d in existing_utc if d >= eff_dt_utc]
+    past_utc = [[d for d in dates if d < eff_dt_utc] for dates in dates_utc]
 
     # ----------------------
     # If keep_current → only update flags
     # ----------------------
     if keep_current:
-        target.dates = past_utc + future_utc
+        # Same dates, only rewritten as aware UTC. Sorted because the previous past-then-future
+        # reassembly was, and get_patient_plan renders them in stored order.
+        for target, dates in zip(targets, dates_utc):
+            target.dates = sorted(dates)
         plan.updatedAt = timezone.now()
         plan.save()
 
@@ -2522,7 +2614,7 @@ def modify_intervention_from_date(request):
             {
                 "success": True,
                 "message": "Updated schedule flags.",
-                "updatedCount": len(target.dates),
+                "updatedCount": sum(len(t.dates or []) for t in targets),
                 "field_errors": {},
                 "non_field_errors": [],
             },
@@ -2567,7 +2659,10 @@ def modify_intervention_from_date(request):
             status=400,
         )
 
-    target.dates = past_utc + new_utc
+    # Each assignment keeps its own past sessions; the regenerated schedule lands on the canonical
+    # one, so the group ends up with exactly one series from effective_from onwards.
+    for i, target in enumerate(targets):
+        target.dates = past_utc[i] + (new_utc if i == 0 else [])
 
     plan.updatedAt = timezone.now()
     plan.save()
@@ -2576,7 +2671,7 @@ def modify_intervention_from_date(request):
         {
             "success": True,
             "message": "Updated schedule.",
-            "updatedCount": len(target.dates),
+            "updatedCount": sum(len(t.dates or []) for t in targets),
             "field_errors": {},
             "non_field_errors": [],
         },
@@ -2725,12 +2820,11 @@ def reschedule_intervention_date(request):
     # ----------------------
     # Find intervention assignment
     # ----------------------
-    target = next(
-        (a for a in plan.interventions if str(a.interventionId.id) == str(intervention_id)),
-        None,
-    )
+    # Every assignment for this intervention: the occurrence being dragged, and anything it could
+    # collide with, may sit on a legacy duplicate rather than the first assignment.
+    targets = _plan_assignments_for_id(plan, intervention_id)
 
-    if not target:
+    if not targets:
         return JsonResponse(
             {
                 "success": False,
@@ -2780,7 +2874,10 @@ def reschedule_intervention_date(request):
     # Locate the occurrence to move
     # ----------------------
     try:
-        existing_utc = [_as_aware_utc(d) for d in (target.dates or [])]
+        # One flat list over the whole group: a legacy plan holding this intervention twice shows
+        # the union of their sessions, so the occurrence being dragged - and anything it could
+        # collide with - may sit on either assignment.
+        occurrences = [(t, i, _as_aware_utc(d)) for t in targets for i, d in enumerate(t.dates or [])]
     except Exception:
         logger.exception("[reschedule_intervention_date] Failed to convert existing UTC dates")
         return JsonResponse(
@@ -2793,12 +2890,9 @@ def reschedule_intervention_date(request):
             status=500,
         )
 
-    match_idx = next(
-        (i for i, d in enumerate(existing_utc) if abs((d - old_dt_utc).total_seconds()) < 1),
-        None,
-    )
+    match = next((o for o in occurrences if abs((o[2] - old_dt_utc).total_seconds()) < 1), None)
 
-    if match_idx is None:
+    if match is None:
         return JsonResponse(
             {
                 "success": False,
@@ -2809,7 +2903,9 @@ def reschedule_intervention_date(request):
             status=404,
         )
 
-    if existing_utc[match_idx] < now_utc:
+    target, match_index, match_utc = match
+
+    if match_utc < now_utc:
         return JsonResponse(
             {
                 "success": False,
@@ -2833,7 +2929,10 @@ def reschedule_intervention_date(request):
     # the existing completed log to the new, unstarted occurrence.
     # ----------------------
     new_day = _as_aware_local(new_dt_utc).date()
-    collides = any(_as_aware_local(d).date() == new_day for i, d in enumerate(existing_utc) if i != match_idx)
+    # `is` on the assignment, not `==`: two duplicate assignments can compare equal by value.
+    collides = any(
+        _as_aware_local(d).date() == new_day for t, i, d in occurrences if not (t is target and i == match_index)
+    )
     if collides:
         return JsonResponse(
             {
@@ -2848,9 +2947,9 @@ def reschedule_intervention_date(request):
     # ----------------------
     # Apply and save
     # ----------------------
-    existing_utc[match_idx] = new_dt_utc
-    existing_utc.sort()
-    target.dates = existing_utc
+    moved = [d for t, i, d in occurrences if t is target and i != match_index]
+    moved.append(new_dt_utc)
+    target.dates = sorted(moved)
 
     plan.updatedAt = timezone.now()
     plan.save()
@@ -2936,9 +3035,10 @@ def get_patient_plan_for_therapist(request, patient_id):
                         status=403,
                     )
 
-        try:
-            plan = RehabilitationPlan.objects.get(patientId=patient)
-        except RehabilitationPlan.DoesNotExist:
+        # .first(), like every other plan reader: .get() raised an uncaught MultipleObjectsReturned
+        # for a patient who ended up with two plan docs, and there is no unique index preventing that.
+        plan = RehabilitationPlan.objects(patientId=patient).first()
+        if plan is None:
             logger.info(
                 "[get_patient_plan_for_therapist] No rehab plan found for resolved patient (identifier redacted)"
             )
@@ -2971,35 +3071,45 @@ def get_patient_plan_for_therapist(request, patient_id):
         # same intervention was added in multiple language variants.
         _seen_ext: dict = {}
         for _a in plan.interventions:
-            _iv = _a.interventionId
+            # _safe_intervention, not attribute access: a deleted Intervention raises on
+            # dereference, and one dangling ref took the whole dashboard down.
+            _iv = _safe_intervention(_a)
+            if _iv is None:
+                logger.warning("[get_patient_plan_for_therapist] Skipping dangling assignment on plan=%s", plan.id)
+                continue
             _ext = getattr(_iv, "external_id", None) or str(_iv.id)
             if _ext not in _seen_ext:
                 _seen_ext[_ext] = {
                     "canonical": _a,
+                    "intervention": _iv,
                     "all_dates": list(_a.dates),
-                    "all_ids": [_iv.id],
                 }
             else:
-                _existing_days = {_d.date() for _d in _seen_ext[_ext]["all_dates"]}
+                # Compared on the local day, like every consumer of these dates: naive values come
+                # back from Mongo as UTC, so _d.date() dropped a session sitting either side of
+                # local midnight into the wrong day and deduped it against the wrong neighbour.
+                _existing_days = {_local_day(_d) for _d in _seen_ext[_ext]["all_dates"]}
                 for _d in _a.dates:
-                    if _d.date() not in _existing_days:
+                    _day = _local_day(_d)
+                    if _day not in _existing_days:
                         _seen_ext[_ext]["all_dates"].append(_d)
-                        _existing_days.add(_d.date())
-                _seen_ext[_ext]["all_ids"].append(_iv.id)
+                        _existing_days.add(_day)
 
-        for _group in _seen_ext.values():
+        _groups = list(_seen_ext.values())
+        variant_ids = _variant_ids_by_intervention(g["intervention"] for g in _groups)
+
+        for _group in _groups:
             assignment = _group["canonical"]
+            intervention = _group["intervention"]
             all_dates = sorted(_group["all_dates"])
-            intervention = assignment.interventionId
-            # Query logs across ALL language variants of this external_id (not
-            # just the ones that happen to be assigned) so that logs recorded
-            # under a different variant are still counted.
-            _ext_id = getattr(intervention, "external_id", None)
-            if _ext_id:
-                _all_variant_ids = [_v.id for _v in Intervention.objects(external_id=_ext_id).only("id")]
-            else:
-                _all_variant_ids = _group["all_ids"]
-            logs = PatientInterventionLogs.objects(userId=patient, interventionId__in=_all_variant_ids)
+            # Every variant of the external_id, not just the assigned ones, so a log recorded
+            # under a different variant is still counted. Scoped to this plan like get_patient_plan,
+            # or a patient with a second plan doc gets different counts in the two views.
+            logs = PatientInterventionLogs.objects(
+                userId=patient,
+                rehabilitationPlanId=plan,
+                interventionId__in=variant_ids[intervention.pk],
+            )
 
             intervention_dates = []
             completed_count = 0
@@ -3231,9 +3341,10 @@ def remove_intervention_from_patient(request):
             status=404,
         )
 
-    try:
-        plan = RehabilitationPlan.objects.get(patientId=patient)
-    except RehabilitationPlan.DoesNotExist:
+    # .first(), like every other plan reader: .get() raised an uncaught MultipleObjectsReturned
+    # for a patient who ended up with two plan docs, and there is no unique index preventing that.
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    if plan is None:
         logger.warning("[remove_intervention_from_patient] Plan not found for supplied patient identifier.")
         return JsonResponse(
             {
@@ -3246,32 +3357,13 @@ def remove_intervention_from_patient(request):
 
     try:
         now = timezone.now()
-        intervention_found = False
         occurrence_found = False
 
-        for assignment in plan.interventions:
-            if str(assignment.interventionId.pk) == str(intervention_id):
-                intervention_found = True
+        # Every assignment for this intervention, so a legacy duplicate does not keep the sessions
+        # the therapist just removed - both plan views would still show them.
+        assignments = _plan_assignments_for_id(plan, intervention_id)
 
-                if occurrence_dt_utc is not None:
-                    # Remove only the single matching future occurrence, leaving
-                    # every other scheduled date (past or future) untouched.
-                    # Matched in UTC (like reschedule_intervention_date) since
-                    # naive Mongo dates are stored as UTC instants, not local time.
-                    now_utc = _as_aware_utc(now)
-                    remaining = []
-                    for d in assignment.dates:
-                        d_utc = _as_aware_utc(d)
-                        if d_utc > now_utc and abs((d_utc - occurrence_dt_utc).total_seconds()) < 1:
-                            occurrence_found = True
-                            continue
-                        remaining.append(d)
-                    assignment.dates = remaining
-                else:
-                    # Keep only past or today's dates
-                    assignment.dates = [d for d in assignment.dates if ensure_aware(d) <= now]
-
-        if not intervention_found:
+        if not assignments:
             return JsonResponse(
                 {
                     "success": False,
@@ -3280,6 +3372,28 @@ def remove_intervention_from_patient(request):
                 },
                 status=404,
             )
+
+        now_utc = _as_aware_utc(now)
+        if occurrence_dt_utc is not None:
+            # Remove only the single matching future occurrence, leaving
+            # every other scheduled date (past or future) untouched.
+            # Matched in UTC (like reschedule_intervention_date) since
+            # naive Mongo dates are stored as UTC instants, not local time.
+            for assignment in assignments:
+                remaining = []
+                for d in assignment.dates:
+                    d_utc = _as_aware_utc(d)
+                    if d_utc > now_utc and abs((d_utc - occurrence_dt_utc).total_seconds()) < 1:
+                        occurrence_found = True
+                        continue
+                    remaining.append(d)
+                assignment.dates = remaining
+        else:
+            # Keep only past dates. Compared in UTC like the branch above, since naive Mongo
+            # dates are stored as UTC instants; reading them as local dated them back by the
+            # local offset, so a session due within it looked past and survived the removal.
+            for assignment in assignments:
+                assignment.dates = [d for d in assignment.dates if _as_aware_utc(d) <= now_utc]
 
         if occurrence_dt_utc is not None and not occurrence_found:
             return JsonResponse(
@@ -3798,7 +3912,10 @@ def get_combined_health_data(request, patient_id):
                     if timezone.is_naive(dt):
                         dt = timezone.make_aware(dt, datetime.timezone.utc)
                     if from_datetime <= dt <= to_datetime:
-                        day = dt.date()
+                        # Local day, not dt.date(): the completed buckets below key off naive-local
+                        # log dates, so a UTC day here put a session and its completion on
+                        # different rows whenever the session sat within the offset of midnight.
+                        day = timezone.localtime(dt).date()
                         scheduled_by_day[day] = scheduled_by_day.get(day, 0) + 1
 
         completed_by_day: dict[datetime.date, int] = {}

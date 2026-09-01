@@ -462,6 +462,61 @@ def test_rehab_calendar_empty_without_plans(mongo_mock):
     assert rows == []
 
 
+def test_rehab_calendar_survives_a_dangling_intervention_reference(mongo_mock):
+    """
+    Regression: the row builder dereferenced assignment.interventionId directly, and a deleted
+    Intervention raises DoesNotExist on dereference rather than returning None. One patient anywhere
+    across all clinics with such a dangling assignment took down the entire export, since every CSV
+    sheet is built before the ZIP is returned.
+    """
+    therapist = _make_therapist()
+    patient_a = _make_patient(therapist, "P001")
+    doomed = _make_intervention(external_id="iv_doomed")
+
+    RehabilitationPlan(
+        patientId=patient_a,
+        therapistId=therapist,
+        startDate=datetime(2025, 1, 1),
+        endDate=datetime(2025, 3, 31),
+        status="active",
+        interventions=[
+            InterventionAssignment(
+                interventionId=doomed,
+                frequency="daily",
+                dates=[datetime(2025, 1, 5)],
+            )
+        ],
+    ).save()
+    doomed.delete()
+
+    patient_b = _make_patient(therapist, "P002")
+    intervention_b = _make_intervention(external_id="iv_002")
+    RehabilitationPlan(
+        patientId=patient_b,
+        therapistId=therapist,
+        startDate=datetime(2025, 1, 1),
+        endDate=datetime(2025, 3, 31),
+        status="active",
+        interventions=[
+            InterventionAssignment(
+                interventionId=intervention_b,
+                frequency="daily",
+                dates=[datetime(2025, 1, 6)],
+            )
+        ],
+    ).save()
+
+    resp = client.get(EXPORT_URL)
+    assert resp.status_code == 200, "the dangling reference should not 500 the whole export"
+
+    with _open_zip(resp) as zf:
+        rows = _read_csv_from_zip(zf, "rehab_calendar.csv")
+
+    by_patient = {r["patient_code"]: r for r in rows}
+    assert by_patient["P001"]["intervention_external_id"] == "", "dangling row should degrade, not crash"
+    assert by_patient["P002"]["intervention_external_id"] == "iv_002", "other patients' rows must be unaffected"
+
+
 # ===========================================================================
 # intervention_logs.csv
 # ===========================================================================
@@ -497,6 +552,44 @@ def test_intervention_logs_csv_contains_log_rows(mongo_mock):
     assert rows[0]["status"] == "completed"
     assert rows[0]["comments"] == "felt good"
     assert rows[0]["date"] == "2025-01-10"
+
+
+def test_intervention_logs_csv_survives_a_dangling_intervention_reference(mongo_mock):
+    """
+    Same bug as the rehab_calendar sheet, on a completion log instead of a plan assignment: a
+    deleted Intervention still referenced by an old log raises DoesNotExist on dereference, which
+    getattr's default does not catch.
+    """
+    therapist = _make_therapist()
+    patient = _make_patient(therapist, "P001", clinic="Inselspital")
+    doomed = _make_intervention(external_id="iv_doomed")
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime(2025, 1, 1),
+        endDate=datetime(2025, 3, 31),
+        status="active",
+    ).save()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=doomed,
+        rehabilitationPlanId=plan,
+        date=datetime(2025, 1, 10),
+        status=["completed"],
+        comments="felt good",
+    ).save()
+    doomed.delete()
+
+    resp = client.get(EXPORT_URL)
+    assert resp.status_code == 200, "the dangling reference should not 500 the whole export"
+
+    with _open_zip(resp) as zf:
+        rows = _read_csv_from_zip(zf, "intervention_logs.csv")
+
+    assert len(rows) == 1
+    assert rows[0]["intervention_external_id"] == ""
+    assert rows[0]["comments"] == "felt good", "the rest of the row must survive the dangling reference"
 
 
 # ===========================================================================
@@ -538,6 +631,46 @@ def test_intervention_feedback_csv_contains_feedback_entries(mongo_mock):
     assert rows[0]["patient_code"] == "P001"
     assert rows[0]["question_key"] == "pain_level"
     assert rows[0]["comment"] == "no pain"
+
+
+def test_intervention_feedback_csv_survives_a_dangling_intervention_reference(mongo_mock):
+    """Same bug, same fix, on the feedback sheet's own separate dereference of log.interventionId."""
+    therapist = _make_therapist()
+    patient = _make_patient(therapist, "P001", clinic="Inselspital")
+    doomed = _make_intervention(external_id="iv_doomed")
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime(2025, 1, 1),
+        endDate=datetime(2025, 3, 31),
+        status="active",
+    ).save()
+
+    question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="pain_level",
+        answer_type="select",
+    ).save()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=doomed,
+        rehabilitationPlanId=plan,
+        date=datetime(2025, 1, 10),
+        status=["completed"],
+        feedback=[FeedbackEntry(questionId=question, comment="no pain")],
+    ).save()
+    doomed.delete()
+
+    resp = client.get(EXPORT_URL)
+    assert resp.status_code == 200, "the dangling reference should not 500 the whole export"
+
+    with _open_zip(resp) as zf:
+        rows = _read_csv_from_zip(zf, "intervention_feedback.csv")
+
+    assert len(rows) == 1
+    assert rows[0]["intervention_external_id"] == ""
+    assert rows[0]["comment"] == "no pain", "the rest of the row must survive the dangling reference"
 
 
 # ===========================================================================

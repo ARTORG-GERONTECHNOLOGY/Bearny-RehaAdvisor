@@ -11,7 +11,7 @@ from celery import shared_task
 from django.conf import settings
 from django.core.management import call_command
 from django.utils import timezone
-from mongoengine.errors import NotUniqueError
+from mongoengine.errors import DoesNotExist, NotUniqueError
 
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from core.views.google_health_sync import fetch_google_health_today_for_user
@@ -31,6 +31,7 @@ from core.models import (
 )
 from core.notifications.categorize import resolve_notification_category
 from core.notifications.push_translations import get_push_content
+from utils.interventions import _safe_intervention
 
 _LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "365"))
 _AUDIT_EXPORT_RETENTION_DAYS = int(os.getenv("AUDIT_EXPORT_RETENTION_DAYS", "1825"))  # 5 years
@@ -423,7 +424,7 @@ def _due_assignment_dates(plan, window_start, window_end):
 
 def _notify_if_due(plan, patient, assignment, dt) -> str:
     """Send (or skip) one due notification. Returns 'sent', 'skipped', or 'duplicate'."""
-    intervention = assignment.interventionId
+    intervention = _safe_intervention(assignment)
     if intervention is None:
         return "skipped"
     category = resolve_notification_category(intervention.aim)
@@ -490,7 +491,10 @@ def send_due_intervention_push_notifications():
 
     counts = {"sent": 0, "skipped": 0, "duplicate": 0}
     for plan in candidates:
-        patient = plan.patientId
+        try:
+            patient = plan.patientId
+        except DoesNotExist:
+            patient = None
         if patient is None:
             continue
         for assignment, dt in _due_assignment_dates(plan, window_start, window_end):

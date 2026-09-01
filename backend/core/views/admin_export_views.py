@@ -46,6 +46,7 @@ from core.models import (
     User,
 )
 from core.permissions import IsAdmin
+from utils.interventions import _safe_intervention
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +201,8 @@ def _csv_rehab_calendar(patients, patient_map):
         plan_end = _fmt_date(getattr(plan, "endDate", None))
         plan_status = getattr(plan, "status", "") or ""
         for assignment in getattr(plan, "interventions", None) or []:
-            ext_id, title = _intervention_info(getattr(assignment, "interventionId", None))
+            # _safe_intervention, not getattr: a dangling reference raises DoesNotExist, which getattr's default won't catch.
+            ext_id, title = _intervention_info(_safe_intervention(assignment))
             frequency = getattr(assignment, "frequency", "") or ""
             notes = getattr(assignment, "notes", "") or ""
             dates = getattr(assignment, "dates", None) or []
@@ -260,7 +262,7 @@ def _csv_intervention_logs(patient_map):
         pt = patient_map.get(pt_id)
         if not pt:
             continue
-        ext_id, title = _intervention_info(getattr(log, "interventionId", None))
+        ext_id, title = _intervention_info(_safe_intervention(log))
         rows.append(
             {
                 "clinic": getattr(pt, "clinic", "") or "",
@@ -299,7 +301,7 @@ def _csv_intervention_feedback(patient_map):
         pt = patient_map.get(pt_id)
         if not pt:
             continue
-        ext_id, _ = _intervention_info(getattr(log, "interventionId", None))
+        ext_id, _ = _intervention_info(_safe_intervention(log))
         for entry in getattr(log, "feedback", None) or []:
             rows.append(
                 {

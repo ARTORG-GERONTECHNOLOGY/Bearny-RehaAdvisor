@@ -226,6 +226,26 @@ def test_generate_repeat_dates_month_interval():
     assert len(dates) == 2
 
 
+@pytest.mark.parametrize("unit", [None, "", "days", "weeks", "months", "fortnight"])
+def test_generate_repeat_dates_rejects_unsupported_unit(unit):
+    """
+    Regression: the generator loop advances current_date only inside the day/week/month branches, so
+    any other unit left it untouched and the while loop spun forever - hanging the request thread
+    rather than returning an error. Reaching the assert at all is the point of this test.
+    """
+    repeat_data = {"interval": 1, "unit": unit, "end": {"type": "count", "count": 2}}
+    with pytest.raises(ValueError, match="Unsupported repeat unit"):
+        generate_repeat_dates(datetime.now() + timedelta(days=10), repeat_data)
+
+
+@pytest.mark.parametrize("interval", [0, -1, None, "1"])
+def test_generate_repeat_dates_rejects_non_positive_interval(interval):
+    """Same hang, reached the other way: a zero/negative step never advances current_date either."""
+    repeat_data = {"interval": interval, "unit": "day", "end": {"type": "count", "count": 2}}
+    with pytest.raises(ValueError, match="Repeat interval"):
+        generate_repeat_dates(datetime.now() + timedelta(days=10), repeat_data)
+
+
 @mock.patch("utils.utils.MongoClient")
 def test_get_db_handle_returns_db_and_client(mock_mongo):
     mock_client = mock.MagicMock()  # <-- ✅ use MagicMock

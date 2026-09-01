@@ -35,6 +35,7 @@ User → Therapist → Patient → optional RehabilitationPlan chain.
 """
 
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from unittest.mock import patch
 
 import mongomock
@@ -214,6 +215,44 @@ def test_get_patient_plan_post_method_not_allowed(mongo_mock):
     assert resp.status_code == 405
 
 
+def test_get_patient_plan_skips_dangling_intervention_reference(mongo_mock):
+    """
+    Regression: an InterventionAssignment whose referenced Intervention
+    document was deleted (dangling ReferenceField) must be skipped, not crash
+    the whole patient-facing plan view with an uncaught DoesNotExist on
+    dereference.
+    """
+    patient, _, intervention, plan = setup_basic_plan()
+
+    dangling_intervention = Intervention(
+        title="Deleted later",
+        description="desc",
+        content_type="Video",
+        external_id="TEST-EXT-DANGLING",
+        language="en",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=dangling_intervention,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(3)],
+        )
+    )
+    plan.save()
+    dangling_intervention.delete()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    body = resp.json()
+    ext_ids = {iv.get("intervention", {}).get("external_id") for iv in body}
+    assert intervention.external_id in ext_ids
+    assert "TEST-EXT-DANGLING" not in ext_ids
+
+
 # ===========================================================================
 # get_patient_plan_for_therapist
 # — GET /api/patients/rehabilitation-plan/therapist/<patient_id>/
@@ -234,6 +273,43 @@ def test_get_patient_plan_for_therapist_success(mongo_mock):
     assert resp.status_code == 200
     body = resp.json()
     assert "interventions" in body or "message" in body
+
+
+def test_get_patient_plan_for_therapist_skips_dangling_intervention_reference(mongo_mock):
+    """
+    Regression: an InterventionAssignment whose referenced Intervention
+    document was deleted (dangling ReferenceField) must be skipped, not crash
+    the whole therapist plan view with an uncaught DoesNotExist on dereference.
+    """
+    patient, _, intervention, plan = setup_basic_plan()
+
+    dangling_intervention = Intervention(
+        title="Deleted later",
+        description="desc",
+        content_type="Video",
+        external_id="TEST-EXT-DANGLING",
+        language="en",
+    ).save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=dangling_intervention,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(3)],
+        )
+    )
+    plan.save()
+    dangling_intervention.delete()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    body = resp.json()
+    ext_ids = {iv.get("external_id") for iv in body.get("interventions", [])}
+    assert intervention.external_id in ext_ids
+    assert "TEST-EXT-DANGLING" not in ext_ids
 
 
 def test_get_patient_plan_for_therapist_patient_not_found(mongo_mock):
@@ -1049,6 +1125,114 @@ def test_therapist_plan_deduplicates_multilingual_assignments(mongo_mock):
     assert interventions[0]["totalCount"] == 2
 
 
+def _plan_with_two_variant_assignments(dates_a, dates_b):
+    """A plan holding one external_id twice, each assignment carrying the given stored dates."""
+    patient, therapist, _, plan = setup_basic_plan()
+    int_de = Intervention(
+        title="Blutdruck", description="DE", content_type="Video", external_id="TZ-001", language="de"
+    ).save()
+    int_en = Intervention(
+        title="Blood Pressure", description="EN", content_type="Video", external_id="TZ-001", language="en"
+    ).save()
+    plan.interventions = [
+        InterventionAssignment(interventionId=int_de, frequency="Daily", notes="", dates=dates_a),
+        InterventionAssignment(interventionId=int_en, frequency="Daily", notes="", dates=dates_b),
+    ]
+    plan.save()
+    return patient
+
+
+def _therapist_plan_rows(patient):
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    return resp.json()["interventions"]
+
+
+def test_therapist_plan_keeps_sibling_sessions_that_cross_local_midnight(mongo_mock):
+    """
+    Regression: assignment dates are stored as UTC instants, so merging siblings on the raw
+    ``d.date()`` compared UTC days while every consumer reads local ones. Two sessions on one UTC day
+    that fall either side of local midnight are two days to the patient - merging them dropped the
+    later one, and it vanished from the plan entirely.
+    """
+    base = (datetime.now() + timedelta(days=10)).replace(hour=12, minute=0, second=0, microsecond=0)
+    # 23:30 UTC is the next local day at every Zurich offset (+1 and +2), so this is DST-independent.
+    patient = _plan_with_two_variant_assignments([base], [base.replace(hour=23, minute=30)])
+
+    rows = _therapist_plan_rows(patient)
+    assert len(rows) == 1, "The duplicate assignments must still collapse into one row."
+    assert rows[0]["totalCount"] == 2, "The session after local midnight must not be dropped."
+
+
+def test_therapist_plan_merges_sibling_sessions_sharing_a_local_day(mongo_mock):
+    """
+    The mirror case: two sessions on different UTC days that land on the same local day are one
+    session to the patient, and must merge rather than show up as a duplicate row's second date.
+    """
+    base = (datetime.now() + timedelta(days=10)).replace(hour=23, minute=30, second=0, microsecond=0)
+    next_day_noon = (base + timedelta(days=1)).replace(hour=12, minute=0)
+    patient = _plan_with_two_variant_assignments([base], [next_day_noon])
+
+    rows = _therapist_plan_rows(patient)
+    assert len(rows) == 1
+    assert rows[0]["totalCount"] == 1, "Both sessions fall on one local day and must merge."
+
+
+def test_therapist_plan_view_does_not_write_to_database(mongo_mock):
+    """
+    get_patient_plan_for_therapist is a GET and must stay side-effect-free -
+    the merge from Fix #347 above is a display-only trick recomputed on every
+    request, so it can't race with a concurrent write to the same plan. Duplicate
+    assignments stay on the plan as they are; nothing rewrites them on read.
+    """
+    patient, therapist, _, plan = setup_basic_plan()
+
+    int_de = Intervention(
+        title="Blutdruck Grundlagen",
+        description="DE",
+        content_type="Video",
+        external_id="MULTI-002",
+        language="de",
+    )
+    int_de.save()
+    int_en = Intervention(
+        title="Blood Pressure Basics",
+        description="EN",
+        content_type="Video",
+        external_id="MULTI-002",
+        language="en",
+    )
+    int_en.save()
+
+    plan.interventions = [
+        InterventionAssignment(
+            interventionId=int_de,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=1)],
+        ),
+        InterventionAssignment(
+            interventionId=int_en,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=2)],
+        ),
+    ]
+    plan.save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+
+    plan.reload()
+    assert len(plan.interventions) == 2, "get_patient_plan_for_therapist must not write to the plan it's reading."
+
+
 def test_therapist_plan_feedback_visible_for_other_language_variant(mongo_mock):
     """
     Fix #347 Bug 3: feedback logged under the DE variant's ObjectId must appear
@@ -1202,3 +1386,78 @@ def test_therapist_plan_external_id_enables_cross_variant_merge(mongo_mock):
     # Both identifiers must be present
     assert entry["_id"] == str(int_en.id)
     assert entry["external_id"] == "PROD-CHOL-001"
+
+
+# ===========================================================================
+# get_combined_health_data  —  GET /api/patients/health-combined-history/<id>/
+# ===========================================================================
+
+
+def test_combined_health_adherence_buckets_scheduled_and_completed_on_the_same_day(mongo_mock):
+    """
+    The daily adherence rows pair a scheduled count with a completed count, and the two come from
+    collections storing datetimes under different conventions: assignment dates are naive UTC,
+    log dates naive local. Bucketing the scheduled side on its UTC day split a session and its
+    own completion across two rows - one showing 0%, the next crediting a completion nothing
+    was scheduled for.
+    """
+    patient, therapist, intervention, _ = setup_basic_plan(with_plan=False)
+
+    # 22:30 UTC is 00:30 local the *next* day in Europe/Zurich.
+    day_local = timezone.localdate() - timedelta(days=3)
+    scheduled_utc = datetime.combine(day_local - timedelta(days=1), datetime.min.time()).replace(hour=22, minute=30)
+    assert timezone.localtime(scheduled_utc.replace(tzinfo=dt_timezone.utc)).date() == day_local
+
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=10),
+        endDate=datetime.now() + timedelta(days=10),
+        status="active",
+        interventions=[InterventionAssignment(interventionId=intervention, frequency="Daily", dates=[scheduled_utc])],
+    ).save()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(day_local, datetime.min.time()).replace(hour=9),
+        status=["completed"],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/health-combined-history/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    rows = {r["date"]: r for r in resp.json().get("adherence", [])}
+    row = rows.get(day_local.isoformat())
+    assert row is not None, f"no adherence row for {day_local}"
+    assert row["scheduled"] == 1, "the session was bucketed on its UTC day, not the local one"
+    assert row["completed"] == 1
+    assert row["pct"] == 100
+
+
+def test_therapist_plan_for_a_patient_with_two_plan_documents(mongo_mock):
+    """
+    Regression: nothing enforces one RehabilitationPlan per patient and a few patients have two.
+    Fetching with .get() raised MultipleObjectsReturned, which no caller handled, so the therapist
+    dashboard 500'd for them. Every other plan reader already used .first().
+    """
+    patient, therapist, intervention, plan = setup_basic_plan()
+
+    RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=10),
+        endDate=datetime.now() + timedelta(days=10),
+        status="active",
+        interventions=[],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()

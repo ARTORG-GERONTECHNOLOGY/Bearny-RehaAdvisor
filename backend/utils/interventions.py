@@ -4,6 +4,7 @@ import mimetypes
 import os
 import re
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -14,6 +15,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import now as dj_now
 from django.views.decorators.csrf import csrf_exempt
+from mongoengine.errors import DoesNotExist
 from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -43,6 +45,9 @@ EMBED_HINTS = [
     r"/iframe(?:/|$)",
     r"[?&]embed=1\b",
 ]
+
+
+logger = logging.getLogger(__name__)
 
 
 def _url_ext(u: str) -> str:
@@ -93,6 +98,82 @@ def _pick_best_variant(external_id: str, lang_chain: List[str]) -> Optional["Int
             return doc
     # last resort: any
     return Intervention.objects(external_id=external_id).first()
+
+
+def _variant_ids_for_external_id(external_id: str) -> List[ObjectId]:
+    """Ids of all Intervention documents sharing this external_id (its language variants)."""
+    if not external_id:
+        return []
+    return [v.id for v in Intervention.objects(external_id=external_id).only("id")]
+
+
+def _variant_ids_by_external_id(external_ids) -> Dict[str, List[ObjectId]]:
+    """The same mapping for many external_ids at once, in a single query.
+
+    Callers rendering a whole plan would otherwise pay one round trip per assignment.
+    """
+    wanted = {e for e in external_ids if e}
+    if not wanted:
+        return {}
+
+    out: Dict[str, List[ObjectId]] = {e: [] for e in wanted}
+    for v in Intervention.objects(external_id__in=list(wanted)).only("id", "external_id"):
+        out[v.external_id].append(v.id)
+    return out
+
+
+# --------------------------------------------------------------------------------------
+# Plan-assignment resolution
+#
+# Matching on interventionId alone treats two language variants of one intervention as
+# unrelated, which is how a plan ends up holding the same intervention twice.
+# --------------------------------------------------------------------------------------
+
+
+def _safe_intervention(assignment):
+    """An assignment's Intervention, or None when the reference dangles.
+
+    A deleted Intervention raises the base DoesNotExist on dereference, which getattr's default
+    does not catch - so every caller that walks plan.interventions needs this, not getattr.
+    """
+    try:
+        return assignment.interventionId
+    except DoesNotExist:
+        return None
+
+
+def _plan_assignments_for(plan, intervention):
+    """Every assignment on the plan holding this logical intervention, in plan order.
+
+    Grouped by external_id, which is what makes two language variants one intervention: the plan
+    stores whichever variant document was assigned, while callers arrive holding another. A
+    document without an external_id can only be matched by its own id.
+    """
+    external_id = getattr(intervention, "external_id", None)
+    target_id = str(getattr(intervention, "id", None))
+
+    out = []
+    for a in plan.interventions or []:
+        iv = _safe_intervention(a)
+        if iv is None:
+            continue
+        if external_id:
+            matched = getattr(iv, "external_id", None) == external_id
+        else:
+            matched = str(iv.id) == target_id
+        if matched:
+            out.append(a)
+    return out
+
+
+def _canonical_assignment_for(plan, intervention):
+    """The one assignment readers display and writers merge into, or None.
+
+    A plan holding the same intervention twice is legacy data, so the first in plan order wins:
+    it is the row both plan views already render as canonical.
+    """
+    matches = _plan_assignments_for(plan, intervention)
+    return matches[0] if matches else None
 
 
 def _available_language_variants(external_id: str) -> List[dict]:
@@ -297,6 +378,20 @@ def _anchor_date_for_day(day_n: int) -> str:
     return start.date().isoformat()
 
 
+def _as_utc(value: datetime) -> datetime:
+    """Assignment dates are stored as UTC instants, so a naive value is UTC and not local time."""
+    return value.replace(tzinfo=dt_timezone.utc) if value.tzinfo is None else value.astimezone(dt_timezone.utc)
+
+
+def _instant_key(value: datetime) -> datetime:
+    """Second-precision UTC key for date dedup.
+
+    Mongo hands assignment dates back naive while callers pass aware local ones; comparing the two
+    frames unnormalised never matches, so the same session gets appended twice.
+    """
+    return _as_utc(value).replace(microsecond=0)
+
+
 def _dedup_dates(dt_list):
     seen = set()
     out = []
@@ -317,25 +412,28 @@ def _upsert_intervention(
     overwrite=False,
     effective_from=None,
 ):
-    found = None
-    for ia in plan.interventions or []:
-        if getattr(getattr(ia, "interventionId", None), "id", None) == intervention.id:
-            found = ia
-            break
+    found = _canonical_assignment_for(plan, intervention)
 
     dates = _dedup_dates(dates)
 
     if found:
         if overwrite and effective_from:
-            eff = make_aware(effective_from) if is_naive(effective_from) else effective_from
-            kept = [d for d in (found.dates or []) if d < eff]
+            # effective_from arrives in local time; found.dates come back from Mongo naive, where
+            # naive means UTC. Comparing the two frames unnormalised raises TypeError.
+            eff = effective_from if effective_from.tzinfo else timezone.make_aware(effective_from)
+            kept = [d for d in (found.dates or []) if _as_utc(d) < eff]
             found.dates = kept + dates
         else:
-            existing = {d.replace(microsecond=0) for d in (found.dates or [])}
-            found.dates = list(existing)
-            for d in dates:
-                if d.replace(microsecond=0) not in existing:
-                    found.dates.append(d)
+            # Existing dates are filtered too, not just carried over: a legacy assignment holding
+            # the same instant twice would otherwise keep serving two sessions for one day.
+            seen = set()
+            merged = []
+            for d in list(found.dates or []) + list(dates):
+                key = _instant_key(d)
+                if key not in seen:
+                    seen.add(key)
+                    merged.append(d)
+            found.dates = merged
         if notes:
             found.notes = notes
         found.require_video_feedback = bool(require_video or found.require_video_feedback)

@@ -41,13 +41,13 @@ from core.throttles import LoginRateThrottle
 from core.token_revocation import invalidate_user_tokens, revoke_jti
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.config import WEARABLE_DEVICE_CHOICES, config
+from utils.interventions import _canonical_assignment_for, _instant_key
 from utils.scheduling import _expand_dates
 from utils.utils import (
     check_rate_limit,
     check_verify_rate_limit,
     convert_to_serializable,
     generate_custom_id,
-    generate_repeat_dates,
     get_labels,
     increment_attempt,
     increment_verify_attempt,
@@ -274,17 +274,18 @@ def create_rehab_plan(patient, therapist):
                 continue
             new_dates = dates_by_intervention[key]
 
-            existing = None
-            for ia in plan.interventions or []:
-                if getattr(getattr(ia, "interventionId", None), "id", None) == intervention.id:
-                    existing = ia
-                    break
+            # Matched across language variants, so a default recommendation in one language does
+            # not add a second assignment beside a variant the plan already holds.
+            existing = _canonical_assignment_for(plan, intervention)
 
             if existing:
-                # keep all past; merge future without dupes
-                have = {d.replace(microsecond=0) for d in (existing.dates or [])}
+                # keep all past; merge future without dupes. Keyed in UTC because existing.dates
+                # come back from Mongo naive while new_dates are aware local.
+                have = {_instant_key(d) for d in (existing.dates or [])}
                 for d in new_dates:
-                    if d.replace(microsecond=0) not in have:
+                    instant = _instant_key(d)
+                    if instant not in have:
+                        have.add(instant)
                         existing.dates.append(d)
             else:
                 plan.interventions.append(
