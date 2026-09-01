@@ -97,5 +97,5 @@ class TemplateStore {
   }
 }
 
-export const templateStore = new TemplateStore();
+const templateStore = new TemplateStore();
 export default templateStore;

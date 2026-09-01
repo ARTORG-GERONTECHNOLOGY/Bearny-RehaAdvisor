@@ -28,7 +28,6 @@ from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
-import utils.interventions  # for _save_file and other helpers
 from core.models import (
     DefaultInterventions,
     DiagnosisAssignmentSettings,
@@ -48,8 +47,6 @@ from utils.interventions import (
     _anchor_date_for_day,
     _as_str_or_none,
     _available_language_variants,
-    _build_external_media,
-    _build_file_media,
     _canonical_assignment_for,
     _detect_file_media_type,
     _first_str_from_any,
@@ -872,7 +869,6 @@ def add_new_intervention(request):
         )
 
     except Exception as e:
-        # logger.exception("ERROR creating intervention")
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 

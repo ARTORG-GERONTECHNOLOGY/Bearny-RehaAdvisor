@@ -8,7 +8,7 @@ import authStore from '@/stores/authStore';
 /**
  * Helper function to normalize date keys to yyyy-MM-dd format
  */
-export const normalizeDayKey = (d: string | Date): string => {
+const normalizeDayKey = (d: string | Date): string => {
   const dateObj = typeof d === 'string' ? new Date(d) : d;
   return format(dateObj, 'yyyy-MM-dd');
 };

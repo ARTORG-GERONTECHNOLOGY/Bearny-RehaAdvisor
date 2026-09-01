@@ -15,7 +15,6 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
-from django.utils.timezone import now as dj_now
 from mongoengine.queryset.visitor import Q
 from pydub import AudioSegment
 from pydub.utils import which as pd_which
@@ -57,7 +56,6 @@ from utils.utils import (
     get_labels,
     sanitize_text,
     serialize_datetime,
-    transcribe_file,
 )
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
