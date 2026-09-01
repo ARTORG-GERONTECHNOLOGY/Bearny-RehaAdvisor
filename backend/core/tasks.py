@@ -494,9 +494,6 @@ def send_due_intervention_push_notifications():
         try:
             patient = plan.patientId
         except DoesNotExist:
-            # A deleted Patient raises on dereference rather than returning None, so the check
-            # below never caught it. This loop covers every active plan: one stale reference took
-            # the whole hourly run down, and with it that hour's notifications for everyone else.
             patient = None
         if patient is None:
             continue

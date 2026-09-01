@@ -2392,10 +2392,8 @@ def test_mark_completed_resolves_duplicate_plan_to_first_assignment(mongo_mock):
 
 def test_mark_completed_allows_ad_hoc_intervention_not_on_plan(mongo_mock):
     """
-    Regression: an intervention that isn't assigned to the plan at all (no id
-    match, no external_id conflict) must still be completable ad-hoc, per the
-    documented fallback in mark_intervention_completed. Only genuinely
-    *ambiguous* multi-variant matches should be rejected with 404.
+    An intervention that isn't assigned to the plan at all (no id match, no external_id conflict)
+    must still be completable ad-hoc, per the documented fallback in mark_intervention_completed.
     """
     patient, _, _intervention, _plan = setup_patient_with_plan()
     unassigned = Intervention(
