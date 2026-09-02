@@ -75,7 +75,9 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
         .filter((rec) => rec?.title)
         .map(async (rec) => {
           try {
-            const { translatedText, detectedSourceLanguage } = await translateText(rec.title);
+            const { translatedText, detectedSourceLanguage } = await translateText(rec.title, {
+              knownSourceLanguage: rec.language,
+            });
             return [
               rec._id,
               { title: translatedText || rec.title, lang: detectedSourceLanguage || null },

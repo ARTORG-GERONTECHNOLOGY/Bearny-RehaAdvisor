@@ -311,9 +311,13 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
     const run = async () => {
       try {
+        const translateOptions = { knownSourceLanguage: effectiveItem?.language };
         const desc = effectiveItem?.description || '';
         if (desc) {
-          const { translatedText: tx, detectedSourceLanguage } = await translateText(desc);
+          const { translatedText: tx, detectedSourceLanguage } = await translateText(
+            desc,
+            translateOptions
+          );
           setTranslatedText(tx);
           setDetectedLang(tx !== desc ? detectedSourceLanguage : '');
         } else {
@@ -323,7 +327,10 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
 
         const title = effectiveItem?.title || effectiveItem?.intervention_title || '';
         if (title) {
-          const { translatedText: tt, detectedSourceLanguage: tl } = await translateText(title);
+          const { translatedText: tt, detectedSourceLanguage: tl } = await translateText(
+            title,
+            translateOptions
+          );
           setTranslatedTitle(tt);
           setTitleLang(tt !== title ? tl : '');
         } else {

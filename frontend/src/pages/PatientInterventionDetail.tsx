@@ -503,9 +503,13 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
     const run = async () => {
       try {
+        const translateOptions = { knownSourceLanguage: effectiveItem?.language };
         const desc = effectiveItem?.description || '';
         if (desc) {
-          const { translatedText: tx, detectedSourceLanguage } = await translateText(desc);
+          const { translatedText: tx, detectedSourceLanguage } = await translateText(
+            desc,
+            translateOptions
+          );
           if (!alive) return;
           setTranslatedText(tx);
           setDetectedLang(tx !== desc ? detectedSourceLanguage : '');
@@ -516,7 +520,10 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
         const title = effectiveItem?.title || effectiveItem?.intervention_title || '';
         if (title) {
-          const { translatedText: tt, detectedSourceLanguage: tl } = await translateText(title);
+          const { translatedText: tt, detectedSourceLanguage: tl } = await translateText(
+            title,
+            translateOptions
+          );
           if (!alive) return;
           setTranslatedTitle(tt);
           setTitleLang(tt !== title ? tl : '');

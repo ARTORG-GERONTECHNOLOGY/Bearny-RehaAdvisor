@@ -108,7 +108,10 @@ async function performTranslate(text: string, target: string): Promise<Translate
   }
 }
 
-export async function translateText(text: string): Promise<TranslateResult> {
+export async function translateText(
+  text: string,
+  options?: { knownSourceLanguage?: string }
+): Promise<TranslateResult> {
   // LibreTranslate only knows bare language codes (e.g. "en", "de"); the
   // browser/i18next locale can be a full BCP47 tag (e.g. "en-US", "de-CH"),
   // which LibreTranslate rejects with a 400.
@@ -116,6 +119,13 @@ export async function translateText(text: string): Promise<TranslateResult> {
 
   if (!text) {
     return { translatedText: text, detectedSourceLanguage: 'unknown' };
+  }
+
+  // Callers that already know the text's language (e.g. an intervention's
+  // own `language` field) can skip the detect/translate round-trip entirely.
+  const knownLang = options?.knownSourceLanguage?.slice(0, 2);
+  if (knownLang && knownLang === target) {
+    return { translatedText: text, detectedSourceLanguage: knownLang };
   }
 
   const key = `${target}:${text}`;

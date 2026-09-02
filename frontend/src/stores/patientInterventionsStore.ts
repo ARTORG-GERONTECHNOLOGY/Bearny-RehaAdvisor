@@ -174,9 +174,10 @@ class PatientInterventionsStore {
     const translations = new Map(
       await Promise.all(
         raw.map(async (rec) => {
+          const options = { knownSourceLanguage: rec.intervention?.language };
           const [t1, t2] = await Promise.all([
-            translateText(rec.intervention_title),
-            translateText(rec.description || ''),
+            translateText(rec.intervention_title, options),
+            translateText(rec.description || '', options),
           ]);
 
           return [

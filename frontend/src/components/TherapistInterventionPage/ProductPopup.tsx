@@ -294,9 +294,11 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
       }
 
       try {
+        const translateOptions = { knownSourceLanguage: effectiveItem.language };
         if (effectiveItem.description) {
           const { translatedText: tx, detectedSourceLanguage } = await translateText(
-            String(effectiveItem.description)
+            String(effectiveItem.description),
+            translateOptions
           );
           setTranslatedText(tx);
           setDetectedLang(tx !== effectiveItem.description ? detectedSourceLanguage : '');
@@ -307,7 +309,8 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
         if (effectiveItem.title) {
           const { translatedText: tt, detectedSourceLanguage: tl } = await translateText(
-            String(effectiveItem.title)
+            String(effectiveItem.title),
+            translateOptions
           );
           setTranslatedTitle(tt);
           setTitleLang(tt !== effectiveItem.title ? tl : '');
