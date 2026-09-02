@@ -64,7 +64,7 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
     });
   }, [safeItems, ratingSorting]);
 
-  // Rows already fall back to the raw title below; this just patches in translations as they resolve.
+  // Rows fall back to the raw title below until the whole batch of translations settles.
   useEffect(() => {
     if (translatedTitles) return;
 

@@ -71,8 +71,7 @@ class PatientInterventionsStore {
   assistanceMode: 'alone' | 'with_help' | null = null;
 
   private currentPatientId: string | null = null;
-  // Bumped on every fetchPlan() call so a stale fetch's translations can't
-  // land on top of a newer fetch's items if the patient changes mid-flight.
+  // Bumped per fetchPlan() call so a stale fetch can't overwrite a newer one's items.
   private fetchGeneration = 0;
 
   constructor() {
@@ -171,36 +170,40 @@ class PatientInterventionsStore {
       return;
     }
 
-    const translations = new Map(
-      await Promise.all(
-        raw.map(async (rec) => {
-          const options = { knownSourceLanguage: rec.intervention?.language };
-          const [t1, t2] = await Promise.all([
-            translateText(rec.intervention_title, options),
-            translateText(rec.description || '', options),
-          ]);
+    try {
+      const translations = new Map(
+        await Promise.all(
+          raw.map(async (rec) => {
+            const options = { knownSourceLanguage: rec.intervention?.language };
+            const [t1, t2] = await Promise.all([
+              translateText(rec.intervention_title, options),
+              translateText(rec.description || '', options),
+            ]);
 
-          return [
-            rec.intervention_id,
-            {
-              translated_title: t1.translatedText,
-              translated_description: t2.translatedText,
-              titleLang: t1.detectedSourceLanguage,
-              descLang: t2.detectedSourceLanguage,
-            },
-          ] as const;
-        })
-      )
-    );
+            return [
+              rec.intervention_id,
+              {
+                translated_title: t1.translatedText,
+                translated_description: t2.translatedText,
+                titleLang: t1.detectedSourceLanguage,
+                descLang: t2.detectedSourceLanguage,
+              },
+            ] as const;
+          })
+        )
+      );
 
-    if (generation !== this.fetchGeneration) return;
+      if (generation !== this.fetchGeneration) return;
 
-    runInAction(() => {
-      this.items = this.items.map((r) => {
-        const patch = translations.get(r.intervention_id);
-        return patch ? { ...r, ...patch } : r;
+      runInAction(() => {
+        this.items = this.items.map((r) => {
+          const patch = translations.get(r.intervention_id);
+          return patch ? { ...r, ...patch } : r;
+        });
       });
-    });
+    } catch (err: unknown) {
+      console.error('[fetchPlan] Translation patch failed:', err);
+    }
   }
 
   async toggleCompleted(patientId: string, rec: PatientRec, date: Date) {

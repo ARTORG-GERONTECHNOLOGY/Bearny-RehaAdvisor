@@ -16,7 +16,7 @@ const MAX_CACHE_ENTRIES = 2000;
 // falls back to LibreTranslate's default of 4). Keep these in sync if
 // LT_THREADS is ever overridden.
 const MAX_CONCURRENT_REQUESTS = 4;
-// Bounds how long a stuck request can hold up a page waiting on it, well under nginx's 180s.
+// Bounds how long a stuck request can hold up a page waiting on it, well under nginx's 60s default.
 const REQUEST_TIMEOUT_MS = 20_000;
 
 const resultCache = new Map<string, TranslateResult>();
@@ -121,8 +121,7 @@ export async function translateText(
     return { translatedText: text, detectedSourceLanguage: 'unknown' };
   }
 
-  // Callers that already know the text's language (e.g. an intervention's
-  // own `language` field) can skip the detect/translate round-trip entirely.
+  // A caller that already knows the text's language can skip the detect/translate round-trip.
   const knownLang = options?.knownSourceLanguage?.slice(0, 2);
   if (knownLang && knownLang === target) {
     return { translatedText: text, detectedSourceLanguage: knownLang };
