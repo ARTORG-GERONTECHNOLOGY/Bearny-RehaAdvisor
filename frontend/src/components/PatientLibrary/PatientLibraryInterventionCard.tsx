@@ -31,7 +31,14 @@ const PatientLibraryInterventionCard: React.FC<PatientLibraryInterventionCardPro
   const { t } = useTranslation();
 
   return (
-    <Card role="button" onClick={onClick} className={`${containerClassName} flex flex-col gap-6`}>
+    <Card
+      role="button"
+      onClick={(e: React.MouseEvent) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={`${containerClassName} flex flex-col gap-6`}
+    >
       <Icon className="shrink-0 w-8 h-8" />
       <div className="flex-1 flex flex-col gap-2 justify-between">
         <div className="font-bold text-lg leading-6 text-zinc-800">{displayTitle || '-'}</div>
