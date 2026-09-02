@@ -173,6 +173,46 @@ describe('InterventionRepeatModal', () => {
       });
     });
 
+    it('closes the modal immediately even if onSuccess (the background refresh) never resolves', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({ status: 200 });
+      let resolveOnSuccess: () => void = () => {};
+      const hangingOnSuccess = jest.fn(
+        () => new Promise<void>((resolve) => (resolveOnSuccess = resolve))
+      );
+
+      render(<InterventionRepeatModal {...defaultProps} onSuccess={hangingOnSuccess} />);
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      await waitFor(() => {
+        expect(defaultProps.onHide).toHaveBeenCalled();
+      });
+      expect(hangingOnSuccess).toHaveBeenCalled();
+
+      resolveOnSuccess();
+    });
+
+    it('closes the modal and logs the error when the background onSuccess refresh rejects', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({ status: 200 });
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const refreshError = new Error('refresh failed');
+      const rejectingOnSuccess = jest.fn().mockRejectedValueOnce(refreshError);
+
+      render(<InterventionRepeatModal {...defaultProps} onSuccess={rejectingOnSuccess} />);
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      await waitFor(() => {
+        expect(defaultProps.onHide).toHaveBeenCalled();
+      });
+      await waitFor(() => {
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          '[InterventionRepeatModal] onSuccess refresh failed:',
+          refreshError
+        );
+      });
+
+      consoleErrorSpy.mockRestore();
+    });
+
     it('shows an error alert when submission fails, dismissible via its close button', async () => {
       (apiClient.post as jest.Mock).mockRejectedValueOnce({
         response: { data: { message: 'Save failed' } },
