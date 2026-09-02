@@ -100,9 +100,10 @@ describe('InterventionList', () => {
     expect(mockOnClick).toHaveBeenCalledWith(items[0]);
   });
 
-  it('shows loading state when translatedTitles is not provided', () => {
+  it('renders raw titles immediately when translatedTitles is not provided', () => {
     render(<InterventionList items={items} onClick={mockOnClick} />);
-    expect(screen.getByText('Loading interventions...')).toBeInTheDocument();
+    expect(screen.getByText('Mobility Drill')).toBeInTheDocument();
+    expect(screen.getByText('Stretch PDF')).toBeInTheDocument();
   });
 
   it('renders empty state when no items', () => {
@@ -256,6 +257,29 @@ describe('InterventionList', () => {
     expect(await screen.findByText('Mobility Drill')).toBeInTheDocument();
   });
 
+  it('kicks off translation requests for every item in parallel, not one at a time', async () => {
+    const { translateText } = jest.requireMock('@/utils/translate');
+    const resolvers: Array<(value: unknown) => void> = [];
+    const pending = () =>
+      new Promise((resolve) => {
+        resolvers.push(resolve);
+      });
+    // items has 2 entries; only stub those 2 calls so later tests keep the
+    // default (immediately-resolving) mock from the top-level jest.mock.
+    (translateText as jest.Mock).mockImplementationOnce(pending).mockImplementationOnce(pending);
+
+    render(<InterventionList items={items} onClick={mockOnClick} />);
+
+    await screen.findByText('Mobility Drill');
+
+    // Both items' translateText calls should already be in flight, not just the first.
+    expect(translateText).toHaveBeenCalledTimes(2);
+
+    resolvers.forEach((resolve) =>
+      resolve({ translatedText: 'Translated', detectedSourceLanguage: 'en' })
+    );
+  });
+
   it('skips translating items with no title', async () => {
     render(
       <InterventionList
@@ -269,10 +293,11 @@ describe('InterventionList', () => {
     expect(translateText).not.toHaveBeenCalled();
   });
 
-  it('shows the loading spinner briefly, then the table once translation resolves', async () => {
+  it('renders the raw title immediately, then patches in the translation once it resolves', async () => {
     render(<InterventionList items={[items[0]]} onClick={mockOnClick} />);
+    expect(screen.getByText('Mobility Drill')).toBeInTheDocument();
+
     // The mocked translateText always resolves to the literal string "Translated".
     expect(await screen.findByText('Translated')).toBeInTheDocument();
-    expect(screen.queryByText('Loading interventions...')).not.toBeInTheDocument();
   });
 });

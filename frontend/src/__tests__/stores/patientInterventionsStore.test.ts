@@ -9,6 +9,12 @@ jest.mock('@/utils/translate', () => ({
   ),
 }));
 
+const flushMicrotasks = async (times = 10) => {
+  for (let i = 0; i < times; i++) {
+    await Promise.resolve();
+  }
+};
+
 describe('PatientInterventionsStore', () => {
   let store: PatientInterventionsStore;
 
@@ -218,6 +224,108 @@ describe('PatientInterventionsStore', () => {
       const raw = sessionStorage.getItem('patientInterventionsStore');
       const parsed = JSON.parse(raw!);
       expect(parsed['patient-1']).toHaveLength(1);
+    });
+
+    it('renders items with the original text before translations resolve', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [{ intervention_id: 'int-1', intervention_title: 'Breathing', description: 'Deep' }],
+      });
+
+      const resolvers: Array<(value: unknown) => void> = [];
+      (translateText as jest.Mock).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolvers.push(resolve);
+          })
+      );
+
+      const fetchPromise = store.fetchPlan('patient-1', 'en');
+
+      // Let the raw-item assignment happen without waiting for translateText.
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(store.items).toHaveLength(1);
+      expect(store.items[0].intervention_title).toBe('Breathing');
+      expect(store.items[0].translated_title).toBeUndefined();
+      expect(store.loading).toBe(false);
+
+      // Resolves title and description translation calls, in order.
+      resolvers[0]({ translatedText: 'Atmung', detectedSourceLanguage: 'de' });
+      resolvers[1]({ translatedText: 'Tief', detectedSourceLanguage: 'de' });
+      await fetchPromise;
+
+      expect(store.items[0].translated_title).toBe('Atmung');
+    });
+
+    it('patches translations in as a single batch, not one item at a time', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [
+          { intervention_id: 'int-1', intervention_title: 'Breathing', description: 'Deep' },
+          { intervention_id: 'int-2', intervention_title: 'Walking', description: 'Slow' },
+        ],
+      });
+
+      const resolvers: Array<(value: unknown) => void> = [];
+      (translateText as jest.Mock).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolvers.push(resolve);
+          })
+      );
+
+      const fetchPromise = store.fetchPlan('patient-1', 'en');
+      await flushMicrotasks();
+
+      const itemsBeforeAnyResolve = store.items;
+
+      // Resolve only int-1's title+desc; int-2's stays pending.
+      resolvers[0]({ translatedText: 'Atmung', detectedSourceLanguage: 'de' });
+      resolvers[1]({ translatedText: 'Tief', detectedSourceLanguage: 'de' });
+      await flushMicrotasks();
+
+      // No commit yet: the batch is still waiting on int-2's translation.
+      expect(store.items).toBe(itemsBeforeAnyResolve);
+      expect(
+        store.items.find((r) => r.intervention_id === 'int-1')!.translated_title
+      ).toBeUndefined();
+
+      resolvers[2]({ translatedText: 'Gehen', detectedSourceLanguage: 'de' });
+      resolvers[3]({ translatedText: 'Langsam', detectedSourceLanguage: 'de' });
+      await fetchPromise;
+
+      expect(store.items.find((r) => r.intervention_id === 'int-1')!.translated_title).toBe(
+        'Atmung'
+      );
+      expect(store.items.find((r) => r.intervention_id === 'int-2')!.translated_title).toBe(
+        'Gehen'
+      );
+    });
+
+    it("does not apply a stale fetch's translations after a newer fetchPlan call for another patient", async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [{ intervention_id: 'int-1', intervention_title: 'Breathing', description: 'Deep' }],
+      });
+
+      let resolveTranslate: (value: unknown) => void;
+      (translateText as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveTranslate = resolve;
+          })
+      );
+
+      const stalePromise = store.fetchPlan('patient-1', 'en');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [] });
+      await store.fetchPlan('patient-2', 'en');
+
+      resolveTranslate!({ translatedText: 'Atmung', detectedSourceLanguage: 'de' });
+      await stalePromise;
+
+      expect(store.items).toEqual([]);
     });
 
     it('sets an error from the backend payload on failure', async () => {

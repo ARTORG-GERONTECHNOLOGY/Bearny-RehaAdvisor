@@ -71,11 +71,14 @@ class PatientInterventionsStore {
   assistanceMode: 'alone' | 'with_help' | null = null;
 
   private currentPatientId: string | null = null;
+  // Bumped on every fetchPlan() call so a stale fetch's translations can't
+  // land on top of a newer fetch's items if the patient changes mid-flight.
+  private fetchGeneration = 0;
 
   constructor() {
-    makeAutoObservable<PatientInterventionsStore, 'currentPatientId'>(
+    makeAutoObservable<PatientInterventionsStore, 'currentPatientId' | 'fetchGeneration'>(
       this,
-      { currentPatientId: false },
+      { currentPatientId: false, fetchGeneration: false },
       { autoBind: true }
     );
 
@@ -111,6 +114,7 @@ class PatientInterventionsStore {
 
   async fetchPlan(patientId: string, uiLang: string) {
     this.currentPatientId = patientId;
+    const generation = ++this.fetchGeneration;
     const cached = this.loadFromSessionStorage(patientId);
     if (cached) {
       runInAction(() => {
@@ -120,62 +124,82 @@ class PatientInterventionsStore {
     if (!this.items.length) this.loading = true;
     this.clearError();
 
+    let raw: PatientRec[];
     try {
       const lang = (uiLang || 'en').slice(0, 2);
       const { data } = await apiClient.get(`/patients/rehabilitation-plan/patient/${patientId}/`, {
         params: { lang },
       });
-      const list = asArray<any>(data);
+      if (generation !== this.fetchGeneration) return;
 
-      const translated: PatientRec[] = await Promise.all(
-        list.map(async (row: any) => {
-          const meta: InterventionMeta | undefined =
-            row && typeof row === 'object' ? (row.intervention as InterventionMeta) : undefined;
+      raw = asArray<any>(data).map((row: any) => {
+        const meta: InterventionMeta | undefined =
+          row && typeof row === 'object' ? (row.intervention as InterventionMeta) : undefined;
 
-          const title = String(row?.intervention_title || meta?.title || '');
-          const desc = String(row?.description || meta?.description || '');
+        return {
+          intervention_id: String(row?.intervention_id || meta?._id || ''),
+          intervention_title: String(row?.intervention_title || meta?.title || ''),
+          description: String(row?.description || meta?.description || ''),
 
-          const [t1, t2] = await Promise.all([translateText(title), translateText(desc)]);
+          dates: asArray<string>(row?.dates),
+          completion_dates: asArray<string>(row?.completion_dates),
+          frequency: String(row?.frequency || ''),
+          notes: String(row?.notes || ''),
+          require_video_feedback: Boolean(row?.require_video_feedback),
 
-          return {
-            intervention_id: String(row?.intervention_id || meta?._id || ''),
-            intervention_title: title,
-            description: desc,
+          duration: typeof row?.duration === 'number' ? row.duration : undefined,
+          preview_img: String(row?.preview_img || meta?.preview_img || ''),
+          media: asArray<any>(row?.media || meta?.media),
 
-            dates: asArray<string>(row?.dates),
-            completion_dates: asArray<string>(row?.completion_dates),
-            frequency: String(row?.frequency || ''),
-            notes: String(row?.notes || ''),
-            require_video_feedback: Boolean(row?.require_video_feedback),
+          intervention: meta,
+        };
+      });
 
-            duration: typeof row?.duration === 'number' ? row.duration : undefined,
-            preview_img: String(row?.preview_img || meta?.preview_img || ''),
-            media: asArray<any>(row?.media || meta?.media),
-
-            intervention: meta,
-
-            translated_title: t1.translatedText,
-            translated_description: t2.translatedText,
-            titleLang: t1.detectedSourceLanguage,
-            descLang: t2.detectedSourceLanguage,
-          } as PatientRec;
-        })
-      );
-
+      // Render immediately with original-language text; translations patch in below.
       runInAction(() => {
-        this.items = translated;
+        this.items = raw;
+        this.loading = false;
       });
     } catch (err: unknown) {
+      if (generation !== this.fetchGeneration) return;
       const { message, details } = extractApiErrorWithDetails(err, 'An unexpected error occurred.');
       runInAction(() => {
         this.error = message;
         this.errorDetails = details;
-      });
-    } finally {
-      runInAction(() => {
         this.loading = false;
       });
+      return;
     }
+
+    const translations = new Map(
+      await Promise.all(
+        raw.map(async (rec) => {
+          const [t1, t2] = await Promise.all([
+            translateText(rec.intervention_title),
+            translateText(rec.description || ''),
+          ]);
+
+          return [
+            rec.intervention_id,
+            {
+              translated_title: t1.translatedText,
+              translated_description: t2.translatedText,
+              titleLang: t1.detectedSourceLanguage,
+              descLang: t2.detectedSourceLanguage,
+            },
+          ] as const;
+        })
+      )
+    );
+
+    if (generation !== this.fetchGeneration) return;
+
+    runInAction(() => {
+      this.items = this.items.map((r) => {
+        const patch = translations.get(r.intervention_id);
+        return patch ? { ...r, ...patch } : r;
+      });
+    });
   }
 
   async toggleCompleted(patientId: string, rec: PatientRec, date: Date) {

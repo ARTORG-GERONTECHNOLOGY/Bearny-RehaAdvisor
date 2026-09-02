@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/table';
 import StarRating from '@/components/RehaTablePage/StarRating';
 import { Badge } from '@/components/ui/badge';
-import { InterventionListSkeleton } from '@/components/skeletons/InterventionListSkeleton';
 import { FaLock } from 'react-icons/fa';
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 
@@ -51,7 +50,6 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
   const { t } = useTranslation();
 
   const [localTitles, setLocalTitles] = useState<TitleMap>({});
-  const [loading, setLoading] = useState<boolean>(!translatedTitles);
   const [ratingSorting, setRatingSorting] = useState<'asc' | 'desc' | false>(false);
 
   const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
@@ -66,40 +64,34 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
     });
   }, [safeItems, ratingSorting]);
 
+  // Rows already fall back to the raw title below; this just patches in translations as they resolve.
   useEffect(() => {
-    if (translatedTitles) {
-      setLoading(false);
-      return;
-    }
+    if (translatedTitles) return;
 
-    const translateAll = async () => {
-      setLoading(true);
-      const updates: TitleMap = {};
+    let cancelled = false;
 
-      for (const rec of safeItems) {
-        if (!rec?.title) continue;
-        try {
-          const { translatedText, detectedSourceLanguage } = await translateText(rec.title);
-          updates[rec._id] = {
-            title: translatedText || rec.title,
-            lang: detectedSourceLanguage || null,
-          };
-        } catch {
-          updates[rec._id] = { title: rec.title, lang: null };
-        }
-      }
+    Promise.all(
+      safeItems
+        .filter((rec) => rec?.title)
+        .map(async (rec) => {
+          try {
+            const { translatedText, detectedSourceLanguage } = await translateText(rec.title);
+            return [
+              rec._id,
+              { title: translatedText || rec.title, lang: detectedSourceLanguage || null },
+            ] as const;
+          } catch {
+            return [rec._id, { title: rec.title, lang: null }] as const;
+          }
+        })
+    ).then((pairs) => {
+      if (!cancelled) setLocalTitles(Object.fromEntries(pairs));
+    });
 
-      setLocalTitles(updates);
-      setLoading(false);
+    return () => {
+      cancelled = true;
     };
-
-    if (safeItems.length > 0) translateAll();
-    else setLoading(false);
   }, [safeItems, translatedTitles]);
-
-  if (loading) {
-    return <InterventionListSkeleton />;
-  }
 
   if (safeItems.length === 0) {
     return (
