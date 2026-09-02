@@ -155,7 +155,9 @@ describe('PatientInterventionsLibrary', () => {
     });
 
     await waitFor(() => {
-      expect(mockTranslateText).toHaveBeenCalledWith('Morning Stretch');
+      expect(mockTranslateText).toHaveBeenCalledWith('Morning Stretch', {
+        knownSourceLanguage: undefined,
+      });
     });
 
     await waitFor(() => {
@@ -369,7 +371,9 @@ describe('PatientInterventionsLibrary', () => {
     render(<PatientInterventionsLibrary />);
 
     await waitFor(() => {
-      expect(mockTranslateText).toHaveBeenCalledWith('Morning Stretch');
+      expect(mockTranslateText).toHaveBeenCalledWith('Morning Stretch', {
+        knownSourceLanguage: undefined,
+      });
     });
 
     await waitFor(() => {
@@ -412,7 +416,9 @@ describe('PatientInterventionsLibrary', () => {
     render(<PatientInterventionsLibrary />);
 
     await waitFor(() => {
-      expect(mockTranslateText).toHaveBeenCalledWith('Morning Stretch');
+      expect(mockTranslateText).toHaveBeenCalledWith('Morning Stretch', {
+        knownSourceLanguage: undefined,
+      });
     });
   });
 
