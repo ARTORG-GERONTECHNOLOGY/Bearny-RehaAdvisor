@@ -3116,7 +3116,7 @@ def get_patient_plan_for_therapist(request, patient_id):
             rating_count = 0
 
             for date in all_dates:
-                date_local = timezone.localtime(_as_aware_utc(date)).date()
+                date_local = _local_day(date)
                 log = next((l for l in logs if _local_day(l.date) == date_local), None)
 
                 if log and "completed" in (log.status or []):
