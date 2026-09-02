@@ -29,6 +29,7 @@ connection for every test function.
 
 import json
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 
 import mongomock
 import pytest
@@ -1385,12 +1386,17 @@ def test_adherence_boundary_day_session_is_counted():
         content_type="Video",
     ).save()
 
-    now = datetime.now()
+    now = timezone.now()
     # 6 days and 23 hours ago: this is on the 7th-ago calendar day but BEFORE
     # the exact `now - timedelta(days=7)` moment (which is 7 * 24 h ago).
     # With the old approach this would be EXCLUDED from the 7d window.
     # With the fix (since = midnight of day-7) it must be INCLUDED.
     early_boundary = now - timedelta(days=6, hours=23)
+    # _adherence() reads dates/date under different naive conventions (see
+    # utils.py): assignment dates as naive-UTC, log dates as naive-local. Build
+    # each from the same instant so both land on the same calendar day.
+    early_boundary_plan = early_boundary.astimezone(dt_timezone.utc).replace(tzinfo=None)
+    early_boundary_log = early_boundary.astimezone(timezone.get_current_timezone()).replace(tzinfo=None)
 
     plan = RehabilitationPlan(
         patientId=patient,
@@ -1401,7 +1407,7 @@ def test_adherence_boundary_day_session_is_counted():
         interventions=[
             InterventionAssignment(
                 interventionId=intervention,
-                dates=[early_boundary],
+                dates=[early_boundary_plan],
             )
         ],
     ).save()
@@ -1410,7 +1416,7 @@ def test_adherence_boundary_day_session_is_counted():
         userId=patient,
         interventionId=intervention,
         rehabilitationPlanId=plan,
-        date=early_boundary,
+        date=early_boundary_log,
         status=["completed"],
     ).save()
 
