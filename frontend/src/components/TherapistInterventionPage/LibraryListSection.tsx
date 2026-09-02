@@ -1,5 +1,6 @@
 import React from 'react';
 import InterventionList from '@/components/TherapistInterventionPage/InterventionList';
+import InterventionListSkeleton from '@/components/skeletons/InterventionListSkeleton';
 import type { InterventionTypeTh } from '@/types';
 
 type Props = {
@@ -11,7 +12,11 @@ type Props = {
 };
 
 const LibraryListSection: React.FC<Props> = ({ loading, items, onClick, t, translatedTitles }) => {
-  if (!loading && items.length === 0) {
+  if (loading) {
+    return <InterventionListSkeleton />;
+  }
+
+  if (items.length === 0) {
     return (
       <div className="text-center text-muted-foreground">
         {t('No interventions match your filters.')}
