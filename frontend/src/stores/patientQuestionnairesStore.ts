@@ -65,7 +65,7 @@ const normalizeQuestion = (q: RawQuestion): NormalizedQuestion => {
   };
 };
 
-export class PatientQuestionnairesStore {
+class PatientQuestionnairesStore {
   // ---- Intervention feedback modal ----
   showFeedbackPopup = false;
   feedbackInterventionId = '';
