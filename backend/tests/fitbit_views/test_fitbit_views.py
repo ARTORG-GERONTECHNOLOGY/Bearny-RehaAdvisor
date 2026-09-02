@@ -23,7 +23,7 @@ the 15-minute rate-limit guard is applied on every page load. The Celery task
 """
 
 import json
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
@@ -422,6 +422,53 @@ def test_fitbit_summary_with_daily_data_and_vitals_merge(mock_fetch):
     body = resp.json()
     assert body["today"]["steps"] == 1000
     assert len(body["period"]["daily"]) >= 1
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_today_ignores_future_dated_manual_entry(mock_fetch):
+    """A manually-entered steps count for a future date must not leak into "today"."""
+    _, _, patient_user, patient = create_patient_graph()
+    now = timezone.now()
+    FitbitData(user=patient_user, date=now, steps=1000).save()
+    FitbitData(user=patient_user, date=now + timedelta(days=2), steps=9999).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["today"]["steps"] == 1000
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_today_does_not_fall_back_to_past_dated_entry(mock_fetch):
+    """When there's no record for today, a past-dated (e.g. manually backfilled)
+    entry must not be shown as if it were today's data."""
+    _, _, patient_user, patient = create_patient_graph()
+    now = timezone.now()
+    yesterday = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    FitbitData(user=patient_user, date=yesterday, steps=4321).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["today"] is None
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_today_shows_manual_vitals_when_no_device_data_yet(mock_fetch):
+    """A patient who has only logged weight/BP manually today (no Fitbit sync
+    yet) must still see those values under "today", not a null payload."""
+    _, _, patient_user, patient = create_patient_graph()
+    now = timezone.now()
+    PatientVitals(patientId=patient, user=patient_user, date=now, bp_sys=118, bp_dia=76, weight_kg=70.5).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["today"] is not None
+    assert body["today"]["bp_sys"] == 118
+    assert body["today"]["bp_dia"] == 76
+    assert body["today"]["weight_kg"] == 70.5
+    assert body["today"]["steps"] == 0
 
 
 def test_get_fitbit_health_data_success_with_entries():

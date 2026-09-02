@@ -352,21 +352,35 @@ def google_health_summary(request, patient_id=None):
 
         valid_days = max(1, valid_days)
 
-        today_qs = GoogleHealthData.objects(user=patient.userId, date__gte=today_start).order_by("-date")
-        today_row = today_qs.first() or qs.order_by("-date").first()
+        today_end = today_start + timedelta(days=1)
+        today_qs = GoogleHealthData.objects(user=patient.userId, date__gte=today_start, date__lt=today_end).order_by(
+            "-date"
+        )
+        today_row = today_qs.first()
+
+        # Today's date key is always the real current day — never derived from
+        # whichever record happens to be used below — so manually-logged
+        # vitals for today are found even when no device data has synced yet.
+        # Matches vitals_by_day's own keys, which are local-timezone dates.
+        vday_today = vitals_by_day.get(timezone.localtime(end).date().isoformat()) or {}
 
         today_payload = None
-        if today_row:
-            day_key_today = today_row.date.astimezone(timezone.get_current_timezone()).date().isoformat()
-            vday = vitals_by_day.get(day_key_today) or {}
+        if today_row or vday_today:
+            steps_today = int(today_row.steps or 0) if today_row else 0
+            active_minutes_today = int(today_row.active_minutes or 0) if today_row else 0
+            sleep_minutes_today = _sleep_minutes(today_row) if today_row else 0
+            rhr_today = int(today_row.resting_heart_rate) if today_row and today_row.resting_heart_rate else None
+            bp_sys_today = (getattr(today_row, "bp_sys", None) if today_row else None) or vday_today.get("bp_sys")
+            bp_dia_today = (getattr(today_row, "bp_dia", None) if today_row else None) or vday_today.get("bp_dia")
+            weight_today = (getattr(today_row, "weight_kg", None) if today_row else None) or vday_today.get("weight_kg")
             today_payload = {
-                "steps": int(today_row.steps or 0),
-                "active_minutes": int(today_row.active_minutes or 0),
-                "sleep_minutes": _sleep_minutes(today_row),
-                "resting_heart_rate": int(today_row.resting_heart_rate) if today_row.resting_heart_rate else None,
-                "bp_sys": getattr(today_row, "bp_sys", None) or vday.get("bp_sys"),
-                "bp_dia": getattr(today_row, "bp_dia", None) or vday.get("bp_dia"),
-                "weight_kg": getattr(today_row, "weight_kg", None) or vday.get("weight_kg"),
+                "steps": steps_today,
+                "active_minutes": active_minutes_today,
+                "sleep_minutes": sleep_minutes_today,
+                "resting_heart_rate": rhr_today,
+                "bp_sys": bp_sys_today,
+                "bp_dia": bp_dia_today,
+                "weight_kg": weight_today,
             }
 
         def avg_nums(vals):

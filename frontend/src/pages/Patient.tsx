@@ -208,13 +208,9 @@ const PatientView: React.FC = observer(() => {
         open={showManualStepsEntry}
         dateLabel={selectedDateLongLabel}
         onClose={() => setShowManualStepsEntry(false)}
-        onSubmit={async (steps) => {
+        onSubmit={async (steps, date) => {
           try {
-            await patientFitbitStore.submitManualSteps(
-              patientId,
-              format(new Date(), 'yyyy-MM-dd'),
-              steps
-            );
+            await patientFitbitStore.submitManualSteps(patientId, date, steps);
           } catch {
             throw new Error(t('Failed to save steps. Please try again.'));
           }
