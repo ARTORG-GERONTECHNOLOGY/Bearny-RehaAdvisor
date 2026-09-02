@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 # Connect once for all tests
 import mongomock
 import pytest
-from mongoengine import connect, disconnect, get_connection
+from mongoengine import connect, disconnect
 
 from core.models import (
     AnswerOption,

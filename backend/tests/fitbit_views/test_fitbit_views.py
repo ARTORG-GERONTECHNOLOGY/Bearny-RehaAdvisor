@@ -23,7 +23,8 @@ the 15-minute rate-limit guard is applied on every page load. The Celery task
 """
 
 import json
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
+from datetime import timezone as dt_timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
@@ -422,6 +423,94 @@ def test_fitbit_summary_with_daily_data_and_vitals_merge(mock_fetch):
     body = resp.json()
     assert body["today"]["steps"] == 1000
     assert len(body["period"]["daily"]) >= 1
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_today_ignores_future_dated_manual_entry(mock_fetch):
+    """A manually-entered steps count for a future date must not leak into "today"."""
+    _, _, patient_user, patient = create_patient_graph()
+    now = timezone.now()
+    FitbitData(user=patient_user, date=now, steps=1000).save()
+    FitbitData(user=patient_user, date=now + timedelta(days=2), steps=9999).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["today"]["steps"] == 1000
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_today_does_not_fall_back_to_past_dated_entry(mock_fetch):
+    """When there's no record for today, a past-dated (e.g. manually backfilled)
+    entry must not be shown as if it were today's data."""
+    _, _, patient_user, patient = create_patient_graph()
+    now = timezone.now()
+    yesterday = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    FitbitData(user=patient_user, date=yesterday, steps=4321).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["today"] is None
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_today_shows_manual_vitals_when_no_device_data_yet(mock_fetch):
+    """A patient who has only logged weight/BP manually today (no Fitbit sync
+    yet) must still see those values under "today", not a null payload."""
+    _, _, patient_user, patient = create_patient_graph()
+    now = timezone.now()
+    PatientVitals(patientId=patient, user=patient_user, date=now, bp_sys=118, bp_dia=76, weight_kg=70.5).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["today"] is not None
+    assert body["today"]["bp_sys"] == 118
+    assert body["today"]["bp_dia"] == 76
+    assert body["today"]["weight_kg"] == 70.5
+    assert body["today"]["steps"] == 0
+
+
+@patch("core.views.fitbit_view.timezone.now")
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_today_uses_local_not_utc_calendar_day(mock_fetch, mock_now):
+    """Just after local midnight, "today" must be keyed by the Zurich calendar
+    day, not the (still-previous) UTC day. Regression test for the local-vs-UTC
+    day-boundary fix: reverting today_start to end.replace(...) (UTC) makes
+    this fail, since the record's UTC instant no longer falls inside the
+    (now UTC-midnight-bounded) today window."""
+    # 2026-01-14 23:30 UTC == 2026-01-15 00:30 Europe/Zurich (winter, UTC+1):
+    # the local day has rolled over to the 15th, but the UTC day has not.
+    # Set before create_patient_graph() — Patient.save() also calls timezone.now().
+    mock_now.return_value = datetime(2026, 1, 14, 23, 30, tzinfo=dt_timezone.utc)
+    _, _, patient_user, patient = create_patient_graph()
+    FitbitData(user=patient_user, date=datetime(2026, 1, 15, 0, 0, tzinfo=dt_timezone.utc), steps=4242).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["today"] is not None
+    assert body["today"]["steps"] == 4242
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_period_daily_includes_vitals_only_day(mock_fetch):
+    """A day with only manually-logged BP/weight (no FitbitData row at all)
+    must still appear in period.daily, not be silently dropped."""
+    _, _, patient_user, patient = create_patient_graph()
+    now = timezone.now()
+    PatientVitals(patientId=patient, user=patient_user, date=now, bp_sys=118, bp_dia=76).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    daily = body["period"]["daily"]
+    assert len(daily) == 1
+    assert daily[0]["bp_sys"] == 118
+    assert daily[0]["bp_dia"] == 76
+    assert daily[0]["steps"] == 0
+    assert body["period"]["averages"]["bp_sys"] == 118
 
 
 def test_get_fitbit_health_data_success_with_entries():

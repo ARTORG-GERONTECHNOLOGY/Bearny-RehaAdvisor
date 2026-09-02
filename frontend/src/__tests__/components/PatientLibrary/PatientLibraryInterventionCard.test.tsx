@@ -36,6 +36,28 @@ describe('PatientLibraryInterventionCard', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  it('stops click propagation so a wrapping card does not also receive the click', () => {
+    const onClick = jest.fn();
+    const onParentClick = jest.fn();
+
+    render(
+      <div onClick={onParentClick}>
+        <PatientLibraryInterventionCard
+          item={{ duration: 15, content_type: 'Video' }}
+          displayTitle="Morning Stretch"
+          Icon={MockMainIcon}
+          contentTypeIcon={MockContentTypeIcon}
+          containerClassName="w-full"
+          onClick={onClick}
+        />
+      </div>
+    );
+
+    fireEvent.click(screen.getByRole('button'));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(onParentClick).not.toHaveBeenCalled();
+  });
+
   it('falls back to dash when duration is not numeric', () => {
     render(
       <PatientLibraryInterventionCard

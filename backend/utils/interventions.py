@@ -13,7 +13,6 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
-from django.utils.timezone import now as dj_now
 from django.views.decorators.csrf import csrf_exempt
 from mongoengine.errors import DoesNotExist
 from mongoengine.queryset.visitor import Q
