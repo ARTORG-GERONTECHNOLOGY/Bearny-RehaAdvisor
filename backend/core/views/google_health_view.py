@@ -352,9 +352,7 @@ def google_health_summary(request, patient_id=None):
 
             last_sync = d.date
 
-        # Days with vitals logged manually but no GoogleHealthData row at all
-        # (no device sync, no manual steps entry) are otherwise invisible to
-        # period.daily/averages — merge those in too.
+        # Merge in vitals-only days (no GoogleHealthData row) so they aren't invisible to period.daily/averages.
         for day_key, vday in vitals_by_day.items():
             if day_key in covered_days:
                 continue
@@ -387,9 +385,7 @@ def google_health_summary(request, patient_id=None):
             if weight_kg is not None:
                 weight_vals.append(float(weight_kg))
 
-            # d.date (and thus last_sync) is a naive datetime as stored by
-            # mongoengine — keep this comparison naive too, or it would raise
-            # "can't compare offset-naive and offset-aware datetimes".
+            # Naive datetime to match last_sync (mongoengine-stored, naive).
             day_dt = datetime.fromisoformat(day_key)
             if last_sync is None or day_dt > last_sync:
                 last_sync = day_dt
@@ -404,10 +400,7 @@ def google_health_summary(request, patient_id=None):
         )
         today_row = today_qs.first()
 
-        # Today's date key is always the real current day — never derived from
-        # whichever record happens to be used below — so manually-logged
-        # vitals for today are found even when no device data has synced yet.
-        # Matches vitals_by_day's own keys, which are local-timezone dates.
+        # Keyed by the real current day (not today's record) so manual vitals surface even without a device sync.
         vday_today = vitals_by_day.get(timezone.localtime(end).date().isoformat()) or {}
 
         today_payload = None
