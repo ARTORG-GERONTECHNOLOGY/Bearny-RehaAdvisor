@@ -13,7 +13,6 @@ from mongoengine import (
     EmailField,
     EmbeddedDocument,
     EmbeddedDocumentField,
-    FileField,
     FloatField,
     IntField,
     ListField,

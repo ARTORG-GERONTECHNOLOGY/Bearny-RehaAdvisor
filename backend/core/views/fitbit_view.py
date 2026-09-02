@@ -2,7 +2,7 @@ import json
 import logging
 import secrets
 from datetime import datetime, timedelta
-from urllib.parse import quote, urlencode, urlparse
+from urllib.parse import urlencode, urlparse
 
 import redis
 import requests

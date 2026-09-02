@@ -15,7 +15,6 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
-from django.utils.timezone import now as dj_now
 from mongoengine.queryset.visitor import Q
 from pydub import AudioSegment
 from pydub.utils import which as pd_which
@@ -57,7 +56,6 @@ from utils.utils import (
     get_labels,
     sanitize_text,
     serialize_datetime,
-    transcribe_file,
 )
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
@@ -3118,7 +3116,7 @@ def get_patient_plan_for_therapist(request, patient_id):
             rating_count = 0
 
             for date in all_dates:
-                date_local = timezone.localtime(_as_aware_utc(date)).date()
+                date_local = _local_day(date)
                 log = next((l for l in logs if _as_aware_local(l.date).date() == date_local), None)
 
                 if log and "completed" in (log.status or []):

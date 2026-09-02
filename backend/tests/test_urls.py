@@ -1,4 +1,4 @@
-from django.urls import URLPattern, get_resolver, resolve, reverse
+from django.urls import resolve, reverse
 
 import core.views.auth_views as auth_views
 import core.views.patient_views as patient_views
