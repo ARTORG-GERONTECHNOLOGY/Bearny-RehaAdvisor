@@ -73,23 +73,18 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
     store.reset(show, mode, defaults);
   }, [show, mode, defaults]);
 
-  // ✅ Close immediately after success + trigger refresh callback
+  // Close on success; run refresh in the background so a slow translation call can't block it.
   useEffect(() => {
     if (!show) return;
     if (!store.success) return;
 
-    (async () => {
-      try {
-        await onSuccess?.();
-      } finally {
-        // close modal regardless of refresh outcome
-        onHide();
+    onHide();
+    store.success = false;
 
-        // prevent the effect from firing again if the component stays mounted
-        store.success = false;
-      }
-    })();
-  }, [store.success, show]);
+    Promise.resolve(onSuccess?.()).catch((err) => {
+      console.error('[InterventionRepeatModal] onSuccess refresh failed:', err);
+    });
+  }, [store.success, show, store, onHide, onSuccess]);
 
   return (
     <Dialog open={show} onOpenChange={(open) => !open && onHide()}>
