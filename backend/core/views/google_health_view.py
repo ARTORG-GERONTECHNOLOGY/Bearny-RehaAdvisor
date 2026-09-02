@@ -300,7 +300,8 @@ def google_health_summary(request, patient_id=None):
         valid_days = 0
         last_sync = None
 
-        today_start = end.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Local midnight — must match vday_today's local-day key below.
+        today_start = timezone.localtime(end).replace(hour=0, minute=0, second=0, microsecond=0)
         minutes_since_midnight = int((end - today_start).total_seconds() // 60)
 
         covered_days = set()

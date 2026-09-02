@@ -141,8 +141,8 @@ def fitbit_summary(request, patient_id=None):
         valid_days = 0
         last_sync = None
 
-        # Today midnight
-        today_start = end.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Today midnight, in local time — must match vday_today's local-day key below.
+        today_start = timezone.localtime(end).replace(hour=0, minute=0, second=0, microsecond=0)
         minutes_since_midnight = int((end - today_start).total_seconds() // 60)
 
         # ---------- Helper to parse sleep_end ----------
