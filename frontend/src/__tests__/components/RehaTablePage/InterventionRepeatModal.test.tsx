@@ -173,6 +173,24 @@ describe('InterventionRepeatModal', () => {
       });
     });
 
+    it('closes the modal immediately even if onSuccess (the background refresh) never resolves', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({ status: 200 });
+      let resolveOnSuccess: () => void = () => {};
+      const hangingOnSuccess = jest.fn(
+        () => new Promise<void>((resolve) => (resolveOnSuccess = resolve))
+      );
+
+      render(<InterventionRepeatModal {...defaultProps} onSuccess={hangingOnSuccess} />);
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      await waitFor(() => {
+        expect(defaultProps.onHide).toHaveBeenCalled();
+      });
+      expect(hangingOnSuccess).toHaveBeenCalled();
+
+      resolveOnSuccess();
+    });
+
     it('shows an error alert when submission fails, dismissible via its close button', async () => {
       (apiClient.post as jest.Mock).mockRejectedValueOnce({
         response: { data: { message: 'Save failed' } },
