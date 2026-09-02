@@ -35,7 +35,15 @@ jest.mock('@/components/forms/input/InputField', () => {
   const React = jest.requireActual('react');
   return {
     __esModule: true,
-    default: ({ id, label, value, onChange, placeholder, required, type }: any) => {
+    default: function MockInputField({
+      id,
+      label,
+      value,
+      onChange,
+      placeholder,
+      required,
+      type,
+    }: any) {
       const [internalValue, setInternalValue] = React.useState(value || '');
       return (
         <div>
@@ -62,7 +70,7 @@ jest.mock('@/components/forms/input/PasswordField', () => {
   const React = jest.requireActual('react');
   return {
     __esModule: true,
-    default: ({ id, value, onChange, required }: any) => {
+    default: function MockPasswordField({ id, value, onChange, required }: any) {
       const [internalValue, setInternalValue] = React.useState(value || '');
       return (
         <div>
@@ -88,7 +96,7 @@ jest.mock('@/components/forms/input/OTPField', () => {
   const React = jest.requireActual('react');
   return {
     __esModule: true,
-    default: ({ id, label, value, onChange, required }: any) => {
+    default: function MockOTPField({ id, label, value, onChange, required }: any) {
       const [internalValue, setInternalValue] = React.useState(value || '');
       return (
         <div>

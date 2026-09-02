@@ -360,11 +360,13 @@ def test_therapist_plan_includes_rating_count(mongo_mock):
     question.save()
 
     for i, day in enumerate(assignment.dates):
+        # Mirror mark_intervention_completed's naive-local storage convention, not the raw assignment date.
+        log_date = timezone.localtime(timezone.make_aware(day, dt_timezone.utc)).replace(tzinfo=None)
         PatientInterventionLogs(
             userId=patient,
             interventionId=intervention,
             rehabilitationPlanId=plan,
-            date=day,
+            date=log_date,
             status=["completed"],
             feedback=[
                 FeedbackEntry(

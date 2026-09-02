@@ -88,7 +88,6 @@ from utils.utils import (
     check_rate_limit,
     convert_to_serializable,
     sanitize_text,
-    validate_password_strength,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,7 +95,6 @@ import re
 from datetime import date, datetime, timedelta
 
 from django.core.mail import send_mail
-from django.views.decorators.http import require_http_methods
 from mongoengine.queryset.visitor import Q
 
 # ----------------------------------------

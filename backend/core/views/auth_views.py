@@ -14,7 +14,6 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.core.exceptions import ValidationError
 from django.core.mail import EmailMultiAlternatives, send_mail
 from django.core.validators import validate_email
-from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import JsonResponse
 from django.utils import timezone
@@ -53,7 +52,6 @@ from utils.utils import (
     increment_verify_attempt,
     reset_verify_attempts,
     sanitize_text,
-    validate_password_strength,
 )
 
 logger = logging.getLogger(__name__)
