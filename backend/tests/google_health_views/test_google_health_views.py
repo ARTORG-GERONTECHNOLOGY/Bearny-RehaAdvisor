@@ -595,3 +595,36 @@ def test_summary_today_shows_manual_vitals_when_no_device_data_yet(mock_fetch):
     assert body["today"]["bp_dia"] == 76
     assert body["today"]["weight_kg"] == 70.5
     assert body["today"]["steps"] == 0
+
+
+@patch("core.views.google_health_view.fetch_google_health_today_for_user")
+def test_summary_period_daily_includes_vitals_only_day(mock_fetch):
+    """A day with only manually-logged BP/weight (no GoogleHealthData row at
+    all) must still appear in period.daily, not be silently dropped."""
+    from core.models import Patient, PatientVitals, Therapist, User
+
+    client = Client()
+
+    th_user = User(
+        username=f"th-{ObjectId()}",
+        email="th@example.com",
+        role="Therapist",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    th = Therapist(userId=th_user, clinics=["Inselspital"], projects=["COPAIN"]).save()
+    patient_user = _make_user()
+    patient = Patient(userId=patient_user, patient_code=f"P-{ObjectId()}", therapist=th).save()
+
+    now = timezone.now()
+    PatientVitals(patientId=patient, user=patient_user, date=now, bp_sys=118, bp_dia=76).save()
+
+    resp = client.get(f"/api/google-health/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    daily = body["period"]["daily"]
+    assert len(daily) == 1
+    assert daily[0]["bp_sys"] == 118
+    assert daily[0]["bp_dia"] == 76
+    assert daily[0]["steps"] == 0
+    assert body["period"]["averages"]["bp_sys"] == 118

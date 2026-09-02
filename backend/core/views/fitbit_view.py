@@ -171,6 +171,7 @@ def fitbit_summary(request, patient_id=None):
             return sleep_end_dt, wake_minute
 
         # ---------- Build daily ----------
+        covered_days = set()
         for d in qs:
             sm = _sleep_minutes(d)
             am = int(d.active_minutes or 0)
@@ -196,6 +197,7 @@ def fitbit_summary(request, patient_id=None):
             # BP & Weight resolution: FitbitData first, else PatientVitals day map
             # -----------------------------
             day_key = d.date.astimezone(timezone.get_current_timezone()).date().isoformat()
+            covered_days.add(day_key)
 
             bp_sys = getattr(d, "bp_sys", None)
             bp_dia = getattr(d, "bp_dia", None)
@@ -248,6 +250,54 @@ def fitbit_summary(request, patient_id=None):
                     weight_vals.append(float(weight_kg))
 
             last_sync = d.date
+
+        # Days with vitals logged manually but no FitbitData row at all (no
+        # device sync, no manual steps entry) are otherwise invisible to
+        # period.daily/averages — merge those in too.
+        for day_key, vday in vitals_by_day.items():
+            if day_key in covered_days:
+                continue
+            bp_sys = vday.get("bp_sys")
+            bp_dia = vday.get("bp_dia")
+            weight_kg = vday.get("weight_kg")
+            if bp_sys is None and bp_dia is None and weight_kg is None:
+                continue
+
+            daily.append(
+                {
+                    "date": f"{day_key}T00:00:00",
+                    "steps": 0,
+                    "active_minutes": 0,
+                    "active_zone_minutes": None,
+                    "sleep_minutes": 0,
+                    "wear_time_minutes": None,
+                    "bp_sys": bp_sys,
+                    "bp_dia": bp_dia,
+                    "weight_kg": weight_kg,
+                }
+            )
+
+            valid_days += 1
+            steps_tot.append(0)
+            act_tot.append(0)
+            sleep_tot.append(0)
+            if bp_sys is not None:
+                bp_sys_vals.append(int(bp_sys))
+            if bp_dia is not None:
+                bp_dia_vals.append(int(bp_dia))
+            if weight_kg is not None:
+                weight_vals.append(float(weight_kg))
+
+            # d.date (and thus last_sync) is a naive datetime as stored by
+            # mongoengine — keep this comparison naive too, or it would raise
+            # "can't compare offset-naive and offset-aware datetimes". Uses
+            # _dt (module alias) since the bare `datetime` name in this file
+            # is shadowed by a later `import datetime` further down.
+            day_dt = _dt.datetime.fromisoformat(day_key)
+            if last_sync is None or day_dt > last_sync:
+                last_sync = day_dt
+
+        daily.sort(key=lambda row: row["date"])
 
         valid_days = max(1, valid_days)
 

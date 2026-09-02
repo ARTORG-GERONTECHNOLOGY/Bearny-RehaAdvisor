@@ -471,6 +471,25 @@ def test_fitbit_summary_today_shows_manual_vitals_when_no_device_data_yet(mock_f
     assert body["today"]["steps"] == 0
 
 
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_period_daily_includes_vitals_only_day(mock_fetch):
+    """A day with only manually-logged BP/weight (no FitbitData row at all)
+    must still appear in period.daily, not be silently dropped."""
+    _, _, patient_user, patient = create_patient_graph()
+    now = timezone.now()
+    PatientVitals(patientId=patient, user=patient_user, date=now, bp_sys=118, bp_dia=76).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    daily = body["period"]["daily"]
+    assert len(daily) == 1
+    assert daily[0]["bp_sys"] == 118
+    assert daily[0]["bp_dia"] == 76
+    assert daily[0]["steps"] == 0
+    assert body["period"]["averages"]["bp_sys"] == 118
+
+
 def test_get_fitbit_health_data_success_with_entries():
     _, _, patient_user, patient = create_patient_graph()
     today = timezone.now().date()
