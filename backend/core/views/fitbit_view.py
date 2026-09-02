@@ -141,8 +141,8 @@ def fitbit_summary(request, patient_id=None):
         valid_days = 0
         last_sync = None
 
-        # Today midnight
-        today_start = end.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Today midnight, in local time — must match vday_today's local-day key below.
+        today_start = timezone.localtime(end).replace(hour=0, minute=0, second=0, microsecond=0)
         minutes_since_midnight = int((end - today_start).total_seconds() // 60)
 
         # ---------- Helper to parse sleep_end ----------
@@ -171,6 +171,7 @@ def fitbit_summary(request, patient_id=None):
             return sleep_end_dt, wake_minute
 
         # ---------- Build daily ----------
+        covered_days = set()
         for d in qs:
             sm = _sleep_minutes(d)
             am = int(d.active_minutes or 0)
@@ -196,6 +197,7 @@ def fitbit_summary(request, patient_id=None):
             # BP & Weight resolution: FitbitData first, else PatientVitals day map
             # -----------------------------
             day_key = d.date.astimezone(timezone.get_current_timezone()).date().isoformat()
+            covered_days.add(day_key)
 
             bp_sys = getattr(d, "bp_sys", None)
             bp_dia = getattr(d, "bp_dia", None)
@@ -249,16 +251,67 @@ def fitbit_summary(request, patient_id=None):
 
             last_sync = d.date
 
+        # Merge in vitals-only days (no FitbitData row) so they aren't invisible to period.daily/averages.
+        for day_key, vday in vitals_by_day.items():
+            if day_key in covered_days:
+                continue
+            bp_sys = vday.get("bp_sys")
+            bp_dia = vday.get("bp_dia")
+            weight_kg = vday.get("weight_kg")
+            if bp_sys is None and bp_dia is None and weight_kg is None:
+                continue
+
+            daily.append(
+                {
+                    "date": f"{day_key}T00:00:00",
+                    "steps": 0,
+                    "active_minutes": 0,
+                    "active_zone_minutes": None,
+                    "sleep_minutes": 0,
+                    "wear_time_minutes": None,
+                    "bp_sys": bp_sys,
+                    "bp_dia": bp_dia,
+                    "weight_kg": weight_kg,
+                }
+            )
+
+            valid_days += 1
+            steps_tot.append(0)
+            act_tot.append(0)
+            sleep_tot.append(0)
+            if bp_sys is not None:
+                bp_sys_vals.append(int(bp_sys))
+            if bp_dia is not None:
+                bp_dia_vals.append(int(bp_dia))
+            if weight_kg is not None:
+                weight_vals.append(float(weight_kg))
+
+            # Naive datetime to match last_sync (mongoengine-stored, naive); _dt avoids the later `import datetime` shadowing.
+            day_dt = _dt.datetime.fromisoformat(day_key)
+            if last_sync is None or day_dt > last_sync:
+                last_sync = day_dt
+
+        daily.sort(key=lambda row: row["date"])
+
         valid_days = max(1, valid_days)
 
         # ---------- Today payload ----------
-        today_qs = FitbitData.objects(user=patient.userId, date__gte=today_start).order_by("-date")
-        today = today_qs.first() or qs.order_by("-date").first()
+        today_end = today_start + _dt.timedelta(days=1)
+        today_qs = FitbitData.objects(user=patient.userId, date__gte=today_start, date__lt=today_end).order_by("-date")
+        today = today_qs.first()
 
-        today_payload = None
+        # Keyed by the real current day (not today's record) so manual vitals surface even without a device sync.
+        vday_today = vitals_by_day.get(timezone.localtime(end).date().isoformat()) or {}
+
         if today:
             sm = _sleep_minutes(today)
             am = int(today.active_minutes or 0)
+            steps_today = int(today.steps or 0)
+            azm_today = getattr(today, "active_zone_minutes", None)
+            rhr_today = int(today.resting_heart_rate) if today.resting_heart_rate is not None else None
+            bp_sys_today = getattr(today, "bp_sys", None)
+            bp_dia_today = getattr(today, "bp_dia", None)
+            weight_today = getattr(today, "weight_kg", None)
 
             sleep_obj = getattr(today, "sleep", None)
             sleep_end_raw = getattr(sleep_obj, "sleep_end", None)
@@ -268,26 +321,31 @@ def fitbit_summary(request, patient_id=None):
                 day_start_today = timezone.make_aware(day_start_today, timezone.get_current_timezone())
 
             _parse_sleep_end(sleep_end_raw, day_start_today)
+        else:
+            sm = 0
+            am = 0
+            steps_today = 0
+            azm_today = None
+            rhr_today = None
+            bp_sys_today = None
+            bp_dia_today = None
+            weight_today = None
 
-            # BP & Weight resolution for today
-            day_key_today = today.date.astimezone(timezone.get_current_timezone()).date().isoformat()
-            bp_sys_today = getattr(today, "bp_sys", None)
-            bp_dia_today = getattr(today, "bp_dia", None)
-            if bp_sys_today is None or bp_dia_today is None:
-                vday = vitals_by_day.get(day_key_today) or {}
-                bp_sys_today = bp_sys_today if bp_sys_today is not None else vday.get("bp_sys")
-                bp_dia_today = bp_dia_today if bp_dia_today is not None else vday.get("bp_dia")
-            weight_today = getattr(today, "weight_kg", None)
-            if weight_today is None:
-                vday = vitals_by_day.get(day_key_today) or {}
-                weight_today = vday.get("weight_kg")
+        if bp_sys_today is None:
+            bp_sys_today = vday_today.get("bp_sys")
+        if bp_dia_today is None:
+            bp_dia_today = vday_today.get("bp_dia")
+        if weight_today is None:
+            weight_today = vday_today.get("weight_kg")
 
+        today_payload = None
+        if today or vday_today:
             today_payload = {
-                "steps": int(today.steps or 0),
+                "steps": steps_today,
                 "active_minutes": am,
-                "active_zone_minutes": getattr(today, "active_zone_minutes", None),
+                "active_zone_minutes": azm_today,
                 "sleep_minutes": sm,
-                "resting_heart_rate": (int(today.resting_heart_rate) if today.resting_heart_rate is not None else None),
+                "resting_heart_rate": rhr_today,
                 "bp_sys": bp_sys_today,
                 "bp_dia": bp_dia_today,
                 "weight_kg": weight_today,

@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { format } from 'date-fns';
 import ManualStepsSheet from '@/components/PatientPage/ManualStepsSheet';
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
@@ -37,8 +38,33 @@ describe('ManualStepsSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
-      expect(baseProps.onSubmit).toHaveBeenCalledWith(6789);
+      expect(baseProps.onSubmit).toHaveBeenCalledWith(
+        6789,
+        expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
+      );
       expect(baseProps.onClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('renders a date picker defaulting to today and capped at today', () => {
+    render(<ManualStepsSheet {...baseProps} />);
+    const dateInput = screen.getByLabelText('Date') as HTMLInputElement;
+    const today = format(new Date(), 'yyyy-MM-dd');
+    expect(dateInput).toBeInTheDocument();
+    expect(dateInput.value).toBe(today);
+    expect(dateInput.max).toBe(today);
+  });
+
+  it('sends the selected past date to onSubmit', async () => {
+    render(<ManualStepsSheet {...baseProps} />);
+
+    const dateInput = screen.getByLabelText('Date');
+    fireEvent.change(dateInput, { target: { value: '2026-01-15' } });
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '6789' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(baseProps.onSubmit).toHaveBeenCalledWith(6789, '2026-01-15');
     });
   });
 
