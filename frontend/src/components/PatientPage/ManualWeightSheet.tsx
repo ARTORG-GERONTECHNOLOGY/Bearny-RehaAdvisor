@@ -67,36 +67,38 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
           <SheetDescription>{dateLabel}</SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 flex flex-col gap-4 items-center justify-center">
-          <Field className="w-fit gap-1">
-            <FieldLabel htmlFor="weight-entry-date" className="font-medium text-lg text-zinc-600">
-              {t('Date')}
-            </FieldLabel>
-            <Input
-              id="weight-entry-date"
-              type="date"
-              max={today}
-              value={entryDate}
-              onChange={(e) => setEntryDate(e.target.value)}
-              className="h-14 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium text-xl shadow-none"
-            />
-          </Field>
-          <Field className="w-fit flex flex-row items-center gap-3">
-            <Input
-              id="weight"
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              min="25"
-              max="400"
-              placeholder="0"
-              onChange={(e) => setWeightInput(e.target.value)}
-              className="h-20 !w-40 rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
-            />
-            <FieldLabel htmlFor="weight" className="font-bold text-2xl text-zinc-300">
-              {t('WeightUnit')}
-            </FieldLabel>
-          </Field>
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="flex flex-col gap-4 items-start">
+            <Field className="gap-1">
+              <FieldLabel htmlFor="weight-entry-date" className="font-medium text-lg text-zinc-600">
+                {t('Date')}
+              </FieldLabel>
+              <Input
+                id="weight-entry-date"
+                type="date"
+                max={today}
+                value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)}
+                className="h-14 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium text-xl shadow-none"
+              />
+            </Field>
+            <Field className="flex flex-row items-center gap-3">
+              <Input
+                id="weight"
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                min="25"
+                max="400"
+                placeholder="0"
+                onChange={(e) => setWeightInput(e.target.value)}
+                className="h-20 !w-40 rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
+              />
+              <FieldLabel htmlFor="weight" className="font-bold text-2xl text-zinc-300">
+                {t('WeightUnit')}
+              </FieldLabel>
+            </Field>
+          </div>
         </div>
 
         {error && <Alert variant="destructive">{t(error)}</Alert>}
