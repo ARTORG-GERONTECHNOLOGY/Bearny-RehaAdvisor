@@ -392,12 +392,8 @@ describe('PatientView', () => {
     });
 
     const stepsProps = (manualStepsSheetMock as jest.Mock).mock.calls[0][0];
-    await stepsProps.onSubmit(6789);
-    expect(fitbitStore.submitManualSteps).toHaveBeenCalledWith(
-      'p1',
-      expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-      6789
-    );
+    await stepsProps.onSubmit(6789, '2026-03-01');
+    expect(fitbitStore.submitManualSteps).toHaveBeenCalledWith('p1', '2026-03-01', 6789);
 
     const weightProps = (manualWeightSheetMock as jest.Mock).mock.calls[0][0];
     await weightProps.onSubmit(72.5, '2026-03-01');
