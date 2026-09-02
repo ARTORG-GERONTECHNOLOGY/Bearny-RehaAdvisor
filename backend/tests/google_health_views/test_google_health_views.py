@@ -20,6 +20,7 @@ google_health_status returns:
 
 import json
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -595,6 +596,43 @@ def test_summary_today_shows_manual_vitals_when_no_device_data_yet(mock_fetch):
     assert body["today"]["bp_dia"] == 76
     assert body["today"]["weight_kg"] == 70.5
     assert body["today"]["steps"] == 0
+
+
+@patch("core.views.google_health_view.timezone.now")
+@patch("core.views.google_health_view.fetch_google_health_today_for_user")
+def test_summary_today_uses_local_not_utc_calendar_day(mock_fetch, mock_now):
+    """Just after local midnight, "today" must be keyed by the Zurich calendar
+    day, not the (still-previous) UTC day. Regression test for the local-vs-UTC
+    day-boundary fix: reverting today_start to end.replace(...) (UTC) makes
+    this fail, since the record's UTC instant no longer falls inside the
+    (now UTC-midnight-bounded) today window."""
+    from core.models import GoogleHealthData, Patient, Therapist, User
+
+    client = Client()
+
+    # 2026-01-14 23:30 UTC == 2026-01-15 00:30 Europe/Zurich (winter, UTC+1):
+    # the local day has rolled over to the 15th, but the UTC day has not.
+    # Set before any .save() calls below — Patient.save() also calls timezone.now().
+    mock_now.return_value = datetime(2026, 1, 14, 23, 30, tzinfo=dt_timezone.utc)
+
+    th_user = User(
+        username=f"th-{ObjectId()}",
+        email="th@example.com",
+        role="Therapist",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    th = Therapist(userId=th_user, clinics=["Inselspital"], projects=["COPAIN"]).save()
+    patient_user = _make_user()
+    patient = Patient(userId=patient_user, patient_code=f"P-{ObjectId()}", therapist=th).save()
+
+    GoogleHealthData(user=patient_user, date=datetime(2026, 1, 15, 0, 0, tzinfo=dt_timezone.utc), steps=4242).save()
+
+    resp = client.get(f"/api/google-health/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["today"] is not None
+    assert body["today"]["steps"] == 4242
 
 
 @patch("core.views.google_health_view.fetch_google_health_today_for_user")

@@ -24,6 +24,7 @@ the 15-minute rate-limit guard is applied on every page load. The Celery task
 
 import json
 from datetime import datetime, time, timedelta
+from datetime import timezone as dt_timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
@@ -469,6 +470,28 @@ def test_fitbit_summary_today_shows_manual_vitals_when_no_device_data_yet(mock_f
     assert body["today"]["bp_dia"] == 76
     assert body["today"]["weight_kg"] == 70.5
     assert body["today"]["steps"] == 0
+
+
+@patch("core.views.fitbit_view.timezone.now")
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_today_uses_local_not_utc_calendar_day(mock_fetch, mock_now):
+    """Just after local midnight, "today" must be keyed by the Zurich calendar
+    day, not the (still-previous) UTC day. Regression test for the local-vs-UTC
+    day-boundary fix: reverting today_start to end.replace(...) (UTC) makes
+    this fail, since the record's UTC instant no longer falls inside the
+    (now UTC-midnight-bounded) today window."""
+    # 2026-01-14 23:30 UTC == 2026-01-15 00:30 Europe/Zurich (winter, UTC+1):
+    # the local day has rolled over to the 15th, but the UTC day has not.
+    # Set before create_patient_graph() — Patient.save() also calls timezone.now().
+    mock_now.return_value = datetime(2026, 1, 14, 23, 30, tzinfo=dt_timezone.utc)
+    _, _, patient_user, patient = create_patient_graph()
+    FitbitData(user=patient_user, date=datetime(2026, 1, 15, 0, 0, tzinfo=dt_timezone.utc), steps=4242).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["today"] is not None
+    assert body["today"]["steps"] == 4242
 
 
 @patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
