@@ -161,6 +161,24 @@ describe('translateText', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
+  it('prefers a cached translation over a knownSourceLanguage claiming no translation is needed', async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeJsonResponse([{ language: 'de' }]))
+      .mockResolvedValueOnce(makeJsonResponse({ translatedText: 'The cached one' }));
+
+    // A call site without language metadata records a real translation for this text.
+    await translateText('Der zwischengespeicherte Satz');
+    mockFetch.mockClear();
+
+    // Another call site passes stale metadata claiming the text is already English.
+    const result = await translateText('Der zwischengespeicherte Satz', {
+      knownSourceLanguage: 'en',
+    });
+
+    expect(result.translatedText).toBe('The cached one');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it('returns immediately for empty text without calling fetch', async () => {
     const result = await translateText('');
 

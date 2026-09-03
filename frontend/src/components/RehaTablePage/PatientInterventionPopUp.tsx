@@ -309,6 +309,8 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
       return;
     }
 
+    let alive = true;
+
     const run = async () => {
       try {
         const translateOptions = { knownSourceLanguage: effectiveItem?.language };
@@ -318,6 +320,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
             desc,
             translateOptions
           );
+          if (!alive) return;
           setTranslatedText(tx);
           setDetectedLang(tx !== desc ? detectedSourceLanguage : '');
         } else {
@@ -331,6 +334,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
             title,
             translateOptions
           );
+          if (!alive) return;
           setTranslatedTitle(tt);
           setTitleLang(tt !== title ? tl : '');
         } else {
@@ -338,6 +342,7 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
           setTitleLang('');
         }
       } catch {
+        if (!alive) return;
         setTranslatedText(effectiveItem?.description || '');
         setTranslatedTitle(effectiveItem?.title || effectiveItem?.intervention_title || '');
         setDetectedLang('');
@@ -346,6 +351,9 @@ const PatientInterventionPopUp: React.FC<Props> = ({ show, item, handleClose }) 
     };
 
     run();
+    return () => {
+      alive = false;
+    };
   }, [show, effectiveItem, langManuallySelected]);
 
   const effectiveMediaList: InterventionMedia[] = useMemo(

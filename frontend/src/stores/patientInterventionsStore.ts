@@ -52,17 +52,11 @@ export type PatientRec = {
   descLang?: string;
   // 2-letter target language translated_title/translated_description were translated into.
   translatedForLang?: string;
-
-  // Stable per-fetch row key, used to match rows that share an empty intervention_id.
-  _rowKey?: number;
 };
 
-// Rows can share an empty intervention_id, so fall back to the stable _rowKey rather than intervention_id in that case.
+// An empty intervention_id is not an identity: matching on it would hit every blank row, so those match by reference only.
 const isSameRow = (r: PatientRec, rec: PatientRec) =>
-  r === rec ||
-  (rec.intervention_id
-    ? r.intervention_id === rec.intervention_id
-    : rec._rowKey !== undefined && r._rowKey === rec._rowKey);
+  r === rec || (!!rec.intervention_id && r.intervention_id === rec.intervention_id);
 
 const upsertCompletionDate = (dates: string[] | undefined, dateKey: string) => {
   const base = Array.isArray(dates) ? dates : [];
@@ -123,6 +117,12 @@ class PatientInterventionsStore {
     return asArray<string>(rec.completion_dates).some((d) => String(d).startsWith(dateStr));
   }
 
+  // A write for patient A resolving after the store re-pointed at patient B must not patch B's rows.
+  // A null currentPatientId means no plan is loaded yet, so there is no other patient's data to corrupt.
+  private showsOtherPatient(patientId: string) {
+    return this.currentPatientId !== null && this.currentPatientId !== patientId;
+  }
+
   async fetchPlan(patientId: string, uiLang: string) {
     const patientChanged = this.currentPatientId !== patientId;
     this.currentPatientId = patientId;
@@ -177,7 +177,6 @@ class PatientInterventionsStore {
           intervention_id,
           intervention_title,
           description,
-          _rowKey: index,
 
           dates: asArray<string>(row?.dates),
           completion_dates: asArray<string>(row?.completion_dates),
@@ -269,13 +268,15 @@ class PatientInterventionsStore {
         ...(this.assistanceMode ? { assistance: this.assistanceMode } : {}),
       });
 
-      runInAction(() => {
-        this.items = this.items.map((r) =>
-          isSameRow(r, rec)
-            ? { ...r, completion_dates: upsertCompletionDate(r.completion_dates, dateKey) }
-            : r
-        );
-      });
+      if (!this.showsOtherPatient(patientId)) {
+        runInAction(() => {
+          this.items = this.items.map((r) =>
+            isSameRow(r, rec)
+              ? { ...r, completion_dates: upsertCompletionDate(r.completion_dates, dateKey) }
+              : r
+          );
+        });
+      }
 
       return { completed: true, dateKey };
     }
@@ -286,18 +287,20 @@ class PatientInterventionsStore {
       date: dateKey,
     });
 
-    runInAction(() => {
-      this.items = this.items.map((r) =>
-        isSameRow(r, rec)
-          ? {
-              ...r,
-              completion_dates: asArray<string>(r.completion_dates).filter(
-                (d) => !String(d).startsWith(dateKey)
-              ),
-            }
-          : r
-      );
-    });
+    if (!this.showsOtherPatient(patientId)) {
+      runInAction(() => {
+        this.items = this.items.map((r) =>
+          isSameRow(r, rec)
+            ? {
+                ...r,
+                completion_dates: asArray<string>(r.completion_dates).filter(
+                  (d) => !String(d).startsWith(dateKey)
+                ),
+              }
+            : r
+        );
+      });
+    }
 
     return { completed: false, dateKey };
   }
@@ -317,16 +320,18 @@ class PatientInterventionsStore {
 
     const newIso = String(data?.newDatetime || newDatetime.toISOString());
 
-    runInAction(() => {
-      this.items = this.items.map((r) =>
-        isSameRow(r, rec)
-          ? {
-              ...r,
-              dates: asArray<string>(r.dates).map((d) => (d === oldDatetime ? newIso : d)),
-            }
-          : r
-      );
-    });
+    if (!this.showsOtherPatient(patientId)) {
+      runInAction(() => {
+        this.items = this.items.map((r) =>
+          isSameRow(r, rec)
+            ? {
+                ...r,
+                dates: asArray<string>(r.dates).map((d) => (d === oldDatetime ? newIso : d)),
+              }
+            : r
+        );
+      });
+    }
 
     return newIso;
   }

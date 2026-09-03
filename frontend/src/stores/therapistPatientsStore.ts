@@ -344,16 +344,19 @@ export class TherapistPatientsStore {
       const data = res.data as { comments?: PatientComment[] };
 
       runInAction(() => {
+        // The modal may have been re-pointed at another patient while this was in flight.
+        if (this.flagCommentsPatientId !== patientId) return;
         this.comments = Array.isArray(data.comments) ? data.comments : [];
       });
     } catch (err: unknown) {
       const { message } = extractApiErrorWithDetails(err, t('Failed to load comments.'));
       runInAction(() => {
+        if (this.flagCommentsPatientId !== patientId) return;
         this.commentsError = message;
       });
     } finally {
       runInAction(() => {
-        this.commentsLoading = false;
+        if (this.flagCommentsPatientId === patientId) this.commentsLoading = false;
       });
     }
   }
@@ -371,12 +374,15 @@ export class TherapistPatientsStore {
       const data = res.data as { comments?: PatientComment[] };
 
       runInAction(() => {
+        // The modal may have been re-pointed at another patient while this was in flight.
+        if (this.flagCommentsPatientId !== patientId) return;
         this.comments = Array.isArray(data.comments) ? data.comments : this.comments;
         this.newCommentText = '';
       });
     } catch (err: unknown) {
       const { message } = extractApiErrorWithDetails(err, t('Failed to add comment.'));
       runInAction(() => {
+        if (this.flagCommentsPatientId !== patientId) return;
         this.commentsError = message;
       });
     } finally {

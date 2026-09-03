@@ -775,6 +775,29 @@ describe('TherapistPatientsStore', () => {
       expect(store.commentsError).toBe('Server error');
       expect(store.commentsLoading).toBe(false);
     });
+
+    it("does not show one patient's comments after the modal moved to another patient", async () => {
+      store.flagCommentsPatientId = 'p1';
+
+      let resolveGet: (value: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveGet = resolve;
+          })
+      );
+
+      const stalePromise = store.fetchComments(t);
+
+      // Therapist closes p1's modal and opens p2's before p1's request comes back.
+      store.flagCommentsPatientId = 'p2';
+      store.comments = [];
+
+      resolveGet!({ data: { comments: [{ text: "p1's private note" }] } });
+      await stalePromise;
+
+      expect(store.comments).toEqual([]);
+    });
   });
 
   // ------------------------------------------------------------------

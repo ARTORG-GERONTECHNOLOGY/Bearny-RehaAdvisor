@@ -121,16 +121,18 @@ export async function translateText(
     return { translatedText: text, detectedSourceLanguage: 'unknown' };
   }
 
+  const key = `${target}:${text}`;
+
+  // Checked before the knownSourceLanguage shortcut below: an observed translation beats
+  // caller-supplied metadata, which can be stale or wrong and would otherwise return raw text.
+  const cached = resultCache.get(key);
+  if (cached) return cached;
+
   // A caller that already knows the text's language can skip the detect/translate round-trip.
   const knownLang = options?.knownSourceLanguage?.slice(0, 2);
   if (knownLang && knownLang === target) {
     return { translatedText: text, detectedSourceLanguage: knownLang };
   }
-
-  const key = `${target}:${text}`;
-
-  const cached = resultCache.get(key);
-  if (cached) return cached;
 
   const pending = inFlight.get(key);
   if (pending) return pending;

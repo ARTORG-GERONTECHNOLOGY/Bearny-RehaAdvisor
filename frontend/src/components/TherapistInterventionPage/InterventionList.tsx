@@ -1,7 +1,6 @@
 // components/TherapistInterventionPage/InterventionList.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { translateText } from '@/utils/translate';
 import { getTypeIcon, getContentTypeIcon, InterventionMedia } from '@/utils/interventions';
 import {
   Table,
@@ -43,17 +42,16 @@ interface TitleMap {
 interface Props {
   items: Intervention[];
   onClick: (item: Intervention) => void;
-  translatedTitles?: TitleMap;
+  // Owned by the parent, which translates a whole page of titles in one batch.
+  translatedTitles: TitleMap;
 }
 
 const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles }) => {
   const { t } = useTranslation();
 
-  const [localTitles, setLocalTitles] = useState<TitleMap>({});
   const [ratingSorting, setRatingSorting] = useState<'asc' | 'desc' | false>(false);
 
   const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
-  const titles = translatedTitles ?? localTitles;
 
   const sortedItems = useMemo(() => {
     if (!ratingSorting) return safeItems;
@@ -63,37 +61,6 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
       return ratingSorting === 'asc' ? aRating - bRating : bRating - aRating;
     });
   }, [safeItems, ratingSorting]);
-
-  // Rows fall back to the raw title below until the whole batch of translations settles.
-  useEffect(() => {
-    if (translatedTitles) return;
-
-    let cancelled = false;
-
-    Promise.all(
-      safeItems
-        .filter((rec) => rec?.title)
-        .map(async (rec) => {
-          try {
-            const { translatedText, detectedSourceLanguage } = await translateText(rec.title, {
-              knownSourceLanguage: rec.language,
-            });
-            return [
-              rec._id,
-              { title: translatedText || rec.title, lang: detectedSourceLanguage || null },
-            ] as const;
-          } catch {
-            return [rec._id, { title: rec.title, lang: null }] as const;
-          }
-        })
-    ).then((pairs) => {
-      if (!cancelled) setLocalTitles(Object.fromEntries(pairs));
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [safeItems, translatedTitles]);
 
   if (safeItems.length === 0) {
     return (
@@ -131,7 +98,7 @@ const InterventionList: React.FC<Props> = ({ items, onClick, translatedTitles })
       </TableHeader>
       <TableBody>
         {sortedItems.map((rec) => {
-          const translated = titles[rec._id];
+          const translated = translatedTitles[rec._id];
           const title = translated?.title || rec.title;
           const originalLang = translated?.lang;
 
