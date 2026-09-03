@@ -50,6 +50,8 @@ export type PatientRec = {
   translated_description?: string;
   titleLang?: string;
   descLang?: string;
+  // 2-letter target language translated_title/translated_description were translated into.
+  translatedForLang?: string;
 };
 
 const upsertCompletionDate = (dates: string[] | undefined, dateKey: string) => {
@@ -123,9 +125,19 @@ class PatientInterventionsStore {
     if (!this.items.length) this.loading = true;
     this.clearError();
 
+    const lang = (uiLang || 'en').slice(0, 2);
+
+    // Reuse already-known translations for unchanged rows in the same target
+    // language, so a refetch doesn't flash translated text back to the source
+    // language while retranslating. A language switch still retranslates.
+    const previousTranslations = new Map(
+      this.items
+        .filter((r) => r.translated_title !== undefined && r.translatedForLang === lang)
+        .map((r) => [`${r.intervention_id}|${r.intervention_title}`, r])
+    );
+
     let raw: PatientRec[];
     try {
-      const lang = (uiLang || 'en').slice(0, 2);
       const { data } = await apiClient.get(`/patients/rehabilitation-plan/patient/${patientId}/`, {
         params: { lang },
       });
@@ -135,9 +147,13 @@ class PatientInterventionsStore {
         const meta: InterventionMeta | undefined =
           row && typeof row === 'object' ? (row.intervention as InterventionMeta) : undefined;
 
+        const intervention_id = String(row?.intervention_id || meta?._id || '');
+        const intervention_title = String(row?.intervention_title || meta?.title || '');
+        const prev = previousTranslations.get(`${intervention_id}|${intervention_title}`);
+
         return {
-          intervention_id: String(row?.intervention_id || meta?._id || ''),
-          intervention_title: String(row?.intervention_title || meta?.title || ''),
+          intervention_id,
+          intervention_title,
           description: String(row?.description || meta?.description || ''),
 
           dates: asArray<string>(row?.dates),
@@ -151,6 +167,12 @@ class PatientInterventionsStore {
           media: asArray<any>(row?.media || meta?.media),
 
           intervention: meta,
+
+          translated_title: prev?.translated_title,
+          translated_description: prev?.translated_description,
+          titleLang: prev?.titleLang,
+          descLang: prev?.descLang,
+          translatedForLang: prev?.translatedForLang,
         };
       });
 
@@ -171,9 +193,15 @@ class PatientInterventionsStore {
     }
 
     try {
+      const rowsToTranslate = raw
+        .map((rec, index) => ({ rec, index }))
+        .filter(({ rec }) => rec.translated_title === undefined);
+
+      // Keyed by array position, not intervention_id: two rows can share the
+      // same (possibly empty) intervention_id when the backend omits it.
       const translations = new Map(
         await Promise.all(
-          raw.map(async (rec) => {
+          rowsToTranslate.map(async ({ rec, index }) => {
             const options = { knownSourceLanguage: rec.intervention?.language };
             const [t1, t2] = await Promise.all([
               translateText(rec.intervention_title, options),
@@ -181,12 +209,13 @@ class PatientInterventionsStore {
             ]);
 
             return [
-              rec.intervention_id,
+              index,
               {
                 translated_title: t1.translatedText,
                 translated_description: t2.translatedText,
                 titleLang: t1.detectedSourceLanguage,
                 descLang: t2.detectedSourceLanguage,
+                translatedForLang: lang,
               },
             ] as const;
           })
@@ -196,8 +225,8 @@ class PatientInterventionsStore {
       if (generation !== this.fetchGeneration) return;
 
       runInAction(() => {
-        this.items = this.items.map((r) => {
-          const patch = translations.get(r.intervention_id);
+        this.items = this.items.map((r, index) => {
+          const patch = translations.get(index);
           return patch ? { ...r, ...patch } : r;
         });
       });

@@ -328,6 +328,73 @@ describe('PatientInterventionsStore', () => {
       expect(store.items).toEqual([]);
     });
 
+    it('keeps showing a previous translation for an unchanged row instead of flashing back to the source text', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [{ intervention_id: 'int-1', intervention_title: 'Breathing', description: 'Deep' }],
+      });
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: `${text}-de`, detectedSourceLanguage: 'en' })
+      );
+      await store.fetchPlan('patient-1', 'de');
+      expect(store.items[0].translated_title).toBe('Breathing-de');
+
+      let sawDuringRefetch: string | undefined;
+      (apiClient.get as jest.Mock).mockImplementationOnce(async () => {
+        sawDuringRefetch = store.items[0]?.translated_title;
+        return {
+          data: [
+            { intervention_id: 'int-1', intervention_title: 'Breathing', description: 'Deep' },
+          ],
+        };
+      });
+
+      await store.fetchPlan('patient-1', 'de');
+
+      expect(sawDuringRefetch).toBe('Breathing-de');
+      expect(store.items[0].translated_title).toBe('Breathing-de');
+    });
+
+    it('retranslates an unchanged row when the target language changes instead of reusing the stale-language text', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [{ intervention_id: 'int-1', intervention_title: 'Breathing', description: 'Deep' }],
+      });
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: `${text}-de`, detectedSourceLanguage: 'en' })
+      );
+      await store.fetchPlan('patient-1', 'de');
+      expect(store.items[0].translated_title).toBe('Breathing-de');
+
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [{ intervention_id: 'int-1', intervention_title: 'Breathing', description: 'Deep' }],
+      });
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: `${text}-fr`, detectedSourceLanguage: 'en' })
+      );
+
+      await store.fetchPlan('patient-1', 'fr');
+
+      expect(store.items[0].translated_title).toBe('Breathing-fr');
+    });
+
+    it('does not collide two rows that share an empty intervention_id when patching translations', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [
+          { intervention_title: 'Breathing', description: 'Deep' },
+          { intervention_title: 'Walking', description: 'Slow' },
+        ],
+      });
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: `${text}-de`, detectedSourceLanguage: 'en' })
+      );
+
+      await store.fetchPlan('patient-1', 'de');
+
+      expect(store.items[0].intervention_id).toBe('');
+      expect(store.items[1].intervention_id).toBe('');
+      expect(store.items[0].translated_title).toBe('Breathing-de');
+      expect(store.items[1].translated_title).toBe('Walking-de');
+    });
+
     it('sets an error from the backend payload on failure', async () => {
       (apiClient.get as jest.Mock).mockRejectedValueOnce({
         response: { data: { error: 'Plan not found', details: 'no plan for patient' } },
