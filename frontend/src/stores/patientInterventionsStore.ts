@@ -200,8 +200,7 @@ class PatientInterventionsStore {
       const translations = new Map(
         await Promise.all(
           rowsToTranslate.map(async (rec) => {
-            // The description is translated eagerly even though only the title is rendered from
-            // here: it warms translateText's cache so opening an intervention is instant.
+            // Description is unused here: it warms the cache the detail page reads on open.
             const [title, desc] = await Promise.all([
               translateText(rec.intervention_title),
               translateText(rec.description || ''),
