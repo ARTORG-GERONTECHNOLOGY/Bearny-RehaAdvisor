@@ -795,6 +795,28 @@ describe('TherapistPatientsStore', () => {
       expect(store.comments).toEqual([]);
     });
 
+    it("does not render one patient's comments under the patient the modal moved on to", async () => {
+      store.flagCommentsPatientId = 'p1';
+
+      let resolveGet: (value: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveGet = resolve;
+          })
+      );
+      const stalePromise = store.fetchComments(t);
+
+      // Therapist closes p1 and opens p2 before p1's request comes back.
+      store.closeFlagComments();
+      store.flagCommentsPatientId = 'p2';
+
+      resolveGet!({ data: { comments: [{ text: "p1's clinical note" }] } });
+      await stalePromise;
+
+      expect(store.comments).toEqual([]);
+    });
+
     it('sets commentsError on failure', async () => {
       store.flagCommentsPatientId = 'p1';
       (apiClient.get as jest.Mock).mockRejectedValueOnce({
@@ -863,6 +885,30 @@ describe('TherapistPatientsStore', () => {
       await store.addComment(t);
 
       expect(store.comments).toEqual([{ text: 'old', created_at: null, commented_by: 'A' }]);
+    });
+
+    it("does not render one patient's comment list under the patient the modal moved on to", async () => {
+      store.flagCommentsPatientId = 'p1';
+      store.newCommentText = 'called patient';
+
+      let resolvePost: (value: unknown) => void;
+      (apiClient.post as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolvePost = resolve;
+          })
+      );
+      const stalePromise = store.addComment(t);
+
+      // The POST response carries p1's full comment list, so it leaks the same way a read does.
+      store.closeFlagComments();
+      store.flagCommentsPatientId = 'p2';
+
+      resolvePost!({ data: { comments: [{ text: "p1's clinical note" }] } });
+      await stalePromise;
+
+      expect(store.comments).toEqual([]);
+      expect(store.commentSubmitting).toBe(false);
     });
 
     it('sets commentsError on failure and resets commentSubmitting', async () => {

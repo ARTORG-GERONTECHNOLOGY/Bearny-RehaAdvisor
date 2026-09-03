@@ -54,8 +54,7 @@ export type PatientRec = {
   translatedForLang?: string;
 };
 
-// Identifies the exact source text a translation belongs to, so a refetch can carry
-// translations over to rows whose text is unchanged.
+// Identifies the source text a translation belongs to, so a refetch can carry it over.
 const translationKey = (
   r: Pick<PatientRec, 'intervention_id' | 'intervention_title' | 'description'>
 ) => JSON.stringify([r.intervention_id, r.intervention_title, r.description || '']);
@@ -133,8 +132,7 @@ class PatientInterventionsStore {
 
     const lang = (uiLang || 'en').slice(0, 2);
 
-    // Rows are now published before their translations resolve, so a refetch would flash
-    // already-translated text back to the source language. Carry the known ones over.
+    // Rows publish before translations resolve, so carry known ones over or a refetch flashes back to source.
     const previousTranslations = new Map(
       this.items
         .filter((r) => r.translated_title !== undefined && r.translatedForLang === lang)

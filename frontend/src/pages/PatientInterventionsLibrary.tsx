@@ -331,8 +331,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       );
 
       const newEntries = Object.fromEntries(results.map(({ id, entry }) => [id, entry]));
-      // Persist to session cache keyed by language, skipping failures so one 504 does not
-      // pin the untranslated title for the rest of the session.
+      // Skip failures: caching one 504 would pin the untranslated title for the whole session.
       const cacheUpdates: Record<string, { title: string; lang: string | null }> = {};
       for (const { id, entry, cacheable } of results) {
         if (cacheable) cacheUpdates[`${lang}:${id}`] = entry;

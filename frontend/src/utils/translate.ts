@@ -16,8 +16,7 @@ const MAX_CACHE_ENTRIES = 2000;
 // falls back to LibreTranslate's default of 4). Keep these in sync if
 // LT_THREADS is ever overridden.
 const MAX_CONCURRENT_REQUESTS = 4;
-// A stuck /translate/ request must not hold a page hostage: give up well before nginx's
-// 60s proxy_read_timeout so the caller falls back to the untranslated text instead.
+// Give up well before nginx's 60s proxy_read_timeout so a stuck request falls back to untranslated text.
 const REQUEST_TIMEOUT_MS = 20_000;
 
 const resultCache = new Map<string, TranslateResult>();

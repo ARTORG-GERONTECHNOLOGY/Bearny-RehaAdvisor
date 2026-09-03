@@ -337,6 +337,8 @@ export class TherapistPatientsStore {
       const data = res.data as { comments?: PatientComment[] };
 
       runInAction(() => {
+        // A response for a patient the modal moved off must not render under the current one.
+        if (this.flagCommentsPatientId !== patientId) return;
         this.comments = Array.isArray(data.comments) ? data.comments : [];
       });
     } catch (err: unknown) {
@@ -364,6 +366,8 @@ export class TherapistPatientsStore {
       const data = res.data as { comments?: PatientComment[] };
 
       runInAction(() => {
+        // The POST response carries the full list, so it leaks across patients the same way a read does.
+        if (this.flagCommentsPatientId !== patientId) return;
         this.comments = Array.isArray(data.comments) ? data.comments : this.comments;
         this.newCommentText = '';
       });
