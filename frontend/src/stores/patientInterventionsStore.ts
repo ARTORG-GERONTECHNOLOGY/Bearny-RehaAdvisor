@@ -48,8 +48,6 @@ export type PatientRec = {
   // translations
   translated_title?: string;
   translated_description?: string;
-  titleLang?: string;
-  descLang?: string;
   // 2-letter target language translated_title/translated_description were translated into.
   translatedForLang?: string;
 };
@@ -176,8 +174,6 @@ class PatientInterventionsStore {
 
           translated_title: prev?.translated_title,
           translated_description: prev?.translated_description,
-          titleLang: prev?.titleLang,
-          descLang: prev?.descLang,
           translatedForLang: prev?.translatedForLang,
         };
       });
@@ -204,22 +200,22 @@ class PatientInterventionsStore {
       const translations = new Map(
         await Promise.all(
           rowsToTranslate.map(async (rec) => {
-            const [t1, t2] = await Promise.all([
+            // The description is translated eagerly even though only the title is rendered from
+            // here: it warms translateText's cache so opening an intervention is instant.
+            const [title, desc] = await Promise.all([
               translateText(rec.intervention_title),
               translateText(rec.description || ''),
             ]);
 
             // translateText signals failure by returning the text unchanged with 'error'.
             const failed =
-              t1.detectedSourceLanguage === 'error' || t2.detectedSourceLanguage === 'error';
+              title.detectedSourceLanguage === 'error' || desc.detectedSourceLanguage === 'error';
 
             return [
               translationKey(rec),
               {
-                translated_title: t1.translatedText,
-                translated_description: t2.translatedText,
-                titleLang: t1.detectedSourceLanguage,
-                descLang: t2.detectedSourceLanguage,
+                translated_title: title.translatedText,
+                translated_description: desc.translatedText,
                 // Unmarked on failure so the next fetch retries instead of reusing raw text.
                 translatedForLang: failed ? undefined : lang,
               },

@@ -123,8 +123,8 @@ describe('PatientInterventionsStore', () => {
       expect(rec.media).toEqual([{ url: 'x' }]);
       expect(rec.translated_title).toBe('Breathing');
       expect(rec.translated_description).toBe('Breathe deeply');
-      expect(rec.titleLang).toBe('en');
-      expect(rec.descLang).toBe('en');
+      // The description is translated here to warm the cache for PatientInterventionDetail.
+      expect(translateText).toHaveBeenCalledWith('Breathe deeply');
     });
 
     it('falls back to the nested intervention meta for title/description/id/preview/media', async () => {
