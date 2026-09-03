@@ -311,9 +311,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
             };
 
           try {
-            const { translatedText, detectedSourceLanguage } = await translateText(rawTitle, {
-              knownSourceLanguage: rec.language,
-            });
+            const { translatedText, detectedSourceLanguage } = await translateText(rawTitle);
             return {
               id: String(id),
               entry: {

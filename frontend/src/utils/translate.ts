@@ -16,7 +16,8 @@ const MAX_CACHE_ENTRIES = 2000;
 // falls back to LibreTranslate's default of 4). Keep these in sync if
 // LT_THREADS is ever overridden.
 const MAX_CONCURRENT_REQUESTS = 4;
-// Bounds how long a stuck request can hold up a page waiting on it, well under nginx's 60s default.
+// A stuck /translate/ request must not hold a page hostage: give up well before nginx's
+// 60s proxy_read_timeout so the caller falls back to the untranslated text instead.
 const REQUEST_TIMEOUT_MS = 20_000;
 
 const resultCache = new Map<string, TranslateResult>();
@@ -108,10 +109,7 @@ async function performTranslate(text: string, target: string): Promise<Translate
   }
 }
 
-export async function translateText(
-  text: string,
-  options?: { knownSourceLanguage?: string }
-): Promise<TranslateResult> {
+export async function translateText(text: string): Promise<TranslateResult> {
   // LibreTranslate only knows bare language codes (e.g. "en", "de"); the
   // browser/i18next locale can be a full BCP47 tag (e.g. "en-US", "de-CH"),
   // which LibreTranslate rejects with a 400.
@@ -123,16 +121,8 @@ export async function translateText(
 
   const key = `${target}:${text}`;
 
-  // Checked before the knownSourceLanguage shortcut below: an observed translation beats
-  // caller-supplied metadata, which can be stale or wrong and would otherwise return raw text.
   const cached = resultCache.get(key);
   if (cached) return cached;
-
-  // A caller that already knows the text's language can skip the detect/translate round-trip.
-  const knownLang = options?.knownSourceLanguage?.slice(0, 2);
-  if (knownLang && knownLang === target) {
-    return { translatedText: text, detectedSourceLanguage: knownLang };
-  }
 
   const pending = inFlight.get(key);
   if (pending) return pending;

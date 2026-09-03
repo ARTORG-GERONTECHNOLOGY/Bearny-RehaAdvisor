@@ -1392,7 +1392,7 @@ def test_adherence_boundary_day_session_is_counted():
     # With the old approach this would be EXCLUDED from the 7d window.
     # With the fix (since = midnight of day-7) it must be INCLUDED.
     early_boundary = now - timedelta(days=6, hours=23)
-    # _adherence() reads assignment dates as naive-UTC and log dates as naive-local (see utils.py); build both from the same instant so they land on the same calendar day.
+    # _adherence() reads plan dates as naive-UTC and log dates as naive-local, so derive each from the same instant.
     early_boundary_plan = early_boundary.astimezone(dt_timezone.utc).replace(tzinfo=None)
     early_boundary_log = early_boundary.astimezone(timezone.get_current_timezone()).replace(tzinfo=None)
 

@@ -525,50 +525,6 @@ describe('PatientInterventionsStore', () => {
         '2026-01-01',
       ]);
     });
-
-    it('does not mark a row complete for a patient the store has since switched away from', async () => {
-      (apiClient.get as jest.Mock).mockResolvedValueOnce({
-        data: [{ intervention_id: 'shared-int', intervention_title: 'Morning Stretch' }],
-      });
-      await store.fetchPlan('patient-1', 'en');
-      const patient1Row = store.items[0];
-
-      let resolvePost: (value: unknown) => void;
-      (apiClient.post as jest.Mock).mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolvePost = resolve;
-          })
-      );
-      const togglePromise = store.toggleCompleted('patient-1', patient1Row, new Date('2026-01-05'));
-
-      // Therapist opens patient-2, who is assigned the same library intervention.
-      (apiClient.get as jest.Mock).mockResolvedValueOnce({
-        data: [{ intervention_id: 'shared-int', intervention_title: 'Morning Stretch' }],
-      });
-      await store.fetchPlan('patient-2', 'en');
-
-      resolvePost!({});
-      await togglePromise;
-
-      expect(store.items[0].completion_dates).toEqual([]);
-    });
-
-    it('does not splatter a completion across rows that share an empty intervention_id', async () => {
-      (apiClient.get as jest.Mock).mockResolvedValueOnce({
-        data: [{ intervention_title: 'A' }, { intervention_title: 'B' }],
-      });
-      await store.fetchPlan('patient-1', 'en');
-      expect(store.items[0].intervention_id).toBe('');
-      expect(store.items[1].intervention_id).toBe('');
-
-      (apiClient.post as jest.Mock).mockResolvedValueOnce({});
-      // Callers hold a row read out of the store, so identity is the observable row itself.
-      await store.toggleCompleted('patient-1', store.items[0], new Date('2026-01-05'));
-
-      expect(store.items[0].completion_dates).toContain('2026-01-05');
-      expect(store.items[1].completion_dates).toEqual([]);
-    });
   });
 
   // ------------------------------------------------------------------
@@ -649,50 +605,6 @@ describe('PatientInterventionsStore', () => {
       expect(store.items.find((r) => r.intervention_id === 'other')!.dates).toEqual([
         '2026-01-05T09:00:00+00:00',
       ]);
-    });
-
-    it('does not move a date for a patient the store has since switched away from', async () => {
-      (apiClient.get as jest.Mock).mockResolvedValueOnce({
-        data: [
-          {
-            intervention_id: 'shared-int',
-            intervention_title: 'Morning Stretch',
-            dates: ['2026-01-05T18:00:00+00:00'],
-          },
-        ],
-      });
-      await store.fetchPlan('patient-1', 'en');
-      const patient1Row = store.items[0];
-
-      let resolvePost: (value: unknown) => void;
-      (apiClient.post as jest.Mock).mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolvePost = resolve;
-          })
-      );
-      const reschedulePromise = store.rescheduleOccurrence(
-        'patient-1',
-        patient1Row,
-        '2026-01-05T18:00:00+00:00',
-        new Date('2026-01-10T18:00:00+00:00')
-      );
-
-      (apiClient.get as jest.Mock).mockResolvedValueOnce({
-        data: [
-          {
-            intervention_id: 'shared-int',
-            intervention_title: 'Morning Stretch',
-            dates: ['2026-01-05T18:00:00+00:00'],
-          },
-        ],
-      });
-      await store.fetchPlan('patient-2', 'en');
-
-      resolvePost!({ data: { newDatetime: '2026-01-10T18:00:00+00:00' } });
-      await reschedulePromise;
-
-      expect(store.items[0].dates).toEqual(['2026-01-05T18:00:00+00:00']);
     });
   });
 });

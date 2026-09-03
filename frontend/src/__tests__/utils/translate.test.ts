@@ -136,49 +136,6 @@ describe('translateText', () => {
     expect(result).toEqual({ translatedText: 'Stuck request', detectedSourceLanguage: 'error' });
   });
 
-  it('skips fetch entirely when the known source language already matches the target', async () => {
-    const result = await translateText('Hello', { knownSourceLanguage: 'en' });
-
-    expect(result).toEqual({ translatedText: 'Hello', detectedSourceLanguage: 'en' });
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('normalizes a full BCP47 known source language before comparing to the target', async () => {
-    const result = await translateText('Hello', { knownSourceLanguage: 'en-US' });
-
-    expect(result).toEqual({ translatedText: 'Hello', detectedSourceLanguage: 'en' });
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
-  it('still detects/translates when the known source language differs from the target', async () => {
-    mockFetch
-      .mockResolvedValueOnce(makeJsonResponse([{ language: 'de' }]))
-      .mockResolvedValueOnce(makeJsonResponse({ translatedText: 'Hello' }));
-
-    const result = await translateText('Hallo, unique text', { knownSourceLanguage: 'de' });
-
-    expect(result).toEqual({ translatedText: 'Hello', detectedSourceLanguage: 'de' });
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-  });
-
-  it('prefers a cached translation over a knownSourceLanguage claiming no translation is needed', async () => {
-    mockFetch
-      .mockResolvedValueOnce(makeJsonResponse([{ language: 'de' }]))
-      .mockResolvedValueOnce(makeJsonResponse({ translatedText: 'The cached one' }));
-
-    // A call site without language metadata records a real translation for this text.
-    await translateText('Der zwischengespeicherte Satz');
-    mockFetch.mockClear();
-
-    // Another call site passes stale metadata claiming the text is already English.
-    const result = await translateText('Der zwischengespeicherte Satz', {
-      knownSourceLanguage: 'en',
-    });
-
-    expect(result.translatedText).toBe('The cached one');
-    expect(mockFetch).not.toHaveBeenCalled();
-  });
-
   it('returns immediately for empty text without calling fetch', async () => {
     const result = await translateText('');
 

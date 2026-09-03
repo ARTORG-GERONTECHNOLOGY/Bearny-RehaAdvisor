@@ -29,7 +29,7 @@ export class TherapistPatientsStore {
 
   // UI state
   loading = false;
-  // `loading` can't gate a skeleton alone: it is still false before the fetch effect runs.
+  // `loading` alone can't gate the skeleton: it is still false before the fetch effect runs.
   hasLoaded = false;
 
   error = '';
@@ -77,23 +77,8 @@ export class TherapistPatientsStore {
   // sort
   sortBy: SortKey = 'ampel';
 
-  // Therapist id `patients` was fetched for, so switching therapists doesn't render the previous roster.
-  private loadedForTherapistId: string | null = null;
-  // Bumped per fetchPatients() call so a stale fetch can't overwrite a newer one's patients.
-  private fetchGeneration = 0;
-  // Same, for the comments modal. Identity alone is not enough: closing and reopening the
-  // same patient would let the first request write over the second.
-  private commentsGeneration = 0;
-
   constructor() {
-    makeAutoObservable<
-      TherapistPatientsStore,
-      'loadedForTherapistId' | 'fetchGeneration' | 'commentsGeneration'
-    >(
-      this,
-      { loadedForTherapistId: false, fetchGeneration: false, commentsGeneration: false },
-      { autoBind: true }
-    );
+    makeAutoObservable(this, {}, { autoBind: true });
   }
 
   // -------------------------
@@ -328,9 +313,6 @@ export class TherapistPatientsStore {
   }
 
   closeFlagComments() {
-    // Cancels any in-flight comment request so it can't write into a closed modal.
-    this.commentsGeneration++;
-    this.commentsLoading = false;
     this.showFlagCommentsModal = false;
     this.flagCommentsPatientId = null;
     this.flagCommentsPatientName = '';
@@ -347,7 +329,6 @@ export class TherapistPatientsStore {
     const patientId = this.flagCommentsPatientId;
     if (!patientId) return;
 
-    const generation = ++this.commentsGeneration;
     this.commentsLoading = true;
     this.commentsError = '';
 
@@ -356,18 +337,16 @@ export class TherapistPatientsStore {
       const data = res.data as { comments?: PatientComment[] };
 
       runInAction(() => {
-        if (generation !== this.commentsGeneration) return;
         this.comments = Array.isArray(data.comments) ? data.comments : [];
       });
     } catch (err: unknown) {
       const { message } = extractApiErrorWithDetails(err, t('Failed to load comments.'));
       runInAction(() => {
-        if (generation !== this.commentsGeneration) return;
         this.commentsError = message;
       });
     } finally {
       runInAction(() => {
-        if (generation === this.commentsGeneration) this.commentsLoading = false;
+        this.commentsLoading = false;
       });
     }
   }
@@ -377,8 +356,6 @@ export class TherapistPatientsStore {
     const text = this.newCommentText.trim();
     if (!patientId || !text || this.commentSubmitting) return;
 
-    // The response carries the full updated list, so it supersedes any read in flight.
-    const generation = ++this.commentsGeneration;
     this.commentSubmitting = true;
     this.commentsError = '';
 
@@ -387,21 +364,17 @@ export class TherapistPatientsStore {
       const data = res.data as { comments?: PatientComment[] };
 
       runInAction(() => {
-        if (generation !== this.commentsGeneration) return;
         this.comments = Array.isArray(data.comments) ? data.comments : this.comments;
         this.newCommentText = '';
       });
     } catch (err: unknown) {
       const { message } = extractApiErrorWithDetails(err, t('Failed to add comment.'));
       runInAction(() => {
-        if (generation !== this.commentsGeneration) return;
         this.commentsError = message;
       });
     } finally {
       runInAction(() => {
         this.commentSubmitting = false;
-        // Owns clearing the read this bump invalidated, unless a newer request took over.
-        if (generation === this.commentsGeneration) this.commentsLoading = false;
       });
     }
   }
@@ -410,21 +383,14 @@ export class TherapistPatientsStore {
   // Data loading
   // -------------------------
   async fetchPatients(t: (key: string) => string) {
-    // Captured before the await so the roster is tagged with the id it was fetched for.
-    const therapistId = authStore.id;
-    const generation = ++this.fetchGeneration;
-    if (this.loadedForTherapistId !== therapistId) {
-      this.patients = [];
-      this.hasLoaded = false;
-    }
+    // A manual refresh keeps the current rows on screen instead of flashing the skeleton.
     if (!this.patients.length) this.loading = true;
     this.error = '';
     this.errorDetails = null;
     this.showErrorDetails = false;
 
     try {
-      const res = await apiClient.get(`therapists/${therapistId}/patients`);
-      if (generation !== this.fetchGeneration) return;
+      const res = await apiClient.get(`therapists/${authStore.id}/patients`);
       const payload = res.data as unknown;
 
       // If API returns an error-ish envelope: { success:false, ... }
@@ -466,10 +432,8 @@ export class TherapistPatientsStore {
 
       runInAction(() => {
         this.patients = sorted;
-        this.loadedForTherapistId = therapistId;
       });
     } catch (err: unknown) {
-      if (generation !== this.fetchGeneration) return;
       const { message, details } = extractApiErrorWithDetails(
         err,
         t('Failed to fetch patients. Please try again later.')
@@ -480,12 +444,10 @@ export class TherapistPatientsStore {
         this.patients = [];
       });
     } finally {
-      if (generation === this.fetchGeneration) {
-        runInAction(() => {
-          this.loading = false;
-          this.hasLoaded = true;
-        });
-      }
+      runInAction(() => {
+        this.loading = false;
+        this.hasLoaded = true;
+      });
     }
   }
 
