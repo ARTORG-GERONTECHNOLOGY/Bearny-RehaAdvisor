@@ -299,40 +299,47 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
 
       if (!toFetch.length) return;
 
-      const pairs = await Promise.all(
+      const results = await Promise.all(
         toFetch.map(async (rec) => {
           const id = rec._id || rec.id;
           const rawTitle = String(rec.title || rec.intervention_title || '').trim();
           if (!id || !rawTitle)
-            return [id || Math.random().toString(), { title: rawTitle, lang: null }] as const;
+            return {
+              id: String(id || Math.random()),
+              entry: { title: rawTitle, lang: null },
+              cacheable: false,
+            };
 
           try {
             const { translatedText, detectedSourceLanguage } = await translateText(rawTitle, {
               knownSourceLanguage: rec.language,
             });
-            return [
-              id,
-              {
+            return {
+              id: String(id),
+              entry: {
                 title: translatedText || rawTitle,
                 lang:
                   translatedText && translatedText !== rawTitle
                     ? detectedSourceLanguage || null
                     : null,
               },
-            ] as const;
+              // translateText reports failure as the original text with an 'error' language.
+              cacheable: detectedSourceLanguage !== 'error',
+            };
           } catch {
-            return [id, { title: rawTitle, lang: null }] as const;
+            return { id: String(id), entry: { title: rawTitle, lang: null }, cacheable: false };
           }
         })
       );
 
-      const newEntries = Object.fromEntries(pairs);
-      // Persist to session cache keyed by language
+      const newEntries = Object.fromEntries(results.map(({ id, entry }) => [id, entry]));
+      // Persist to session cache keyed by language, skipping failures so one 504 does not
+      // pin the untranslated title for the rest of the session.
       const cacheUpdates: Record<string, { title: string; lang: string | null }> = {};
-      for (const [id, val] of Object.entries(newEntries)) {
-        cacheUpdates[`${lang}:${id}`] = val;
+      for (const { id, entry, cacheable } of results) {
+        if (cacheable) cacheUpdates[`${lang}:${id}`] = entry;
       }
-      _writeTranslationCache(cacheUpdates);
+      if (Object.keys(cacheUpdates).length) _writeTranslationCache(cacheUpdates);
 
       if (!cancelled) setTranslatedTitles({ ...fromCache, ...newEntries });
     })();

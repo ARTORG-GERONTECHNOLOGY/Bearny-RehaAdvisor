@@ -814,7 +814,7 @@ describe('TherapistPatientsStore', () => {
       expect(store.commentsLoading).toBe(false);
     });
 
-    it("does not show one patient's comments after the modal moved to another patient", async () => {
+    it('drops the response and clears loading when the modal is closed mid-flight', async () => {
       store.flagCommentsPatientId = 'p1';
 
       let resolveGet: (value: unknown) => void;
@@ -826,15 +826,117 @@ describe('TherapistPatientsStore', () => {
       );
 
       const stalePromise = store.fetchComments(t);
+      expect(store.commentsLoading).toBe(true);
 
-      // Therapist closes p1's modal and opens p2's before p1's request comes back.
-      store.flagCommentsPatientId = 'p2';
-      store.comments = [];
+      store.closeFlagComments();
+      expect(store.commentsLoading).toBe(false);
 
       resolveGet!({ data: { comments: [{ text: "p1's private note" }] } });
       await stalePromise;
 
       expect(store.comments).toEqual([]);
+      expect(store.commentsLoading).toBe(false);
+    });
+
+    it('clears the history spinner when a comment is submitted while the list is still loading', async () => {
+      store.flagCommentsPatientId = 'p1';
+
+      let resolveGet: (value: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveGet = resolve;
+          })
+      );
+      const fetchPromise = store.fetchComments(t);
+      expect(store.commentsLoading).toBe(true);
+
+      // The form is gated on commentSubmitting only, so this is reachable from the UI.
+      store.setNewCommentText('called patient');
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: { comments: [{ text: 'called patient' }] },
+      });
+      const addPromise = store.addComment(t);
+
+      resolveGet!({ data: { comments: [] } });
+      await fetchPromise;
+      await addPromise;
+
+      expect(store.commentsLoading).toBe(false);
+      expect(store.comments.map((c) => c.text)).toEqual(['called patient']);
+    });
+
+    it("does not let a superseded submit clear a newer fetch's spinner", async () => {
+      store.flagCommentsPatientId = 'p1';
+      store.setNewCommentText('called patient');
+
+      let resolvePost: (value: unknown) => void;
+      (apiClient.post as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolvePost = resolve;
+          })
+      );
+      const addPromise = store.addComment(t);
+
+      // Therapist closes p1 and opens p2's comments before the POST returns.
+      store.closeFlagComments();
+      store.flagCommentsPatientId = 'p2';
+      let resolveGet: (value: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveGet = resolve;
+          })
+      );
+      const fetchPromise = store.fetchComments(t);
+
+      resolvePost!({ data: { comments: [{ text: 'p1 note' }] } });
+      await addPromise;
+
+      expect(store.commentsLoading).toBe(true);
+      expect(store.comments).toEqual([]);
+
+      resolveGet!({ data: { comments: [{ text: 'p2 note' }] } });
+      await fetchPromise;
+
+      expect(store.commentsLoading).toBe(false);
+      expect(store.comments.map((c) => c.text)).toEqual(['p2 note']);
+    });
+
+    it("does not let a superseded request clear the newer request's loading state", async () => {
+      store.flagCommentsPatientId = 'p1';
+
+      let resolveFirst: (value: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          })
+      );
+      const firstPromise = store.fetchComments(t);
+
+      // Modal closed and reopened on the same patient: a second request is now in flight.
+      let resolveSecond: (value: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecond = resolve;
+          })
+      );
+      const secondPromise = store.fetchComments(t);
+
+      resolveFirst!({ data: { comments: [{ text: 'stale' }] } });
+      await firstPromise;
+
+      expect(store.commentsLoading).toBe(true);
+      expect(store.comments).toEqual([]);
+
+      resolveSecond!({ data: { comments: [{ text: 'fresh' }] } });
+      await secondPromise;
+
+      expect(store.commentsLoading).toBe(false);
+      expect(store.comments.map((c) => c.text)).toEqual(['fresh']);
     });
   });
 

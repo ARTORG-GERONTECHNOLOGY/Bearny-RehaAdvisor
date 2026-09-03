@@ -443,6 +443,35 @@ describe('PatientInterventionsLibrary', () => {
     expect(mockTranslateText).not.toHaveBeenCalled();
   });
 
+  it('caches a successful translation but not a failed one', async () => {
+    mockStore.visibleItemsForPatient = [
+      { _id: '1', id: '1', title: 'Morning Stretch' },
+      { _id: '2', id: '2', title: 'Evening Walk' },
+    ];
+    mockTranslateText
+      .mockImplementationOnce(async () => ({
+        translatedText: 'Morgendehnung',
+        detectedSourceLanguage: 'en',
+      }))
+      // How translateText reports a 504: original text back, language 'error'.
+      .mockImplementationOnce(async () => ({
+        translatedText: 'Evening Walk',
+        detectedSourceLanguage: 'error',
+      }));
+
+    render(<PatientInterventionsLibrary />);
+
+    const readCache = () =>
+      JSON.parse(sessionStorage.getItem('intervention_title_translations_v1') ?? '{}');
+
+    await waitFor(() => {
+      expect(readCache()['en:1']).toEqual({ title: 'Morgendehnung', lang: 'en' });
+    });
+
+    // Caching this would pin the untranslated title for the rest of the session.
+    expect(readCache()['en:2']).toBeUndefined();
+  });
+
   it('resets translated titles and skips fetching when there are no source items', async () => {
     mockStore.visibleItemsForPatient = [];
     render(<PatientInterventionsLibrary />);

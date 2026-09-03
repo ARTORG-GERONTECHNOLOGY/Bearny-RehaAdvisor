@@ -81,11 +81,17 @@ export class TherapistPatientsStore {
   private loadedForTherapistId: string | null = null;
   // Bumped per fetchPatients() call so a stale fetch can't overwrite a newer one's patients.
   private fetchGeneration = 0;
+  // Same, for the comments modal. Identity alone is not enough: closing and reopening the
+  // same patient would let the first request write over the second.
+  private commentsGeneration = 0;
 
   constructor() {
-    makeAutoObservable<TherapistPatientsStore, 'loadedForTherapistId' | 'fetchGeneration'>(
+    makeAutoObservable<
+      TherapistPatientsStore,
+      'loadedForTherapistId' | 'fetchGeneration' | 'commentsGeneration'
+    >(
       this,
-      { loadedForTherapistId: false, fetchGeneration: false },
+      { loadedForTherapistId: false, fetchGeneration: false, commentsGeneration: false },
       { autoBind: true }
     );
   }
@@ -322,6 +328,9 @@ export class TherapistPatientsStore {
   }
 
   closeFlagComments() {
+    // Cancels any in-flight comment request so it can't write into a closed modal.
+    this.commentsGeneration++;
+    this.commentsLoading = false;
     this.showFlagCommentsModal = false;
     this.flagCommentsPatientId = null;
     this.flagCommentsPatientName = '';
@@ -338,6 +347,7 @@ export class TherapistPatientsStore {
     const patientId = this.flagCommentsPatientId;
     if (!patientId) return;
 
+    const generation = ++this.commentsGeneration;
     this.commentsLoading = true;
     this.commentsError = '';
 
@@ -346,19 +356,18 @@ export class TherapistPatientsStore {
       const data = res.data as { comments?: PatientComment[] };
 
       runInAction(() => {
-        // The modal may have been re-pointed at another patient while this was in flight.
-        if (this.flagCommentsPatientId !== patientId) return;
+        if (generation !== this.commentsGeneration) return;
         this.comments = Array.isArray(data.comments) ? data.comments : [];
       });
     } catch (err: unknown) {
       const { message } = extractApiErrorWithDetails(err, t('Failed to load comments.'));
       runInAction(() => {
-        if (this.flagCommentsPatientId !== patientId) return;
+        if (generation !== this.commentsGeneration) return;
         this.commentsError = message;
       });
     } finally {
       runInAction(() => {
-        if (this.flagCommentsPatientId === patientId) this.commentsLoading = false;
+        if (generation === this.commentsGeneration) this.commentsLoading = false;
       });
     }
   }
@@ -368,6 +377,8 @@ export class TherapistPatientsStore {
     const text = this.newCommentText.trim();
     if (!patientId || !text || this.commentSubmitting) return;
 
+    // The response carries the full updated list, so it supersedes any read in flight.
+    const generation = ++this.commentsGeneration;
     this.commentSubmitting = true;
     this.commentsError = '';
 
@@ -376,20 +387,21 @@ export class TherapistPatientsStore {
       const data = res.data as { comments?: PatientComment[] };
 
       runInAction(() => {
-        // The modal may have been re-pointed at another patient while this was in flight.
-        if (this.flagCommentsPatientId !== patientId) return;
+        if (generation !== this.commentsGeneration) return;
         this.comments = Array.isArray(data.comments) ? data.comments : this.comments;
         this.newCommentText = '';
       });
     } catch (err: unknown) {
       const { message } = extractApiErrorWithDetails(err, t('Failed to add comment.'));
       runInAction(() => {
-        if (this.flagCommentsPatientId !== patientId) return;
+        if (generation !== this.commentsGeneration) return;
         this.commentsError = message;
       });
     } finally {
       runInAction(() => {
         this.commentSubmitting = false;
+        // Owns clearing the read this bump invalidated, unless a newer request took over.
+        if (generation === this.commentsGeneration) this.commentsLoading = false;
       });
     }
   }
