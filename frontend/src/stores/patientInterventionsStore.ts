@@ -52,12 +52,17 @@ export type PatientRec = {
   descLang?: string;
   // 2-letter target language translated_title/translated_description were translated into.
   translatedForLang?: string;
+
+  // Stable per-fetch row key, used to match rows that share an empty intervention_id.
+  _rowKey?: number;
 };
 
-// Rows can share an empty intervention_id, so an id match alone can hit more than one row;
-// require object identity in that case rather than falling back to matching every empty id.
+// Rows can share an empty intervention_id, so fall back to the stable _rowKey rather than intervention_id in that case.
 const isSameRow = (r: PatientRec, rec: PatientRec) =>
-  r === rec || (!!rec.intervention_id && r.intervention_id === rec.intervention_id);
+  r === rec ||
+  (rec.intervention_id
+    ? r.intervention_id === rec.intervention_id
+    : rec._rowKey !== undefined && r._rowKey === rec._rowKey);
 
 const upsertCompletionDate = (dates: string[] | undefined, dateKey: string) => {
   const base = Array.isArray(dates) ? dates : [];
@@ -158,18 +163,21 @@ class PatientInterventionsStore {
 
         const intervention_id = String(row?.intervention_id || meta?._id || '');
         const intervention_title = String(row?.intervention_title || meta?.title || '');
+        const description = String(row?.description || meta?.description || '');
         const candidate = previousTranslations.get(index);
         const prev =
           candidate &&
           candidate.intervention_id === intervention_id &&
-          candidate.intervention_title === intervention_title
+          candidate.intervention_title === intervention_title &&
+          candidate.description === description
             ? candidate
             : undefined;
 
         return {
           intervention_id,
           intervention_title,
-          description: String(row?.description || meta?.description || ''),
+          description,
+          _rowKey: index,
 
           dates: asArray<string>(row?.dates),
           completion_dates: asArray<string>(row?.completion_dates),

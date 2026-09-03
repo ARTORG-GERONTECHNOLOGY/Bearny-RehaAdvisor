@@ -77,11 +77,13 @@ export class TherapistPatientsStore {
 
   // Therapist id `patients` was fetched for, so switching therapists doesn't render the previous roster.
   private loadedForTherapistId: string | null = null;
+  // Bumped per fetchPatients() call so a stale fetch can't overwrite a newer one's patients.
+  private fetchGeneration = 0;
 
   constructor() {
-    makeAutoObservable<TherapistPatientsStore, 'loadedForTherapistId'>(
+    makeAutoObservable<TherapistPatientsStore, 'loadedForTherapistId' | 'fetchGeneration'>(
       this,
-      { loadedForTherapistId: false },
+      { loadedForTherapistId: false, fetchGeneration: false },
       { autoBind: true }
     );
   }
@@ -388,6 +390,7 @@ export class TherapistPatientsStore {
   // Data loading
   // -------------------------
   async fetchPatients(t: (key: string) => string) {
+    const generation = ++this.fetchGeneration;
     if (this.loadedForTherapistId !== authStore.id) this.patients = [];
     if (!this.patients.length) this.loading = true;
     this.error = '';
@@ -396,6 +399,7 @@ export class TherapistPatientsStore {
 
     try {
       const res = await apiClient.get(`therapists/${authStore.id}/patients`);
+      if (generation !== this.fetchGeneration) return;
       const payload = res.data as unknown;
 
       // If API returns an error-ish envelope: { success:false, ... }
@@ -440,6 +444,7 @@ export class TherapistPatientsStore {
         this.loadedForTherapistId = authStore.id;
       });
     } catch (err: unknown) {
+      if (generation !== this.fetchGeneration) return;
       const { message, details } = extractApiErrorWithDetails(
         err,
         t('Failed to fetch patients. Please try again later.')
@@ -450,9 +455,11 @@ export class TherapistPatientsStore {
         this.patients = [];
       });
     } finally {
-      runInAction(() => {
-        this.loading = false;
-      });
+      if (generation === this.fetchGeneration) {
+        runInAction(() => {
+          this.loading = false;
+        });
+      }
     }
   }
 
