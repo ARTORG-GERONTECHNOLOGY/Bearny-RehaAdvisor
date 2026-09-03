@@ -54,6 +54,11 @@ export type PatientRec = {
   translatedForLang?: string;
 };
 
+// Rows can share an empty intervention_id, so an id match alone can hit more than one row;
+// require object identity in that case rather than falling back to matching every empty id.
+const isSameRow = (r: PatientRec, rec: PatientRec) =>
+  r === rec || (!!rec.intervention_id && r.intervention_id === rec.intervention_id);
+
 const upsertCompletionDate = (dates: string[] | undefined, dateKey: string) => {
   const base = Array.isArray(dates) ? dates : [];
   const withoutDay = base.filter((d) => !String(d).startsWith(dateKey));
@@ -114,6 +119,7 @@ class PatientInterventionsStore {
   }
 
   async fetchPlan(patientId: string, uiLang: string) {
+    const patientChanged = this.currentPatientId !== patientId;
     this.currentPatientId = patientId;
     const generation = ++this.fetchGeneration;
     const cached = this.loadFromSessionStorage(patientId);
@@ -121,18 +127,18 @@ class PatientInterventionsStore {
       runInAction(() => {
         this.items = cached;
       });
+    } else if (patientChanged) {
+      // No cache for the new patient: drop stale items so they don't render under the new patient's identity.
+      runInAction(() => {
+        this.items = [];
+      });
     }
     if (!this.items.length) this.loading = true;
     this.clearError();
 
     const lang = (uiLang || 'en').slice(0, 2);
 
-    // Reuse already-known translations for unchanged rows in the same target
-    // language, so a refetch doesn't flash translated text back to the source
-    // language while retranslating. A language switch still retranslates.
-    // Keyed by array position, not intervention_id|title: two rows can share
-    // the same (possibly empty) id and title, so an identity check below
-    // guards against reusing the wrong row's translation.
+    // Reuse known translations by array position (not id|title, which can collide) so a refetch doesn't flash translated text back to source while retranslating.
     const previousTranslations = new Map(
       this.items
         .map((r, index) => [index, r] as const)
@@ -206,8 +212,7 @@ class PatientInterventionsStore {
         .map((rec, index) => ({ rec, index }))
         .filter(({ rec }) => rec.translated_title === undefined);
 
-      // Keyed by array position, not intervention_id: two rows can share the
-      // same (possibly empty) intervention_id when the backend omits it.
+      // Keyed by array position, not intervention_id: rows can share an empty id.
       const translations = new Map(
         await Promise.all(
           rowsToTranslate.map(async ({ rec, index }) => {
@@ -258,7 +263,7 @@ class PatientInterventionsStore {
 
       runInAction(() => {
         this.items = this.items.map((r) =>
-          r.intervention_id === rec.intervention_id
+          isSameRow(r, rec)
             ? { ...r, completion_dates: upsertCompletionDate(r.completion_dates, dateKey) }
             : r
         );
@@ -275,7 +280,7 @@ class PatientInterventionsStore {
 
     runInAction(() => {
       this.items = this.items.map((r) =>
-        r.intervention_id === rec.intervention_id
+        isSameRow(r, rec)
           ? {
               ...r,
               completion_dates: asArray<string>(r.completion_dates).filter(
@@ -306,7 +311,7 @@ class PatientInterventionsStore {
 
     runInAction(() => {
       this.items = this.items.map((r) =>
-        r.intervention_id === rec.intervention_id
+        isSameRow(r, rec)
           ? {
               ...r,
               dates: asArray<string>(r.dates).map((d) => (d === oldDatetime ? newIso : d)),

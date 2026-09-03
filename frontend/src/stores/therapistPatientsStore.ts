@@ -75,8 +75,15 @@ export class TherapistPatientsStore {
   // sort
   sortBy: SortKey = 'ampel';
 
+  // Therapist id `patients` was fetched for, so switching therapists doesn't render the previous roster.
+  private loadedForTherapistId: string | null = null;
+
   constructor() {
-    makeAutoObservable(this, {}, { autoBind: true });
+    makeAutoObservable<TherapistPatientsStore, 'loadedForTherapistId'>(
+      this,
+      { loadedForTherapistId: false },
+      { autoBind: true }
+    );
   }
 
   // -------------------------
@@ -381,6 +388,7 @@ export class TherapistPatientsStore {
   // Data loading
   // -------------------------
   async fetchPatients(t: (key: string) => string) {
+    if (this.loadedForTherapistId !== authStore.id) this.patients = [];
     if (!this.patients.length) this.loading = true;
     this.error = '';
     this.errorDetails = null;
@@ -429,6 +437,7 @@ export class TherapistPatientsStore {
 
       runInAction(() => {
         this.patients = sorted;
+        this.loadedForTherapistId = authStore.id;
       });
     } catch (err: unknown) {
       const { message, details } = extractApiErrorWithDetails(
