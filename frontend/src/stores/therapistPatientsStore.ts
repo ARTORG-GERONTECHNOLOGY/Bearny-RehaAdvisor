@@ -381,7 +381,7 @@ export class TherapistPatientsStore {
   // Data loading
   // -------------------------
   async fetchPatients(t: (key: string) => string) {
-    this.loading = true;
+    if (!this.patients.length) this.loading = true;
     this.error = '';
     this.errorDetails = null;
     this.showErrorDetails = false;

@@ -130,10 +130,13 @@ class PatientInterventionsStore {
     // Reuse already-known translations for unchanged rows in the same target
     // language, so a refetch doesn't flash translated text back to the source
     // language while retranslating. A language switch still retranslates.
+    // Keyed by array position, not intervention_id|title: two rows can share
+    // the same (possibly empty) id and title, so an identity check below
+    // guards against reusing the wrong row's translation.
     const previousTranslations = new Map(
       this.items
-        .filter((r) => r.translated_title !== undefined && r.translatedForLang === lang)
-        .map((r) => [`${r.intervention_id}|${r.intervention_title}`, r])
+        .map((r, index) => [index, r] as const)
+        .filter(([, r]) => r.translated_title !== undefined && r.translatedForLang === lang)
     );
 
     let raw: PatientRec[];
@@ -143,13 +146,19 @@ class PatientInterventionsStore {
       });
       if (generation !== this.fetchGeneration) return;
 
-      raw = asArray<any>(data).map((row: any) => {
+      raw = asArray<any>(data).map((row: any, index: number) => {
         const meta: InterventionMeta | undefined =
           row && typeof row === 'object' ? (row.intervention as InterventionMeta) : undefined;
 
         const intervention_id = String(row?.intervention_id || meta?._id || '');
         const intervention_title = String(row?.intervention_title || meta?.title || '');
-        const prev = previousTranslations.get(`${intervention_id}|${intervention_title}`);
+        const candidate = previousTranslations.get(index);
+        const prev =
+          candidate &&
+          candidate.intervention_id === intervention_id &&
+          candidate.intervention_title === intervention_title
+            ? candidate
+            : undefined;
 
         return {
           intervention_id,
