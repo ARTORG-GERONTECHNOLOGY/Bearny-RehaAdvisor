@@ -1,5 +1,6 @@
 import { TherapistPatientsStore, RedcapCandidate } from '@/stores/therapistPatientsStore';
 import apiClient from '@/api/client';
+import authStore from '@/stores/authStore';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 jest.mock('@/stores/authStore', () => ({
@@ -24,6 +25,7 @@ describe('TherapistPatientsStore', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (authStore as { id: string }).id = 'therapist-1';
     store = new TherapistPatientsStore();
   });
 
@@ -316,6 +318,42 @@ describe('TherapistPatientsStore', () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { data: [makePatient()] } });
       await store.fetchPatients(t);
       expect(store.patients).toHaveLength(1);
+    });
+
+    it('reports hasLoaded only once a fetch has settled', async () => {
+      expect(store.hasLoaded).toBe(false);
+
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [makePatient()] });
+      await store.fetchPatients(t);
+
+      expect(store.hasLoaded).toBe(true);
+    });
+
+    it('tags the roster with the therapist it was fetched for, not whoever is current when it lands', async () => {
+      let resolveGet: (value: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveGet = resolve;
+          })
+      );
+
+      const fetchPromise = store.fetchPatients(t);
+
+      // The signed-in therapist changes while therapist-1's roster is still in flight.
+      (authStore as { id: string }).id = 'therapist-2';
+
+      resolveGet!({ data: [makePatient({ _id: 'p-of-therapist-1' })] });
+      await fetchPromise;
+
+      // The next fetch must treat therapist-2 as unloaded and clear therapist-1's roster.
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [makePatient({ _id: 'p-of-therapist-2' })],
+      });
+      await store.fetchPatients(t);
+
+      expect(apiClient.get).toHaveBeenLastCalledWith('therapists/therapist-2/patients');
+      expect(store.patients.map((p) => p._id)).toEqual(['p-of-therapist-2']);
     });
 
     it('defaults to an empty list for an unrecognized payload shape', async () => {

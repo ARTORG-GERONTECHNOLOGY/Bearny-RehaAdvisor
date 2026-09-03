@@ -29,6 +29,8 @@ export class TherapistPatientsStore {
 
   // UI state
   loading = false;
+  // `loading` can't gate a skeleton alone: it is still false before the fetch effect runs.
+  hasLoaded = false;
 
   error = '';
   errorDetails: string | null = null;
@@ -396,15 +398,20 @@ export class TherapistPatientsStore {
   // Data loading
   // -------------------------
   async fetchPatients(t: (key: string) => string) {
+    // Captured before the await so the roster is tagged with the id it was fetched for.
+    const therapistId = authStore.id;
     const generation = ++this.fetchGeneration;
-    if (this.loadedForTherapistId !== authStore.id) this.patients = [];
+    if (this.loadedForTherapistId !== therapistId) {
+      this.patients = [];
+      this.hasLoaded = false;
+    }
     if (!this.patients.length) this.loading = true;
     this.error = '';
     this.errorDetails = null;
     this.showErrorDetails = false;
 
     try {
-      const res = await apiClient.get(`therapists/${authStore.id}/patients`);
+      const res = await apiClient.get(`therapists/${therapistId}/patients`);
       if (generation !== this.fetchGeneration) return;
       const payload = res.data as unknown;
 
@@ -447,7 +454,7 @@ export class TherapistPatientsStore {
 
       runInAction(() => {
         this.patients = sorted;
-        this.loadedForTherapistId = authStore.id;
+        this.loadedForTherapistId = therapistId;
       });
     } catch (err: unknown) {
       if (generation !== this.fetchGeneration) return;
@@ -464,6 +471,7 @@ export class TherapistPatientsStore {
       if (generation === this.fetchGeneration) {
         runInAction(() => {
           this.loading = false;
+          this.hasLoaded = true;
         });
       }
     }

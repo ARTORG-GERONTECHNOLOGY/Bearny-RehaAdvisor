@@ -229,6 +229,10 @@ class PatientInterventionsStore {
               translateText(rec.description || '', options),
             ]);
 
+            // translateText signals failure by returning the text unchanged with 'error'.
+            const failed =
+              t1.detectedSourceLanguage === 'error' || t2.detectedSourceLanguage === 'error';
+
             return [
               index,
               {
@@ -236,7 +240,8 @@ class PatientInterventionsStore {
                 translated_description: t2.translatedText,
                 titleLang: t1.detectedSourceLanguage,
                 descLang: t2.detectedSourceLanguage,
-                translatedForLang: lang,
+                // Unmarked on failure so the next fetch retries instead of reusing raw text.
+                translatedForLang: failed ? undefined : lang,
               },
             ] as const;
           })

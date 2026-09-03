@@ -77,7 +77,7 @@ const Therapist: React.FC = observer(() => {
   const store = useMemo(() => new TherapistPatientsStore(), []);
   const [colSortDir, setColSortDir] = useState<Record<string, 'asc' | 'desc'>>({});
 
-  const { isAllowed } = useRoleAuthGate('Therapist');
+  const { isAllowed, authChecked } = useRoleAuthGate('Therapist');
 
   useEffect(() => {
     if (!isAllowed) return;
@@ -250,7 +250,7 @@ const Therapist: React.FC = observer(() => {
           {String(t('Active patients'))} ({activePatients.length})
         </h5>
 
-        {store.loading ? (
+        {!authChecked || !store.hasLoaded || store.loading ? (
           <PatientListSkeleton showStudyGroup={appModeStore.showStudyGroup} />
         ) : (
           <TooltipProvider>

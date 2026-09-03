@@ -395,6 +395,34 @@ describe('PatientInterventionsStore', () => {
       expect(store.items[1].translated_title).toBe('Walking-de');
     });
 
+    it('retries a failed translation on the next fetch instead of pinning the untranslated text', async () => {
+      const row = {
+        intervention_id: 'int-1',
+        intervention_title: 'Breathing',
+        description: 'Deep',
+      };
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [row] });
+      // How translateText reports a 504: original text back, language 'error'.
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: text, detectedSourceLanguage: 'error' })
+      );
+
+      await store.fetchPlan('patient-1', 'de');
+
+      expect(store.items[0].translated_title).toBe('Breathing');
+      expect(store.items[0].translatedForLang).toBeUndefined();
+
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [row] });
+      (translateText as jest.Mock).mockImplementation((text: string) =>
+        Promise.resolve({ translatedText: `${text}-de`, detectedSourceLanguage: 'en' })
+      );
+
+      await store.fetchPlan('patient-1', 'de');
+
+      expect(store.items[0].translated_title).toBe('Breathing-de');
+      expect(store.items[0].translatedForLang).toBe('de');
+    });
+
     it('sets an error from the backend payload on failure', async () => {
       (apiClient.get as jest.Mock).mockRejectedValueOnce({
         response: { data: { error: 'Plan not found', details: 'no plan for patient' } },
@@ -512,11 +540,7 @@ describe('PatientInterventionsStore', () => {
             resolvePost = resolve;
           })
       );
-      const togglePromise = store.toggleCompleted(
-        'patient-1',
-        patient1Row,
-        new Date('2026-01-05')
-      );
+      const togglePromise = store.toggleCompleted('patient-1', patient1Row, new Date('2026-01-05'));
 
       // Therapist opens patient-2, who is assigned the same library intervention.
       (apiClient.get as jest.Mock).mockResolvedValueOnce({
