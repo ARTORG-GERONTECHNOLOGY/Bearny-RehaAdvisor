@@ -16,6 +16,8 @@ const MAX_CACHE_ENTRIES = 2000;
 // falls back to LibreTranslate's default of 4). Keep these in sync if
 // LT_THREADS is ever overridden.
 const MAX_CONCURRENT_REQUESTS = 4;
+// Give up well before nginx's 60s proxy_read_timeout so a stuck request falls back to untranslated text.
+const REQUEST_TIMEOUT_MS = 20_000;
 
 const resultCache = new Map<string, TranslateResult>();
 const inFlight = new Map<string, Promise<TranslateResult>>();
@@ -52,12 +54,16 @@ function cacheResult(key: string, result: TranslateResult) {
 async function performTranslate(text: string, target: string): Promise<TranslateResult> {
   await acquireSlot();
 
+  // One budget for the whole call, created after the queue wait so queuing isn't charged to it.
+  const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+
   try {
     // First: detect source language
     const detectRes = await fetch('/translate/detect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ q: text }),
+      signal,
     });
 
     const detected = await detectRes.json();
@@ -81,6 +87,7 @@ async function performTranslate(text: string, target: string): Promise<Translate
         target,
         format: 'text',
       }),
+      signal,
     });
 
     if (!translateRes.ok) {

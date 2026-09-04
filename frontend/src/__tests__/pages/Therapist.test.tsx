@@ -89,6 +89,7 @@ jest.mock('@/stores/appModeStore', () => ({
 const mockStore = {
   patients: [],
   loading: false,
+  hasLoaded: true,
   error: '',
   errorDetails: null,
   showErrorDetails: false,
@@ -242,6 +243,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockStore.patients = [];
   mockStore.loading = false;
+  mockStore.hasLoaded = true;
   mockStore.error = '';
   mockStore.errorDetails = null;
   mockStore.showErrorDetails = false;
@@ -323,6 +325,7 @@ describe('Therapist Page', () => {
     (apiClient.get as jest.Mock).mockResolvedValue({ data: patientsMock });
     mockStore.patients = patientsMock;
     mockStore.loading = false;
+    mockStore.hasLoaded = true;
     mockStore.error = '';
     mockStore.showAddPatientPopup = false;
     mockStore.selectedSex = 'All';
@@ -848,6 +851,7 @@ describe('Column sorting', () => {
 
   test('clicking the same header again reverses the sort direction', async () => {
     renderSortable();
+    await screen.findByText('Alpha One');
     fireEvent.click(screen.getByText('Login'));
     await waitFor(() => expect(getBodyRowNames()).toEqual(['Beta Two', 'Alpha One']));
 
@@ -869,18 +873,21 @@ describe('Column sorting', () => {
 
   test('clicking the Feedback header triggers a feedback-based sort', async () => {
     renderSortable();
+    await screen.findByText('Alpha One');
     fireEvent.click(screen.getByText('Feedback'));
     await waitFor(() => expect(mockStore.setSortBy).toHaveBeenCalledWith('feedback'));
   });
 
   test('clicking the Wear header triggers a wear-based sort', async () => {
     renderSortable();
+    await screen.findByText('Alpha One');
     fireEvent.click(screen.getByText('Wear'));
     await waitFor(() => expect(mockStore.setSortBy).toHaveBeenCalledWith('wear'));
   });
 
   test('clicking the Flag header triggers a flag-based sort', async () => {
     renderSortable();
+    await screen.findByText('Alpha One');
     fireEvent.click(screen.getByText('Flag'));
     await waitFor(() => expect(mockStore.setSortBy).toHaveBeenCalledWith('flag'));
   });
@@ -1354,5 +1361,38 @@ describe('Empty / loading states', () => {
       </MemoryRouter>
     );
     expect(await screen.findByText('Loading patients...')).toBeInTheDocument();
+  });
+
+  test('shows the skeleton, not the empty state, while the auth check is still pending', () => {
+    // The roster fetch is gated on the auth gate, so loading is still false here.
+    (authStore.checkAuthentication as jest.Mock).mockReturnValue(new Promise(() => {}));
+    mockStore.patients = [] as any;
+    mockStore.loading = false;
+    mockStore.hasLoaded = false;
+
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Loading patients...')).toBeInTheDocument();
+    expect(screen.queryByText('No active patients')).not.toBeInTheDocument();
+  });
+
+  test('shows the skeleton in the gap between the auth check passing and the fetch starting', () => {
+    // authChecked is true but the effect that sets loading has not run yet.
+    mockStore.patients = [] as any;
+    mockStore.loading = false;
+    mockStore.hasLoaded = false;
+
+    render(
+      <MemoryRouter>
+        <Therapist />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('Loading patients...')).toBeInTheDocument();
+    expect(screen.queryByText('No active patients')).not.toBeInTheDocument();
   });
 });

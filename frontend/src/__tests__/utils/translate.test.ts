@@ -110,6 +110,46 @@ describe('translateText', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
+  it('passes an abort signal that times out to fetch', async () => {
+    mockFetch.mockResolvedValueOnce(makeJsonResponse([{ language: 'en' }]));
+
+    await translateText('Timeout check');
+
+    const [, options] = mockFetch.mock.calls[0];
+    expect(options.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('caps detect and translate under one shared budget, not one each', async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeJsonResponse([{ language: 'de' }]))
+      .mockResolvedValueOnce(makeJsonResponse({ translatedText: 'Hello' }));
+
+    await translateText('Ein eigener Satz');
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // Separate signals would let detect and translate each burn the full timeout.
+    // Compared as a boolean: a failing toBe() on cyclic AbortSignals crashes Jest's reporter.
+    const sameSignal = mockFetch.mock.calls[1][1].signal === mockFetch.mock.calls[0][1].signal;
+    expect(sameSignal).toBe(true);
+  });
+
+  it('returns original text with detectedSourceLanguage "error" when the request is aborted', async () => {
+    mockFetch.mockImplementationOnce((_url, options) => {
+      const { signal } = options as { signal: AbortSignal };
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+      });
+    });
+
+    const promise = translateText('Stuck request');
+    await flushMicrotasks();
+    mockFetch.mock.calls[0][1].signal.dispatchEvent(new Event('abort'));
+
+    const result = await promise;
+
+    expect(result).toEqual({ translatedText: 'Stuck request', detectedSourceLanguage: 'error' });
+  });
+
   it('returns immediately for empty text without calling fetch', async () => {
     const result = await translateText('');
 

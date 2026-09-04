@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { makeAutoObservable, reaction, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import { SessionCache } from '@/utils/sessionCache';
@@ -48,9 +49,17 @@ export type PatientRec = {
   // translations
   translated_title?: string;
   translated_description?: string;
-  titleLang?: string;
-  descLang?: string;
+  // 2-letter language translateText rendered these into — not the language the plan was fetched in.
+  translatedForLang?: string;
 };
+
+// Normalised exactly as translate.ts derives its target, so the two are comparable.
+const currentUiLang = () => (i18next.language || 'en').slice(0, 2);
+
+// Identifies the source text a translation belongs to, so a refetch can carry it over.
+const translationKey = (
+  r: Pick<PatientRec, 'intervention_id' | 'intervention_title' | 'description'>
+) => JSON.stringify([r.intervention_id, r.intervention_title, r.description || '']);
 
 const upsertCompletionDate = (dates: string[] | undefined, dateKey: string) => {
   const base = Array.isArray(dates) ? dates : [];
@@ -71,11 +80,13 @@ class PatientInterventionsStore {
   assistanceMode: 'alone' | 'with_help' | null = null;
 
   private currentPatientId: string | null = null;
+  // Bumped per fetchPlan() call so a stale fetch can't overwrite a newer one's items.
+  private fetchGeneration = 0;
 
   constructor() {
-    makeAutoObservable<PatientInterventionsStore, 'currentPatientId'>(
+    makeAutoObservable<PatientInterventionsStore, 'currentPatientId' | 'fetchGeneration'>(
       this,
-      { currentPatientId: false },
+      { currentPatientId: false, fetchGeneration: false },
       { autoBind: true }
     );
 
@@ -111,6 +122,7 @@ class PatientInterventionsStore {
 
   async fetchPlan(patientId: string, uiLang: string) {
     this.currentPatientId = patientId;
+    const generation = ++this.fetchGeneration;
     const cached = this.loadFromSessionStorage(patientId);
     if (cached) {
       runInAction(() => {
@@ -120,61 +132,114 @@ class PatientInterventionsStore {
     if (!this.items.length) this.loading = true;
     this.clearError();
 
+    // uiLang selects the content variant; translateText renders into i18next.language.
+    const lang = (uiLang || 'en').slice(0, 2);
+    const target = currentUiLang();
+
+    // Rows publish before translations resolve, so carry known ones over or a refetch flashes back to source.
+    const previousTranslations = new Map(
+      this.items
+        .filter((r) => r.translated_title !== undefined && r.translatedForLang === target)
+        .map((r) => [translationKey(r), r] as const)
+    );
+
+    let raw: PatientRec[];
     try {
-      const lang = (uiLang || 'en').slice(0, 2);
       const { data } = await apiClient.get(`/patients/rehabilitation-plan/patient/${patientId}/`, {
         params: { lang },
       });
-      const list = asArray<any>(data);
+      if (generation !== this.fetchGeneration) return;
 
-      const translated: PatientRec[] = await Promise.all(
-        list.map(async (row: any) => {
-          const meta: InterventionMeta | undefined =
-            row && typeof row === 'object' ? (row.intervention as InterventionMeta) : undefined;
+      raw = asArray<any>(data).map((row: any) => {
+        const meta: InterventionMeta | undefined =
+          row && typeof row === 'object' ? (row.intervention as InterventionMeta) : undefined;
 
-          const title = String(row?.intervention_title || meta?.title || '');
-          const desc = String(row?.description || meta?.description || '');
+        const intervention_id = String(row?.intervention_id || meta?._id || '');
+        const intervention_title = String(row?.intervention_title || meta?.title || '');
+        const description = String(row?.description || meta?.description || '');
+        const prev = previousTranslations.get(
+          translationKey({ intervention_id, intervention_title, description })
+        );
 
-          const [t1, t2] = await Promise.all([translateText(title), translateText(desc)]);
+        return {
+          intervention_id,
+          intervention_title,
+          description,
 
-          return {
-            intervention_id: String(row?.intervention_id || meta?._id || ''),
-            intervention_title: title,
-            description: desc,
+          dates: asArray<string>(row?.dates),
+          completion_dates: asArray<string>(row?.completion_dates),
+          frequency: String(row?.frequency || ''),
+          notes: String(row?.notes || ''),
+          require_video_feedback: Boolean(row?.require_video_feedback),
 
-            dates: asArray<string>(row?.dates),
-            completion_dates: asArray<string>(row?.completion_dates),
-            frequency: String(row?.frequency || ''),
-            notes: String(row?.notes || ''),
-            require_video_feedback: Boolean(row?.require_video_feedback),
+          duration: typeof row?.duration === 'number' ? row.duration : undefined,
+          preview_img: String(row?.preview_img || meta?.preview_img || ''),
+          media: asArray<any>(row?.media || meta?.media),
 
-            duration: typeof row?.duration === 'number' ? row.duration : undefined,
-            preview_img: String(row?.preview_img || meta?.preview_img || ''),
-            media: asArray<any>(row?.media || meta?.media),
+          intervention: meta,
 
-            intervention: meta,
+          translated_title: prev?.translated_title,
+          translated_description: prev?.translated_description,
+          translatedForLang: prev?.translatedForLang,
+        };
+      });
 
-            translated_title: t1.translatedText,
-            translated_description: t2.translatedText,
-            titleLang: t1.detectedSourceLanguage,
-            descLang: t2.detectedSourceLanguage,
-          } as PatientRec;
-        })
-      );
-
+      // Render immediately with original-language text; translations patch in below.
       runInAction(() => {
-        this.items = translated;
+        this.items = raw;
+        this.loading = false;
       });
     } catch (err: unknown) {
+      if (generation !== this.fetchGeneration) return;
       const { message, details } = extractApiErrorWithDetails(err, 'An unexpected error occurred.');
       runInAction(() => {
         this.error = message;
         this.errorDetails = details;
-      });
-    } finally {
-      runInAction(() => {
         this.loading = false;
       });
+      return;
+    }
+
+    try {
+      const rowsToTranslate = raw.filter((rec) => rec.translated_title === undefined);
+
+      const translations = new Map(
+        await Promise.all(
+          rowsToTranslate.map(async (rec) => {
+            // Description is unused here: it warms the cache the detail page reads on open.
+            const [title, desc] = await Promise.all([
+              translateText(rec.intervention_title),
+              translateText(rec.description || ''),
+            ]);
+
+            // translateText signals failure by returning the text unchanged with 'error'.
+            const failed =
+              title.detectedSourceLanguage === 'error' || desc.detectedSourceLanguage === 'error';
+
+            return [
+              translationKey(rec),
+              {
+                translated_title: title.translatedText,
+                translated_description: desc.translatedText,
+                // Unmarked on failure so the next fetch retries instead of reusing raw text.
+                translatedForLang: failed ? undefined : target,
+              },
+            ] as const;
+          })
+        )
+      );
+
+      // A switch mid-fetch means these were rendered into a different language than `target`.
+      if (generation !== this.fetchGeneration || currentUiLang() !== target) return;
+
+      runInAction(() => {
+        this.items = this.items.map((r) => {
+          const patch = translations.get(translationKey(r));
+          return patch ? { ...r, ...patch } : r;
+        });
+      });
+    } catch (err: unknown) {
+      console.error('[fetchPlan] Translation patch failed:', err);
     }
   }
 

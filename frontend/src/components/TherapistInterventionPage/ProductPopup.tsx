@@ -275,6 +275,8 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
 
   // translation follows effectiveItem (supports variant switching)
   useEffect(() => {
+    let alive = true;
+
     const run = async () => {
       if (!effectiveItem) {
         setTranslatedText('');
@@ -298,6 +300,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
           const { translatedText: tx, detectedSourceLanguage } = await translateText(
             String(effectiveItem.description)
           );
+          if (!alive) return;
           setTranslatedText(tx);
           setDetectedLang(tx !== effectiveItem.description ? detectedSourceLanguage : '');
         } else {
@@ -309,6 +312,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
           const { translatedText: tt, detectedSourceLanguage: tl } = await translateText(
             String(effectiveItem.title)
           );
+          if (!alive) return;
           setTranslatedTitle(tt);
           setTitleLang(tt !== effectiveItem.title ? tl : '');
         } else {
@@ -316,6 +320,7 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
           setTitleLang('');
         }
       } catch {
+        if (!alive) return;
         setTranslatedText(String(effectiveItem.description || ''));
         setTranslatedTitle(String(effectiveItem.title || ''));
         setDetectedLang('');
@@ -324,6 +329,9 @@ const ProductPopup: React.FC<Props> = ({ show, item, handleClose, tagColors }) =
     };
 
     if (show) void run();
+    return () => {
+      alive = false;
+    };
   }, [effectiveItem, show, langManuallySelected]);
 
   const refreshAssignments = useCallback(async () => {

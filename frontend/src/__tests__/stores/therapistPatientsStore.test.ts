@@ -318,6 +318,79 @@ describe('TherapistPatientsStore', () => {
       expect(store.patients).toHaveLength(1);
     });
 
+    it('reports hasLoaded only once a fetch has settled', async () => {
+      expect(store.hasLoaded).toBe(false);
+
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [makePatient()] });
+      await store.fetchPatients(t);
+
+      expect(store.hasLoaded).toBe(true);
+    });
+
+    it('keeps the current rows visible while refreshing an already-loaded list', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [makePatient()] });
+      await store.fetchPatients(t);
+
+      let resolveGet: (value: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveGet = resolve;
+          })
+      );
+      const refresh = store.fetchPatients(t);
+
+      expect(store.loading).toBe(false);
+      expect(store.patients).toHaveLength(1);
+
+      resolveGet!({ data: [makePatient(), makePatient({ _id: 'p2' })] });
+      await refresh;
+
+      expect(store.patients).toHaveLength(2);
+    });
+
+    it('does not let a stale response overwrite a newer one', async () => {
+      let resolveStale: (value: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveStale = resolve;
+          })
+      );
+      const stale = store.fetchPatients(t);
+
+      // Adding a patient refetches; the older in-flight call must not win.
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [makePatient({ _id: 'p1' }), makePatient({ _id: 'p2-just-added' })],
+      });
+      await store.fetchPatients(t);
+
+      resolveStale!({ data: [makePatient({ _id: 'p1' })] });
+      await stale;
+
+      expect(store.patients.map((p) => p._id)).toEqual(['p1', 'p2-just-added']);
+    });
+
+    it('does not let a stale failure blank a list a newer fetch already filled', async () => {
+      let rejectStale: (reason: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectStale = reject;
+          })
+      );
+      const stale = store.fetchPatients(t);
+
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: [makePatient({ _id: 'p1' })] });
+      await store.fetchPatients(t);
+
+      rejectStale!({ response: { data: { message: 'Server error' } } });
+      await stale;
+
+      expect(store.patients.map((p) => p._id)).toEqual(['p1']);
+      expect(store.error).toBe('');
+    });
+
     it('defaults to an empty list for an unrecognized payload shape', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { foo: 'bar' } });
       await store.fetchPatients(t);
@@ -764,6 +837,70 @@ describe('TherapistPatientsStore', () => {
       expect(store.comments).toEqual([]);
     });
 
+    it("does not render one patient's comments under the patient the modal moved on to", async () => {
+      store.flagCommentsPatientId = 'p1';
+
+      let resolveGet: (value: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveGet = resolve;
+          })
+      );
+      const stalePromise = store.fetchComments(t);
+
+      // Therapist closes p1 and opens p2 before p1's request comes back.
+      store.closeFlagComments();
+      store.flagCommentsPatientId = 'p2';
+
+      resolveGet!({ data: { comments: [{ text: "p1's clinical note" }] } });
+      await stalePromise;
+
+      expect(store.comments).toEqual([]);
+    });
+
+    it('does not raise a failed load as an error on the patient the modal moved on to', async () => {
+      store.flagCommentsPatientId = 'p1';
+      let rejectGet: (reason: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectGet = reject;
+          })
+      );
+      const stale = store.fetchComments(t);
+
+      store.closeFlagComments();
+      store.flagCommentsPatientId = 'p2';
+
+      rejectGet!({ response: { data: { message: "p1's failure" } } });
+      await stale;
+
+      expect(store.commentsError).toBe('');
+    });
+
+    it("does not clear the new patient's spinner when a stale read settles", async () => {
+      store.flagCommentsPatientId = 'p1';
+      let resolveStale: (value: unknown) => void;
+      (apiClient.get as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveStale = resolve;
+          })
+      );
+      const stale = store.fetchComments(t);
+
+      store.flagCommentsPatientId = 'p2';
+      (apiClient.get as jest.Mock).mockImplementationOnce(() => new Promise(() => {}));
+      void store.fetchComments(t);
+      expect(store.commentsLoading).toBe(true);
+
+      resolveStale!({ data: { comments: [] } });
+      await stale;
+
+      expect(store.commentsLoading).toBe(true);
+    });
+
     it('sets commentsError on failure', async () => {
       store.flagCommentsPatientId = 'p1';
       (apiClient.get as jest.Mock).mockRejectedValueOnce({
@@ -832,6 +969,58 @@ describe('TherapistPatientsStore', () => {
       await store.addComment(t);
 
       expect(store.comments).toEqual([{ text: 'old', created_at: null, commented_by: 'A' }]);
+    });
+
+    it("does not render one patient's comment list under the patient the modal moved on to", async () => {
+      store.flagCommentsPatientId = 'p1';
+      store.newCommentText = 'called patient';
+
+      let resolvePost: (value: unknown) => void;
+      (apiClient.post as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolvePost = resolve;
+          })
+      );
+      const stalePromise = store.addComment(t);
+
+      // The POST response carries p1's full comment list, so it leaks the same way a read does.
+      store.closeFlagComments();
+      store.flagCommentsPatientId = 'p2';
+
+      resolvePost!({ data: { comments: [{ text: "p1's clinical note" }] } });
+      await stalePromise;
+
+      expect(store.comments).toEqual([]);
+      expect(store.commentSubmitting).toBe(false);
+    });
+
+    it('always releases commentSubmitting, even for a superseded submit', async () => {
+      store.flagCommentsPatientId = 'p1';
+      store.setNewCommentText('called patient');
+      let resolvePost: (value: unknown) => void;
+      (apiClient.post as jest.Mock).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolvePost = resolve;
+          })
+      );
+      const stale = store.addComment(t);
+
+      store.closeFlagComments();
+      store.flagCommentsPatientId = 'p2';
+
+      resolvePost!({ data: { comments: [{ text: "p1's note" }] } });
+      await stale;
+
+      // Scoping this would strand the lock, since addComment won't run while it is set.
+      expect(store.commentSubmitting).toBe(false);
+      store.setNewCommentText('note for p2');
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({
+        data: { comments: [{ text: 'note for p2' }] },
+      });
+      await store.addComment(t);
+      expect(store.comments.map((c) => c.text)).toEqual(['note for p2']);
     });
 
     it('sets commentsError on failure and resets commentSubmitting', async () => {

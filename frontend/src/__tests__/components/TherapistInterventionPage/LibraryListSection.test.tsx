@@ -9,6 +9,12 @@ jest.mock('@/components/TherapistInterventionPage/InterventionList', () => {
   };
 });
 
+jest.mock('@/components/skeletons/InterventionListSkeleton', () => {
+  return function InterventionListSkeletonMock() {
+    return <div data-testid="intervention-list-skeleton" />;
+  };
+});
+
 const t = (key: string) => key;
 
 describe('LibraryListSection', () => {
@@ -26,7 +32,7 @@ describe('LibraryListSection', () => {
     expect(screen.queryByTestId('intervention-list')).not.toBeInTheDocument();
   });
 
-  it('renders the list instead of the empty state while loading', () => {
+  it('shows the skeleton instead of the empty state while loading', () => {
     render(
       <LibraryListSection
         loading={true}
@@ -37,7 +43,23 @@ describe('LibraryListSection', () => {
       />
     );
     expect(screen.queryByText('No interventions match your filters.')).not.toBeInTheDocument();
-    expect(screen.getByTestId('intervention-list')).toBeInTheDocument();
+    expect(screen.queryByTestId('intervention-list')).not.toBeInTheDocument();
+    expect(screen.getByTestId('intervention-list-skeleton')).toBeInTheDocument();
+  });
+
+  it('shows the skeleton while loading even if items are already present', () => {
+    const items = [{ _id: '1' }] as unknown as InterventionTypeTh[];
+    render(
+      <LibraryListSection
+        loading={true}
+        items={items}
+        onClick={jest.fn()}
+        t={t}
+        translatedTitles={{}}
+      />
+    );
+    expect(screen.getByTestId('intervention-list-skeleton')).toBeInTheDocument();
+    expect(screen.queryByTestId('intervention-list')).not.toBeInTheDocument();
   });
 
   it('renders the list when there are items', () => {

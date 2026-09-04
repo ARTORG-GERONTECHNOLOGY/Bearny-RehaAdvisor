@@ -8,12 +8,6 @@ jest.mock('@/utils/interventions', () => ({
   getContentTypeIcon: jest.fn(() => null),
 }));
 
-jest.mock('@/utils/translate', () => ({
-  translateText: jest.fn(() =>
-    Promise.resolve({ translatedText: 'Translated', detectedSourceLanguage: 'en' })
-  ),
-}));
-
 describe('InterventionList', () => {
   const mockOnClick = jest.fn();
 
@@ -100,9 +94,10 @@ describe('InterventionList', () => {
     expect(mockOnClick).toHaveBeenCalledWith(items[0]);
   });
 
-  it('shows loading state when translatedTitles is not provided', () => {
-    render(<InterventionList items={items} onClick={mockOnClick} />);
-    expect(screen.getByText('Loading interventions...')).toBeInTheDocument();
+  it('falls back to the raw title for items with no translation entry yet', () => {
+    render(<InterventionList items={items} onClick={mockOnClick} translatedTitles={{}} />);
+    expect(screen.getByText('Mobility Drill')).toBeInTheDocument();
+    expect(screen.getByText('Stretch PDF')).toBeInTheDocument();
   });
 
   it('renders empty state when no items', () => {
@@ -247,32 +242,15 @@ describe('InterventionList', () => {
     expect(screen.getByText('Education').closest('div')).toHaveClass('text-yellow');
   });
 
-  it('falls back to raw title when translateText rejects and no translatedTitles prop is given', async () => {
-    const { translateText } = jest.requireMock('@/utils/translate');
-    (translateText as jest.Mock).mockRejectedValueOnce(new Error('down'));
-
-    render(<InterventionList items={[items[0]]} onClick={mockOnClick} />);
-
-    expect(await screen.findByText('Mobility Drill')).toBeInTheDocument();
-  });
-
-  it('skips translating items with no title', async () => {
+  it('renders the parent-supplied translation in place of the raw title', () => {
     render(
       <InterventionList
-        items={[{ _id: 'no-title', title: '', content_type: 'video' }]}
+        items={[items[0]]}
         onClick={mockOnClick}
+        translatedTitles={{ '1': { title: 'Mobilitätsübung', lang: 'en' } }}
       />
     );
-
-    await screen.findByText('video');
-    const { translateText } = jest.requireMock('@/utils/translate');
-    expect(translateText).not.toHaveBeenCalled();
-  });
-
-  it('shows the loading spinner briefly, then the table once translation resolves', async () => {
-    render(<InterventionList items={[items[0]]} onClick={mockOnClick} />);
-    // The mocked translateText always resolves to the literal string "Translated".
-    expect(await screen.findByText('Translated')).toBeInTheDocument();
-    expect(screen.queryByText('Loading interventions...')).not.toBeInTheDocument();
+    expect(screen.getByText('Mobilitätsübung')).toBeInTheDocument();
+    expect(screen.queryByText('Mobility Drill')).not.toBeInTheDocument();
   });
 });

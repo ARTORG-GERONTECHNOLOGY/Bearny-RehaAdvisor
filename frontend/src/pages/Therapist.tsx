@@ -19,6 +19,7 @@ import {
   WearBadge,
 } from '@/components/TherapistPatientPage/PatientStatusBadges';
 import Layout from '@/components/Layout';
+import PatientListSkeleton from '@/components/skeletons/PatientListSkeleton';
 
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import config from '@/config/config.json';
@@ -76,7 +77,7 @@ const Therapist: React.FC = observer(() => {
   const store = useMemo(() => new TherapistPatientsStore(), []);
   const [colSortDir, setColSortDir] = useState<Record<string, 'asc' | 'desc'>>({});
 
-  const { isAllowed } = useRoleAuthGate('Therapist');
+  const { isAllowed, authChecked } = useRoleAuthGate('Therapist');
 
   useEffect(() => {
     if (!isAllowed) return;
@@ -249,133 +250,135 @@ const Therapist: React.FC = observer(() => {
           {String(t('Active patients'))} ({activePatients.length})
         </h5>
 
-        <TooltipProvider>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ID</TableHead>
-                <TableHead>{t('Name')}</TableHead>
-                <TableHead>{t('Birth Date')}</TableHead>
-                <TableHead>{t('Sex')}</TableHead>
-                <TableHead>{t('Diagnosis_patient_list')}</TableHead>
-                {appModeStore.showStudyGroup && <TableHead>{t('Group')}</TableHead>}
-                <TableHead
-                  onClick={() => handleColSort('last_login')}
-                  className="cursor-pointer transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex gap-1 items-center">
-                    {t('Login')}
-                    {renderSortIcon('last_login')}
-                  </div>
-                </TableHead>
-                <TableHead
-                  onClick={() => handleColSort('adherence')}
-                  className="cursor-pointer transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex gap-1 items-center">
-                    {t('Adherence')}
-                    {renderSortIcon('adherence')}
-                  </div>
-                </TableHead>
-                <TableHead
-                  onClick={() => handleColSort('feedback')}
-                  className="cursor-pointer transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex gap-1 items-center">
-                    {t('Feedback')}
-                    {renderSortIcon('feedback')}
-                  </div>
-                </TableHead>
-                <TableHead
-                  onClick={() => handleColSort('wear')}
-                  className="cursor-pointer transition-colors hover:bg-muted/50"
-                >
-                  <div className="flex gap-1 items-center">
-                    {t('Wear')}
-                    {renderSortIcon('wear')}
-                  </div>
-                </TableHead>
-                <TableHead
-                  onClick={() => handleColSort('flag')}
-                  className="cursor-pointer transition-colors hover:bg-muted/50 text-center"
-                >
-                  <div className="flex gap-1 items-center justify-center">
-                    {t('Flag')}
-                    {renderSortIcon('flag')}
-                  </div>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {activePatients.map((p) => {
-                const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
-                const diagnosis = Array.isArray(p.diagnosis)
-                  ? p.diagnosis.map((d) => String(t(d))).join(', ')
-                  : String(t(p.diagnosis || ''));
-                const patientId = getPatientIdStr(p);
-                const mongoId = getPatientMongoId(p);
-                const studyGroup = getPatientExtra(p).study_group;
-
-                return (
-                  <TableRow
-                    key={mongoId || patientId}
-                    role="link"
-                    tabIndex={0}
-                    onClick={() => handlePatientClick(mongoId)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handlePatientClick(mongoId);
-                      }
-                    }}
-                    className="cursor-pointer"
+        {!authChecked || !store.hasLoaded || store.loading ? (
+          <PatientListSkeleton showStudyGroup={appModeStore.showStudyGroup} />
+        ) : (
+          <TooltipProvider>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>{t('Name')}</TableHead>
+                  <TableHead>{t('Birth Date')}</TableHead>
+                  <TableHead>{t('Sex')}</TableHead>
+                  <TableHead>{t('Diagnosis_patient_list')}</TableHead>
+                  {appModeStore.showStudyGroup && <TableHead>{t('Group')}</TableHead>}
+                  <TableHead
+                    onClick={() => handleColSort('last_login')}
+                    className="cursor-pointer transition-colors hover:bg-muted/50"
                   >
-                    <TableCell className="text-muted-foreground">{patientId}</TableCell>
-                    <TableCell>{fullName}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {fmtDate(String(p.age || ''))}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{String(t(p.sex))}</TableCell>
-                    <TableCell className="text-muted-foreground">{diagnosis}</TableCell>
-                    {appModeStore.showStudyGroup && (
-                      <TableCell>
-                        {studyGroup && <Badge variant="dashboard">{studyGroup}</Badge>}
+                    <div className="flex gap-1 items-center">
+                      {t('Login')}
+                      {renderSortIcon('last_login')}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    onClick={() => handleColSort('adherence')}
+                    className="cursor-pointer transition-colors hover:bg-muted/50"
+                  >
+                    <div className="flex gap-1 items-center">
+                      {t('Adherence')}
+                      {renderSortIcon('adherence')}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    onClick={() => handleColSort('feedback')}
+                    className="cursor-pointer transition-colors hover:bg-muted/50"
+                  >
+                    <div className="flex gap-1 items-center">
+                      {t('Feedback')}
+                      {renderSortIcon('feedback')}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    onClick={() => handleColSort('wear')}
+                    className="cursor-pointer transition-colors hover:bg-muted/50"
+                  >
+                    <div className="flex gap-1 items-center">
+                      {t('Wear')}
+                      {renderSortIcon('wear')}
+                    </div>
+                  </TableHead>
+                  <TableHead
+                    onClick={() => handleColSort('flag')}
+                    className="cursor-pointer transition-colors hover:bg-muted/50 text-center"
+                  >
+                    <div className="flex gap-1 items-center justify-center">
+                      {t('Flag')}
+                      {renderSortIcon('flag')}
+                    </div>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activePatients.map((p) => {
+                  const fullName = `${p.first_name || ''} ${p.name || ''}`.trim();
+                  const diagnosis = Array.isArray(p.diagnosis)
+                    ? p.diagnosis.map((d) => String(t(d))).join(', ')
+                    : String(t(p.diagnosis || ''));
+                  const patientId = getPatientIdStr(p);
+                  const mongoId = getPatientMongoId(p);
+                  const studyGroup = getPatientExtra(p).study_group;
+
+                  return (
+                    <TableRow
+                      key={mongoId || patientId}
+                      role="link"
+                      tabIndex={0}
+                      onClick={() => handlePatientClick(mongoId)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handlePatientClick(mongoId);
+                        }
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <TableCell className="text-muted-foreground">{patientId}</TableCell>
+                      <TableCell>{fullName}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {fmtDate(String(p.age || ''))}
                       </TableCell>
-                    )}
-                    <TableCell>
-                      <LoginBadge patient={p} />
-                    </TableCell>
-                    <TableCell>
-                      <AdherenceProgress patient={p} />
-                    </TableCell>
-                    <TableCell>
-                      <FeedbackBadge patient={p} />
-                    </TableCell>
-                    <TableCell>
-                      <WearBadge patient={p} />
-                    </TableCell>
-                    <TableCell>
-                      <FlagActions patient={p} store={store} />
+                      <TableCell className="text-muted-foreground">{String(t(p.sex))}</TableCell>
+                      <TableCell className="text-muted-foreground">{diagnosis}</TableCell>
+                      {appModeStore.showStudyGroup && (
+                        <TableCell>
+                          {studyGroup && <Badge variant="dashboard">{studyGroup}</Badge>}
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        <LoginBadge patient={p} />
+                      </TableCell>
+                      <TableCell>
+                        <AdherenceProgress patient={p} />
+                      </TableCell>
+                      <TableCell>
+                        <FeedbackBadge patient={p} />
+                      </TableCell>
+                      <TableCell>
+                        <WearBadge patient={p} />
+                      </TableCell>
+                      <TableCell>
+                        <FlagActions patient={p} store={store} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+
+                {activePatients.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={appModeStore.showStudyGroup ? 11 : 10}
+                      className="text-center text-muted-foreground"
+                    >
+                      {String(t('No active patients'))}
                     </TableCell>
                   </TableRow>
-                );
-              })}
-
-              {activePatients.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={appModeStore.showStudyGroup ? 11 : 10}
-                    className="text-center text-muted-foreground"
-                  >
-                    {store.loading
-                      ? String(t('Loading patients...'))
-                      : String(t('No active patients'))}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TooltipProvider>
+                )}
+              </TableBody>
+            </Table>
+          </TooltipProvider>
+        )}
 
         <Collapsible open={store.showCompleted}>
           <CollapsibleContent className="mt-4 flex flex-col gap-2">
