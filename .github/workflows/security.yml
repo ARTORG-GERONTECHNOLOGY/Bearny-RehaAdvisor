@@ -130,6 +130,9 @@ jobs:
     name: Docker Image Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
+      security-events: write
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
@@ -173,7 +176,7 @@ jobs:
       - name: Scan frontend image
         uses: aquasecurity/trivy-action@master
         with:
-          input: 'reha-advisor:frontend-scan'
+          image-ref: 'reha-advisor:frontend-scan'
           format: 'sarif'
           output: 'trivy-frontend.sarif'
 
@@ -190,16 +193,21 @@ jobs:
       - name: Scan backend image
         uses: aquasecurity/trivy-action@master
         with:
-          input: 'reha-advisor:backend-scan'
+          image-ref: 'reha-advisor:backend-scan'
           format: 'sarif'
           output: 'trivy-backend.sarif'
 
-      - name: Upload Docker scan results
+      - name: Upload frontend scan results
         uses: github/codeql-action/upload-sarif@v2
         with:
-          sarif_file: |
-            trivy-frontend.sarif
-            trivy-backend.sarif
+          sarif_file: 'trivy-frontend.sarif'
+          category: 'trivy-frontend'
+
+      - name: Upload backend scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-backend.sarif'
+          category: 'trivy-backend'
 
   secret-scanning:
     name: Secret Scanning
