@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { makeAutoObservable, reaction, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import { SessionCache } from '@/utils/sessionCache';
@@ -48,9 +49,12 @@ export type PatientRec = {
   // translations
   translated_title?: string;
   translated_description?: string;
-  // 2-letter target language translated_title/translated_description were translated into.
+  // 2-letter language translateText rendered these into — not the language the plan was fetched in.
   translatedForLang?: string;
 };
+
+// Normalised exactly as translate.ts derives its target, so the two are comparable.
+const currentUiLang = () => (i18next.language || 'en').slice(0, 2);
 
 // Identifies the source text a translation belongs to, so a refetch can carry it over.
 const translationKey = (
@@ -128,12 +132,15 @@ class PatientInterventionsStore {
     if (!this.items.length) this.loading = true;
     this.clearError();
 
+    // The plan is fetched in uiLang (which may be the patient's stored preference), but
+    // translateText renders into i18next.language. They are not always the same.
     const lang = (uiLang || 'en').slice(0, 2);
+    const target = currentUiLang();
 
     // Rows publish before translations resolve, so carry known ones over or a refetch flashes back to source.
     const previousTranslations = new Map(
       this.items
-        .filter((r) => r.translated_title !== undefined && r.translatedForLang === lang)
+        .filter((r) => r.translated_title !== undefined && r.translatedForLang === target)
         .map((r) => [translationKey(r), r] as const)
     );
 
@@ -216,14 +223,15 @@ class PatientInterventionsStore {
                 translated_title: title.translatedText,
                 translated_description: desc.translatedText,
                 // Unmarked on failure so the next fetch retries instead of reusing raw text.
-                translatedForLang: failed ? undefined : lang,
+                translatedForLang: failed ? undefined : target,
               },
             ] as const;
           })
         )
       );
 
-      if (generation !== this.fetchGeneration) return;
+      // A switch mid-fetch means these were rendered into a different language than `target`.
+      if (generation !== this.fetchGeneration || currentUiLang() !== target) return;
 
       runInAction(() => {
         this.items = this.items.map((r) => {
