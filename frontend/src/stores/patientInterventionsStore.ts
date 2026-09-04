@@ -132,8 +132,7 @@ class PatientInterventionsStore {
     if (!this.items.length) this.loading = true;
     this.clearError();
 
-    // The plan is fetched in uiLang (which may be the patient's stored preference), but
-    // translateText renders into i18next.language. They are not always the same.
+    // uiLang selects the content variant; translateText renders into i18next.language.
     const lang = (uiLang || 'en').slice(0, 2);
     const target = currentUiLang();
 

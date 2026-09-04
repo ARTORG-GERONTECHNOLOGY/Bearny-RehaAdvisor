@@ -341,8 +341,7 @@ describe('PatientInterventionsStore', () => {
       await store.fetchPlan('patient-1', 'de');
       expect(store.items[0].translated_title).toBe('Breathing-de');
 
-      // Refetch with translations left pending, so we can observe the window between the
-      // rows being published and the new translations landing.
+      // Leave translations pending so we can observe the window before they land.
       const resolvers: Array<(value: unknown) => void> = [];
       (translateText as jest.Mock).mockImplementation(
         () =>

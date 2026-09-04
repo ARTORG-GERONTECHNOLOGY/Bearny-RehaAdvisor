@@ -127,10 +127,8 @@ describe('translateText', () => {
     await translateText('Ein eigener Satz');
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
-    // Separate signals would let a slow detect and a slow translate each burn the full
-    // timeout, doubling the worst case the constant is meant to bound.
-    // Compared as a boolean: a failing toBe() on two AbortSignals makes Jest deep-copy
-    // cyclic objects to build its diff, which crashes the reporter instead of reporting.
+    // Separate signals would let detect and translate each burn the full timeout.
+    // Compared as a boolean: a failing toBe() on cyclic AbortSignals crashes Jest's reporter.
     const sameSignal = mockFetch.mock.calls[1][1].signal === mockFetch.mock.calls[0][1].signal;
     expect(sameSignal).toBe(true);
   });

@@ -1013,8 +1013,7 @@ describe('TherapistPatientsStore', () => {
       resolvePost!({ data: { comments: [{ text: "p1's note" }] } });
       await stale;
 
-      // Nothing else resets this flag and addComment refuses to run while it is set, so
-      // scoping it to the patient would lock commenting out permanently.
+      // Scoping this would strand the lock, since addComment won't run while it is set.
       expect(store.commentSubmitting).toBe(false);
       store.setNewCommentText('note for p2');
       (apiClient.post as jest.Mock).mockResolvedValueOnce({

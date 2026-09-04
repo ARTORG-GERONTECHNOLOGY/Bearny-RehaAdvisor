@@ -387,8 +387,7 @@ export class TherapistPatientsStore {
         this.commentsError = message;
       });
     } finally {
-      // Deliberately unscoped: nothing else clears this flag and addComment refuses to run
-      // while it is set, so scoping it would lock the therapist out of commenting for good.
+      // Unscoped on purpose: nothing else clears it, and addComment won't run while it is set.
       runInAction(() => {
         this.commentSubmitting = false;
       });

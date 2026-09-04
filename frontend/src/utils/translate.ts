@@ -54,8 +54,7 @@ function cacheResult(key: string, result: TranslateResult) {
 async function performTranslate(text: string, target: string): Promise<TranslateResult> {
   await acquireSlot();
 
-  // One budget for the whole call, created after the queue wait so time spent queued is not
-  // charged against it. Two independent timeouts would let detect + translate stack to 2x.
+  // One budget for the whole call, created after the queue wait so queuing isn't charged to it.
   const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
 
   try {
