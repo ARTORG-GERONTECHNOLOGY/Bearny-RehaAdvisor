@@ -134,11 +134,14 @@ jobs:
     permissions:
       contents: read
       security-events: write
-    # Also runnable by hand on any branch, so this job can be proven before it is merged
-    # rather than only after a push to main.
+    # TEMPORARY for pre-merge verification on this branch; remove before merging.
+    # workflow_dispatch can't be used until this file is on main (GitHub requires the
+    # trigger to already exist there), so pull_request is the only way to run this job
+    # on a branch before merge.
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main')
       || github.event_name == 'workflow_dispatch'
+      || github.event_name == 'pull_request'
 
     steps:
       - name: Checkout code
