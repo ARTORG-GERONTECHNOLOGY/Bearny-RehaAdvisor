@@ -5,7 +5,6 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
-  workflow_dispatch:
   schedule:
     - cron: '0 2 * * *'  # Daily at 2 AM UTC
 
@@ -134,14 +133,7 @@ jobs:
     permissions:
       contents: read
       security-events: write
-    # TEMPORARY for pre-merge verification on this branch; remove before merging.
-    # workflow_dispatch can't be used until this file is on main (GitHub requires the
-    # trigger to already exist there), so pull_request is the only way to run this job
-    # on a branch before merge.
-    if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
-      || github.event_name == 'workflow_dispatch'
-      || github.event_name == 'pull_request'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
