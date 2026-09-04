@@ -119,6 +119,22 @@ describe('translateText', () => {
     expect(options.signal).toBeInstanceOf(AbortSignal);
   });
 
+  it('caps detect and translate under one shared budget, not one each', async () => {
+    mockFetch
+      .mockResolvedValueOnce(makeJsonResponse([{ language: 'de' }]))
+      .mockResolvedValueOnce(makeJsonResponse({ translatedText: 'Hello' }));
+
+    await translateText('Ein eigener Satz');
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // Separate signals would let a slow detect and a slow translate each burn the full
+    // timeout, doubling the worst case the constant is meant to bound.
+    // Compared as a boolean: a failing toBe() on two AbortSignals makes Jest deep-copy
+    // cyclic objects to build its diff, which crashes the reporter instead of reporting.
+    const sameSignal = mockFetch.mock.calls[1][1].signal === mockFetch.mock.calls[0][1].signal;
+    expect(sameSignal).toBe(true);
+  });
+
   it('returns original text with detectedSourceLanguage "error" when the request is aborted', async () => {
     mockFetch.mockImplementationOnce((_url, options) => {
       const { signal } = options as { signal: AbortSignal };

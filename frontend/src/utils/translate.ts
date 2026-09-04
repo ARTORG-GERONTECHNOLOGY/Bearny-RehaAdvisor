@@ -54,13 +54,17 @@ function cacheResult(key: string, result: TranslateResult) {
 async function performTranslate(text: string, target: string): Promise<TranslateResult> {
   await acquireSlot();
 
+  // One budget for the whole call, created after the queue wait so time spent queued is not
+  // charged against it. Two independent timeouts would let detect + translate stack to 2x.
+  const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+
   try {
     // First: detect source language
     const detectRes = await fetch('/translate/detect', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ q: text }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal,
     });
 
     const detected = await detectRes.json();
@@ -84,7 +88,7 @@ async function performTranslate(text: string, target: string): Promise<Translate
         target,
         format: 'text',
       }),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal,
     });
 
     if (!translateRes.ok) {

@@ -77,8 +77,15 @@ export class TherapistPatientsStore {
   // sort
   sortBy: SortKey = 'ampel';
 
+  // Bumped per fetchPatients() call so a stale fetch can't overwrite a newer one's patients.
+  private fetchGeneration = 0;
+
   constructor() {
-    makeAutoObservable(this, {}, { autoBind: true });
+    makeAutoObservable<TherapistPatientsStore, 'fetchGeneration'>(
+      this,
+      { fetchGeneration: false },
+      { autoBind: true }
+    );
   }
 
   // -------------------------
@@ -344,11 +351,13 @@ export class TherapistPatientsStore {
     } catch (err: unknown) {
       const { message } = extractApiErrorWithDetails(err, t('Failed to load comments.'));
       runInAction(() => {
+        if (this.flagCommentsPatientId !== patientId) return;
         this.commentsError = message;
       });
     } finally {
+      // Safe to scope: openFlagComments always refetches, so this can't strand the spinner.
       runInAction(() => {
-        this.commentsLoading = false;
+        if (this.flagCommentsPatientId === patientId) this.commentsLoading = false;
       });
     }
   }
@@ -374,9 +383,12 @@ export class TherapistPatientsStore {
     } catch (err: unknown) {
       const { message } = extractApiErrorWithDetails(err, t('Failed to add comment.'));
       runInAction(() => {
+        if (this.flagCommentsPatientId !== patientId) return;
         this.commentsError = message;
       });
     } finally {
+      // Deliberately unscoped: nothing else clears this flag and addComment refuses to run
+      // while it is set, so scoping it would lock the therapist out of commenting for good.
       runInAction(() => {
         this.commentSubmitting = false;
       });
@@ -387,6 +399,7 @@ export class TherapistPatientsStore {
   // Data loading
   // -------------------------
   async fetchPatients(t: (key: string) => string) {
+    const generation = ++this.fetchGeneration;
     // A manual refresh keeps the current rows on screen instead of flashing the skeleton.
     if (!this.patients.length) this.loading = true;
     this.error = '';
@@ -395,6 +408,8 @@ export class TherapistPatientsStore {
 
     try {
       const res = await apiClient.get(`therapists/${authStore.id}/patients`);
+      // Covers every write below: there is no further await, so nothing can supersede us after this.
+      if (generation !== this.fetchGeneration) return;
       const payload = res.data as unknown;
 
       // If API returns an error-ish envelope: { success:false, ... }
@@ -438,6 +453,8 @@ export class TherapistPatientsStore {
         this.patients = sorted;
       });
     } catch (err: unknown) {
+      // Without this a stale failure would blank a list a newer fetch already filled.
+      if (generation !== this.fetchGeneration) return;
       const { message, details } = extractApiErrorWithDetails(
         err,
         t('Failed to fetch patients. Please try again later.')
@@ -448,10 +465,13 @@ export class TherapistPatientsStore {
         this.patients = [];
       });
     } finally {
-      runInAction(() => {
-        this.loading = false;
-        this.hasLoaded = true;
-      });
+      // `finally` runs even on the early returns above, so the newer call keeps ownership.
+      if (generation === this.fetchGeneration) {
+        runInAction(() => {
+          this.loading = false;
+          this.hasLoaded = true;
+        });
+      }
     }
   }
 
