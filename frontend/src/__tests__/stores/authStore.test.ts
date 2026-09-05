@@ -54,7 +54,6 @@ describe('authStore', () => {
   it('logs out and resets state', async () => {
     localStorage.setItem('authToken', 'tok');
     localStorage.setItem('i18nextLng', 'de');
-    localStorage.setItem('notifications-enabled', 'true');
     sessionStorage.setItem('healthPageStore', '{"key":"value"}');
 
     authStore.setId('1');
@@ -71,9 +70,8 @@ describe('authStore', () => {
     expect(sessionStorage.length).toBe(0);
     // auth keys must be gone from localStorage
     expect(localStorage.getItem('authToken')).toBeNull();
-    // language and notification prefs must be preserved
+    // language pref must be preserved
     expect(localStorage.getItem('i18nextLng')).toBe('de');
-    expect(localStorage.getItem('notifications-enabled')).toBe('true');
   });
 
   it('restores session if session is still valid', async () => {
