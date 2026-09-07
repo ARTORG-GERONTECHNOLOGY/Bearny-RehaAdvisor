@@ -251,8 +251,15 @@ def _aggregate_sleep(points: list) -> dict | None:
             continue
         dur_ms = int((end_dt - start_dt).total_seconds() * 1000)
         total_duration_ms += dur_ms
-        total_minutes_asleep += summary.get("minutesAsleep") or (dur_ms // 60000)
-        total_awakenings += summary.get("awakenings") or 0
+        # All numeric fields in the sleep summary are returned as strings by the API.
+        ma = summary.get("minutesAsleep")
+        total_minutes_asleep += int(ma) if ma is not None else (dur_ms // 60000)
+        # Awakenings count: sum AWAKE stage counts from stagesSummary; fall back to 0.
+        aw = next(
+            (int(sg.get("count") or 0) for sg in summary.get("stagesSummary", []) if sg.get("type") == "AWAKE"),
+            0,
+        )
+        total_awakenings += aw
         if earliest_start is None or start_dt < earliest_start:
             earliest_start = start_dt
         if latest_end is None or end_dt > latest_end:
