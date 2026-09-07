@@ -5,7 +5,7 @@ import logging
 from django.core.management.base import BaseCommand
 
 from core.models import GoogleHealthUserToken
-from core.views.google_health_sync import _sync_day, get_valid_google_access_token
+from core.views.google_health_sync import _prefetch_unfiltered, _sync_day, get_valid_google_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,13 @@ class Command(BaseCommand):
             "--days",
             type=int,
             default=30,
-            help="Number of days to backfill (default 30, max 90)",
+            help="Number of days to backfill counting back from today (default 30)",
+        )
+        parser.add_argument(
+            "--start-date",
+            type=str,
+            default=None,
+            help="Explicit start date YYYY-MM-DD; overrides --days",
         )
         parser.add_argument(
             "--user",
@@ -28,18 +34,29 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **kwargs):
-        days = min(max(1, kwargs.get("days", 30)), 90)
         user_id_filter = kwargs.get("user")
-
         today = datetime.date.today()
-        start_date = today - datetime.timedelta(days=days)
-        date_range = [start_date + datetime.timedelta(days=i) for i in range(days + 1)]
+
+        if kwargs.get("start_date"):
+            start_date = datetime.date.fromisoformat(kwargs["start_date"])
+        else:
+            days = max(1, kwargs.get("days", 30))
+            start_date = today - datetime.timedelta(days=days)
+
+        date_range = []
+        d = start_date
+        while d <= today:
+            date_range.append(d)
+            d += datetime.timedelta(days=1)
 
         tokens = GoogleHealthUserToken.objects.all()
         if user_id_filter:
             tokens = tokens.filter(user=user_id_filter)
 
-        self.stdout.write(f"[google_health] Starting sync for {tokens.count()} user(s) over {days} days")
+        self.stdout.write(
+            f"[google_health] Starting sync for {tokens.count()} user(s)"
+            f" from {start_date} to {today} ({len(date_range)} days)"
+        )
 
         for token in tokens:
             user = token.user
@@ -50,11 +67,18 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f"  Skipped user {user.id}: token refresh failed"))
                 continue
 
+            self.stdout.write(f"  Pre-fetching sleep / resting HR / HRV for user {user.id}…")
+            try:
+                prefetch = _prefetch_unfiltered(access_token)
+            except Exception as e:
+                logger.error("[google_health] Pre-fetch failed for user %s: %s", user.id, e)
+                prefetch = None
+
             written = 0
             skipped = 0
             for d in date_range:
                 try:
-                    ok = _sync_day(user, access_token, d)
+                    ok = _sync_day(user, access_token, d, prefetch=prefetch)
                     if ok:
                         written += 1
                     else:
