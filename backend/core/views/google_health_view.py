@@ -233,15 +233,9 @@ def google_health_status(request, patient_id):
     connected = bool(token) and not getattr(token, "is_revoked", False)
     latest = GoogleHealthData.objects(user=user).order_by("-date").first()
 
+    # Production tokens do not expire after 7 days; reconnect is never required.
     needs_reconnect = False
     days_until_expiry = None
-    if token and connected and getattr(token, "connected_at", None):
-        connected_at = token.connected_at
-        if timezone.is_naive(connected_at):
-            connected_at = timezone.make_aware(connected_at)
-        elapsed = (timezone.now() - connected_at).days
-        days_until_expiry = max(0, 7 - elapsed)
-        needs_reconnect = elapsed >= 6
 
     patient = None
     try:

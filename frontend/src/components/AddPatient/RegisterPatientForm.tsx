@@ -46,7 +46,7 @@ const initialFormData = (therapist: string): FormData => ({
   password: '',
   repeatPassword: '',
   initialQuestionnaireEnabled: false,
-  wearableDevice: 'fitbit',
+  wearableDevice: 'google_health',
   userType: 'Patient',
   patient_code: '',
   therapist,
