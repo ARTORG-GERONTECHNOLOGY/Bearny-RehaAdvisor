@@ -160,25 +160,23 @@ def _list_points(access_token: str, data_type: str, filter_expr: str = "") -> li
     return points
 
 
-def _fetch_sleep(access_token: str, d: datetime.date) -> dict | None:
+def _prefetch_unfiltered(access_token: str) -> dict:
     """
-    Fetch and aggregate all sleep data points for date d.
+    Pre-fetch all data for the three types that don't support AIP-160 filters
+    (sleep, daily-resting-heart-rate, daily-heart-rate-variability).
 
-    The sleep data type does not support AIP-160 filter expressions, so all points
-    are fetched and filtered client-side by startTime (6pm previous day to 6pm target
-    day) to capture overnight sleep for the correct calendar date.
-
-    The Google Health API may return multiple data points for one night (e.g. two
-    consecutive sessions or separate stage segments).  All are summed so the result
-    matches what Google Health displays, rather than showing only the longest segment.
+    Returns a dict with pre-built lookups:
+      {
+        "sleep":       {date: [points]},           # keyed by civil date (date the night belongs to)
+        "resting_hr":  {date: int|None},           # keyed by civil date
+        "hrv":         {date: dict|None},          # keyed by civil date
+      }
+    Call once per user before iterating over dates; pass the result to _sync_day()
+    as the `prefetch` argument to avoid re-fetching on every day.
     """
-    prev = d - timedelta(days=1)
-    prev_cutoff = datetime.datetime.combine(prev, datetime.time(18, 0), tzinfo=datetime.timezone.utc)
-    day_cutoff = datetime.datetime.combine(d, datetime.time(18, 0), tzinfo=datetime.timezone.utc)
-
-    all_points = _list_points(access_token, "sleep")
-    points = []
-    for pt in all_points:
+    # --- sleep: group by civil date (6pm prev to 6pm next = night for date d) ---
+    sleep_by_date: dict[datetime.date, list] = {}
+    for pt in _list_points(access_token, "sleep"):
         start_str = pt.get("sleep", {}).get("interval", {}).get("startTime", "")
         if not start_str:
             continue
@@ -186,12 +184,48 @@ def _fetch_sleep(access_token: str, d: datetime.date) -> dict | None:
             start_dt = datetime.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
         except ValueError:
             continue
-        if prev_cutoff <= start_dt < day_cutoff:
-            points.append(pt)
+        # Civil date: if session started after 18:00 UTC, it belongs to the NEXT calendar day
+        if start_dt.hour >= 18:
+            civil_date = start_dt.date() + timedelta(days=1)
+        else:
+            civil_date = start_dt.date()
+        sleep_by_date.setdefault(civil_date, []).append(pt)
 
-    if not points:
-        return None
+    # --- resting HR: keyed by the date struct ---
+    resting_hr_by_date: dict[datetime.date, int] = {}
+    for pt in _list_points(access_token, "daily-resting-heart-rate"):
+        rhr = pt.get("dailyRestingHeartRate", {})
+        pd = rhr.get("date", {})
+        try:
+            key = datetime.date(pd["year"], pd["month"], pd["day"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        bpm = rhr.get("beatsPerMinute")
+        if bpm is not None:
+            resting_hr_by_date[key] = int(bpm)
 
+    # --- HRV: keyed by the date struct ---
+    hrv_by_date: dict[datetime.date, dict] = {}
+    for pt in _list_points(access_token, "daily-heart-rate-variability"):
+        hrv_data = pt.get("dailyHeartRateVariability", {})
+        pd = hrv_data.get("date", {})
+        try:
+            key = datetime.date(pd["year"], pd["month"], pd["day"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        rmssd = hrv_data.get("averageHeartRateVariabilityMilliseconds")
+        if rmssd is not None:
+            hrv_by_date[key] = {"dailyRmssd": rmssd}
+
+    return {
+        "sleep": sleep_by_date,
+        "resting_hr": resting_hr_by_date,
+        "hrv": hrv_by_date,
+    }
+
+
+def _aggregate_sleep(points: list) -> dict | None:
+    """Aggregate a list of sleep data points for one night into a single sleep record."""
     total_duration_ms = 0
     total_minutes_asleep = 0
     total_awakenings = 0
@@ -226,6 +260,37 @@ def _fetch_sleep(access_token: str, d: datetime.date) -> dict | None:
         "sleep_end": latest_end.isoformat(),
         "awakenings": total_awakenings,
     }
+
+
+def _fetch_sleep(access_token: str, d: datetime.date) -> dict | None:
+    """
+    Fetch and aggregate all sleep data points for date d (single-day use).
+
+    For backfills over multiple days, call _prefetch_unfiltered() once and pass
+    the result to _sync_day() — this avoids fetching all sleep data on every iteration.
+
+    The sleep data type does not support AIP-160 filter expressions, so all points
+    are fetched and filtered client-side by startTime (6pm previous day to 6pm target
+    day) to capture overnight sleep for the correct calendar date.
+    """
+    prev = d - timedelta(days=1)
+    prev_cutoff = datetime.datetime.combine(prev, datetime.time(18, 0), tzinfo=datetime.timezone.utc)
+    day_cutoff = datetime.datetime.combine(d, datetime.time(18, 0), tzinfo=datetime.timezone.utc)
+
+    all_points = _list_points(access_token, "sleep")
+    points = []
+    for pt in all_points:
+        start_str = pt.get("sleep", {}).get("interval", {}).get("startTime", "")
+        if not start_str:
+            continue
+        try:
+            start_dt = datetime.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if prev_cutoff <= start_dt < day_cutoff:
+            points.append(pt)
+
+    return _aggregate_sleep(points)
 
 
 def _fetch_exercise(access_token: str, d: datetime.date) -> list[dict]:
@@ -306,10 +371,13 @@ def _parse_hr_zones(value: dict) -> list[HeartRateZone]:
     return zones
 
 
-def _sync_day(user, access_token: str, d: datetime.date) -> bool:
+def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None = None) -> bool:
     """
     Fetch and upsert one day of Google Health data for *user* using the v4 API.
     Returns True if a row was written.
+
+    For multi-day backfills, pass the result of _prefetch_unfiltered(access_token)
+    as `prefetch` so that sleep, resting HR, and HRV are not re-fetched on every call.
     """
 
     def rollup(data_type: str) -> dict:
@@ -347,23 +415,44 @@ def _sync_day(user, access_token: str, d: datetime.date) -> bool:
         active_minutes = int(active_minutes)
 
     # ---- Resting heart rate ----
-    # daily-resting-heart-rate does not support dailyRollUp or AIP-160 filters;
-    # fetch all points and match by date client-side.
-    resting_hr = None
-    for pt in _list_points(access_token, "daily-resting-heart-rate"):
-        rhr = pt.get("dailyRestingHeartRate", {})
-        pt_date = rhr.get("date", {})
-        if pt_date.get("year") == d.year and pt_date.get("month") == d.month and pt_date.get("day") == d.day:
-            bpm = rhr.get("beatsPerMinute")
-            if bpm is not None:
-                resting_hr = int(bpm)
-            break
+    # daily-resting-heart-rate does not support dailyRollUp or AIP-160 filters.
+    # Use pre-fetched lookup when available; fall back to a full fetch for single-day use.
+    if prefetch is not None:
+        resting_hr = prefetch["resting_hr"].get(d)
+    else:
+        resting_hr = None
+        for pt in _list_points(access_token, "daily-resting-heart-rate"):
+            rhr = pt.get("dailyRestingHeartRate", {})
+            pt_date = rhr.get("date", {})
+            if (
+                pt_date.get("year") == d.year
+                and pt_date.get("month") == d.month
+                and pt_date.get("day") == d.day
+            ):
+                bpm = rhr.get("beatsPerMinute")
+                if bpm is not None:
+                    resting_hr = int(bpm)
+                break
 
-    # ---- HRV (now available via the new API) ----
-    v = rollup("daily-heart-rate-variability")
-    hrv_obj = v.get("dailyHeartRateVariability", {})
-    rmssd = hrv_obj.get("rmssd")
-    hrv = {"dailyRmssd": rmssd} if rmssd is not None else None
+    # ---- HRV ----
+    # daily-heart-rate-variability does not support dailyRollUp or AIP-160 filters.
+    # Use pre-fetched lookup when available; fall back to a full fetch for single-day use.
+    if prefetch is not None:
+        hrv = prefetch["hrv"].get(d)
+    else:
+        hrv = None
+        for pt in _list_points(access_token, "daily-heart-rate-variability"):
+            hrv_data = pt.get("dailyHeartRateVariability", {})
+            pt_date = hrv_data.get("date", {})
+            if (
+                pt_date.get("year") == d.year
+                and pt_date.get("month") == d.month
+                and pt_date.get("day") == d.day
+            ):
+                rmssd = hrv_data.get("averageHeartRateVariabilityMilliseconds")
+                if rmssd is not None:
+                    hrv = {"dailyRmssd": rmssd}
+                break
 
     # ---- HR zones + wear time ----
     v = rollup("time-in-heart-rate-zone")
@@ -378,7 +467,10 @@ def _sync_day(user, access_token: str, d: datetime.date) -> bool:
         weight_kg = float(weight_kg)
 
     # ---- Sleep ----
-    sleep_raw = _fetch_sleep(access_token, d)
+    if prefetch is not None:
+        sleep_raw = _aggregate_sleep(prefetch["sleep"].get(d, []))
+    else:
+        sleep_raw = _fetch_sleep(access_token, d)
     sleep_obj = SleepData(**sleep_raw) if sleep_raw else None
     sleep_minutes = (sleep_raw.get("minutes_asleep") or sleep_raw["sleep_duration"] // 60000) if sleep_raw else 0
 
