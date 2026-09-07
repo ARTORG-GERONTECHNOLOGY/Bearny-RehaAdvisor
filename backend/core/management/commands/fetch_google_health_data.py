@@ -15,11 +15,15 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--days", type=int, default=30,
+            "--days",
+            type=int,
+            default=30,
             help="Number of days to backfill (default 30, max 90)",
         )
         parser.add_argument(
-            "--user", type=str, default=None,
+            "--user",
+            type=str,
+            default=None,
             help="MongoDB user ID — backfill a single user only",
         )
 

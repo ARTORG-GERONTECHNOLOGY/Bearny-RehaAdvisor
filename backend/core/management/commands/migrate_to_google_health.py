@@ -12,15 +12,20 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--project", type=str, default=None,
+            "--project",
+            type=str,
+            default=None,
             help="Filter by project name (e.g. COMPASS, COPAIN)",
         )
         parser.add_argument(
-            "--patient", type=str, default=None,
+            "--patient",
+            type=str,
+            default=None,
             help="Filter by patient code (e.g. 934-01)",
         )
         parser.add_argument(
-            "--dry-run", action="store_true",
+            "--dry-run",
+            action="store_true",
             help="Preview changes without saving",
         )
 
