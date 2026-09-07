@@ -58,8 +58,7 @@ test.describe('Patient page and functions', () => {
     await modal.locator('#password').fill(patientPassword as string);
 
     const wearableStatusRequest = page.waitForRequest(
-      (req) =>
-        req.url().includes('/google-health/status/') || req.url().includes('/fitbit/status/')
+      (req) => req.url().includes('/google-health/status/') || req.url().includes('/fitbit/status/')
     );
     const planRequest = page.waitForRequest((req) =>
       req.url().includes('/patients/rehabilitation-plan/patient/')
