@@ -15,13 +15,19 @@ logger = logging.getLogger(__name__)
 _BASE = "https://health.googleapis.com/v4/users/me"
 _TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-# Canonical zone names matching the frontend chart (HRZonesStacked.tsx)
+# Canonical zone names matching the frontend chart (HRZonesStacked.tsx).
+# Covers both Fitbit-style names (FAT_BURN etc.) and Google Health v4 names (MODERATE etc.).
 _ZONE_NAME_MAP = {
+    # Google Health v4 names
+    "LIGHT": "Out of Range",
+    "MODERATE": "Fat Burn",
+    "VIGOROUS": "Cardio",
+    "VIGOROUS_PLUS": "Peak",
+    # Fitbit-style names (fallback)
     "OUT_OF_RANGE": "Out of Range",
     "FAT_BURN": "Fat Burn",
     "CARDIO": "Cardio",
     "PEAK": "Peak",
-    # In case the API returns lowercase or Title Case variants
     "out_of_range": "Out of Range",
     "fat_burn": "Fat Burn",
     "cardio": "Cardio",
@@ -112,7 +118,9 @@ def _daily_rollup(access_token: str, data_type: str, d: datetime.date) -> dict:
         return {}
 
     pts = resp.json().get("rollupDataPoints", [])
-    return pts[0].get("value", {}) if pts else {}
+    # The rollup data point has no "value" wrapper — the type-specific data is at the
+    # top level alongside "civilStartTime"/"civilEndTime". Return the whole dict.
+    return pts[0] if pts else {}
 
 
 def _list_points(access_token: str, data_type: str, filter_expr: str = "") -> list[dict]:
@@ -337,34 +345,36 @@ def _fetch_exercise(access_token: str, d: datetime.date) -> list[dict]:
     return sessions
 
 
-def _parse_hr_zones(value: dict) -> list[HeartRateZone]:
+def _parse_hr_zones(rollup_pt: dict) -> list[HeartRateZone]:
     """
-    Parse time-in-heart-rate-zone rollup value into HeartRateZone embedded docs.
-    NOTE: The exact nested key name ("timeInHeartRateZone" vs another) should be
-    verified against a live API response. Fall back to checking all dict values.
+    Parse a time-in-heart-rate-zone rollup data point into HeartRateZone embedded docs.
+
+    Google Health v4 schema (confirmed from live API):
+      rollup_pt["timeInHeartRateZone"]["timeInHeartRateZones"] = [
+        {"heartRateZone": "LIGHT", "duration": "81480s"},
+        ...
+      ]
+    Duration is a string like "81480s" (seconds); must be converted to minutes.
     """
-    zones_raw = value.get("timeInHeartRateZone", {}).get("zones", [])
-
-    # Fallback: search one level deep if the top-level key differs
-    if not zones_raw:
-        for v in value.values():
-            if isinstance(v, dict) and "zones" in v:
-                zones_raw = v["zones"]
-                break
-
+    zones_raw = rollup_pt.get("timeInHeartRateZone", {}).get("timeInHeartRateZones", [])
     zones = []
     for z in zones_raw:
-        raw_name = z.get("name", "")
+        raw_name = z.get("heartRateZone", "")
         name = _ZONE_NAME_MAP.get(raw_name, raw_name)
-        minutes = z.get("minutes") or 0
+        dur_str = z.get("duration", "0s")
+        try:
+            seconds = int(str(dur_str).rstrip("s") or 0)
+        except ValueError:
+            seconds = 0
+        minutes = seconds // 60
         if minutes <= 0:
             continue
         zones.append(
             HeartRateZone(
                 name=name,
                 minutes=minutes,
-                min=z.get("minBpm"),
-                max=z.get("maxBpm"),
+                min=None,
+                max=None,
                 caloriesOut=None,
             )
         )
@@ -383,36 +393,38 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     def rollup(data_type: str) -> dict:
         return _daily_rollup(access_token, data_type, d)
 
-    # ---- Steps ----
+    # Google Health v4 rollup: data is at the top level of the rollup data point,
+    # NOT inside a "value" wrapper. Field names also differ from what the initial
+    # implementation assumed — all confirmed from live API responses.
+
+    # ---- Steps ----  steps.countSum (string)
     v = rollup("steps")
-    steps = v.get("steps", {}).get("count")
-    if steps is not None:
-        steps = int(steps)
+    steps_raw = v.get("steps", {}).get("countSum")
+    steps = int(steps_raw) if steps_raw is not None else None
 
-    # ---- Calories ----
+    # ---- Calories ---- activeEnergyBurned.kilocaloriesSum (field unconfirmed — no data in test account)
     v = rollup("active-energy-burned")
-    calories = v.get("activeEnergyBurned", {}).get("kilocalories")
-    if calories is not None:
-        calories = float(calories)
+    cal_raw = v.get("activeEnergyBurned", {}).get("kilocaloriesSum")
+    calories = float(cal_raw) if cal_raw is not None else None
 
-    # ---- Distance (meters → km) ----
+    # ---- Distance (mm → km) ---- distance.millimetersSum (string)
     v = rollup("distance")
-    raw_m = v.get("distance", {}).get("meters")
-    distance = round(raw_m / 1000, 3) if raw_m is not None else None
+    mm_raw = v.get("distance", {}).get("millimetersSum")
+    distance = round(int(mm_raw) / 1_000_000, 3) if mm_raw is not None else None
 
-    # ---- Floors ----
+    # ---- Floors ---- floors.countSum (string)
     v = rollup("floors")
-    floors = v.get("floors", {}).get("count")
-    if floors is not None:
-        floors = int(floors)
+    floors_raw = v.get("floors", {}).get("countSum")
+    floors = int(floors_raw) if floors_raw is not None else None
 
-    # ---- Active minutes ----
+    # ---- Active minutes ---- sum of activeMinutesRollupByActivityLevel[*].activeMinutesSum
     v = rollup("active-minutes")
-    # Field name may be "activeMinutes" with "value" or "count"; try both
-    am_obj = v.get("activeMinutes", {})
-    active_minutes = am_obj.get("value") or am_obj.get("count")
-    if active_minutes is not None:
-        active_minutes = int(active_minutes)
+    am_total = sum(
+        int(level.get("activeMinutesSum") or 0)
+        for level in v.get("activeMinutes", {}).get("activeMinutesRollupByActivityLevel", [])
+        if level.get("activeMinutesSum") is not None
+    )
+    active_minutes = am_total if am_total > 0 else None
 
     # ---- Resting heart rate ----
     # daily-resting-heart-rate does not support dailyRollUp or AIP-160 filters.
@@ -424,11 +436,7 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
         for pt in _list_points(access_token, "daily-resting-heart-rate"):
             rhr = pt.get("dailyRestingHeartRate", {})
             pt_date = rhr.get("date", {})
-            if (
-                pt_date.get("year") == d.year
-                and pt_date.get("month") == d.month
-                and pt_date.get("day") == d.day
-            ):
+            if pt_date.get("year") == d.year and pt_date.get("month") == d.month and pt_date.get("day") == d.day:
                 bpm = rhr.get("beatsPerMinute")
                 if bpm is not None:
                     resting_hr = int(bpm)
@@ -444,11 +452,7 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
         for pt in _list_points(access_token, "daily-heart-rate-variability"):
             hrv_data = pt.get("dailyHeartRateVariability", {})
             pt_date = hrv_data.get("date", {})
-            if (
-                pt_date.get("year") == d.year
-                and pt_date.get("month") == d.month
-                and pt_date.get("day") == d.day
-            ):
+            if pt_date.get("year") == d.year and pt_date.get("month") == d.month and pt_date.get("day") == d.day:
                 rmssd = hrv_data.get("averageHeartRateVariabilityMilliseconds")
                 if rmssd is not None:
                     hrv = {"dailyRmssd": rmssd}
@@ -460,11 +464,10 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     # Wear time = total minutes across all zones
     wear_time = sum(z.minutes for z in hr_zones) or None
 
-    # ---- Weight ----
+    # ---- Weight ---- weight.weightGramsAvg (int, grams → kg)
     v = rollup("weight")
-    weight_kg = v.get("weight", {}).get("kilograms")
-    if weight_kg is not None:
-        weight_kg = float(weight_kg)
+    weight_grams = v.get("weight", {}).get("weightGramsAvg")
+    weight_kg = round(float(weight_grams) / 1000, 2) if weight_grams is not None else None
 
     # ---- Sleep ----
     if prefetch is not None:
