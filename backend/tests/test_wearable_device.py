@@ -98,7 +98,7 @@ def _make_patient(th, email="pt@test.com", wearable_device=None):
 
 
 def test_fitbit_status_includes_wearable_device_default():
-    """GET /api/fitbit/status/ returns wearable_device='fitbit' for a default patient."""
+    """GET /api/fitbit/status/ returns wearable_device='google_health' for a default patient."""
     _, th = _make_therapist()
     pt_user, _ = _make_patient(th)
 
@@ -107,7 +107,7 @@ def test_fitbit_status_includes_wearable_device_default():
     assert resp.status_code == 200
     body = resp.json()
     assert "wearable_device" in body
-    assert body["wearable_device"] == "fitbit"
+    assert body["wearable_device"] == "google_health"
 
 
 def test_fitbit_status_reflects_omron_device():
@@ -280,8 +280,8 @@ def test_patient_list_wearable_device_omron_value(mongo_mock):
     assert pt_row["wearable_device"] == "omron"
 
 
-def test_patient_list_wearable_device_defaults_to_fitbit(mongo_mock):
-    """Patient list shows fitbit when wearable_device not explicitly set."""
+def test_patient_list_wearable_device_defaults_to_google_health(mongo_mock):
+    """Patient list shows google_health when wearable_device not explicitly set."""
     th_user, th = _make_therapist()
     pt_user, _ = _make_patient(th)  # no wearable_device kwarg
 
@@ -292,7 +292,7 @@ def test_patient_list_wearable_device_defaults_to_fitbit(mongo_mock):
 
     data = resp.json()
     pt_row = next(p for p in data if p["username"] == pt_user.username)
-    assert pt_row["wearable_device"] == "fitbit"
+    assert pt_row["wearable_device"] == "google_health"
 
 
 # ---------------------------------------------------------------------------
@@ -358,8 +358,8 @@ def test_register_patient_wearable_device_omron_persisted(mongo_mock):
     assert patient.wearable_device == "omron"
 
 
-def test_register_patient_wearable_device_defaults_to_fitbit(mongo_mock):
-    """Registration without wearableDevice defaults to fitbit."""
+def test_register_patient_wearable_device_defaults_to_google_health(mongo_mock):
+    """Registration without wearableDevice defaults to google_health."""
     th_user = _make_therapist_for_registration("th_default@test.com")
 
     resp, email = _register_patient(th_user.id)
@@ -368,11 +368,11 @@ def test_register_patient_wearable_device_defaults_to_fitbit(mongo_mock):
     created_user = User.objects.filter(email=email).first()
     patient = Patient.objects.filter(userId=created_user).first()
     assert patient is not None
-    assert patient.wearable_device == "fitbit"
+    assert patient.wearable_device == "google_health"
 
 
-def test_register_patient_invalid_wearable_device_defaults_to_fitbit(mongo_mock):
-    """Registration with an invalid wearableDevice value falls back to fitbit."""
+def test_register_patient_invalid_wearable_device_defaults_to_google_health(mongo_mock):
+    """Registration with an invalid wearableDevice value falls back to google_health."""
     th_user = _make_therapist_for_registration("th_inv@test.com")
 
     resp, email = _register_patient(th_user.id, {"wearableDevice": "garmin"})
@@ -381,4 +381,4 @@ def test_register_patient_invalid_wearable_device_defaults_to_fitbit(mongo_mock)
     created_user = User.objects.filter(email=email).first()
     patient = Patient.objects.filter(userId=created_user).first()
     assert patient is not None
-    assert patient.wearable_device == "fitbit"
+    assert patient.wearable_device == "google_health"

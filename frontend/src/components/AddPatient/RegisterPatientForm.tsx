@@ -486,7 +486,9 @@ const FormRegisterPatient: React.FC<RegisterFormProps> = ({ therapist }) => {
 
           // Resolve dynamic options for clinic and project fields
           let fieldOptions: string[] = field.options || [];
-          if (field.name === 'clinic') {
+          if (field.name === 'wearableDevice') {
+            fieldOptions = fieldOptions.filter((o) => o !== 'fitbit');
+          } else if (field.name === 'clinic') {
             fieldOptions = therapistClinics;
           } else if (field.name === 'project') {
             const allowedByClinic = clinicProjectsMap[formData.clinic as string] || [];

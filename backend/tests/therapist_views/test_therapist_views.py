@@ -130,6 +130,7 @@ def create_therapist_with_patient(*, patient_active=True):
         lifestyle=["Moderate Exercise"],
         personal_goals=["Improved Mobility"],
         reha_end_date=datetime.now() + timedelta(days=30),
+        wearable_device="fitbit",
     ).save()
 
     return therapist, patient
