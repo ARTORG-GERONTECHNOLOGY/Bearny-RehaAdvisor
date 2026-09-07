@@ -71,7 +71,7 @@ def get_valid_google_access_token(user) -> str:
 
 def _civil_date(d: datetime.date) -> dict:
     """Convert a date to the CivilDateTime format expected by dailyRollUp."""
-    return {"year": d.year, "month": d.month, "day": d.day}
+    return {"date": {"year": d.year, "month": d.month, "day": d.day}}
 
 
 def _daily_rollup(access_token: str, data_type: str, d: datetime.date) -> dict:
@@ -115,17 +115,20 @@ def _daily_rollup(access_token: str, data_type: str, d: datetime.date) -> dict:
     return pts[0].get("value", {}) if pts else {}
 
 
-def _list_points(access_token: str, data_type: str, filter_expr: str) -> list[dict]:
+def _list_points(access_token: str, data_type: str, filter_expr: str = "") -> list[dict]:
     """
-    GET dataPoints for a data type using an AIP-160 filter expression.
+    GET dataPoints for a data type, optionally with an AIP-160 filter expression.
     Handles pagination. Returns list of raw dataPoint dicts.
+    Note: not all data types support filter expressions (e.g. sleep, daily-resting-heart-rate).
     """
     url = f"{_BASE}/dataTypes/{data_type}/dataPoints"
     points = []
     page_token = None
 
     while True:
-        params: dict = {"filter": filter_expr, "pageSize": 1000}
+        params: dict = {"pageSize": 1000}
+        if filter_expr:
+            params["filter"] = filter_expr
         if page_token:
             params["pageToken"] = page_token
         try:
@@ -161,19 +164,31 @@ def _fetch_sleep(access_token: str, d: datetime.date) -> dict | None:
     """
     Fetch and aggregate all sleep data points for date d.
 
-    Filters by civil_start_time from 6pm the previous day to 6pm the target day
-    so that overnight sleep is captured for the correct calendar date.
+    The sleep data type does not support AIP-160 filter expressions, so all points
+    are fetched and filtered client-side by startTime (6pm previous day to 6pm target
+    day) to capture overnight sleep for the correct calendar date.
 
     The Google Health API may return multiple data points for one night (e.g. two
     consecutive sessions or separate stage segments).  All are summed so the result
     matches what Google Health displays, rather than showing only the longest segment.
     """
     prev = d - timedelta(days=1)
-    filter_expr = (
-        f'sleep.interval.civil_start_time >= "{prev.isoformat()}T18:00:00"'
-        f' AND sleep.interval.civil_start_time < "{d.isoformat()}T18:00:00"'
-    )
-    points = _list_points(access_token, "sleep", filter_expr)
+    prev_cutoff = datetime.datetime.combine(prev, datetime.time(18, 0), tzinfo=datetime.timezone.utc)
+    day_cutoff = datetime.datetime.combine(d, datetime.time(18, 0), tzinfo=datetime.timezone.utc)
+
+    all_points = _list_points(access_token, "sleep")
+    points = []
+    for pt in all_points:
+        start_str = pt.get("sleep", {}).get("interval", {}).get("startTime", "")
+        if not start_str:
+            continue
+        try:
+            start_dt = datetime.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if prev_cutoff <= start_dt < day_cutoff:
+            points.append(pt)
+
     if not points:
         return None
 
@@ -332,11 +347,17 @@ def _sync_day(user, access_token: str, d: datetime.date) -> bool:
         active_minutes = int(active_minutes)
 
     # ---- Resting heart rate ----
-    v = rollup("daily-resting-heart-rate")
-    resting_hr_obj = v.get("dailyRestingHeartRate", {})
-    resting_hr = resting_hr_obj.get("beatsPerMinute")
-    if resting_hr is not None:
-        resting_hr = int(resting_hr)
+    # daily-resting-heart-rate does not support dailyRollUp or AIP-160 filters;
+    # fetch all points and match by date client-side.
+    resting_hr = None
+    for pt in _list_points(access_token, "daily-resting-heart-rate"):
+        rhr = pt.get("dailyRestingHeartRate", {})
+        pt_date = rhr.get("date", {})
+        if pt_date.get("year") == d.year and pt_date.get("month") == d.month and pt_date.get("day") == d.day:
+            bpm = rhr.get("beatsPerMinute")
+            if bpm is not None:
+                resting_hr = int(bpm)
+            break
 
     # ---- HRV (now available via the new API) ----
     v = rollup("daily-heart-rate-variability")
