@@ -57,7 +57,9 @@ test.describe('Patient page and functions', () => {
     await modal.locator('#email').fill(patientLogin as string);
     await modal.locator('#password').fill(patientPassword as string);
 
-    const fitbitStatusRequest = page.waitForRequest((req) => req.url().includes('/fitbit/status/'));
+    const wearableStatusRequest = page.waitForRequest(
+      (req) => req.url().includes('/google-health/status/') || req.url().includes('/fitbit/status/')
+    );
     const planRequest = page.waitForRequest((req) =>
       req.url().includes('/patients/rehabilitation-plan/patient/')
     );
@@ -68,7 +70,7 @@ test.describe('Patient page and functions', () => {
     await modal.getByRole('button', { name: /login/i }).click();
     await expect(page).toHaveURL(/\/patient(?:\/)?$/, { timeout: 15000 });
 
-    await fitbitStatusRequest;
+    await wearableStatusRequest;
     await planRequest;
     await initialQuestionnaireRequest;
 

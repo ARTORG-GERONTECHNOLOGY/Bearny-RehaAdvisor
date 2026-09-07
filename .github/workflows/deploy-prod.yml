@@ -422,6 +422,8 @@ jobs:
             VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}
             VITE_FITBIT_CLIENT_ID=23Q9W2
             VITE_FITBIT_REDIRECT_URI=https://reha-advisor.ch/api/fitbit/callback/
+            VITE_GOOGLE_HEALTH_CLIENT_ID=905942928064-gfkukphfc4c5lt43nfjgnc01fo8l3seh.apps.googleusercontent.com
+            VITE_GOOGLE_HEALTH_REDIRECT_URI=https://reha-advisor.ch/api/google-health/callback/
           cache-from: type=gha,scope=frontend-root
           cache-to: type=gha,mode=max,scope=frontend-root
 

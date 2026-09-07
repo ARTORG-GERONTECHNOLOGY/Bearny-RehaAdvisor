@@ -10,12 +10,13 @@ Endpoints covered
 Also covers the sync-layer helper:
 - get_valid_google_access_token  (invalid_grant → is_revoked)
 
-Reconnect-banner contract
--------------------------
+Status endpoint contract
+------------------------
 google_health_status returns:
   connected          bool   — True iff token exists and is not revoked
-  needs_reconnect    bool   — True when elapsed >= 6 days (testing-mode 7-day window)
-  days_until_expiry  int|null — days remaining; 0 means already at/past 7 days
+  needs_reconnect    bool   — always False in production (testing-mode 7-day
+                              constraint removed after Google approved production access)
+  days_until_expiry  null   — always null; production tokens do not expire
 """
 
 import json
@@ -113,42 +114,46 @@ def test_status_with_fresh_token_connected_no_reconnect():
     body = json.loads(_status_as(user.id).content)
     assert body["connected"] is True
     assert body["needs_reconnect"] is False
-    assert body["days_until_expiry"] == 7
+    assert body["days_until_expiry"] is None
 
 
-def test_status_token_3_days_old_no_reconnect():
+def test_status_token_3_days_old_still_connected():
     user = _make_user()
     _make_token(user, connected_at=timezone.now() - timedelta(days=3))
     body = json.loads(_status_as(user.id).content)
     assert body["connected"] is True
     assert body["needs_reconnect"] is False
-    assert body["days_until_expiry"] == 4
+    assert body["days_until_expiry"] is None
 
 
-def test_status_token_6_days_old_needs_reconnect():
+def test_status_token_6_days_old_still_connected():
+    # Production tokens do not expire after 7 days — no reconnect needed.
     user = _make_user()
     _make_token(user, connected_at=timezone.now() - timedelta(days=6))
     body = json.loads(_status_as(user.id).content)
     assert body["connected"] is True
-    assert body["needs_reconnect"] is True
-    assert body["days_until_expiry"] == 1
+    assert body["needs_reconnect"] is False
+    assert body["days_until_expiry"] is None
 
 
-def test_status_token_7_days_old_expired():
+def test_status_token_7_days_old_still_connected():
+    # Production tokens do not expire after 7 days — no reconnect needed.
     user = _make_user()
     _make_token(user, connected_at=timezone.now() - timedelta(days=7))
     body = json.loads(_status_as(user.id).content)
     assert body["connected"] is True
-    assert body["needs_reconnect"] is True
-    assert body["days_until_expiry"] == 0
+    assert body["needs_reconnect"] is False
+    assert body["days_until_expiry"] is None
 
 
-def test_status_token_8_days_old_days_until_expiry_clamped_to_zero():
+def test_status_token_8_days_old_still_connected():
+    # Production tokens do not expire after 7 days — no reconnect needed.
     user = _make_user()
     _make_token(user, connected_at=timezone.now() - timedelta(days=8))
     body = json.loads(_status_as(user.id).content)
-    assert body["needs_reconnect"] is True
-    assert body["days_until_expiry"] == 0
+    assert body["connected"] is True
+    assert body["needs_reconnect"] is False
+    assert body["days_until_expiry"] is None
 
 
 def test_status_revoked_token_returns_not_connected():
