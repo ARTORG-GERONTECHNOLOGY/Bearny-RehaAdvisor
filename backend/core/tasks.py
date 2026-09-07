@@ -14,7 +14,12 @@ from django.utils import timezone
 from mongoengine.errors import DoesNotExist, NotUniqueError
 
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
-from core.views.google_health_sync import fetch_google_health_today_for_user
+from core.views.google_health_sync import (
+    _prefetch_unfiltered,
+    _sync_day,
+    fetch_google_health_today_for_user,
+    get_valid_google_access_token,
+)
 
 logger = logging.getLogger(__name__)
 from core.models import (
@@ -197,6 +202,52 @@ def fetch_google_health_data_async(user_id: str):
     user = User.objects(pk=user_id).first()
     if user:
         fetch_google_health_today_for_user(user)
+
+
+@shared_task(
+    name="core.tasks.backfill_google_health_on_connect",
+    autoretry_for=(Exception,),
+    retry_backoff=120,
+    max_retries=2,
+)
+def backfill_google_health_on_connect(user_id: str, days: int = 30):
+    """Backfill the last `days` days of Google Health data when a patient first connects.
+
+    Called automatically from the OAuth callback so the therapist view is
+    populated immediately after the patient authenticates — no manual backfill
+    command needed.
+    """
+    import datetime
+
+    user = User.objects(pk=user_id).first()
+    if not user:
+        logger.warning("[google_health_backfill] user %s not found", user_id)
+        return
+
+    try:
+        access_token = get_valid_google_access_token(user)
+    except Exception as e:
+        logger.error("[google_health_backfill] could not get token for user %s: %s", user_id, e)
+        return
+
+    today = datetime.date.today()
+    date_range = [today - datetime.timedelta(days=i) for i in range(days)]
+
+    try:
+        prefetch = _prefetch_unfiltered(access_token)
+    except Exception as e:
+        logger.error("[google_health_backfill] prefetch failed for user %s: %s", user_id, e)
+        prefetch = None
+
+    written = 0
+    for d in date_range:
+        try:
+            if _sync_day(user, access_token, d, prefetch=prefetch):
+                written += 1
+        except Exception as e:
+            logger.error("[google_health_backfill] error syncing %s for user %s: %s", d, user_id, e)
+
+    logger.info("[google_health_backfill] user %s: %d/%d days written", user_id, written, days)
 
 
 @shared_task(
