@@ -485,6 +485,17 @@ jobs:
               cd "$PROD_DIR"
               echo "Creating database backup before deploy..."
               if [ -f ./scripts/backup.sh ]; then ./scripts/backup.sh || echo "Backup failed (non-fatal) — continuing deploy"; fi
+
+              echo "Archiving container logs before deploy..."
+              ARCHIVE_DIR="./logs/archive"
+              mkdir -p "$ARCHIVE_DIR"
+              STAMP=$(date +%Y%m%d_%H%M%S)
+              for SVC in django-prod celery-prod celery-beat-prod; do
+                if docker ps -q -f name="$SVC" | grep -q .; then
+                  docker logs "$SVC" > "$ARCHIVE_DIR/${SVC}_${STAMP}.log" 2>&1 || true
+                fi
+              done
+              echo "Logs archived to $ARCHIVE_DIR"
             fi
 
       - name: Authenticate prod server with GHCR
@@ -536,8 +547,8 @@ jobs:
             export IMAGE_TAG="${TAG#v}"
             echo "Using IMAGE_TAG=$IMAGE_TAG for compose pull/up"
 
-            # Ensure server-side data files exist (created once, persist across deploys)
-            mkdir -p ./data ./mongo/tls
+            # Ensure server-side data files and directories exist (created once, persist across deploys)
+            mkdir -p ./data ./mongo/tls ./logs
             touch -a ./data/db.sqlite3
 
             # Pull the pre-built images for this tag from GHCR

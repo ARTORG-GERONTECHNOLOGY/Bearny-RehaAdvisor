@@ -72,11 +72,13 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=api.settings.prod
       - PYTHONUNBUFFERED=1
+      - LOG_DIR=/app/logs
     volumes:
       - static-prod:/srv/app/static
       - media-prod:/srv/app/media
       - ./data/db.sqlite3:/app/api/db.sqlite3
       - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
+      - ./logs:/app/logs
     depends_on:
       db-prod:
         condition: service_healthy
@@ -103,6 +105,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./nginx/certbot/conf:/etc/letsencrypt
       - ./nginx/certbot/www:/var/www/certbot
+      - ./logs:/app/logs
     env_file:
       - ./.env.prod
     environment:
@@ -111,6 +114,7 @@ services:
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-changeme}@redis-prod:6379/0
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-changeme}@redis-prod:6379/0
       - CELERY_WORKER_PREFETCH_MULTIPLIER=4
+      - LOG_DIR=/app/logs
       # Certificate renewal — set CERTBOT_ENABLED=true in .env.prod to activate
       - CERTBOT_CONF_PATH=${CERTBOT_CONF_PATH:-/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/conf}
       - CERTBOT_WWW_PATH=${CERTBOT_WWW_PATH:-/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/www}
@@ -145,12 +149,14 @@ services:
       - CERTBOT_CONF_PATH=${CERTBOT_CONF_PATH:-/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/conf}
       - CERTBOT_WWW_PATH=${CERTBOT_WWW_PATH:-/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/www}
       - CERTBOT_NGINX_CONTAINER=${CERTBOT_NGINX_CONTAINER:-gateway}
+      - LOG_DIR=/app/logs
     volumes:
       - ./data/db.sqlite3:/app/api/db.sqlite3
       - ./mongo/tls/ca.crt:/etc/ssl/mongo/ca.crt:ro
       - /var/run/docker.sock:/var/run/docker.sock
       - ./nginx/certbot/conf:/etc/letsencrypt
       - ./nginx/certbot/www:/var/www/certbot
+      - ./logs:/app/logs
     depends_on:
       redis-prod:
         condition: service_healthy
