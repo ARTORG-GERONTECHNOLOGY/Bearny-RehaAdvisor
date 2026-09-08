@@ -220,14 +220,22 @@ LOGGING = {
         },
         **(
             {
-                "api_audit_file": {
-                    "class": "logging.handlers.RotatingFileHandler",
-                    "filename": os.path.join(_log_dir, "api_access.log"),
-                    "maxBytes": 10 * 1024 * 1024,  # 10 MB per file
-                    "backupCount": 10,
+                "app_file": {
+                    "class": "logging.handlers.TimedRotatingFileHandler",
+                    "filename": os.path.join(_log_dir, "app.log"),
+                    "when": "midnight",
+                    "backupCount": 30,  # 30 days of rolling logs
                     "formatter": "verbose",
                     "encoding": "utf-8",
-                }
+                },
+                "api_audit_file": {
+                    "class": "logging.handlers.TimedRotatingFileHandler",
+                    "filename": os.path.join(_log_dir, "api_access.log"),
+                    "when": "midnight",
+                    "backupCount": 30,
+                    "formatter": "verbose",
+                    "encoding": "utf-8",
+                },
             }
             if _log_dir
             else {}
@@ -239,12 +247,12 @@ LOGGING = {
     },
     "loggers": {
         "django.request": {
-            "handlers": ["console"],
+            "handlers": ["console"] + (["app_file"] if _log_dir else []),
             "level": "ERROR",
             "propagate": False,
         },
         "core": {
-            "handlers": ["console"],
+            "handlers": ["console"] + (["app_file"] if _log_dir else []),
             "level": os.getenv("APP_LOG_LEVEL", "INFO"),
             "propagate": False,
         },
