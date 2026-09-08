@@ -202,10 +202,11 @@ def google_health_callback(request):
         )
         logger.info("[google_health_callback] token saved for user %s", user.id)
 
-        # Kick off async backfill for this user
-        from core.tasks import fetch_google_health_data_async
+        # Sync today immediately, then backfill the last 30 days in the background.
+        from core.tasks import backfill_google_health_on_connect, fetch_google_health_data_async
 
         fetch_google_health_data_async.delay(str(user.id))
+        backfill_google_health_on_connect.delay(str(user.id))
 
         return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=connected")
 
