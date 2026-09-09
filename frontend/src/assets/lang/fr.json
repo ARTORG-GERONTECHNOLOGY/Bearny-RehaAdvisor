@@ -454,16 +454,16 @@
   "No feedback available": "Aucun retour d'information n'est disponible",
   "Feedback": "Retour",
   "Statistics": "Statistiques",
-  "Calendar": {
-    "today": "Aujourd'hui",
-    "previous": "Précédent",
-    "next": "Suivant",
-    "month": "Mois",
-    "week": "Semaine",
-    "day": "Jour",
-    "agenda": "Agenda",
-    "showMore": "+{{count}} Plus"
-  },
+  "Calendar": [
+    ["today", "Aujourd'hui"],
+    ["previous", "Précédent"],
+    ["next", "Suivant"],
+    ["month", "Mois"],
+    ["week", "Semaine"],
+    ["day", "Jour"],
+    ["agenda", "Agenda"],
+    ["showMore", "+{{count}} Plus"]
+  ],
   "Recommended": "Recommandé",
   "Recomended to patients": "Recommandé aux patients",
   "Here are your recommendations for": "VVoici vos recommandations personnelles",
@@ -540,20 +540,18 @@
   "hour": "heure",
   "minute": "minutes",
   "restrictionsText": "Quand avez-vous pris votre dernier médicament ?",
-  "userTypes": {
-    "patient": "Patient",
-    "therapist": "Thérapeute",
-    "researcher": "Chercheur",
-    "admin": "Administrateur"
-  },
-  "RegisteringTypes": {
-    "therapist": "Thérapeute",
-    "researcher": "Chercheur",
-    "admin": "Administrateur"
-  },
-  "TherapistRegTypes": {
-    "patient": "Patient"
-  },
+  "userTypes": [
+    ["patient", "Patient"],
+    ["therapist", "Thérapeute"],
+    ["researcher", "Chercheur"],
+    ["admin", "Administrateur"]
+  ],
+  "RegisteringTypes": [
+    ["therapist", "Thérapeute"],
+    ["researcher", "Chercheur"],
+    ["admin", "Administrateur"]
+  ],
+  "TherapistRegTypes": [["patient", "Patient"]],
   "Register": "S'inscrire",
   "Login": "Se connecter",
   "Patient Id": "Identifiant patient",
@@ -1020,6 +1018,7 @@
   "No wearable configured": "Aucun bracelet connecté configuré",
   "Wearable Device": "Appareil portable",
   "fitbit": "Fitbit",
+  "Deprecated": "Obsolète",
   "omron": "Omron",
   "google_health": "Google Health",
   "none": "Aucun",

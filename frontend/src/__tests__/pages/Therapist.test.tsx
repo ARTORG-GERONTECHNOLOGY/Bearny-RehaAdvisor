@@ -426,7 +426,7 @@ describe('Wear time badge', () => {
     });
     renderWithPatient(patient);
     await waitFor(() => {
-      expect(screen.getByLabelText('Wear good')).toBeInTheDocument();
+      expect(screen.getByLabelText('Fitbit (Deprecated) good')).toBeInTheDocument();
     });
   });
 
@@ -437,7 +437,7 @@ describe('Wear time badge', () => {
     });
     renderWithPatient(patient);
     await waitFor(() => {
-      expect(screen.getByLabelText('Wear warn')).toBeInTheDocument();
+      expect(screen.getByLabelText('Fitbit (Deprecated) warn')).toBeInTheDocument();
     });
   });
 
@@ -448,7 +448,7 @@ describe('Wear time badge', () => {
     });
     renderWithPatient(patient);
     await waitFor(() => {
-      expect(screen.getByLabelText('Wear bad')).toBeInTheDocument();
+      expect(screen.getByLabelText('Fitbit (Deprecated) bad')).toBeInTheDocument();
     });
   });
 
@@ -459,7 +459,7 @@ describe('Wear time badge', () => {
     });
     renderWithPatient(patient);
     await waitFor(() => {
-      const badge = screen.getByLabelText('Wear unknown');
+      const badge = screen.getByLabelText('Fitbit (Deprecated) unknown');
       expect(badge).toBeInTheDocument();
       expect(badge).toHaveTextContent('No data');
     });
@@ -473,7 +473,7 @@ describe('Wear time badge', () => {
     });
     renderWithPatient(patient);
     await waitFor(() => {
-      expect(screen.getByLabelText('Fitbit bad')).toBeInTheDocument();
+      expect(screen.getByLabelText('Fitbit (Deprecated) bad')).toBeInTheDocument();
     });
   });
 
@@ -497,8 +497,7 @@ describe('Wear time badge', () => {
     });
     renderWithPatient(patient);
     await waitFor(() => {
-      expect(screen.getByLabelText('Wear good')).toBeInTheDocument();
-      expect(screen.queryByLabelText(/^Fitbit/)).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Fitbit (Deprecated) good')).toBeInTheDocument();
     });
   });
 
@@ -510,7 +509,7 @@ describe('Wear time badge', () => {
     });
     renderWithPatient(patient);
     await waitFor(() => {
-      expect(screen.getByLabelText('Fitbit bad')).toBeInTheDocument();
+      expect(screen.getByLabelText('Fitbit (Deprecated) bad')).toBeInTheDocument();
     });
   });
 
@@ -522,8 +521,7 @@ describe('Wear time badge', () => {
     });
     renderWithPatient(patient);
     await waitFor(() => {
-      expect(screen.queryByLabelText(/^Fitbit/)).not.toBeInTheDocument();
-      expect(screen.getByLabelText('Wear unknown')).toBeInTheDocument();
+      expect(screen.getByLabelText('Fitbit (Deprecated) unknown')).toBeInTheDocument();
     });
   });
 });

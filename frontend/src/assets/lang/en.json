@@ -455,16 +455,16 @@
   "No feedback available": "No feedback available",
   "Feedback": "Feedback",
   "Statistics": "Statistics",
-  "Calendar": {
-    "today": "Today",
-    "previous": "Back",
-    "next": "Next",
-    "month": "Month",
-    "week": "Week",
-    "day": "Day",
-    "agenda": "Agenda",
-    "showMore": "+{{count}} more"
-  },
+  "Calendar": [
+    ["today", "Today"],
+    ["previous", "Back"],
+    ["next", "Next"],
+    ["month", "Month"],
+    ["week", "Week"],
+    ["day", "Day"],
+    ["agenda", "Agenda"],
+    ["showMore", "+{{count}} more"]
+  ],
   "Recommended": "Recommended",
   "Recomended to patients": "Recomended to patients",
   "Here are your recommendations for": "Here are your recommendations for",
@@ -541,20 +541,18 @@
   "hour": "hour",
   "minute": "minutes",
   "restrictionsText": "When did you take your last restrictions?",
-  "userTypes": {
-    "patient": "Patient",
-    "therapist": "Therapist",
-    "researcher": "Researcher",
-    "admin": "Administrator"
-  },
-  "RegisteringTypes": {
-    "therapist": "Therapist",
-    "researcher": "Researcher",
-    "admin": "Administrator"
-  },
-  "TherapistRegTypes": {
-    "patient": "Patient"
-  },
+  "userTypes": [
+    ["patient", "Patient"],
+    ["therapist", "Therapist"],
+    ["researcher", "Researcher"],
+    ["admin", "Administrator"]
+  ],
+  "RegisteringTypes": [
+    ["therapist", "Therapist"],
+    ["researcher", "Researcher"],
+    ["admin", "Administrator"]
+  ],
+  "TherapistRegTypes": [["patient", "Patient"]],
   "Register": "Register",
   "Login": "Login",
   "Patient Id": "Patient Id",
@@ -1019,6 +1017,7 @@
   "No wearable configured": "No wearable configured",
   "Wearable Device": "Wearable Device",
   "fitbit": "Fitbit",
+  "Deprecated": "Deprecated",
   "omron": "Omron",
   "google_health": "Google Health",
   "none": "None",

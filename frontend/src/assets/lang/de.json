@@ -249,16 +249,16 @@
   "Undo": "Rückgängig",
   "Back": "Zurück",
   "Next": "Nächste",
-  "Calendar": {
-    "today": "Heute",
-    "previous": "Zurück",
-    "next": "Weiter",
-    "month": "Monat",
-    "week": "Woche",
-    "day": "Tag",
-    "agenda": "Agenda",
-    "showMore": "+{{count}} mehr"
-  },
+  "Calendar": [
+    ["today", "Heute"],
+    ["previous", "Zurück"],
+    ["next", "Weiter"],
+    ["month", "Monat"],
+    ["week", "Woche"],
+    ["day", "Tag"],
+    ["agenda", "Agenda"],
+    ["showMore", "+{{count}} mehr"]
+  ],
   "Health Questionaire": "Gesundheitsfragebogen",
   "User Profile": "Benutzer Profil",
   "Add": "Hinzufügen",
@@ -539,20 +539,18 @@
   "hour": "Stunde",
   "minute": "Minuten",
   "restrictionsText": "Wann haben Sie Ihre letzte Medikation eingenommen?",
-  "userTypes": {
-    "patient": "Patient",
-    "therapist": "Therapeut",
-    "researcher": "Forscher",
-    "admin": "Administrator"
-  },
-  "RegisteringTypes": {
-    "therapist": "Therapeut",
-    "researcher": "Forscher",
-    "admin": "Administrator"
-  },
-  "TherapistRegTypes": {
-    "patient": "Patient"
-  },
+  "userTypes": [
+    ["patient", "Patient"],
+    ["therapist", "Therapeut"],
+    ["researcher", "Forscher"],
+    ["admin", "Administrator"]
+  ],
+  "RegisteringTypes": [
+    ["therapist", "Therapeut"],
+    ["researcher", "Forscher"],
+    ["admin", "Administrator"]
+  ],
+  "TherapistRegTypes": [["patient", "Patient"]],
   "Register": "Registrieren",
   "Login": "Anmelden",
   "Patient Id": "Patienten-ID",
@@ -1019,6 +1017,7 @@
   "No wearable configured": "Kein Wearable konfiguriert",
   "Wearable Device": "Wearable-Gerät",
   "fitbit": "Fitbit",
+  "Deprecated": "Veraltet",
   "omron": "Omron",
   "google_health": "Google Health",
   "none": "Keines",

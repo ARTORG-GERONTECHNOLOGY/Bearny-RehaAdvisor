@@ -148,7 +148,7 @@ describe('WearBadge', () => {
     renderWithI18n(<WearBadge patient={makePatient()} />);
     const badge = screen.getByText('No data');
     expect(badge).toBeInTheDocument();
-    expect(badge).toHaveAttribute('aria-label', 'Wear unknown');
+    expect(badge).toHaveAttribute('aria-label', 'Fitbit (Deprecated) unknown');
   });
 
   it('shows "Disconnected" when the token is revoked', () => {
