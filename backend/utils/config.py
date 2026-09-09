@@ -12,15 +12,23 @@ with open(config_dir, "r") as f:
 
 # Valid wearable device values — derived from config so adding a new device only
 # requires updating config.json PatientForm[0].fields[wearableDevice].options.
+# "fitbit" is always included even if removed from the UI options so that existing
+# patients with wearable_device="fitbit" continue to pass model validation.
 def _load_wearable_choices() -> list[str]:
+    choices: list[str] = ["google_health", "omron", "none"]
     try:
         fields = config["PatientForm"][0]["fields"]
         for f in fields:
             if f.get("name") == "wearableDevice":
-                return list(f["options"])
+                choices = list(f["options"])
+                break
     except (KeyError, IndexError, TypeError):
         pass
-    return ["fitbit", "omron", "none"]
+    # "fitbit" is kept as a valid choice even after removal from the UI so that
+    # existing patients with wearable_device="fitbit" pass model validation.
+    if "fitbit" not in choices:
+        choices = choices + ["fitbit"]
+    return choices
 
 
 WEARABLE_DEVICE_CHOICES: list[str] = _load_wearable_choices()
