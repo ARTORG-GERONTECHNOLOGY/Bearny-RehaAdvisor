@@ -80,7 +80,14 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
-from core.models import InterventionTemplate, Logs, PasswordAttempt, Patient, Therapist, User
+from core.models import (
+    InterventionTemplate,
+    Logs,
+    PasswordAttempt,
+    Patient,
+    Therapist,
+    User,
+)
 from core.permissions import IsAdmin
 from core.token_revocation import invalidate_user_tokens
 from utils.config import WEARABLE_DEVICE_CHOICES
@@ -460,6 +467,7 @@ def user_profile_view(request, user_id):
 
                 user.pwdhash = make_password(pw_new)
                 user.save()
+                invalidate_user_tokens(str(user.id))
 
                 Logs.objects.create(
                     userId=user,
@@ -726,6 +734,7 @@ def reset_patient_password(request, patient_id):
 
     user.pwdhash = make_password(new_password)
     user.save()
+    invalidate_user_tokens(str(user.id))
 
     Logs.objects.create(
         userId=user,
@@ -735,6 +744,36 @@ def reset_patient_password(request, patient_id):
     )
 
     return JsonResponse({"message": "Password reset successfully"}, status=200)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def force_logout_patient(request, patient_id):
+    """
+    POST /api/patients/<patient_id>/force-logout/
+
+    Immediately invalidates all active sessions for the given patient without
+    changing their password. The patient will be signed out on all devices
+    within at most ACCESS_TOKEN_LIFETIME (5 minutes).
+    """
+    try:
+        patient = Patient.objects.get(pk=ObjectId(patient_id))
+    except Patient.DoesNotExist:
+        return JsonResponse({"error": "Patient not found"}, status=404)
+    except Exception:
+        return JsonResponse({"error": "Invalid patient ID"}, status=400)
+
+    user = patient.userId
+    invalidate_user_tokens(str(user.id))
+
+    Logs.objects.create(
+        userId=user,
+        action="FORCE_LOGOUT",
+        actor_role="Therapist",
+        details=f"All sessions invalidated by therapist for patient {patient_id}",
+    )
+
+    return JsonResponse({"message": "Patient sessions invalidated"}, status=200)
 
 
 @api_view(["GET"])

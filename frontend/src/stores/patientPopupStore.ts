@@ -153,6 +153,11 @@ export class PatientPopupStore {
   passwordSuccess = false;
 
   // -------------------------
+  // Force logout
+  // -------------------------
+  forceLogoutSaving = false;
+
+  // -------------------------
   // Thresholds (NEW)
   // -------------------------
   thresholdsLoading = false;
@@ -250,6 +255,21 @@ export class PatientPopupStore {
     } finally {
       runInAction(() => {
         this.passwordSaving = false;
+      });
+    }
+  }
+
+  async forceLogout(t: (k: string) => string): Promise<boolean> {
+    this.forceLogoutSaving = true;
+    try {
+      await apiClient.post(`/patients/${this.patientId}/force-logout/`);
+      return true;
+    } catch (err: any) {
+      alert(getApiErrorMessage(err, t('ForceLogoutFailed')));
+      return false;
+    } finally {
+      runInAction(() => {
+        this.forceLogoutSaving = false;
       });
     }
   }
