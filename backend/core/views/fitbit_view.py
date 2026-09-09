@@ -405,7 +405,7 @@ def fitbit_status(request, patient_id):
     last_data = latest_row.date.isoformat() if latest_row else None
 
     pt = Patient.objects(userId=user).first()
-    wearable_device = getattr(pt, "wearable_device", None) or "fitbit"
+    wearable_device = getattr(pt, "wearable_device", None) or "google_health"
 
     logger.info(
         "[fitbit_status] status connected=%s has_data=%s wearable_device=%s", connected, has_data, wearable_device

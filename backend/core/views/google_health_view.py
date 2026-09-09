@@ -253,7 +253,7 @@ def google_health_status(request, patient_id):
             "last_data": latest.date.isoformat() if latest else None,
             "needs_reconnect": needs_reconnect,
             "days_until_expiry": days_until_expiry,
-            "wearable_device": getattr(patient, "wearable_device", "fitbit") or "fitbit",
+            "wearable_device": getattr(patient, "wearable_device", "google_health") or "google_health",
         }
     )
 
