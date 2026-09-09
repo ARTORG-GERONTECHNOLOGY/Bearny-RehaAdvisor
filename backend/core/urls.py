@@ -17,7 +17,11 @@ from core.views.access_change_views import (
     submit_access_change_request,
 )
 from core.views.admin_analytics_views import admin_device_analytics
-from core.views.admin_export_views import admin_export_audit, admin_export_clinics, admin_export_patients
+from core.views.admin_export_views import (
+    admin_export_audit,
+    admin_export_clinics,
+    admin_export_patients,
+)
 from core.views.admin_intervention_views import admin_interventions
 from core.views.admin_questionnaire_views import admin_questionnaires
 from core.views.eva_view import (
@@ -82,7 +86,10 @@ urlpatterns = [
     # Therapist access change requests
     path("api/therapist/access-change-request/", submit_access_change_request),
     path("api/admin/access-change-requests/", admin_access_change_requests),
-    path("api/admin/access-change-requests/<str:request_id>/", admin_access_change_requests),
+    path(
+        "api/admin/access-change-requests/<str:request_id>/",
+        admin_access_change_requests,
+    ),
     # Authentication
     path("api/auth/login/", auth_views.login_view, name="login"),
     path("api/auth/logout/", auth_views.logout_view, name="logout"),
@@ -98,7 +105,9 @@ urlpatterns = [
         name="send_verification_code",
     ),
     path("api/auth/verify-code/", auth_views.verify_code_view, name="verify_code"),
-    path("api/auth/token/refresh/", MongoTokenRefreshView.as_view(), name="token_refresh"),
+    path(
+        "api/auth/token/refresh/", MongoTokenRefreshView.as_view(), name="token_refresh"
+    ),
     # User Profile
     path(
         "api/users/<str:user_id>/profile/",
@@ -234,9 +243,15 @@ urlpatterns = [
         name="post_add_new_patient_group",
     ),
     # Fitbit (legacy — keep for existing connected users)
-    path("api/fitbit/auth-init/", fitbit_views.fitbit_auth_init, name="fitbit_auth_init"),
+    path(
+        "api/fitbit/auth-init/", fitbit_views.fitbit_auth_init, name="fitbit_auth_init"
+    ),
     path("api/fitbit/callback/", fitbit_views.fitbit_callback, name="fitbit_callback"),
-    path("api/fitbit/disconnect/", fitbit_views.fitbit_disconnect, name="fitbit_disconnect"),
+    path(
+        "api/fitbit/disconnect/",
+        fitbit_views.fitbit_disconnect,
+        name="fitbit_disconnect",
+    ),
     path(
         "api/fitbit/status/<str:patient_id>/",
         fitbit_views.fitbit_status,
@@ -300,14 +315,26 @@ urlpatterns = [
         name="health_combined_history",
     ),
     # Google Health API
-    path("api/google-health/auth-init/", google_health_views.google_health_auth_init, name="google_health_auth_init"),
-    path("api/google-health/callback/", google_health_views.google_health_callback, name="google_health_callback"),
+    path(
+        "api/google-health/auth-init/",
+        google_health_views.google_health_auth_init,
+        name="google_health_auth_init",
+    ),
+    path(
+        "api/google-health/callback/",
+        google_health_views.google_health_callback,
+        name="google_health_callback",
+    ),
     path(
         "api/google-health/status/<str:patient_id>/",
         google_health_views.google_health_status,
         name="google_health_status",
     ),
-    path("api/google-health/summary/", google_health_views.google_health_summary, name="google_health_summary_me"),
+    path(
+        "api/google-health/summary/",
+        google_health_views.google_health_summary,
+        name="google_health_summary_me",
+    ),
     path(
         "api/google-health/summary/<str:patient_id>/",
         google_health_views.google_health_summary,
@@ -356,7 +383,9 @@ urlpatterns = [
         therapist_access,
         name="therapist_access_admin",
     ),
-    path("api/redcap/import-patient/", import_patient_from_redcap, name="import-patient"),
+    path(
+        "api/redcap/import-patient/", import_patient_from_redcap, name="import-patient"
+    ),
     # Wearables → REDCap sync
     path(
         "api/wearables/sync-to-redcap/<str:patient_id>/",
@@ -412,7 +441,10 @@ urlpatterns = [
     path("api/templates/", template_views.template_list_create),
     path("api/templates/<str:template_id>/", template_views.template_detail),
     path("api/templates/<str:template_id>/copy/", template_views.copy_template),
-    path("api/templates/<str:template_id>/interventions/", template_views.template_intervention_assign),
+    path(
+        "api/templates/<str:template_id>/interventions/",
+        template_views.template_intervention_assign,
+    ),
     path(
         "api/templates/<str:template_id>/interventions/<str:intervention_id>/",
         template_views.template_intervention_remove,
