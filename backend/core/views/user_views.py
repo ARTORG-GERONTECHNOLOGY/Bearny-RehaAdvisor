@@ -80,7 +80,14 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
-from core.models import InterventionTemplate, Logs, PasswordAttempt, Patient, Therapist, User
+from core.models import (
+    InterventionTemplate,
+    Logs,
+    PasswordAttempt,
+    Patient,
+    Therapist,
+    User,
+)
 from core.permissions import IsAdmin
 from core.token_revocation import invalidate_user_tokens
 from utils.config import WEARABLE_DEVICE_CHOICES
@@ -167,7 +174,9 @@ def change_password(request, therapist_id):
 
     if attempt.count >= max_attempts:
         if now - attempt.last_attempt < window:
-            remaining = int((window - (now - attempt.last_attempt)).total_seconds() / 60)
+            remaining = int(
+                (window - (now - attempt.last_attempt)).total_seconds() / 60
+            )
             return JsonResponse(
                 {
                     "error": "Too many failed attempts.",
@@ -214,7 +223,9 @@ def change_password(request, therapist_id):
         or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", new_password)
     ):
         return JsonResponse(
-            {"error": "Weak password: must contain upper, lower, number, special char, and 8+ chars"},
+            {
+                "error": "Weak password: must contain upper, lower, number, special char, and 8+ chars"
+            },
             status=400,
         )
 
@@ -290,7 +301,13 @@ def user_profile_view(request, user_id):
             return [sanitize(x) for x in v if x not in ("", None)]
 
         if isinstance(v, str):
-            cleaned = v.replace("<", "").replace(">", "").replace("{", "").replace("}", "").strip()
+            cleaned = (
+                v.replace("<", "")
+                .replace(">", "")
+                .replace("{", "")
+                .replace("}", "")
+                .strip()
+            )
             return cleaned[:500]
 
         if isinstance(v, (int, float, bool)) or v is None:
@@ -347,7 +364,9 @@ def user_profile_view(request, user_id):
                 try:
                     th = Therapist.objects.get(userId=user.id)
                 except Therapist.DoesNotExist:
-                    return JsonResponse({"error": "Therapist profile not found"}, status=404)
+                    return JsonResponse(
+                        {"error": "Therapist profile not found"}, status=404
+                    )
 
                 obj = {
                     "username": sanitize(user.username),
@@ -364,7 +383,9 @@ def user_profile_view(request, user_id):
                 try:
                     pt = Patient.objects.get(userId=user.id)
                 except Patient.DoesNotExist:
-                    return JsonResponse({"error": "Patient profile not found"}, status=404)
+                    return JsonResponse(
+                        {"error": "Patient profile not found"}, status=404
+                    )
 
                 excluded_user = {"pwdhash", "createdAt", "updatedAt", "id"}
                 excluded_patient = {
@@ -389,7 +410,11 @@ def user_profile_view(request, user_id):
                     if isinstance(obj.get(dkey), datetime):
                         obj[dkey] = obj[dkey].date().isoformat()
 
-                last_activity = Logs.objects(userId=user, actor_role="Patient").order_by("-timestamp").first()
+                last_activity = (
+                    Logs.objects(userId=user, actor_role="Patient")
+                    .order_by("-timestamp")
+                    .first()
+                )
                 if last_activity:
                     obj["last_online"] = last_activity.timestamp.date().isoformat()
 
@@ -422,7 +447,9 @@ def user_profile_view(request, user_id):
                             userId=viewer,
                             action="OPEN_PATIENT",
                             actor_role="Therapist",
-                            user_agent=(request.headers.get("User-Agent", "") or "")[:300],
+                            user_agent=(request.headers.get("User-Agent", "") or "")[
+                                :300
+                            ],
                             patient=pt,
                             details=f"patient_code={pt.patient_code}",
                         ).save()
@@ -460,6 +487,7 @@ def user_profile_view(request, user_id):
 
                 user.pwdhash = make_password(pw_new)
                 user.save()
+                invalidate_user_tokens(str(user.id))
 
                 Logs.objects.create(
                     userId=user,
@@ -497,20 +525,36 @@ def user_profile_view(request, user_id):
             email_val = raw.get("email")
             if email_val is not None and email_val != "":
                 _s = str(email_val)
-                if len(_s) > 254 or _s.count("@") != 1 or _s.startswith("@") or _s.endswith("@"):
+                if (
+                    len(_s) > 254
+                    or _s.count("@") != 1
+                    or _s.startswith("@")
+                    or _s.endswith("@")
+                ):
                     return JsonResponse({"error": "Invalid email"}, status=400)
                 _local, _domain = _s.split("@", 1)
-                if not _local or "." not in _domain or _domain.startswith(".") or _domain.endswith("."):
+                if (
+                    not _local
+                    or "." not in _domain
+                    or _domain.startswith(".")
+                    or _domain.endswith(".")
+                ):
                     return JsonResponse({"error": "Invalid email"}, status=400)
 
             phone_val = raw.get("phone")
-            if phone_val is not None and phone_val != "" and not re.match(r"^\+?[0-9]{7,15}$", str(phone_val)):
+            if (
+                phone_val is not None
+                and phone_val != ""
+                and not re.match(r"^\+?[0-9]{7,15}$", str(phone_val))
+            ):
                 return JsonResponse({"error": "Invalid phone"}, status=400)
 
             lang_val = raw.get("preferred_language")
             if lang_val is not None and lang_val != "":
                 if str(lang_val) not in Patient._fields["preferred_language"].choices:
-                    return JsonResponse({"error": "Invalid preferred_language"}, status=400)
+                    return JsonResponse(
+                        {"error": "Invalid preferred_language"}, status=400
+                    )
 
             updated = {}
             old = {}
@@ -584,8 +628,12 @@ def user_profile_view(request, user_id):
 
                 # Handle boolean fields explicitly (valid_update_value(False) would skip them)
                 if "initial_questionnaire_enabled" in raw:
-                    patient.initial_questionnaire_enabled = bool(raw["initial_questionnaire_enabled"])
-                    updated["initial_questionnaire_enabled"] = patient.initial_questionnaire_enabled
+                    patient.initial_questionnaire_enabled = bool(
+                        raw["initial_questionnaire_enabled"]
+                    )
+                    updated["initial_questionnaire_enabled"] = (
+                        patient.initial_questionnaire_enabled
+                    )
 
                 # wearable_device: validated enum (accept both snake_case and camelCase)
                 device_val = raw.get("wearable_device") or raw.get("wearableDevice")
@@ -603,7 +651,9 @@ def user_profile_view(request, user_id):
                 details=f"Updated: {updated} | old: {old}",
             )
 
-            return JsonResponse({"message": "Profile updated", "updated": updated}, status=200)
+            return JsonResponse(
+                {"message": "Profile updated", "updated": updated}, status=200
+            )
 
         except Exception:
             logger.exception("PUT profile failed")
@@ -620,7 +670,9 @@ def user_profile_view(request, user_id):
             # author is still traceable after transfer.
             try:
                 therapist_profile = Therapist.objects.get(userId=user)
-                all_templates = InterventionTemplate.objects(created_by=therapist_profile)
+                all_templates = InterventionTemplate.objects(
+                    created_by=therapist_profile
+                )
 
                 # Determine who to transfer ownership to
                 new_owner = None
@@ -710,7 +762,9 @@ def reset_patient_password(request, patient_id):
         or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", new_password)
     ):
         return JsonResponse(
-            {"error": "Weak password: must contain upper, lower, number, special char, and 8+ chars"},
+            {
+                "error": "Weak password: must contain upper, lower, number, special char, and 8+ chars"
+            },
             status=400,
         )
 
@@ -726,6 +780,7 @@ def reset_patient_password(request, patient_id):
 
     user.pwdhash = make_password(new_password)
     user.save()
+    invalidate_user_tokens(str(user.id))
 
     Logs.objects.create(
         userId=user,
@@ -735,6 +790,36 @@ def reset_patient_password(request, patient_id):
     )
 
     return JsonResponse({"message": "Password reset successfully"}, status=200)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def force_logout_patient(request, patient_id):
+    """
+    POST /api/patients/<patient_id>/force-logout/
+
+    Immediately invalidates all active sessions for the given patient without
+    changing their password. The patient will be signed out on all devices
+    within at most ACCESS_TOKEN_LIFETIME (5 minutes).
+    """
+    try:
+        patient = Patient.objects.get(pk=ObjectId(patient_id))
+    except Patient.DoesNotExist:
+        return JsonResponse({"error": "Patient not found"}, status=404)
+    except Exception:
+        return JsonResponse({"error": "Invalid patient ID"}, status=400)
+
+    user = patient.userId
+    invalidate_user_tokens(str(user.id))
+
+    Logs.objects.create(
+        userId=user,
+        action="FORCE_LOGOUT",
+        actor_role="Therapist",
+        details=f"All sessions invalidated by therapist for patient {patient_id}",
+    )
+
+    return JsonResponse({"message": "Patient sessions invalidated"}, status=200)
 
 
 @api_view(["GET"])
@@ -770,7 +855,8 @@ def get_pending_users(request):
                         {
                             "therapistId": str(therapist.id),  # ✅ FE needs this
                             "name": f"{getattr(therapist, 'first_name', '')} {getattr(therapist, 'name', '')}".strip(),
-                            "specializations": getattr(therapist, "specializations", []) or [],
+                            "specializations": getattr(therapist, "specializations", [])
+                            or [],
                             "clinics": getattr(therapist, "clinics", []) or [],
                             "projects": projects_list,
                         }
@@ -880,7 +966,9 @@ def decline_user(request):
                 fail_silently=False,
             )
 
-        return JsonResponse({"message": "User declined and deleted successfully."}, status=200)
+        return JsonResponse(
+            {"message": "User declined and deleted successfully."}, status=200
+        )
 
     except Exception:
         logger.exception("decline_user failed")

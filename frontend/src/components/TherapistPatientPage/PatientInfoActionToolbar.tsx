@@ -11,6 +11,7 @@ import {
   CloudDownload,
   HardDriveDownload,
   KeyRound,
+  LogOut,
   Pencil,
   RefreshCw,
   UserRoundX,
@@ -135,6 +136,22 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
               >
                 <KeyRound />
                 {t('ResetPassword')}
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="dashboard"
+                disabled={store.loading || store.saving || store.forceLogoutSaving}
+                onClick={async () => {
+                  if (window.confirm(t('ForceLogoutConfirm'))) {
+                    const ok = await store.forceLogout(t);
+                    if (ok) alert(t('ForceLogoutSuccess'));
+                  }
+                }}
+                title={t('ForceLogoutTitle')}
+              >
+                <LogOut />
+                {store.forceLogoutSaving ? t('Loading...') : t('ForceLogout')}
               </Button>
 
               <Button

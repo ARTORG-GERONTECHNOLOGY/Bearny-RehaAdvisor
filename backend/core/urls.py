@@ -403,6 +403,11 @@ urlpatterns = [
         user_views.reset_patient_password,
         name="reset-patient-password",
     ),
+    path(
+        "api/patients/<str:patient_id>/force-logout/",
+        user_views.force_logout_patient,
+        name="force-logout-patient",
+    ),
     # ── Intervention Templates ─────────────────────────────────────────────
     path("api/templates/", template_views.template_list_create),
     path("api/templates/<str:template_id>/", template_views.template_detail),
