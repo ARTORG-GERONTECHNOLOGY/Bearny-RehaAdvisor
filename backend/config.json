@@ -239,7 +239,7 @@
           "type": "dropdown",
           "required": false,
           "be_name": "wearable_device",
-          "options": ["google_health", "omron", "none", "fitbit"]
+          "options": ["google_health", "omron", "none"]
         },
         {
           "name": "password",

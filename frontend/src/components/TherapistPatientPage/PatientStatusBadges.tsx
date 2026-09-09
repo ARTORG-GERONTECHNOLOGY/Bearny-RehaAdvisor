@@ -165,14 +165,19 @@ export const WearBadge: React.FC<Props> = ({ patient }) => {
   if (level === 'unknown') {
     const noDataTip = device === 'google_health' ? t('No Google Health data') : t('No Fitbit data');
     return (
-      <StatusChip label={String(t('Wear'))} level={level} tip={String(noDataTip)}>
+      <StatusChip
+        label={device === 'fitbit' ? `Fitbit (${t('Deprecated')})` : String(t('Wear'))}
+        level={level}
+        tip={String(noDataTip)}
+      >
         {String(t('No data'))}
       </StatusChip>
     );
   }
 
   if (revoked) {
-    const deviceLabel = device === 'google_health' ? 'Google Health' : 'Fitbit';
+    const deviceLabel =
+      device === 'google_health' ? 'Google Health' : `Fitbit (${t('Deprecated')})`;
     const revokedTip =
       device === 'google_health'
         ? t('Google Health disconnected — reconnect required')
@@ -214,7 +219,11 @@ export const WearBadge: React.FC<Props> = ({ patient }) => {
   }
 
   return (
-    <StatusChip label={String(t('Wear'))} level={level} tip={tip}>
+    <StatusChip
+      label={device === 'fitbit' ? `Fitbit (${t('Deprecated')})` : String(t('Wear'))}
+      level={level}
+      tip={tip}
+    >
       {badgeText}
     </StatusChip>
   );

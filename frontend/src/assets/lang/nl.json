@@ -448,16 +448,16 @@
   "No feedback available": "Geen feedback beschikbaar",
   "Feedback": "Terugkoppeling",
   "Statistics": "Statistieken",
-  "Calendar": {
-    "today": "Vandaag",
-    "previous": "Vorige",
-    "next": "Volgende",
-    "month": "Maand",
-    "week": "Week",
-    "day": "Dag",
-    "agenda": "Agenda",
-    "showMore": "+{{count}} meer"
-  },
+  "Calendar": [
+    ["today", "Vandaag"],
+    ["previous", "Vorige"],
+    ["next", "Volgende"],
+    ["month", "Maand"],
+    ["week", "Week"],
+    ["day", "Dag"],
+    ["agenda", "Agenda"],
+    ["showMore", "+{{count}} meer"]
+  ],
   "Recommended": "Aanbevolen",
   "Recomended to patients": "Aanbevolen aan patiënten",
   "Here are your recommendations for": "Hier zijn uw aanbevelingen voor",
@@ -534,20 +534,18 @@
   "hour": "uur",
   "minute": "minuten",
   "restrictionsText": "Wanneer heeft u uw laatste beperkingen gehad?",
-  "userTypes": {
-    "patient": "Patiënt",
-    "therapist": "Therapeut",
-    "researcher": "Onderzoeker",
-    "admin": "Beheerder"
-  },
-  "RegisteringTypes": {
-    "therapist": "Therapeut",
-    "researcher": "Onderzoeker",
-    "admin": "Beheerder"
-  },
-  "TherapistRegTypes": {
-    "patient": "Patiënt"
-  },
+  "userTypes": [
+    ["patient", "Patiënt"],
+    ["therapist", "Therapeut"],
+    ["researcher", "Onderzoeker"],
+    ["admin", "Beheerder"]
+  ],
+  "RegisteringTypes": [
+    ["therapist", "Therapeut"],
+    ["researcher", "Onderzoeker"],
+    ["admin", "Beheerder"]
+  ],
+  "TherapistRegTypes": [["patient", "Patiënt"]],
   "Register": "Registreren",
   "Login": "Aanmelden",
   "Patient Id": "Patiënt-ID",
@@ -1010,6 +1008,7 @@
   "No wearable configured": "Geen wearable geconfigureerd",
   "Wearable Device": "Wearable-apparaat",
   "fitbit": "Fitbit",
+  "Deprecated": "Verouderd",
   "omron": "Omron",
   "google_health": "Google Health",
   "none": "Geen",

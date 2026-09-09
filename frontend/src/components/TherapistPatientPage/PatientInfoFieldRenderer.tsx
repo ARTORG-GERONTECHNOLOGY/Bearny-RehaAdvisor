@@ -79,13 +79,23 @@ const PatientInfoFieldRenderer: React.FC<PatientInfoFieldRendererProps> = observ
       } else {
         display = String(displayValue || '—');
       }
+
+      const isFitbitDeprecated = key === 'wearable_device' && displayValue === 'fitbit';
+
       return (
         <div>
           <div className="text-zinc-500 text-xs">
             {t(field.label)}{' '}
             {!field.readOnly && <PatientInfoSourceBadge store={store} fieldKey={key} />}
           </div>
-          <div className="text-sm font-medium">{display}</div>
+          <div className="text-sm font-medium flex items-center gap-1.5">
+            {display}
+            {isFitbitDeprecated && (
+              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                Deprecated
+              </span>
+            )}
+          </div>
         </div>
       );
     }
@@ -120,6 +130,13 @@ const PatientInfoFieldRenderer: React.FC<PatientInfoFieldRendererProps> = observ
     }
 
     if (field.type === 'dropdown') {
+      // If the patient's current value is the deprecated 'fitbit' option (no
+      // longer offered for new patients), inject it back so the select doesn't
+      // show a blank value. It's shown as disabled so therapists can see it but
+      // are guided to migrate to a supported option.
+      const dropdownOptions = field.options || [];
+      const isFitbitSelected = key === 'wearable_device' && manualValue === 'fitbit';
+
       return (
         <Field>
           <FieldLabel htmlFor={key}>
@@ -139,7 +156,12 @@ const PatientInfoFieldRenderer: React.FC<PatientInfoFieldRendererProps> = observ
               />
             </SelectTrigger>
             <SelectContent>
-              {(field.options || []).map((opt: string) => (
+              {isFitbitSelected && (
+                <SelectItem key="fitbit" value="fitbit" disabled>
+                  {t('fitbit')} — Deprecated
+                </SelectItem>
+              )}
+              {dropdownOptions.map((opt: string) => (
                 <SelectItem key={opt} value={opt}>
                   {t(opt)}
                 </SelectItem>
