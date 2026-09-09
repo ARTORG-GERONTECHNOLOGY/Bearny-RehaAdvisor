@@ -105,7 +105,9 @@ urlpatterns = [
         name="send_verification_code",
     ),
     path("api/auth/verify-code/", auth_views.verify_code_view, name="verify_code"),
-    path("api/auth/token/refresh/", MongoTokenRefreshView.as_view(), name="token_refresh"),
+    path(
+        "api/auth/token/refresh/", MongoTokenRefreshView.as_view(), name="token_refresh"
+    ),
     # User Profile
     path(
         "api/users/<str:user_id>/profile/",
@@ -241,7 +243,9 @@ urlpatterns = [
         name="post_add_new_patient_group",
     ),
     # Fitbit (legacy — keep for existing connected users)
-    path("api/fitbit/auth-init/", fitbit_views.fitbit_auth_init, name="fitbit_auth_init"),
+    path(
+        "api/fitbit/auth-init/", fitbit_views.fitbit_auth_init, name="fitbit_auth_init"
+    ),
     path("api/fitbit/callback/", fitbit_views.fitbit_callback, name="fitbit_callback"),
     path(
         "api/fitbit/disconnect/",
@@ -379,7 +383,9 @@ urlpatterns = [
         therapist_access,
         name="therapist_access_admin",
     ),
-    path("api/redcap/import-patient/", import_patient_from_redcap, name="import-patient"),
+    path(
+        "api/redcap/import-patient/", import_patient_from_redcap, name="import-patient"
+    ),
     # Wearables → REDCap sync
     path(
         "api/wearables/sync-to-redcap/<str:patient_id>/",
