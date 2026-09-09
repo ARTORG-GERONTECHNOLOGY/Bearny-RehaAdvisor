@@ -219,4 +219,39 @@ describe('PatientInfoActionToolbar', () => {
       )
     );
   });
+
+  it('renders the Force Logout button in view mode', () => {
+    const store = makeStore();
+    render(<PatientInfoActionToolbar store={store} onDeleted={jest.fn()} />);
+    expect(screen.getByText('ForceLogout')).toBeInTheDocument();
+  });
+
+  it('calls force-logout endpoint after confirm', async () => {
+    (apiClient.post as jest.Mock).mockResolvedValue({ data: {} });
+    const store = makeStore();
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+    const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+
+    render(<PatientInfoActionToolbar store={store} onDeleted={jest.fn()} />);
+    fireEvent.click(screen.getByText('ForceLogout'));
+
+    await waitFor(() =>
+      expect(apiClient.post).toHaveBeenCalledWith('/patients/patient-1/force-logout/')
+    );
+
+    confirmSpy.mockRestore();
+    alertSpy.mockRestore();
+  });
+
+  it('does not call force-logout endpoint when confirm is cancelled', async () => {
+    const store = makeStore();
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+    render(<PatientInfoActionToolbar store={store} onDeleted={jest.fn()} />);
+    fireEvent.click(screen.getByText('ForceLogout'));
+
+    expect(apiClient.post).not.toHaveBeenCalled();
+
+    confirmSpy.mockRestore();
+  });
 });

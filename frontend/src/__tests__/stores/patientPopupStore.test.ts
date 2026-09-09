@@ -698,4 +698,50 @@ describe('PatientPopupStore', () => {
       expect(store.formData.email).toBe('a@b.com');
     });
   });
+
+  describe('forceLogout', () => {
+    it('calls the correct endpoint for the patient', async () => {
+      (mockApiClient.post as jest.Mock).mockResolvedValueOnce({ data: {} });
+
+      await store.forceLogout(t);
+
+      expect(mockApiClient.post).toHaveBeenCalledWith('/patients/patient-1/force-logout/');
+    });
+
+    it('returns true and clears forceLogoutSaving on success', async () => {
+      (mockApiClient.post as jest.Mock).mockResolvedValueOnce({ data: {} });
+
+      const result = await store.forceLogout(t);
+
+      expect(result).toBe(true);
+      expect(store.forceLogoutSaving).toBe(false);
+    });
+
+    it('returns false and clears forceLogoutSaving on API error', async () => {
+      (mockApiClient.post as jest.Mock).mockRejectedValueOnce({ response: { data: {} } });
+
+      const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {});
+      const result = await store.forceLogout(t);
+      alertSpy.mockRestore();
+
+      expect(result).toBe(false);
+      expect(store.forceLogoutSaving).toBe(false);
+    });
+
+    it('sets forceLogoutSaving to true while the request is in-flight', async () => {
+      let resolvePost!: (v: unknown) => void;
+      (mockApiClient.post as jest.Mock).mockReturnValueOnce(
+        new Promise((res) => {
+          resolvePost = res;
+        })
+      );
+
+      const promise = store.forceLogout(t);
+      expect(store.forceLogoutSaving).toBe(true);
+
+      resolvePost({ data: {} });
+      await promise;
+      expect(store.forceLogoutSaving).toBe(false);
+    });
+  });
 });
