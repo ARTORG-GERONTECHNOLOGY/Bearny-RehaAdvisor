@@ -250,6 +250,7 @@ class Logs(Document):
             "TEMPLATE_APPLY",
             "PATIENT_REGISTER",
             "ADMIN_EXPORT",
+            "FORCE_LOGOUT",
         ],
         required=True,
     )

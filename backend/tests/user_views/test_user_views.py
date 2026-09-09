@@ -1652,3 +1652,115 @@ def test_patient_profile_get_created_by_null_when_not_set():
     data = resp.json()
     assert "created_by" in data
     assert data["created_by"] is None
+
+
+# ===========================================================================
+# reset_patient_password — token invalidation
+# ===========================================================================
+
+
+def test_reset_patient_password_invalidates_user_tokens():
+    """
+    A successful password reset must call ``invalidate_user_tokens`` with the
+    patient's User ID so that existing sessions are revoked immediately.
+    """
+    _, patient = create_redcap_patient()
+    user_id = str(patient.userId.id)
+
+    with (
+        mock.patch("core.views.user_views.make_password", return_value="hashed"),
+        mock.patch("core.views.user_views.invalidate_user_tokens") as mock_inv,
+    ):
+        resp = client.put(
+            f"/api/patients/{str(patient.id)}/reset-password/",
+            data=json.dumps({"new_password": "NewPass1!"}),
+            content_type="application/json",
+        )
+
+    assert resp.status_code == 200
+    mock_inv.assert_called_once_with(user_id)
+
+
+# ===========================================================================
+# force_logout_patient  (POST /api/patients/<patient_id>/force-logout/)
+# ===========================================================================
+
+
+def test_force_logout_patient_success():
+    """
+    POST to force-logout returns HTTP 200 with 'Patient sessions invalidated'.
+    """
+    _, patient = create_redcap_patient()
+
+    with mock.patch("core.views.user_views.invalidate_user_tokens"):
+        resp = client.post(f"/api/patients/{str(patient.id)}/force-logout/")
+
+    assert resp.status_code == 200
+    assert "Patient sessions invalidated" in resp.json().get("message", "")
+
+
+def test_force_logout_patient_calls_invalidate_user_tokens():
+    """
+    POST to force-logout must call ``invalidate_user_tokens`` with the
+    patient's User ID.
+    """
+    _, patient = create_redcap_patient()
+    user_id = str(patient.userId.id)
+
+    with mock.patch("core.views.user_views.invalidate_user_tokens") as mock_inv:
+        resp = client.post(f"/api/patients/{str(patient.id)}/force-logout/")
+
+    assert resp.status_code == 200
+    mock_inv.assert_called_once_with(user_id)
+
+
+def test_force_logout_patient_writes_audit_log():
+    """
+    POST to force-logout must create a ``Logs`` entry with action
+    ``FORCE_LOGOUT`` for the patient's user.
+    """
+    from core.models import Logs
+
+    _, patient = create_redcap_patient()
+    user = patient.userId
+
+    with mock.patch("core.views.user_views.invalidate_user_tokens"):
+        resp = client.post(f"/api/patients/{str(patient.id)}/force-logout/")
+
+    assert resp.status_code == 200
+    log = Logs.objects(userId=user, action="FORCE_LOGOUT").first()
+    assert log is not None
+    assert log.actor_role == "Therapist"
+
+
+def test_force_logout_patient_not_found_returns_404():
+    """
+    A valid ObjectId that matches no Patient document returns 404.
+    """
+    with mock.patch("core.views.user_views.invalidate_user_tokens"):
+        resp = client.post(f"/api/patients/{ObjectId()}/force-logout/")
+
+    assert resp.status_code == 404
+    assert "Patient not found" in resp.json().get("error", "")
+
+
+def test_force_logout_patient_invalid_objectid_returns_400():
+    """
+    A malformed patient_id returns 400.
+    """
+    with mock.patch("core.views.user_views.invalidate_user_tokens"):
+        resp = client.post("/api/patients/not-an-objectid/force-logout/")
+
+    assert resp.status_code == 400
+    assert "Invalid patient ID" in resp.json().get("error", "")
+
+
+def test_force_logout_patient_method_not_allowed():
+    """
+    GET to the force-logout endpoint returns 405.  Only POST is accepted.
+    """
+    _, patient = create_redcap_patient()
+
+    resp = client.get(f"/api/patients/{str(patient.id)}/force-logout/")
+
+    assert resp.status_code == 405
