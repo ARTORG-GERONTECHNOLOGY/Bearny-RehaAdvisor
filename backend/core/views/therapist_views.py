@@ -548,7 +548,7 @@ def list_therapist_patients(request, therapist_id):
             bp_sys_vals, bp_dia_vals = [], []
             last_worn_date = None
             has_wearable_data = False
-            patient_device = getattr(patient, "wearable_device", None) or "fitbit"
+            patient_device = getattr(patient, "wearable_device", None) or "google_health"
 
             if patient_device == "google_health":
                 gh_docs = (
@@ -658,7 +658,7 @@ def list_therapist_patients(request, therapist_id):
                     "biomarker": biomarker,
                     "adherence_rate": adh_7,
                     "adherence_total": adh_total,
-                    "wearable_device": getattr(patient, "wearable_device", None) or "fitbit",
+                    "wearable_device": getattr(patient, "wearable_device", None) or "google_health",
                     "rehab_end_date": (
                         patient.reha_end_date.isoformat() if getattr(patient, "reha_end_date", None) else None
                     ),
