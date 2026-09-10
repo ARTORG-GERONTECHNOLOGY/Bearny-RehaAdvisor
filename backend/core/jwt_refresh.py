@@ -9,6 +9,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from core.models import User
 from core.throttles import LoginRateThrottle
+from core.token_revocation import get_user_valid_from
 
 
 class MongoTokenRefreshSerializer(TokenRefreshSerializer):
@@ -53,6 +54,18 @@ class MongoTokenRefreshSerializer(TokenRefreshSerializer):
                     self.error_messages["no_active_account"],
                     "no_active_account",
                 )
+
+            # Reject refresh if the token predates a password change / force-logout.
+            # invalidate_user_tokens() sets a valid_from epoch; any token issued
+            # before that epoch must not be able to mint new access tokens.
+            valid_from = get_user_valid_from(str(user_id))
+            if valid_from:
+                iat = int(refresh.payload.get("iat", 0))
+                if iat < valid_from:
+                    raise AuthenticationFailed(
+                        "Token has been invalidated. Please log in again.",
+                        "token_invalidated",
+                    )
 
         data = {"access": str(refresh.access_token)}
 
