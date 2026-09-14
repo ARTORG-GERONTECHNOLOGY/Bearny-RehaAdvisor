@@ -168,6 +168,14 @@ services:
   # React frontend — static build served via nginx-prod
   react-prod:
     image: ${GHCR_IMAGE}-frontend:${IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.prod.reha-advisor
+      args:
+        VITE_GOOGLE_HEALTH_CLIENT_ID: ${GOOGLE_HEALTH_CLIENT_ID}
+        VITE_GOOGLE_HEALTH_REDIRECT_URI: ${GOOGLE_HEALTH_REDIRECT_URI:-https://reha-advisor.ch/api/google-health/callback/}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN}
+        VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
     container_name: react-prod
     restart: always
     ports:
