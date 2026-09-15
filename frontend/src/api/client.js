@@ -82,10 +82,14 @@ apiClient.interceptors.response.use(
         _isRefreshing = false;
         _processQueue(refreshError);
 
-        // Don't wipe localStorage here. authStore.checkAuthentication() already
-        // clears storage and triggers logout when session is truly dead. Clearing
-        // 'id' / 'expiresAt' here causes spurious logouts when the refresh cookie
-        // isn't yet propagated across ports in test environments.
+        // If the refresh endpoint itself returned 401, the session is dead
+        // (e.g. password reset revoked all tokens). Clear the auth marker so
+        // the storage-event listener in authStore triggers reset() → login redirect.
+        if (refreshError?.response?.status === 401) {
+          localStorage.removeItem('id');
+          localStorage.removeItem('expiresAt');
+        }
+
         return Promise.reject(refreshError);
       }
     }
