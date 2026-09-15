@@ -45,15 +45,14 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS("No patients with null wearable_device found."))
             return
 
-        self.stdout.write(f"{'[DRY RUN] ' if dry_run else ''}Processing {total} patient(s) with null wearable_device...\n")
+        self.stdout.write(
+            f"{'[DRY RUN] ' if dry_run else ''}Processing {total} patient(s) with null wearable_device...\n"
+        )
 
         counts = {"fitbit": 0, "google_health": 0, "none": 0}
         for p in qs:
             user = p.userId
-            if (
-                FitbitUserToken.objects(user=user).count() > 0
-                or FitbitData.objects(user=user).count() > 0
-            ):
+            if FitbitUserToken.objects(user=user).count() > 0 or FitbitData.objects(user=user).count() > 0:
                 new_val = "fitbit"
             elif GoogleHealthUserToken.objects(user=user).count() > 0:
                 new_val = "google_health"
