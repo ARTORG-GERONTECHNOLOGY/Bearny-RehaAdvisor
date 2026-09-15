@@ -908,7 +908,7 @@
   "No history yet.": "Ainda sem histórico.",
   "No thresholds loaded.": "Nenhum limiar carregado.",
   "Older thresholds are saved automatically when you update goals.": "Os limiares anteriores são guardados automaticamente quando atualiza os objetivos.",
-  "PasswordResetSuccess": "Palavra-passe redefinida com sucesso.",
+  "PasswordResetSuccess": "Palavra-passe redefinida com sucesso. O paciente foi desconectado de todos os dispositivos.",
   "PasswordStrengthHint": "A palavra-passe deve ter pelo menos 8 caracteres, 1 maiúscula, 1 minúscula, 1 número e 1 caráter especial.",
   "Personal goals (comma separated)": "Objetivos pessoais (separados por vírgula)",
   "Previous values": "Valores anteriores",

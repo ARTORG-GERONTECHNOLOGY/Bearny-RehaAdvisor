@@ -904,7 +904,7 @@
   "No project selected": "Nessun progetto selezionato",
   "No thresholds loaded.": "Nessuna soglia caricata.",
   "Older thresholds are saved automatically when you update goals.": "Le soglie precedenti vengono salvate automaticamente quando si aggiornano gli obiettivi.",
-  "PasswordResetSuccess": "Password reimpostata con successo.",
+  "PasswordResetSuccess": "Password reimpostata con successo. Il paziente è stato disconnesso da tutti i dispositivi.",
   "PasswordStrengthHint": "La password deve avere almeno 8 caratteri, 1 maiuscola, 1 minuscola, 1 numero e 1 carattere speciale.",
   "Personal goals (comma separated)": "Obiettivi personali (separati da virgola)",
   "Previous values": "Valori precedenti",

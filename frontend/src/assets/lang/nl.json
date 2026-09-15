@@ -897,7 +897,7 @@
   "No project selected": "Geen project geselecteerd",
   "No thresholds loaded.": "Geen drempelwaarden geladen.",
   "Older thresholds are saved automatically when you update goals.": "Oudere drempelwaarden worden automatisch opgeslagen wanneer u doelen bijwerkt.",
-  "PasswordResetSuccess": "Wachtwoord succesvol gereset.",
+  "PasswordResetSuccess": "Wachtwoord succesvol gereset. De patiënt is uitgelogd op alle apparaten.",
   "PasswordStrengthHint": "Wachtwoord moet minimaal 8 tekens hebben, 1 hoofdletter, 1 kleine letter, 1 cijfer en 1 speciaal teken.",
   "Personal goals (comma separated)": "Persoonlijke doelen (kommagescheiden)",
   "Previous values": "Vorige waarden",

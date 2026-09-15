@@ -904,7 +904,7 @@
   "No project selected": "Kein Projekt ausgewählt",
   "No thresholds loaded.": "Keine Schwellenwerte geladen.",
   "Older thresholds are saved automatically when you update goals.": "Ältere Schwellenwerte werden automatisch gespeichert, wenn Sie Ziele aktualisieren.",
-  "PasswordResetSuccess": "Passwort erfolgreich zurückgesetzt.",
+  "PasswordResetSuccess": "Passwort erfolgreich zurückgesetzt. Der Patient wurde von allen Geräten abgemeldet.",
   "PasswordStrengthHint": "Das Passwort muss mindestens 8 Zeichen, 1 Großbuchstaben, 1 Kleinbuchstaben, 1 Zahl und 1 Sonderzeichen enthalten.",
   "Personal goals (comma separated)": "Persönliche Ziele (kommagetrennt)",
   "Previous values": "Vorherige Werte",
