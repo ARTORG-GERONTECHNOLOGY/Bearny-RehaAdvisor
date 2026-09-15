@@ -904,7 +904,7 @@
   "No project selected": "No project selected",
   "No thresholds loaded.": "No thresholds loaded.",
   "Older thresholds are saved automatically when you update goals.": "Older thresholds are saved automatically when you update goals.",
-  "PasswordResetSuccess": "Password reset successfully.",
+  "PasswordResetSuccess": "Password reset successfully. The patient has been logged out of all devices.",
   "PasswordStrengthHint": "Password must have at least 8 characters, 1 uppercase, 1 lowercase, 1 number, and 1 special character.",
   "Personal goals (comma separated)": "Personal goals (comma separated)",
   "Previous values": "Previous values",

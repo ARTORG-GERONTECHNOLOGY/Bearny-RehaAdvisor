@@ -905,7 +905,7 @@
   "No project selected": "Aucun projet sélectionné",
   "No thresholds loaded.": "Aucun seuil chargé.",
   "Older thresholds are saved automatically when you update goals.": "Les seuils antérieurs sont automatiquement sauvegardés lorsque vous mettez à jour les objectifs.",
-  "PasswordResetSuccess": "Mot de passe réinitialisé avec succès.",
+  "PasswordResetSuccess": "Mot de passe réinitialisé avec succès. Le patient a été déconnecté de tous les appareils.",
   "PasswordStrengthHint": "Le mot de passe doit contenir au moins 8 caractères, 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial.",
   "Personal goals (comma separated)": "Objectifs personnels (séparés par virgule)",
   "Previous values": "Valeurs précédentes",
