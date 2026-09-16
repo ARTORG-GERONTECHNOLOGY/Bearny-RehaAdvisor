@@ -196,8 +196,7 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
     low_ratings_14d = 0
     star_q_ids = set(_get_star_q_ids())
 
-    # no_dereference(): feedback[].questionId is only ever read for its id below,
-    # and dereferencing it forces one FeedbackQuestion fetch per entry.
+    # no_dereference(): questionId is only read for its id below, avoiding a fetch per entry.
     logs = (
         PatientInterventionLogs.objects(userId=patient, feedback__exists=True, feedback__ne=[])
         .only("date", "updatedAt", "feedback")
@@ -374,8 +373,7 @@ def _feedback_computing(patient):
                 earliest_cut = None
 
         # ---- pull PatientICFRating docs, newest first ----
-        # no_dereference(): feedback_entries[].questionId is only ever read for its
-        # id below, and dereferencing it forces one FeedbackQuestion fetch per entry.
+        # no_dereference(): questionId is only read for its id below, avoiding a fetch per entry.
         ratings_qs = PatientICFRating.objects(patientId=patient).order_by("-date").no_dereference()
         if earliest_cut:
             ratings_qs = ratings_qs.filter(date__gte=earliest_cut)

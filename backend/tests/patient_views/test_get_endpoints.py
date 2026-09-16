@@ -536,6 +536,96 @@ def test_get_patient_plan_for_therapist_skips_feedback_entry_with_deleted_questi
     assert all_feedback[0]["question"]["id"] == str(live_question.id)
 
 
+def test_get_patient_plan_for_therapist_multiple_interventions_ratings_stay_separate(mongo_mock):
+    """
+    Regression: feedback/ratings for one intervention in a plan must not leak
+    into another when the therapist plan view batches its log and
+    FeedbackQuestion lookups across the whole plan instead of per intervention.
+    """
+    patient, therapist, intervention_a, plan = setup_basic_plan()
+
+    intervention_b = Intervention(
+        title="Balance",
+        description="desc",
+        content_type="Video",
+        external_id="TEST-EXT-002",
+        language="en",
+    )
+    intervention_b.save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=intervention_b,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(3)],
+        )
+    )
+    plan.save()
+
+    star_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_exercise",
+        translations=[Translation(language="en", text="Rate this")],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=str(i))]) for i in range(1, 6)
+        ],
+        answer_type="select",
+    )
+    star_question.save()
+
+    day_a = plan.interventions[0].dates[0]
+    log_date_a = timezone.localtime(timezone.make_aware(day_a, dt_timezone.utc)).replace(tzinfo=None)
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention_a,
+        rehabilitationPlanId=plan,
+        date=log_date_a,
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="5", translations=[Translation(language="en", text="x")])],
+            )
+        ],
+    ).save()
+
+    day_b = plan.interventions[1].dates[0]
+    log_date_b = timezone.localtime(timezone.make_aware(day_b, dt_timezone.utc)).replace(tzinfo=None)
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention_b,
+        rehabilitationPlanId=plan,
+        date=log_date_b,
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="2", translations=[Translation(language="en", text="x")])],
+            )
+        ],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    body = resp.json()
+
+    entry_a = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention_a.id))
+    entry_b = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention_b.id))
+
+    assert entry_a["ratingCount"] == 1
+    assert entry_a["averageRating"] == 5.0
+    assert entry_b["ratingCount"] == 1
+    assert entry_b["averageRating"] == 2.0
+
+    feedback_a = [fb for d in entry_a["dates"] for fb in d["feedback"]]
+    feedback_b = [fb for d in entry_b["dates"] for fb in d["feedback"]]
+    assert len(feedback_a) == 1 and feedback_a[0]["answer"][0]["key"] == "5"
+    assert len(feedback_b) == 1 and feedback_b[0]["answer"][0]["key"] == "2"
+
+
 def test_get_patient_plan_for_therapist_post_method_not_allowed(mongo_mock):
     """
     POST to the therapist-plan endpoint returns 405.  Only GET is accepted.

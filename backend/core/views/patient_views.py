@@ -3099,6 +3099,28 @@ def get_patient_plan_for_therapist(request, patient_id):
         variant_ids = _variant_ids_by_intervention(g["intervention"] for g in _groups)
         star_q_ids = set(_get_star_q_ids())
 
+        # One log fetch and one FeedbackQuestion fetch for the whole plan, instead of a pair per intervention group.
+        _all_variant_ids = [vid for g in _groups for vid in variant_ids[g["intervention"].pk]]
+        _all_logs = list(
+            PatientInterventionLogs.objects(
+                userId=patient,
+                rehabilitationPlanId=plan,
+                interventionId__in=_all_variant_ids,
+            ).no_dereference()
+        )
+        _logs_by_variant_id: dict = {}
+        for _log in _all_logs:
+            _logs_by_variant_id.setdefault(_log.interventionId.id, []).append(_log)
+
+        _question_ids = {
+            getattr(fb.questionId, "id", None)
+            for _log in _all_logs
+            for fb in (getattr(_log, "feedback", None) or [])
+            if getattr(fb, "questionId", None) is not None
+        }
+        _question_ids.discard(None)
+        _questions_by_id = {q.id: q for q in FeedbackQuestion.objects(id__in=_question_ids)}
+
         for _group in _groups:
             assignment = _group["canonical"]
             intervention = _group["intervention"]
@@ -3106,23 +3128,8 @@ def get_patient_plan_for_therapist(request, patient_id):
             # Every variant of the external_id, not just the assigned ones, so a log recorded
             # under a different variant is still counted. Scoped to this plan like get_patient_plan,
             # or a patient with a second plan doc gets different counts in the two views.
-            # no_dereference() + a single batched FeedbackQuestion fetch below, instead of
-            # dereferencing fb.questionId per entry (one query per feedback entry otherwise).
-            logs = list(
-                PatientInterventionLogs.objects(
-                    userId=patient,
-                    rehabilitationPlanId=plan,
-                    interventionId__in=variant_ids[intervention.pk],
-                ).no_dereference()
-            )
-            question_ids = {
-                getattr(fb.questionId, "id", None)
-                for log in logs
-                for fb in (getattr(log, "feedback", None) or [])
-                if getattr(fb, "questionId", None) is not None
-            }
-            question_ids.discard(None)
-            questions_by_id = {q.id: q for q in FeedbackQuestion.objects(id__in=question_ids)}
+            logs = [log for vid in variant_ids[intervention.pk] for log in _logs_by_variant_id.get(vid, [])]
+            questions_by_id = _questions_by_id
 
             intervention_dates = []
             completed_count = 0

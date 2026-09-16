@@ -380,3 +380,40 @@ def test_list_all_interventions_avg_rating_rounded_to_one_decimal(mongo_mock):
     # 7 / 3 = 2.333... rounded to 1 dp = 2.3
     assert rated["avg_rating"] == 2.3, f"Expected 2.3, got {rated['avg_rating']}"
     assert rated["rating_count"] == 3
+
+
+def test_list_all_interventions_star_entry_with_empty_answer_key_excluded(mongo_mock):
+    """
+    A FeedbackEntry on a rating_stars_* question with an empty answerKey (no
+    star actually selected) must not be counted as a rating or dilute the
+    average.
+
+    Regression: the aggregation used to divide the rating sum by a count that
+    included these entries, pulling avg_rating toward 0 for any intervention
+    with one.
+    """
+    from core.models import FeedbackEntry
+
+    iv = _make_intervention()
+    star_q = _make_star_question()
+    patient = _make_patient()
+    _submit_star_rating(patient, iv, star_q, star_value=5)
+
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    empty_entry = FeedbackEntry(questionId=star_q, answerKey=[], comment="")
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=iv,
+        rehabilitationPlanId=plan,
+        date=datetime.now(),
+        status=["completed"],
+        feedback=[empty_entry],
+    ).save()
+
+    resp = client.get("/api/interventions/all/", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+
+    rated = next((x for x in resp.json() if x["_id"] == str(iv.id)), None)
+    assert rated is not None
+    assert rated["avg_rating"] == 5.0, f"Empty answerKey diluted avg_rating: {rated['avg_rating']}"
+    assert rated["rating_count"] == 1, f"Empty answerKey counted as a rating: {rated['rating_count']}"

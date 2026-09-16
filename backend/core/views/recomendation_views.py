@@ -1110,6 +1110,7 @@ def list_all_interventions(request, patient_id=None):
                             "rating": {"$toInt": {"$arrayElemAt": ["$feedback.answerKey.key", 0]}},
                         }
                     },
+                    {"$match": {"rating": {"$type": "int"}}},
                     {
                         "$group": {
                             "_id": "$interventionId",
