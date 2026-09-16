@@ -75,6 +75,11 @@ def mongo_mock():
     from mongoengine import connect, disconnect
     from mongoengine.connection import _connections
 
+    # Reset the module-level star_q_ids cache so each test sees a fresh DB.
+    import core.views.recomendation_views as rv
+
+    rv._star_q_ids_cache.update({"ids": None, "ts": 0.0})
+
     alias = "default"
     if alias in _connections:
         disconnect(alias)
@@ -390,6 +395,66 @@ def test_therapist_plan_includes_rating_count(mongo_mock):
     entry = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention.id))
     assert entry["ratingCount"] == 3
     assert entry["averageRating"] == round((4 + 4 + 2) / 3, 1)
+
+
+def test_therapist_plan_rating_count_excludes_non_star_feedback(mongo_mock):
+    """
+    Regression: only ``rating_stars_*`` questions must feed ratingCount /
+    averageRating. A non-star question with a numeric-looking answer key
+    (e.g. a difficulty scale) must not be counted as a rating.
+    """
+    patient, therapist, intervention, plan = setup_basic_plan()
+    assignment = plan.interventions[0]
+
+    star_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_exercise",
+        translations=[Translation(language="en", text="Rate this")],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=str(i))]) for i in range(1, 6)
+        ],
+        answer_type="select",
+    )
+    star_question.save()
+
+    difficulty_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="difficulty_scale",
+        translations=[Translation(language="en", text="How difficult?")],
+        possibleAnswers=[AnswerOption(key="3", translations=[Translation(language="en", text="Medium")])],
+        answer_type="select",
+    )
+    difficulty_question.save()
+
+    day = assignment.dates[0]
+    log_date = timezone.localtime(timezone.make_aware(day, dt_timezone.utc)).replace(tzinfo=None)
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=log_date,
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="5", translations=[Translation(language="en", text="x")])],
+            ),
+            FeedbackEntry(
+                questionId=difficulty_question,
+                answerKey=[AnswerOption(key="3", translations=[Translation(language="en", text="x")])],
+            ),
+        ],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    entry = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention.id))
+    assert entry["ratingCount"] == 1, f"Expected only the star rating to count, got {entry['ratingCount']}"
+    assert entry["averageRating"] == 5.0, f"Difficulty answer leaked into averageRating: {entry['averageRating']}"
 
 
 def test_get_patient_plan_for_therapist_post_method_not_allowed(mongo_mock):
