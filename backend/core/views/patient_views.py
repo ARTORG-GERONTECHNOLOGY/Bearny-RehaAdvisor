@@ -28,6 +28,7 @@ from core.models import (
     FeedbackQuestion,
     FitbitData,
     GeneralFeedback,
+    GoogleHealthData,
     Intervention,
     InterventionAssignment,
     Patient,
@@ -3674,8 +3675,11 @@ def get_combined_health_data(request, patient_id):
             else datetime.datetime.combine(to_date.date(), datetime.time.max).replace(tzinfo=to_date.tzinfo)
         )
 
-        # ---------- 1) Fitbit + Manual vitals merge ----------
-        fitbit_entries = FitbitData.objects(user=patient.userId, date__gte=from_date, date__lte=to_date).order_by(
+        # ---------- 1) Wearable + Manual vitals merge ----------
+        # Route to GoogleHealthData for google_health patients; schema is identical.
+        wearable_device = getattr(patient, "wearable_device", "fitbit") or "fitbit"
+        WearableModel = GoogleHealthData if wearable_device == "google_health" else FitbitData
+        fitbit_entries = WearableModel.objects(user=patient.userId, date__gte=from_date, date__lte=to_date).order_by(
             "date"
         )
 
