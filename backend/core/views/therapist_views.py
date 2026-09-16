@@ -5,6 +5,7 @@ from statistics import mean
 from bson import ObjectId
 from django.http import JsonResponse
 from django.utils.dateparse import parse_datetime
+from mongoengine.errors import DoesNotExist
 from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -208,7 +209,11 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
 
         numeric_values = []
         for fe in getattr(lg, "feedback", None) or []:
-            question_id = getattr(getattr(fe, "questionId", None), "id", None)
+            try:
+                question = fe.questionId
+            except DoesNotExist:
+                continue
+            question_id = getattr(question, "id", None)
             if question_id not in star_q_ids:
                 continue
             for ak in getattr(fe, "answerKey", None) or []:

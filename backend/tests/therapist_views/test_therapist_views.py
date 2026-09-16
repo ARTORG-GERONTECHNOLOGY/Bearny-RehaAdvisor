@@ -1239,6 +1239,82 @@ def test_list_therapist_patients_exposes_thresholds_and_non_questionnaire_feedba
     assert row["intervention_feedback"]["last_answered_at"] is not None
 
 
+def test_list_therapist_patients_skips_feedback_entry_with_deleted_question():
+    therapist, patient = create_therapist_with_patient()
+
+    intervention = Intervention(
+        external_id=f"ext-{ObjectId()}",
+        language="en",
+        title="Breathing",
+        description="desc",
+        content_type="Audio",
+        patient_types=[],
+    ).save()
+    live_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey=f"rating_stars_{ObjectId()}",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+        answer_type="select",
+    ).save()
+    stale_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey=f"rating_stars_{ObjectId()}",
+        translations=[Translation(language="en", text="Old question")],
+        possibleAnswers=[],
+        answer_type="select",
+    ).save()
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=7),
+        endDate=datetime.now() + timedelta(days=7),
+        status="active",
+        interventions=[InterventionAssignment(interventionId=intervention, dates=[datetime.now() - timedelta(days=1)])],
+    ).save()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.now() - timedelta(days=1),
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=stale_question,
+                answerKey=[AnswerOption(key="5", translations=[Translation(language="en", text="5")])],
+            )
+        ],
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.now() - timedelta(days=2),
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=live_question,
+                answerKey=[AnswerOption(key="4", translations=[Translation(language="en", text="4")])],
+            )
+        ],
+    ).save()
+
+    # A re-seed of feedback questions deletes and recreates them by key, leaving
+    # old logs holding a dangling questionId reference.
+    FeedbackQuestion.objects(id=stale_question.id).delete()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    # The dangling entry must be skipped, not blow up the whole summary.
+    assert row["intervention_feedback"]["recent_avg_score"] == pytest.approx(4.0, rel=1e-3)
+
+
 # ---------------------------------------------------------------------------
 # Project-based access filtering
 # ---------------------------------------------------------------------------
