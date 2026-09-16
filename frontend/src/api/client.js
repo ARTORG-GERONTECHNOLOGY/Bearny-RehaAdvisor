@@ -50,7 +50,12 @@ apiClient.interceptors.response.use(
     // Skip refresh for auth endpoints — a 401 from login means wrong
     // credentials (not an expired token), and /token/refresh/ itself
     // returning 401 would cause an infinite loop.
-    const skipRefreshUrls = ['/auth/login/', '/auth/token/refresh/', '/auth/register/'];
+    const skipRefreshUrls = [
+      '/auth/login/',
+      '/auth/token/refresh/',
+      '/auth/register/',
+      '/auth/logout/',
+    ];
     const requestUrl = originalRequest.url || '';
     const isAuthEndpoint = skipRefreshUrls.some((u) => requestUrl.includes(u));
 
@@ -83,11 +88,12 @@ apiClient.interceptors.response.use(
         _processQueue(refreshError);
 
         // If the refresh endpoint itself returned 401, the session is dead
-        // (e.g. password reset revoked all tokens). Clear the auth marker so
-        // the storage-event listener in authStore triggers reset() → login redirect.
+        // (e.g. password reset revoked all tokens). Notify authStore via a
+        // custom DOM event so it can call logout() and redirect to the login
+        // page. localStorage.removeItem() cannot be used here because the
+        // 'storage' event only fires in OTHER tabs, not the same tab.
         if (refreshError?.response?.status === 401) {
-          localStorage.removeItem('id');
-          localStorage.removeItem('expiresAt');
+          window.dispatchEvent(new CustomEvent('auth:session-expired'));
         }
 
         return Promise.reject(refreshError);
