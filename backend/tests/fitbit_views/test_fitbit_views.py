@@ -110,7 +110,12 @@ def create_patient_graph():
         createdAt=datetime.now(),
         isActive=True,
     ).save()
-    patient = Patient(userId=patient_user, patient_code=f"P-{ObjectId()}", therapist=th).save()
+    patient = Patient(
+        userId=patient_user,
+        patient_code=f"P-{ObjectId()}",
+        therapist=th,
+        wearable_device="fitbit",
+    ).save()
     return th_user, th, patient_user, patient
 
 
@@ -613,6 +618,113 @@ def test_health_combined_history_invalid_date_query_returns_400():
     resp = health_combined_history(req, str(patient.id))
     assert resp.status_code == 400
     assert "error" in json.loads(resp.content)
+
+
+@patch("core.views.fitbit_view.PatientInterventionLogs.objects")
+@patch("core.views.fitbit_view.PatientVitals.objects")
+@patch("core.views.fitbit_view.GoogleHealthData.objects")
+def test_health_combined_history_google_health_patient_returns_google_health_data(
+    mock_gh_objects, mock_vitals_objects, mock_logs
+):
+    """
+    When patient.wearable_device == 'google_health', health_combined_history must
+    read from GoogleHealthData instead of FitbitData. Previously the endpoint always
+    queried FitbitData, so google_health patients (e.g. 905-140, 934-279, 934-252)
+    always received an empty 'fitbit' list even though their data existed.
+    """
+    _, _, _patient_user, patient = create_patient_graph()
+    patient.wearable_device = "google_health"
+    patient.save()
+
+    entry_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
+    mock_logs.return_value.order_by.return_value = []
+    mock_vitals_objects.return_value.order_by.return_value = []
+
+    fake_gh = SimpleNamespace(
+        date=entry_dt,
+        steps=5000,
+        resting_heart_rate=62,
+        max_heart_rate=None,
+        floors=None,
+        distance=None,
+        calories=None,
+        active_minutes=None,
+        wear_time_minutes=None,
+        sleep=None,
+        heart_rate_zones=[],
+        breathing_rate=None,
+        hrv=None,
+        exercise={},
+        weight_kg=None,
+        bp_sys=None,
+        bp_dia=None,
+    )
+    mock_gh_objects.return_value.order_by.return_value = [fake_gh]
+
+    with patch(
+        "core.views.fitbit_view.PatientICFRating",
+        new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [])),
+        create=True,
+    ):
+        req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
+        resp = health_combined_history(req, str(patient.id))
+
+    assert resp.status_code == 200
+    body = json.loads(resp.content)
+    assert "fitbit" in body
+    assert len(body["fitbit"]) == 1
+    row = body["fitbit"][0]
+    assert row["steps"] == 5000
+    assert row["resting_heart_rate"] == 62
+
+
+@patch("core.views.fitbit_view.PatientInterventionLogs.objects")
+@patch("core.views.fitbit_view.PatientVitals.objects")
+@patch("core.views.fitbit_view.FitbitData.objects")
+def test_health_combined_history_fitbit_patient_not_affected_by_google_health_fix(
+    mock_fb_objects, mock_vitals_objects, mock_logs
+):
+    """Fitbit patients continue to read from FitbitData after the wearable routing fix."""
+    _, _, _patient_user, patient = create_patient_graph()
+    # create_patient_graph() sets wearable_device="fitbit" explicitly
+
+    entry_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
+    mock_logs.return_value.order_by.return_value = []
+    mock_vitals_objects.return_value.order_by.return_value = []
+
+    fake_fitbit = SimpleNamespace(
+        date=entry_dt,
+        steps=8000,
+        resting_heart_rate=None,
+        max_heart_rate=None,
+        floors=None,
+        distance=None,
+        calories=None,
+        active_minutes=None,
+        wear_time_minutes=None,
+        sleep=None,
+        heart_rate_zones=[],
+        breathing_rate=None,
+        hrv=None,
+        exercise={},
+        weight_kg=None,
+        bp_sys=None,
+        bp_dia=None,
+    )
+    mock_fb_objects.return_value.order_by.return_value = [fake_fitbit]
+
+    with patch(
+        "core.views.fitbit_view.PatientICFRating",
+        new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [])),
+        create=True,
+    ):
+        req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
+        resp = health_combined_history(req, str(patient.id))
+
+    assert resp.status_code == 200
+    body = json.loads(resp.content)
+    assert len(body["fitbit"]) == 1
+    assert body["fitbit"][0]["steps"] == 8000
 
 
 @patch(
