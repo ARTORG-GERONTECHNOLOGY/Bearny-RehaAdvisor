@@ -1093,9 +1093,17 @@ def list_all_interventions(request, patient_id=None):
             grouped.setdefault(key, []).append(it)
 
         public_serialized = []
+        variant_ids_by_item_id = {}
         for external_id, docs in grouped.items():
             chosen, langs = _pick_variant(docs, preferred_lang, fallback_order=["en", "de"])
-            public_serialized.append(serialize(chosen, langs, all_docs=docs))
+            item = serialize(chosen, langs, all_docs=docs)
+            public_serialized.append(item)
+            # A rating may have been logged against any language variant of this
+            # external_id, not just the one chosen for display; match on all of them.
+            variant_ids_by_item_id[item["_id"]] = [str(d.pk) for d in docs]
+
+        for item in private_serialized:
+            variant_ids_by_item_id[item["_id"]] = [item["_id"]]
 
         all_serialized = private_serialized + public_serialized
 
@@ -1103,11 +1111,13 @@ def list_all_interventions(request, patient_id=None):
         # star_q_ids are cached at module level; see _get_star_q_ids().
         star_q_ids = _get_star_q_ids()
         if star_q_ids:
-            valid_ids = [ObjectId(s["_id"]) for s in all_serialized if ObjectId.is_valid(s["_id"])]
-            if valid_ids:
+            all_variant_ids = [
+                ObjectId(vid) for ids in variant_ids_by_item_id.values() for vid in ids if ObjectId.is_valid(vid)
+            ]
+            if all_variant_ids:
                 logs_col = PatientInterventionLogs._get_collection()
                 pipeline = [
-                    {"$match": {"interventionId": {"$in": valid_ids}}},
+                    {"$match": {"interventionId": {"$in": all_variant_ids}}},
                     {"$unwind": "$feedback"},
                     {"$match": {"feedback.questionId": {"$in": star_q_ids}}},
                     {
@@ -1119,17 +1129,23 @@ def list_all_interventions(request, patient_id=None):
                     {
                         "$group": {
                             "_id": "$interventionId",
-                            "avg_rating": {"$avg": "$rating"},
+                            "rating_sum": {"$sum": "$rating"},
                             "rating_count": {"$sum": 1},
                         }
                     },
                 ]
-                rating_map = {str(r["_id"]): r for r in logs_col.aggregate(pipeline)}
+                ratings_by_variant = {str(r["_id"]): r for r in logs_col.aggregate(pipeline)}
                 for item in all_serialized:
-                    rd = rating_map.get(item["_id"], {})
-                    avg = rd.get("avg_rating")
-                    item["avg_rating"] = round(avg, 1) if avg is not None else None
-                    item["rating_count"] = rd.get("rating_count", 0)
+                    rows = [
+                        ratings_by_variant[vid]
+                        for vid in variant_ids_by_item_id.get(item["_id"], [])
+                        if vid in ratings_by_variant
+                    ]
+                    total_count = sum(r["rating_count"] for r in rows)
+                    if total_count:
+                        total_sum = sum(r["rating_sum"] for r in rows)
+                        item["avg_rating"] = round(total_sum / total_count, 1)
+                        item["rating_count"] = total_count
 
         return JsonResponse(all_serialized, safe=False, status=200)
 

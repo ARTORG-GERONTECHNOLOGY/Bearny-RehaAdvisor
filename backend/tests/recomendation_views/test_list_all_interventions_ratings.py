@@ -332,6 +332,41 @@ def test_list_all_interventions_independent_avg_per_intervention(mongo_mock):
     assert unrated["rating_count"] == 0
 
 
+def test_list_all_interventions_rating_counts_non_chosen_language_variant(mongo_mock):
+    """
+    An intervention with two language variants (same external_id) only
+    displays one variant, but a rating logged against the *other* variant
+    must still be counted toward the displayed intervention's rating_count.
+
+    Regression test: the aggregation used to match only the chosen variant's
+    MongoDB _id, silently dropping ratings recorded against sibling variants.
+    """
+    external_id = "EXT-MULTILANG"
+    iv_en = _make_intervention(external_id=external_id)
+    iv_en.language = "en"
+    iv_en.save()
+
+    iv_de = _make_intervention(external_id=external_id)
+    iv_de.language = "de"
+    iv_de.save()
+
+    star_q = _make_star_question()
+    patient_a = _make_patient()
+    patient_b = _make_patient()
+    _submit_star_rating(patient_a, iv_en, star_q, star_value=5)
+    _submit_star_rating(patient_b, iv_de, star_q, star_value=3)
+
+    resp = client.get("/api/interventions/all/?lang=en", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    matches = [x for x in data if x["external_id"] == external_id]
+    assert len(matches) == 1, f"Expected one displayed variant, got {len(matches)}"
+    item = matches[0]
+    assert item["rating_count"] == 2, f"Expected 2 (both variants), got {item['rating_count']}"
+    assert item["avg_rating"] == 4.0, f"Expected 4.0, got {item['avg_rating']}"
+
+
 def test_list_all_interventions_avg_rating_rounded_to_one_decimal(mongo_mock):
     """
     avg_rating is rounded to one decimal place in the response.
