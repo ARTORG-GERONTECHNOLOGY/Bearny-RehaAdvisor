@@ -14,7 +14,7 @@ from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from core.models import FitbitData, FitbitUserToken, Patient, User
+from core.models import FitbitData, FitbitUserToken, GoogleHealthData, Patient, User
 from core.services.redcap_access import get_therapist_for_user
 from core.views.wearable_utils import (
     _default_thresholds,
@@ -883,9 +883,13 @@ def health_combined_history(request, patient_id):
             from_date = to_date - timedelta(days=30)
 
         # -------------------------
-        # 3) Load FitbitData
+        # 3) Load wearable data
+        # Route to GoogleHealthData for google_health patients so the therapist
+        # dashboard shows the correct data regardless of device type.
         # -------------------------
-        fitbit_qs = FitbitData.objects(
+        wearable_device = getattr(patient, "wearable_device", "fitbit") or "fitbit"
+        WearableModel = GoogleHealthData if wearable_device == "google_health" else FitbitData
+        fitbit_qs = WearableModel.objects(
             user=patient.userId,
             date__gte=from_date,
             date__lte=to_date,
