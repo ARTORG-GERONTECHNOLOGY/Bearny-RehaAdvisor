@@ -55,6 +55,15 @@ class AuthStore {
     // Restore session state on init
     this.checkAuthentication();
 
+    // When the apiClient interceptor detects that a token refresh was rejected
+    // (e.g. because a therapist reset the patient's password), it dispatches
+    // this custom event. We call logout() here so the user is redirected to
+    // the login page. A direct localStorage.removeItem() cannot be used in
+    // the interceptor because the 'storage' event only fires in other tabs.
+    window.addEventListener('auth:session-expired', () => {
+      this.logout();
+    });
+
     // Sync timeout/logout across tabs via expiresAt key.
     // Tokens are now httpOnly cookies so we no longer watch 'authToken'.
     window.addEventListener('storage', (e) => {
