@@ -78,11 +78,11 @@ def mongo_mock():
     disconnect(alias)
 
 
-def _make_intervention(content_type="Video", external_id=None, is_private=False):
+def _make_intervention(content_type="Video", external_id=None, is_private=False, language="en"):
     """Create and save a public or private Intervention document."""
     iv = Intervention(
         external_id=external_id or str(ObjectId()),
-        language="en",
+        language=language,
         title="Test Intervention",
         description="Desc",
         content_type=content_type,
@@ -342,13 +342,8 @@ def test_list_all_interventions_rating_counts_non_chosen_language_variant(mongo_
     MongoDB _id, silently dropping ratings recorded against sibling variants.
     """
     external_id = "EXT-MULTILANG"
-    iv_en = _make_intervention(external_id=external_id)
-    iv_en.language = "en"
-    iv_en.save()
-
-    iv_de = _make_intervention(external_id=external_id)
-    iv_de.language = "de"
-    iv_de.save()
+    iv_en = _make_intervention(external_id=external_id, language="en")
+    iv_de = _make_intervention(external_id=external_id, language="de")
 
     star_q = _make_star_question()
     patient_a = _make_patient()
