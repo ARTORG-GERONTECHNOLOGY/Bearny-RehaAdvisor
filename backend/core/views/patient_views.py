@@ -15,7 +15,6 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
-from mongoengine.errors import DoesNotExist
 from mongoengine.queryset.visitor import Q
 from pydub import AudioSegment
 from pydub.utils import which as pd_which
@@ -3107,11 +3106,23 @@ def get_patient_plan_for_therapist(request, patient_id):
             # Every variant of the external_id, not just the assigned ones, so a log recorded
             # under a different variant is still counted. Scoped to this plan like get_patient_plan,
             # or a patient with a second plan doc gets different counts in the two views.
-            logs = PatientInterventionLogs.objects(
-                userId=patient,
-                rehabilitationPlanId=plan,
-                interventionId__in=variant_ids[intervention.pk],
+            # no_dereference() + a single batched FeedbackQuestion fetch below, instead of
+            # dereferencing fb.questionId per entry (one query per feedback entry otherwise).
+            logs = list(
+                PatientInterventionLogs.objects(
+                    userId=patient,
+                    rehabilitationPlanId=plan,
+                    interventionId__in=variant_ids[intervention.pk],
+                ).no_dereference()
             )
+            question_ids = {
+                getattr(fb.questionId, "id", None)
+                for log in logs
+                for fb in (getattr(log, "feedback", None) or [])
+                if getattr(fb, "questionId", None) is not None
+            }
+            question_ids.discard(None)
+            questions_by_id = {q.id: q for q in FeedbackQuestion.objects(id__in=question_ids)}
 
             intervention_dates = []
             completed_count = 0
@@ -3138,11 +3149,9 @@ def get_patient_plan_for_therapist(request, patient_id):
                 feedback_entries = []
                 if log and getattr(log, "feedback", None):
                     for fb in log.feedback:
-                        try:
-                            question = fb.questionId
-                        except DoesNotExist:
-                            continue
-                        if not question:
+                        question_id = getattr(getattr(fb, "questionId", None), "id", None)
+                        question = questions_by_id.get(question_id)
+                        if question is None:
                             continue
 
                         question_data = {
