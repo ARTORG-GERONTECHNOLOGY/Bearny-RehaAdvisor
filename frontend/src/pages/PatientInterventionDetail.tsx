@@ -208,7 +208,6 @@ const OneMedia: React.FC<{ m: InterventionMedia; idx: number }> = ({ m, idx }) =
           }}
           label={label}
           openText={t('Open link')}
-          showOpenLink={false}
         />
       )}
     </div>
