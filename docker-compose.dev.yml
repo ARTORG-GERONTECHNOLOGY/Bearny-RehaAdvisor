@@ -6,6 +6,7 @@ services:
       LT_LOAD_ONLY: "en,fr,de,it,nl,pt"
       LT_UPDATE_MODELS: "true"
       LT_PACKAGES_ROOT: /app/packages
+      LT_WORKERS: "1"
     volumes:
       - libretranslate_packages:/app/packages
     restart: unless-stopped
