@@ -3,6 +3,7 @@ import logging
 import mimetypes
 import os
 import re
+import time
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -23,6 +24,7 @@ from core.models import Logs  # Ensure this includes action, userId, userAgent, 
 from core.models import (
     DefaultInterventions,
     DiagnosisAssignmentSettings,
+    FeedbackQuestion,
     Intervention,
     InterventionAssignment,
     InterventionMedia,
@@ -34,6 +36,20 @@ from core.models import (
 from utils.config import config
 from utils.scheduling import _merge_date_and_time
 from utils.utils import generate_custom_id, get_labels, sanitize_text
+
+# Module-level cache: star rating question IDs change only when questions are
+# added/removed, which is rare. Re-query at most once every 10 minutes.
+_star_q_ids_cache: dict = {"ids": None, "ts": 0.0}
+_STAR_Q_CACHE_TTL = 600  # seconds
+
+
+def _get_star_q_ids() -> list:
+    now = time.monotonic()
+    if _star_q_ids_cache["ids"] is None or now - _star_q_ids_cache["ts"] > _STAR_Q_CACHE_TTL:
+        ids = [q.id for q in FeedbackQuestion.objects(questionKey__startswith="rating_stars_").only("id")]
+        _star_q_ids_cache.update({"ids": ids, "ts": now})
+    return _star_q_ids_cache["ids"]
+
 
 DIRECT_AUDIO_EXT = {"mp3", "wav", "m4a", "aac", "ogg", "opus", "flac"}
 DIRECT_VIDEO_EXT = {"mp4", "webm", "mov", "m4v", "mkv"}

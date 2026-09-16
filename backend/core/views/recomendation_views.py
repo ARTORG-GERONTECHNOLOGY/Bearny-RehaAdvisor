@@ -13,7 +13,6 @@ import logging
 import mimetypes
 import os
 import re
-import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -31,7 +30,6 @@ from rest_framework.permissions import IsAuthenticated
 from core.models import (
     DefaultInterventions,
     DiagnosisAssignmentSettings,
-    FeedbackQuestion,
     Intervention,
     InterventionAssignment,
     InterventionMedia,
@@ -50,6 +48,7 @@ from utils.interventions import (
     _canonical_assignment_for,
     _detect_file_media_type,
     _first_str_from_any,
+    _get_star_q_ids,
     _instant_key,
     _is_valid_url,
     _lang_fallback_chain,
@@ -73,20 +72,6 @@ from utils.scheduling import _expand_dates  # you already use this
 from utils.utils import bad, sanitize_text
 
 logger = logging.getLogger(__name__)
-
-# Module-level cache: star rating question IDs change only when questions are
-# added/removed, which is rare. Re-query at most once every 10 minutes.
-_star_q_ids_cache: dict = {"ids": None, "ts": 0.0}
-_STAR_Q_CACHE_TTL = 600  # seconds
-
-
-def _get_star_q_ids() -> list:
-    now = time.monotonic()
-    if _star_q_ids_cache["ids"] is None or now - _star_q_ids_cache["ts"] > _STAR_Q_CACHE_TTL:
-        ids = [q.id for q in FeedbackQuestion.objects(questionKey__startswith="rating_stars_").only("id")]
-        _star_q_ids_cache.update({"ids": ids, "ts": now})
-    return _star_q_ids_cache["ids"]
-
 
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
@@ -1098,8 +1083,7 @@ def list_all_interventions(request, patient_id=None):
             chosen, langs = _pick_variant(docs, preferred_lang, fallback_order=["en", "de"])
             item = serialize(chosen, langs, all_docs=docs)
             public_serialized.append(item)
-            # A rating may have been logged against any language variant of this
-            # external_id, not just the one chosen for display; match on all of them.
+            # A rating may be logged against any language variant, not just the displayed one.
             variant_ids_by_item_id[item["_id"]] = [str(d.pk) for d in docs]
 
         for item in private_serialized:

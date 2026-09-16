@@ -24,6 +24,7 @@ from core.models import (
     User,
 )
 from core.services.redcap_access import get_therapist_for_user
+from utils.interventions import _get_star_q_ids
 from utils.utils import _adherence, resolve_patient
 
 LOOKBACK_DAYS = 30
@@ -171,7 +172,7 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
     """
     Summarize intervention feedback for therapist traffic-light logic.
 
-    Uses only numeric answer keys from PatientInterventionLogs.feedback.
+    Uses only numeric answer keys from star-rating questions in PatientInterventionLogs.feedback.
     Returns recency, recent average score (last N answered days), trend versus
     the previous N answered days, and the count of low-rated entries (mean ≤ 2)
     within the last 14 days.
@@ -193,6 +194,7 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
     day_to_values = {}
     latest_dt = None
     low_ratings_14d = 0
+    star_q_ids = set(_get_star_q_ids())
 
     logs = (
         PatientInterventionLogs.objects(userId=patient, feedback__exists=True, feedback__ne=[])
@@ -206,6 +208,9 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
 
         numeric_values = []
         for fe in getattr(lg, "feedback", None) or []:
+            question_id = getattr(getattr(fe, "questionId", None), "id", None)
+            if question_id not in star_q_ids:
+                continue
             for ak in getattr(fe, "answerKey", None) or []:
                 key = ak if isinstance(ak, str) else getattr(ak, "key", None)
                 try:

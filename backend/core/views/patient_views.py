@@ -41,9 +41,9 @@ from core.models import (
 )
 from core.services.redcap_access import get_therapist_for_user
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
-from core.views.recomendation_views import _get_star_q_ids
 from utils.interventions import (
     _canonical_assignment_for,
+    _get_star_q_ids,
     _plan_assignments_for,
     _safe_intervention,
     _variant_ids_by_external_id,
@@ -3163,8 +3163,7 @@ def get_patient_plan_for_therapist(request, patient_id):
                             }
                         )
 
-                        # Only star-rating questions feed the average; other feedback
-                        # (e.g. difficulty scale) also has a numeric-looking answer key.
+                        # Only star-rating questions feed the average, not e.g. a difficulty scale.
                         if fb.questionId.id in star_q_ids:
                             try:
                                 rating_sum += int((fb.answerKey or [])[0].key)
