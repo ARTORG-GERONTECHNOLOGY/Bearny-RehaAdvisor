@@ -15,6 +15,7 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
+from mongoengine.errors import DoesNotExist
 from mongoengine.queryset.visitor import Q
 from pydub import AudioSegment
 from pydub.utils import which as pd_which
@@ -3137,13 +3138,17 @@ def get_patient_plan_for_therapist(request, patient_id):
                 feedback_entries = []
                 if log and getattr(log, "feedback", None):
                     for fb in log.feedback:
-                        if not fb.questionId:
+                        try:
+                            question = fb.questionId
+                        except DoesNotExist:
+                            continue
+                        if not question:
                             continue
 
                         question_data = {
-                            "id": str(fb.questionId.id),
+                            "id": str(question.id),
                             "translations": [
-                                {"language": tr.language, "text": tr.text} for tr in fb.questionId.translations
+                                {"language": tr.language, "text": tr.text} for tr in question.translations
                             ],
                         }
 
@@ -3165,7 +3170,7 @@ def get_patient_plan_for_therapist(request, patient_id):
                         )
 
                         # Only star-rating questions feed the average, not e.g. a difficulty scale.
-                        if fb.questionId.id in star_q_ids:
+                        if question.id in star_q_ids:
                             try:
                                 rating_sum += int((fb.answerKey or [])[0].key)
                                 rating_count += 1

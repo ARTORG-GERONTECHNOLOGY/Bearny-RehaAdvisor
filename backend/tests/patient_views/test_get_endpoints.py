@@ -457,6 +457,85 @@ def test_therapist_plan_rating_count_excludes_non_star_feedback(mongo_mock):
     assert entry["averageRating"] == 5.0, f"Difficulty answer leaked into averageRating: {entry['averageRating']}"
 
 
+def test_get_patient_plan_for_therapist_skips_feedback_entry_with_deleted_question(mongo_mock):
+    """
+    Regression: a FeedbackEntry whose questionId was deleted (e.g. a reseed
+    that deletes and recreates rating_stars_* questions by key) must be
+    skipped, not crash the whole therapist plan view with an uncaught
+    DoesNotExist on dereference.
+    """
+    patient, therapist, intervention, plan = setup_basic_plan()
+    assignment = plan.interventions[0]
+
+    live_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_exercise",
+        translations=[Translation(language="en", text="Rate this")],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=str(i))]) for i in range(1, 6)
+        ],
+        answer_type="select",
+    )
+    live_question.save()
+
+    stale_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_old",
+        translations=[Translation(language="en", text="Old question")],
+        possibleAnswers=[],
+        answer_type="select",
+    )
+    stale_question.save()
+
+    day0, day1 = assignment.dates[0], assignment.dates[1]
+    stale_log_date = timezone.localtime(timezone.make_aware(day0, dt_timezone.utc)).replace(tzinfo=None)
+    live_log_date = timezone.localtime(timezone.make_aware(day1, dt_timezone.utc)).replace(tzinfo=None)
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=stale_log_date,
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=stale_question,
+                answerKey=[AnswerOption(key="5", translations=[Translation(language="en", text="x")])],
+            )
+        ],
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=live_log_date,
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=live_question,
+                answerKey=[AnswerOption(key="4", translations=[Translation(language="en", text="x")])],
+            )
+        ],
+    ).save()
+
+    # A re-seed of feedback questions deletes and recreates them by key, leaving
+    # old logs holding a dangling questionId reference.
+    FeedbackQuestion.objects(id=stale_question.id).delete()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    body = resp.json()
+    entry = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention.id))
+    # The dangling entry must be skipped, not blow up the whole plan view.
+    assert entry["ratingCount"] == 1
+    assert entry["averageRating"] == 4.0
+    all_feedback = [fb for d in entry["dates"] for fb in d["feedback"]]
+    assert len(all_feedback) == 1
+    assert all_feedback[0]["question"]["id"] == str(live_question.id)
+
+
 def test_get_patient_plan_for_therapist_post_method_not_allowed(mongo_mock):
     """
     POST to the therapist-plan endpoint returns 405.  Only GET is accepted.
