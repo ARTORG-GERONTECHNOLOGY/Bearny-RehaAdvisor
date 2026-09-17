@@ -183,6 +183,37 @@ def _submit_star_rating(patient, intervention, star_question, star_value: int):
 
 
 # ===========================================================================
+# _get_star_q_ids() module-level cache
+# ===========================================================================
+
+
+def test_get_star_q_ids_caches_an_empty_result_until_ttl_expires(mongo_mock):
+    """
+    An environment with zero rating_stars_* questions must still cache that
+    empty result, not re-query FeedbackQuestion on every call.
+
+    Regression: ``if not cached_ids`` treated a legitimately-cached empty
+    list the same as "never cached", so every request re-ran the DB query
+    instead of respecting the 10-minute TTL.
+    """
+    from unittest.mock import MagicMock, patch
+
+    import utils.interventions as interventions_utils
+
+    query_mock = MagicMock()
+    query_mock.return_value.only.return_value = []
+
+    with patch.object(interventions_utils, "FeedbackQuestion") as fq_mock:
+        fq_mock.objects = query_mock
+        first = interventions_utils._get_star_q_ids()
+        second = interventions_utils._get_star_q_ids()
+
+    assert first == []
+    assert second == []
+    assert query_mock.call_count == 1, "second call should have reused the cached empty list, not re-queried"
+
+
+# ===========================================================================
 # avg_rating / rating_count on GET /api/interventions/all/
 # ===========================================================================
 
@@ -457,6 +488,48 @@ def test_list_all_interventions_star_entry_with_non_numeric_answer_key_excluded(
     assert rated is not None
     assert rated["avg_rating"] == 5.0, f"Non-numeric answerKey diluted avg_rating: {rated['avg_rating']}"
     assert rated["rating_count"] == 1, f"Non-numeric answerKey counted as a rating: {rated['rating_count']}"
+
+
+def test_list_all_interventions_star_entry_with_whitespace_padded_answer_key_counted(mongo_mock):
+    """
+    A FeedbackEntry on a rating_stars_* question with incidental whitespace
+    around the key (e.g. " 3 ") must still be counted.
+
+    Regression: the aggregation matched the raw stored key exactly, while
+    _star_rating_value() (used by the therapist plan/traffic-light views)
+    strips whitespace before parsing. A rating with stray whitespace was
+    silently dropped here while still counting on the therapist side,
+    producing a rating mismatch between endpoints for the same data.
+    """
+    from core.models import FeedbackEntry
+
+    iv = _make_intervention()
+    star_q = _make_star_question()
+    patient = _make_patient()
+    _submit_star_rating(patient, iv, star_q, star_value=5)
+
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    padded_entry = FeedbackEntry(
+        questionId=star_q,
+        answerKey=[AnswerOption(key=" 3 ", translations=[])],
+        comment="",
+    )
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=iv,
+        rehabilitationPlanId=plan,
+        date=datetime.now(),
+        status=["completed"],
+        feedback=[padded_entry],
+    ).save()
+
+    resp = client.get("/api/interventions/all/", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+
+    rated = next((x for x in resp.json() if x["_id"] == str(iv.id)), None)
+    assert rated is not None
+    assert rated["rating_count"] == 2, f"Whitespace-padded key was excluded: {rated['rating_count']}"
+    assert rated["avg_rating"] == 4.0, f"Expected (5+3)/2=4.0, got {rated['avg_rating']}"
 
 
 def test_list_all_interventions_star_entry_with_out_of_range_numeric_answer_key_excluded(mongo_mock):

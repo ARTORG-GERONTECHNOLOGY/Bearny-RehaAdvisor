@@ -41,7 +41,6 @@ from core.models import (
 )
 from utils.config import config
 from utils.interventions import (
-    STAR_RATING_KEY_REGEX,
     _abs_media_url,
     _anchor_date_for_day,
     _as_str_or_none,
@@ -59,6 +58,7 @@ from utils.interventions import (
     _occ_count_for_day_range,
     _parse_bool,
     _parse_int,
+    _parse_star_key,
     _parse_str_list,
     _pick_best_variant,
     _pick_variant,
@@ -1093,8 +1093,9 @@ def list_all_interventions(request, patient_id=None):
         all_serialized = private_serialized + public_serialized
 
         # Annotate each intervention with its average star rating from patient feedback.
-        # star_q_ids are cached at module level; see _get_star_q_ids().
-        star_q_ids = _get_star_q_ids()
+        # star_q_ids are cached at module level; see _get_star_q_ids(). Copy so this
+        # view never risks mutating the shared cached list.
+        star_q_ids = list(_get_star_q_ids())
         if star_q_ids:
             all_variant_ids = [
                 ObjectId(vid) for ids in variant_ids_by_item_id.values() for vid in ids if ObjectId.is_valid(vid)
@@ -1106,29 +1107,25 @@ def list_all_interventions(request, patient_id=None):
                     {"$unwind": "$feedback"},
                     {"$match": {"feedback.questionId": {"$in": star_q_ids}}},
                     {
-                        "$project": {
-                            "interventionId": 1,
-                            # Coerce to "" so $match's $regex never sees a missing/null field.
-                            "answer_key": {"$ifNull": [{"$arrayElemAt": ["$feedback.answerKey.key", 0]}, ""]},
-                        }
-                    },
-                    # Also guards $toInt below.
-                    {"$match": {"answer_key": {"$regex": STAR_RATING_KEY_REGEX}}},
-                    {
-                        "$project": {
-                            "interventionId": 1,
-                            "rating": {"$toInt": "$answer_key"},
-                        }
-                    },
-                    {
                         "$group": {
                             "_id": "$interventionId",
-                            "rating_sum": {"$sum": "$rating"},
-                            "rating_count": {"$sum": 1},
+                            # Coerce to "" so a missing/null key never reaches _parse_star_key as None.
+                            "answer_keys": {
+                                "$push": {"$ifNull": [{"$arrayElemAt": ["$feedback.answerKey.key", 0]}, ""]}
+                            },
                         }
                     },
                 ]
-                ratings_by_variant = {str(r["_id"]): r for r in logs_col.aggregate(pipeline)}
+                ratings_by_variant = {}
+                # Parsed in Python (not $toInt/$regex) so this shares _parse_star_key with
+                # _star_rating_value() instead of a parallel Mongo-side validation rule.
+                for row in logs_col.aggregate(pipeline):
+                    values = [v for v in (_parse_star_key(k) for k in row["answer_keys"]) if v is not None]
+                    if values:
+                        ratings_by_variant[str(row["_id"])] = {
+                            "rating_sum": sum(values),
+                            "rating_count": len(values),
+                        }
                 for item in all_serialized:
                     rows = [
                         ratings_by_variant[vid]

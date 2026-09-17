@@ -41,18 +41,29 @@ from utils.utils import generate_custom_id, get_labels, sanitize_text
 _star_q_ids_cache: dict = {"ids": None, "ts": 0.0}
 _STAR_Q_CACHE_TTL = 600  # seconds
 
-# Star ratings are seeded with keys "1"-"5" only.
-STAR_RATING_KEY_REGEX = r"^[1-5]$"
-
 
 def _get_star_q_ids() -> list:
     now = time.monotonic()
     cached_ids = _star_q_ids_cache["ids"]
-    if not cached_ids or now - _star_q_ids_cache["ts"] > _STAR_Q_CACHE_TTL:
+    if cached_ids is None or now - _star_q_ids_cache["ts"] > _STAR_Q_CACHE_TTL:
         ids = [q.id for q in FeedbackQuestion.objects(questionKey__startswith="rating_stars_").only("id")]
         _star_q_ids_cache.update({"ids": ids, "ts": now})
         return ids
     return cached_ids
+
+
+def _parse_star_key(key) -> Optional[int]:
+    """Parse a single answerKey.key into a 1-5 star rating, or None if it isn't one.
+
+    The single source of truth for what counts as a valid star rating - every
+    view that aggregates ratings (Python or Mongo) must funnel through this so
+    they can't silently disagree on borderline values (e.g. stray whitespace).
+    """
+    try:
+        v = int(str(key).strip())
+    except (ValueError, TypeError):
+        return None
+    return v if 1 <= v <= 5 else None
 
 
 def _star_rating_value(question_id, answer_keys, star_q_ids) -> Optional[int]:
@@ -61,12 +72,9 @@ def _star_rating_value(question_id, answer_keys, star_q_ids) -> Optional[int]:
         return None
     for ak in answer_keys or []:
         key = ak if isinstance(ak, str) else getattr(ak, "key", None)
-        try:
-            v = int(str(key).strip())
-        except (ValueError, TypeError):
-            continue
-        if 1 <= v <= 5:
-            return v
+        value = _parse_star_key(key)
+        if value is not None:
+            return value
     return None
 
 
