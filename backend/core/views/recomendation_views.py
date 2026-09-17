@@ -1107,10 +1107,18 @@ def list_all_interventions(request, patient_id=None):
                     {
                         "$project": {
                             "interventionId": 1,
-                            "rating": {"$toInt": {"$arrayElemAt": ["$feedback.answerKey.key", 0]}},
+                            # Coerce to "" so $match's $regex never sees a missing/null field.
+                            "answer_key": {"$ifNull": [{"$arrayElemAt": ["$feedback.answerKey.key", 0]}, ""]},
                         }
                     },
-                    {"$match": {"rating": {"$type": "int"}}},
+                    # Star ratings are seeded with keys "1"-"5" only; also guards $toInt below.
+                    {"$match": {"answer_key": {"$regex": "^[1-5]$"}}},
+                    {
+                        "$project": {
+                            "interventionId": 1,
+                            "rating": {"$toInt": "$answer_key"},
+                        }
+                    },
                     {
                         "$group": {
                             "_id": "$interventionId",

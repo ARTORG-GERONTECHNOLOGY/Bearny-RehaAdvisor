@@ -417,3 +417,83 @@ def test_list_all_interventions_star_entry_with_empty_answer_key_excluded(mongo_
     assert rated is not None
     assert rated["avg_rating"] == 5.0, f"Empty answerKey diluted avg_rating: {rated['avg_rating']}"
     assert rated["rating_count"] == 1, f"Empty answerKey counted as a rating: {rated['rating_count']}"
+
+
+def test_list_all_interventions_star_entry_with_non_numeric_answer_key_excluded(mongo_mock):
+    """
+    A FeedbackEntry on a rating_stars_* question with a non-numeric answerKey
+    (e.g. corrupt/legacy data) must be excluded, not crash the aggregation.
+
+    Regression: $toInt raises a hard conversion error on a non-numeric,
+    non-empty string, taking down the whole endpoint instead of just
+    excluding that one bad rating.
+    """
+    from core.models import FeedbackEntry
+
+    iv = _make_intervention()
+    star_q = _make_star_question()
+    patient = _make_patient()
+    _submit_star_rating(patient, iv, star_q, star_value=5)
+
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    bad_entry = FeedbackEntry(
+        questionId=star_q,
+        answerKey=[AnswerOption(key="n/a", translations=[])],
+        comment="",
+    )
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=iv,
+        rehabilitationPlanId=plan,
+        date=datetime.now(),
+        status=["completed"],
+        feedback=[bad_entry],
+    ).save()
+
+    resp = client.get("/api/interventions/all/", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+
+    rated = next((x for x in resp.json() if x["_id"] == str(iv.id)), None)
+    assert rated is not None
+    assert rated["avg_rating"] == 5.0, f"Non-numeric answerKey diluted avg_rating: {rated['avg_rating']}"
+    assert rated["rating_count"] == 1, f"Non-numeric answerKey counted as a rating: {rated['rating_count']}"
+
+
+def test_list_all_interventions_star_entry_with_out_of_range_numeric_answer_key_excluded(mongo_mock):
+    """
+    A FeedbackEntry on a rating_stars_* question with a numeric but out-of-range
+    answerKey (e.g. a malformed/direct API submission, not the 1-5 star widget)
+    must be excluded, not crash the aggregation.
+
+    Regression: a regex of "^[0-9]+$" accepts any digit string, so an
+    overly long one still overflows $toInt, taking down the whole endpoint.
+    """
+    from core.models import FeedbackEntry
+
+    iv = _make_intervention()
+    star_q = _make_star_question()
+    patient = _make_patient()
+    _submit_star_rating(patient, iv, star_q, star_value=5)
+
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    overflow_entry = FeedbackEntry(
+        questionId=star_q,
+        answerKey=[AnswerOption(key="99999999999999", translations=[])],
+        comment="",
+    )
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=iv,
+        rehabilitationPlanId=plan,
+        date=datetime.now(),
+        status=["completed"],
+        feedback=[overflow_entry],
+    ).save()
+
+    resp = client.get("/api/interventions/all/", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+
+    rated = next((x for x in resp.json() if x["_id"] == str(iv.id)), None)
+    assert rated is not None
+    assert rated["avg_rating"] == 5.0, f"Out-of-range answerKey diluted avg_rating: {rated['avg_rating']}"
+    assert rated["rating_count"] == 1, f"Out-of-range answerKey counted as a rating: {rated['rating_count']}"
