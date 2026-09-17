@@ -202,7 +202,8 @@ def google_health_callback(request):
         )
         logger.info("[google_health_callback] token saved for user %s", user.id)
 
-        # Sync today immediately, then backfill the last 30 days in the background.
+        # Sync today immediately, then backfill up to 365 days in the background
+        # to cover the full monitoring period from the start of usage.
         from core.tasks import backfill_google_health_on_connect, fetch_google_health_data_async
 
         fetch_google_health_data_async.delay(str(user.id))
