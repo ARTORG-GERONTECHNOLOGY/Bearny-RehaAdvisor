@@ -1315,6 +1315,68 @@ def test_list_therapist_patients_skips_feedback_entry_with_deleted_question():
     assert row["intervention_feedback"]["recent_avg_score"] == pytest.approx(4.0, rel=1e-3)
 
 
+def test_list_therapist_patients_excludes_out_of_range_numeric_answer_key():
+    """
+    Regression: a FeedbackEntry on a rating_stars_* question with a numeric but
+    out-of-range answerKey (e.g. a malformed/direct API submission, not the 1-5
+    star widget) must not feed recent_avg_score / the traffic-light logic.
+    """
+    therapist, patient = create_therapist_with_patient()
+
+    intervention = Intervention(
+        external_id=f"ext-{ObjectId()}",
+        language="en",
+        title="Breathing",
+        description="desc",
+        content_type="Audio",
+        patient_types=[],
+    ).save()
+    star_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey=f"rating_stars_{ObjectId()}",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+        answer_type="select",
+    ).save()
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=7),
+        endDate=datetime.now() + timedelta(days=7),
+        status="active",
+        interventions=[InterventionAssignment(interventionId=intervention, dates=[datetime.now() - timedelta(days=1)])],
+    ).save()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.now() - timedelta(days=1),
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="4", translations=[Translation(language="en", text="4")])],
+            ),
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="99999999999999", translations=[Translation(language="en", text="x")])],
+            ),
+        ],
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    assert row["intervention_feedback"]["recent_avg_score"] == pytest.approx(
+        4.0, rel=1e-3
+    ), "Out-of-range answerKey leaked into recent_avg_score"
+
+
 # ---------------------------------------------------------------------------
 # Project-based access filtering
 # ---------------------------------------------------------------------------

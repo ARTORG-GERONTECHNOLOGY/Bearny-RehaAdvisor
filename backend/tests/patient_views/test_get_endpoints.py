@@ -457,6 +457,57 @@ def test_therapist_plan_rating_count_excludes_non_star_feedback(mongo_mock):
     assert entry["averageRating"] == 5.0, f"Difficulty answer leaked into averageRating: {entry['averageRating']}"
 
 
+def test_therapist_plan_rating_count_excludes_out_of_range_numeric_answer_key(mongo_mock):
+    """
+    Regression: a FeedbackEntry on a rating_stars_* question with a numeric but
+    out-of-range answerKey (e.g. a malformed/direct API submission, not the 1-5
+    star widget) must be excluded from ratingCount/averageRating, not counted.
+    """
+    patient, therapist, intervention, plan = setup_basic_plan()
+    assignment = plan.interventions[0]
+
+    star_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_exercise",
+        translations=[Translation(language="en", text="Rate this")],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=str(i))]) for i in range(1, 6)
+        ],
+        answer_type="select",
+    )
+    star_question.save()
+
+    day = assignment.dates[0]
+    log_date = timezone.localtime(timezone.make_aware(day, dt_timezone.utc)).replace(tzinfo=None)
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=log_date,
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="5", translations=[Translation(language="en", text="x")])],
+            ),
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="99999999999999", translations=[Translation(language="en", text="x")])],
+            ),
+        ],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    entry = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention.id))
+    assert entry["ratingCount"] == 1, f"Out-of-range answerKey counted as a rating: {entry['ratingCount']}"
+    assert entry["averageRating"] == 5.0, f"Out-of-range answerKey diluted averageRating: {entry['averageRating']}"
+
+
 def test_get_patient_plan_for_therapist_skips_feedback_entry_with_deleted_question(mongo_mock):
     """
     Regression: a FeedbackEntry whose questionId was deleted (e.g. a reseed

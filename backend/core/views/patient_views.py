@@ -3188,10 +3188,13 @@ def get_patient_plan_for_therapist(request, patient_id):
                         # Only star-rating questions feed the average, not e.g. a difficulty scale.
                         if question.id in star_q_ids:
                             try:
-                                rating_sum += int((fb.answerKey or [])[0].key)
-                                rating_count += 1
+                                rating = int((fb.answerKey or [])[0].key)
                             except (ValueError, TypeError, IndexError, AttributeError):
-                                pass
+                                rating = None
+                            # Star ratings are seeded with keys "1"-"5" only.
+                            if rating is not None and 1 <= rating <= 5:
+                                rating_sum += rating
+                                rating_count += 1
 
                 # Video feedback if present
                 video_feedback = None

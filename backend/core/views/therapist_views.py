@@ -219,7 +219,8 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
                     v = int(str(key).strip())
                 except Exception:
                     continue
-                if v > 0:
+                # Star ratings are seeded with keys "1"-"5" only.
+                if 1 <= v <= 5:
                     numeric_values.append(v)
 
         if not numeric_values:
