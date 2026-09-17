@@ -570,3 +570,49 @@ def test_list_all_interventions_star_entry_with_out_of_range_numeric_answer_key_
     assert rated is not None
     assert rated["avg_rating"] == 5.0, f"Out-of-range answerKey diluted avg_rating: {rated['avg_rating']}"
     assert rated["rating_count"] == 1, f"Out-of-range answerKey counted as a rating: {rated['rating_count']}"
+
+
+def test_list_all_interventions_star_entry_with_multiple_answer_keys_uses_valid_one(mongo_mock):
+    """
+    A FeedbackEntry whose answerKey list has more than one item (e.g. an
+    invalid placeholder key followed by the real star value) must still be
+    counted using the first valid 1-5 key, not just index 0.
+
+    Regression: the aggregation only inspected answerKey[0], while
+    _star_rating_value() (used by the therapist plan/traffic-light views)
+    scans every key in the entry. A rating stored as [{"n/a"}, {"5"}] was
+    silently dropped here while still counting as 5 stars on the therapist
+    side, producing a rating mismatch between endpoints for the same data.
+    """
+    from core.models import FeedbackEntry
+
+    iv = _make_intervention()
+    star_q = _make_star_question()
+    patient = _make_patient()
+    _submit_star_rating(patient, iv, star_q, star_value=5)
+
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    multi_key_entry = FeedbackEntry(
+        questionId=star_q,
+        answerKey=[
+            AnswerOption(key="n/a", translations=[]),
+            AnswerOption(key="3", translations=[]),
+        ],
+        comment="",
+    )
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=iv,
+        rehabilitationPlanId=plan,
+        date=datetime.now(),
+        status=["completed"],
+        feedback=[multi_key_entry],
+    ).save()
+
+    resp = client.get("/api/interventions/all/", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+
+    rated = next((x for x in resp.json() if x["_id"] == str(iv.id)), None)
+    assert rated is not None
+    assert rated["rating_count"] == 2, f"Multi-item answerKey was dropped: {rated['rating_count']}"
+    assert rated["avg_rating"] == 4.0, f"Expected (5+3)/2=4.0, got {rated['avg_rating']}"

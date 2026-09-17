@@ -1109,10 +1109,9 @@ def list_all_interventions(request, patient_id=None):
                     {
                         "$group": {
                             "_id": "$interventionId",
-                            # Coerce to "" so a missing/null key never reaches _parse_star_key as None.
-                            "answer_keys": {
-                                "$push": {"$ifNull": [{"$arrayElemAt": ["$feedback.answerKey.key", 0]}, ""]}
-                            },
+                            # Push each entry's full key list (not just index 0) so every
+                            # answerKey item is considered, matching _star_rating_value().
+                            "answer_key_lists": {"$push": {"$ifNull": ["$feedback.answerKey.key", []]}},
                         }
                     },
                 ]
@@ -1120,7 +1119,12 @@ def list_all_interventions(request, patient_id=None):
                 # Parsed in Python (not $toInt/$regex) so this shares _parse_star_key with
                 # _star_rating_value() instead of a parallel Mongo-side validation rule.
                 for row in logs_col.aggregate(pipeline):
-                    values = [v for v in (_parse_star_key(k) for k in row["answer_keys"]) if v is not None]
+                    values = []
+                    for keys in row["answer_key_lists"]:
+                        # One rating per feedback entry: first valid 1-5 key wins.
+                        value = next((v for v in (_parse_star_key(k) for k in keys) if v is not None), None)
+                        if value is not None:
+                            values.append(value)
                     if values:
                         ratings_by_variant[str(row["_id"])] = {
                             "rating_sum": sum(values),
