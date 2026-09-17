@@ -90,6 +90,11 @@ def mongo_mock():
     from mongoengine import connect, disconnect
     from mongoengine.connection import _connections
 
+    # Reset the module-level star_q_ids cache so each test sees a fresh DB.
+    import utils.interventions as interventions_utils
+
+    interventions_utils._star_q_ids_cache.update({"ids": None, "ts": 0.0})
+
     alias = "default"
     if alias in _connections:
         disconnect(alias)

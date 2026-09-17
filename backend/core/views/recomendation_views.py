@@ -41,6 +41,7 @@ from core.models import (
 )
 from utils.config import config
 from utils.interventions import (
+    STAR_RATING_KEY_REGEX,
     _abs_media_url,
     _anchor_date_for_day,
     _as_str_or_none,
@@ -1111,8 +1112,8 @@ def list_all_interventions(request, patient_id=None):
                             "answer_key": {"$ifNull": [{"$arrayElemAt": ["$feedback.answerKey.key", 0]}, ""]},
                         }
                     },
-                    # Star ratings are seeded with keys "1"-"5" only; also guards $toInt below.
-                    {"$match": {"answer_key": {"$regex": "^[1-5]$"}}},
+                    # Also guards $toInt below.
+                    {"$match": {"answer_key": {"$regex": STAR_RATING_KEY_REGEX}}},
                     {
                         "$project": {
                             "interventionId": 1,

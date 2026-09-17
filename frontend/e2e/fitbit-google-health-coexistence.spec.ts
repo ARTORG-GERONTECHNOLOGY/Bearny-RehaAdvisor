@@ -16,6 +16,9 @@
  *  8. Disconnect routing — Fitbit patient calls /fitbit/disconnect/
  *  9. Disconnect routing — Google Health patient calls /google-health/disconnect/
  * 10. Therapist WearBadge — google_health patient shows "No data" (not "Disconnected")
+ * 11. Outcomes Dashboard — google_health patient's combined-history data is shown
+ *     (regression: patient_views.get_combined_health_data always queried FitbitData,
+ *     so Google Health patients had zero records and always saw empty charts)
  */
 
 import { expect, test } from '@playwright/test';
@@ -566,5 +569,230 @@ test.describe('WearBadge for google_health patient', () => {
 
     await expect(page.getByText('No data').first()).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('Disconnected')).not.toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 11 — Outcomes Dashboard for Google Health patients
+// Prod-mirrored fixture: patient 934-252, wearable_device=google_health, 8 days of data.
+// ---------------------------------------------------------------------------
+
+const GH_OUTCOMES_PATIENT_ID = '6a97c78d1682e48f07d57d0a';
+
+function makeGoogleHealthOutcomesPatientRow() {
+  return {
+    ...makePatientRow('google_health'),
+    _id: GH_OUTCOMES_PATIENT_ID,
+    username: '934-252',
+    patient_code: '934-252',
+  };
+}
+
+// Average steps over these 8 rows: Math.round(34055/8) = 4257.
+function makeGoogleHealthCombinedHistoryResponse() {
+  const rows = [
+    { date: '2026-09-09', steps: 3146, resting_heart_rate: 62 },
+    { date: '2026-09-10', steps: 5859, resting_heart_rate: 63 },
+    { date: '2026-09-11', steps: 4100, resting_heart_rate: 64 },
+    { date: '2026-09-12', steps: 4480, resting_heart_rate: 67 },
+    { date: '2026-09-13', steps: 6603, resting_heart_rate: 68 },
+    { date: '2026-09-14', steps: 4732, resting_heart_rate: 70 },
+    { date: '2026-09-15', steps: 3918, resting_heart_rate: 70 },
+    { date: '2026-09-16', steps: 1217, resting_heart_rate: 72 },
+  ];
+
+  return {
+    fitbit: rows.map((r) => ({
+      date: r.date,
+      steps: r.steps,
+      resting_heart_rate: r.resting_heart_rate,
+      max_heart_rate: null,
+      floors: null,
+      distance: null,
+      calories: null,
+      active_minutes: null,
+      active_zone_minutes: null,
+      sleep: {
+        sleep_duration: null,
+        minutes_asleep: null,
+        sleep_start: null,
+        sleep_end: null,
+        awakenings: null,
+      },
+      wear_time_minutes: null,
+      heart_rate_zones: [],
+      breathing_rate: null,
+      hrv: null,
+      exercise: { sessions: [] },
+      weight_kg: null,
+      bp_sys: null,
+      bp_dia: null,
+    })),
+    questionnaire: [],
+    adherence: [],
+  };
+}
+
+async function mockOutcomesPatientList(page: Parameters<Parameters<typeof test>[1]>[0]) {
+  await page.route('**/therapists/*/patients/', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([makeGoogleHealthOutcomesPatientRow()]),
+    });
+  });
+}
+
+async function mockOutcomesDashboardPrereqs(page: Parameters<Parameters<typeof test>[1]>[0]) {
+  await page.route('**/patients/*/thresholds/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        thresholds: {
+          steps_goal: 10000,
+          active_minutes_green: 30,
+          active_minutes_yellow: 20,
+          sleep_green_min: 420,
+          sleep_yellow_min: 360,
+          bp_sys_green_max: 129,
+          bp_sys_yellow_max: 139,
+          bp_dia_green_max: 84,
+          bp_dia_yellow_max: 89,
+        },
+        thresholds_history: [],
+      }),
+    });
+  });
+}
+
+test.describe('Outcomes Dashboard — Google Health patients', () => {
+  test.beforeEach(async ({ page }) => {
+    skipUnlessTherapist(test);
+    await loginAsTherapist(page);
+  });
+
+  test('health-combined-history is called for google_health patient 934-252', async ({ page }) => {
+    skipUnlessTherapist(test);
+
+    await mockOutcomesPatientList(page);
+    await mockOutcomesDashboardPrereqs(page);
+
+    let combinedHistoryCalled = false;
+    let combinedHistoryPatientId: string | null = null;
+
+    await page.route('**/patients/health-combined-history/**', async (route) => {
+      combinedHistoryCalled = true;
+      const url = new URL(route.request().url());
+      const parts = url.pathname.split('/');
+      combinedHistoryPatientId = parts[parts.indexOf('health-combined-history') + 1] ?? null;
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(makeGoogleHealthCombinedHistoryResponse()),
+      });
+    });
+
+    await page.goto('/therapist');
+    const patientRow = page.locator('tr.cursor-pointer').first();
+    await expect(patientRow).toBeVisible({ timeout: 15000 });
+    await patientRow.click();
+
+    await page.waitForResponse((res) => res.url().includes('/patients/health-combined-history/'), {
+      timeout: 15000,
+    });
+
+    expect(combinedHistoryCalled, 'health-combined-history must be called').toBe(true);
+    expect(combinedHistoryPatientId).toBe(GH_OUTCOMES_PATIENT_ID);
+  });
+
+  test('Outcomes Dashboard shows step data (not empty state) for google_health patient', async ({
+    page,
+  }) => {
+    skipUnlessTherapist(test);
+
+    await mockOutcomesPatientList(page);
+    await mockOutcomesDashboardPrereqs(page);
+
+    await page.route('**/patients/health-combined-history/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(makeGoogleHealthCombinedHistoryResponse()),
+      });
+    });
+
+    await page.goto('/therapist');
+    const patientRow = page.locator('tr.cursor-pointer').first();
+    await expect(patientRow).toBeVisible({ timeout: 15000 });
+    await patientRow.click();
+
+    await page.waitForResponse((res) => res.url().includes('/patients/health-combined-history/'), {
+      timeout: 15000,
+    });
+
+    // Old (broken) behaviour showed "No steps data" for google_health patients regardless of data.
+    await expect(page.getByText('No steps data')).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('No resting heart rate data')).not.toBeVisible();
+  });
+
+  test('Outcomes Dashboard step card shows a numeric average (not --) for 934-252', async ({
+    page,
+  }) => {
+    skipUnlessTherapist(test);
+
+    await mockOutcomesPatientList(page);
+    await mockOutcomesDashboardPrereqs(page);
+
+    await page.route('**/patients/health-combined-history/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(makeGoogleHealthCombinedHistoryResponse()),
+      });
+    });
+
+    await page.goto('/therapist');
+    const patientRow = page.locator('tr.cursor-pointer').first();
+    await expect(patientRow).toBeVisible({ timeout: 15000 });
+    await patientRow.click();
+
+    await page.waitForResponse((res) => res.url().includes('/patients/health-combined-history/'), {
+      timeout: 15000,
+    });
+
+    // A metric card h3 starting with a digit confirms averaged data is rendered, not "--".
+    const numericCardTitles = page.locator('h3').filter({ hasText: /^\d/ });
+    await expect(numericCardTitles.first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test('Outcomes Dashboard shows empty state when fitbit array is empty (regression baseline)', async ({
+    page,
+  }) => {
+    skipUnlessTherapist(test);
+
+    await mockOutcomesPatientList(page);
+    await mockOutcomesDashboardPrereqs(page);
+
+    // Documents the pre-fix baseline: an empty fitbit array must still show the empty state.
+    await page.route('**/patients/health-combined-history/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ fitbit: [], questionnaire: [], adherence: [] }),
+      });
+    });
+
+    await page.goto('/therapist');
+    const patientRow = page.locator('tr.cursor-pointer').first();
+    await expect(patientRow).toBeVisible({ timeout: 15000 });
+    await patientRow.click();
+
+    await page.waitForResponse((res) => res.url().includes('/patients/health-combined-history/'), {
+      timeout: 15000,
+    });
+
+    await expect(page.getByText('No steps data')).toBeVisible({ timeout: 10000 });
   });
 });

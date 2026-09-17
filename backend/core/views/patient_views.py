@@ -47,6 +47,7 @@ from utils.interventions import (
     _get_star_q_ids,
     _plan_assignments_for,
     _safe_intervention,
+    _star_rating_value,
     _variant_ids_by_external_id,
     _variant_ids_for_external_id,
 )
@@ -3186,15 +3187,10 @@ def get_patient_plan_for_therapist(request, patient_id):
                         )
 
                         # Only star-rating questions feed the average, not e.g. a difficulty scale.
-                        if question.id in star_q_ids:
-                            try:
-                                rating = int((fb.answerKey or [])[0].key)
-                            except (ValueError, TypeError, IndexError, AttributeError):
-                                rating = None
-                            # Star ratings are seeded with keys "1"-"5" only.
-                            if rating is not None and 1 <= rating <= 5:
-                                rating_sum += rating
-                                rating_count += 1
+                        rating = _star_rating_value(question.id, fb.answerKey, star_q_ids)
+                        if rating is not None:
+                            rating_sum += rating
+                            rating_count += 1
 
                 # Video feedback if present
                 video_feedback = None

@@ -24,7 +24,7 @@ from core.models import (
     User,
 )
 from core.services.redcap_access import get_therapist_for_user
-from utils.interventions import _get_star_q_ids
+from utils.interventions import _get_star_q_ids, _star_rating_value
 from utils.utils import _adherence, resolve_patient
 
 LOOKBACK_DAYS = 30
@@ -211,17 +211,9 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
         numeric_values = []
         for fe in getattr(lg, "feedback", None) or []:
             question_id = getattr(getattr(fe, "questionId", None), "id", None)
-            if question_id not in star_q_ids:
-                continue
-            for ak in getattr(fe, "answerKey", None) or []:
-                key = ak if isinstance(ak, str) else getattr(ak, "key", None)
-                try:
-                    v = int(str(key).strip())
-                except Exception:
-                    continue
-                # Star ratings are seeded with keys "1"-"5" only.
-                if 1 <= v <= 5:
-                    numeric_values.append(v)
+            rating = _star_rating_value(question_id, getattr(fe, "answerKey", None), star_q_ids)
+            if rating is not None:
+                numeric_values.append(rating)
 
         if not numeric_values:
             continue

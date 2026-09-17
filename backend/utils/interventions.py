@@ -37,18 +37,37 @@ from utils.config import config
 from utils.scheduling import _merge_date_and_time
 from utils.utils import generate_custom_id, get_labels, sanitize_text
 
-# Module-level cache: star rating question IDs change only when questions are
-# added/removed, which is rare. Re-query at most once every 10 minutes.
+# Module-level cache since star question IDs rarely change; re-query at most every 10 minutes.
 _star_q_ids_cache: dict = {"ids": None, "ts": 0.0}
 _STAR_Q_CACHE_TTL = 600  # seconds
+
+# Star ratings are seeded with keys "1"-"5" only.
+STAR_RATING_KEY_REGEX = r"^[1-5]$"
 
 
 def _get_star_q_ids() -> list:
     now = time.monotonic()
-    if _star_q_ids_cache["ids"] is None or now - _star_q_ids_cache["ts"] > _STAR_Q_CACHE_TTL:
+    cached_ids = _star_q_ids_cache["ids"]
+    if not cached_ids or now - _star_q_ids_cache["ts"] > _STAR_Q_CACHE_TTL:
         ids = [q.id for q in FeedbackQuestion.objects(questionKey__startswith="rating_stars_").only("id")]
         _star_q_ids_cache.update({"ids": ids, "ts": now})
-    return _star_q_ids_cache["ids"]
+        return ids
+    return cached_ids
+
+
+def _star_rating_value(question_id, answer_keys, star_q_ids) -> Optional[int]:
+    """Return the 1-5 star rating in answer_keys if question_id is a star question, else None."""
+    if question_id not in star_q_ids:
+        return None
+    for ak in answer_keys or []:
+        key = ak if isinstance(ak, str) else getattr(ak, "key", None)
+        try:
+            v = int(str(key).strip())
+        except (ValueError, TypeError):
+            continue
+        if 1 <= v <= 5:
+            return v
+    return None
 
 
 DIRECT_AUDIO_EXT = {"mp3", "wav", "m4a", "aac", "ogg", "opus", "flac"}
