@@ -210,12 +210,12 @@ def fetch_google_health_data_async(user_id: str):
     retry_backoff=120,
     max_retries=2,
 )
-def backfill_google_health_on_connect(user_id: str, days: int = 30):
-    """Backfill the last `days` days of Google Health data when a patient first connects.
+def backfill_google_health_on_connect(user_id: str, days: int = 365):
+    """Backfill up to `days` days of Google Health data when a patient first connects.
 
-    Called automatically from the OAuth callback so the therapist view is
+    Called automatically from the OAuth callback so the full monitoring history is
     populated immediately after the patient authenticates — no manual backfill
-    command needed.
+    command needed. Default of 365 days covers the entire typical monitoring period.
     """
     import datetime
 

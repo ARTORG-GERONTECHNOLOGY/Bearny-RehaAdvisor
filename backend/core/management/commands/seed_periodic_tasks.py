@@ -100,3 +100,15 @@ class Command(BaseCommand):
             },
         )
         self.stdout.write(self.style.SUCCESS(f"{'Created' if created5 else 'Updated'} task: {task5.name}"))
+
+        # Task 6: Sync wearables to REDCap nightly for all patients with a project set.
+        task6, created6 = PeriodicTask.objects.update_or_create(
+            name="Sync Wearables to REDCap (nightly)",
+            defaults={
+                "crontab": midnight_schedule,
+                "task": "core.tasks.sync_wearables_to_redcap_all",
+                "enabled": True,
+                "args": json.dumps([]),
+            },
+        )
+        self.stdout.write(self.style.SUCCESS(f"{'Created' if created6 else 'Updated'} task: {task6.name}"))
