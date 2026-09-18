@@ -24,6 +24,7 @@ from core.models import (
     User,
 )
 from core.services.redcap_access import get_therapist_for_user
+from utils.interventions import _get_star_q_ids, _star_rating_value
 from utils.utils import _adherence, resolve_patient
 
 LOOKBACK_DAYS = 30
@@ -171,7 +172,7 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
     """
     Summarize intervention feedback for therapist traffic-light logic.
 
-    Uses only numeric answer keys from PatientInterventionLogs.feedback.
+    Uses only numeric answer keys from star-rating questions in PatientInterventionLogs.feedback.
     Returns recency, recent average score (last N answered days), trend versus
     the previous N answered days, and the count of low-rated entries (mean ≤ 2)
     within the last 14 days.
@@ -193,11 +194,14 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
     day_to_values = {}
     latest_dt = None
     low_ratings_14d = 0
+    star_q_ids = set(_get_star_q_ids())
 
+    # no_dereference(): questionId is only read for its id below, avoiding a fetch per entry.
     logs = (
         PatientInterventionLogs.objects(userId=patient, feedback__exists=True, feedback__ne=[])
         .only("date", "updatedAt", "feedback")
         .order_by("-date")
+        .no_dereference()
     )
     for lg in logs:
         dt = _aware(getattr(lg, "date", None) or getattr(lg, "updatedAt", None))
@@ -206,14 +210,10 @@ def _intervention_feedback_summary(patient, recent_days: int = 3):
 
         numeric_values = []
         for fe in getattr(lg, "feedback", None) or []:
-            for ak in getattr(fe, "answerKey", None) or []:
-                key = ak if isinstance(ak, str) else getattr(ak, "key", None)
-                try:
-                    v = int(str(key).strip())
-                except Exception:
-                    continue
-                if v > 0:
-                    numeric_values.append(v)
+            question_id = getattr(getattr(fe, "questionId", None), "id", None)
+            rating = _star_rating_value(question_id, getattr(fe, "answerKey", None), star_q_ids)
+            if rating is not None:
+                numeric_values.append(rating)
 
         if not numeric_values:
             continue
@@ -366,7 +366,8 @@ def _feedback_computing(patient):
                 earliest_cut = None
 
         # ---- pull PatientICFRating docs, newest first ----
-        ratings_qs = PatientICFRating.objects(patientId=patient).order_by("-date")
+        # no_dereference(): questionId is only read for its id below, avoiding a fetch per entry.
+        ratings_qs = PatientICFRating.objects(patientId=patient).order_by("-date").no_dereference()
         if earliest_cut:
             ratings_qs = ratings_qs.filter(date__gte=earliest_cut)
 

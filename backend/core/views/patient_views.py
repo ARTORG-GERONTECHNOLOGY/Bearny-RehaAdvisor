@@ -44,8 +44,10 @@ from core.services.redcap_access import get_therapist_for_user
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.interventions import (
     _canonical_assignment_for,
+    _get_star_q_ids,
     _plan_assignments_for,
     _safe_intervention,
+    _star_rating_value,
     _variant_ids_by_external_id,
     _variant_ids_for_external_id,
 )
@@ -3096,6 +3098,29 @@ def get_patient_plan_for_therapist(request, patient_id):
 
         _groups = list(_seen_ext.values())
         variant_ids = _variant_ids_by_intervention(g["intervention"] for g in _groups)
+        star_q_ids = set(_get_star_q_ids())
+
+        # One log fetch and one FeedbackQuestion fetch for the whole plan, instead of a pair per intervention group.
+        _all_variant_ids = [vid for g in _groups for vid in variant_ids[g["intervention"].pk]]
+        _all_logs = list(
+            PatientInterventionLogs.objects(
+                userId=patient,
+                rehabilitationPlanId=plan,
+                interventionId__in=_all_variant_ids,
+            ).no_dereference()
+        )
+        _logs_by_variant_id: dict = {}
+        for _log in _all_logs:
+            _logs_by_variant_id.setdefault(_log.interventionId.id, []).append(_log)
+
+        _question_ids = {
+            getattr(fb.questionId, "id", None)
+            for _log in _all_logs
+            for fb in (getattr(_log, "feedback", None) or [])
+            if getattr(fb, "questionId", None) is not None
+        }
+        _question_ids.discard(None)
+        _questions_by_id = {q.id: q for q in FeedbackQuestion.objects(id__in=_question_ids)}
 
         for _group in _groups:
             assignment = _group["canonical"]
@@ -3104,11 +3129,8 @@ def get_patient_plan_for_therapist(request, patient_id):
             # Every variant of the external_id, not just the assigned ones, so a log recorded
             # under a different variant is still counted. Scoped to this plan like get_patient_plan,
             # or a patient with a second plan doc gets different counts in the two views.
-            logs = PatientInterventionLogs.objects(
-                userId=patient,
-                rehabilitationPlanId=plan,
-                interventionId__in=variant_ids[intervention.pk],
-            )
+            logs = [log for vid in variant_ids[intervention.pk] for log in _logs_by_variant_id.get(vid, [])]
+            questions_by_id = _questions_by_id
 
             intervention_dates = []
             completed_count = 0
@@ -3135,13 +3157,15 @@ def get_patient_plan_for_therapist(request, patient_id):
                 feedback_entries = []
                 if log and getattr(log, "feedback", None):
                     for fb in log.feedback:
-                        if not fb.questionId:
+                        question_id = getattr(getattr(fb, "questionId", None), "id", None)
+                        question = questions_by_id.get(question_id)
+                        if question is None:
                             continue
 
                         question_data = {
-                            "id": str(fb.questionId.id),
+                            "id": str(question.id),
                             "translations": [
-                                {"language": tr.language, "text": tr.text} for tr in fb.questionId.translations
+                                {"language": tr.language, "text": tr.text} for tr in question.translations
                             ],
                         }
 
@@ -3162,12 +3186,11 @@ def get_patient_plan_for_therapist(request, patient_id):
                             }
                         )
 
-                        # naive numeric rating from first answer key
-                        try:
-                            rating_sum += int((fb.answerKey or [])[0].key)
+                        # Only star-rating questions feed the average, not e.g. a difficulty scale.
+                        rating = _star_rating_value(question.id, fb.answerKey, star_q_ids)
+                        if rating is not None:
+                            rating_sum += rating
                             rating_count += 1
-                        except (ValueError, TypeError, IndexError, AttributeError):
-                            pass
 
                 # Video feedback if present
                 video_feedback = None

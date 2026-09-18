@@ -125,7 +125,9 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
         <div className="w-full max-w-sm mx-auto">
           {!is2FARequired ? (
             <form onSubmit={submitCredentials}>
-              {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
+              {error && (
+                <ErrorAlert message={error} onClose={() => setError(null)} className="mb-4" />
+              )}
 
               <FieldGroup>
                 <InputField
@@ -159,7 +161,7 @@ const LoginForm: React.FC<Props> = ({ show, handleClose }) => {
             <form onSubmit={submit2FA}>
               {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
 
-              <FieldGroup className="mt-8">
+              <FieldGroup className="mt-6">
                 <OTPField
                   id="verificationCode"
                   label={t('VerificationCode')}

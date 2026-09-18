@@ -13,7 +13,6 @@ import logging
 import mimetypes
 import os
 import re
-import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -31,7 +30,6 @@ from rest_framework.permissions import IsAuthenticated
 from core.models import (
     DefaultInterventions,
     DiagnosisAssignmentSettings,
-    FeedbackQuestion,
     Intervention,
     InterventionAssignment,
     InterventionMedia,
@@ -50,6 +48,7 @@ from utils.interventions import (
     _canonical_assignment_for,
     _detect_file_media_type,
     _first_str_from_any,
+    _get_star_q_ids,
     _instant_key,
     _is_valid_url,
     _lang_fallback_chain,
@@ -59,6 +58,7 @@ from utils.interventions import (
     _occ_count_for_day_range,
     _parse_bool,
     _parse_int,
+    _parse_star_key,
     _parse_str_list,
     _pick_best_variant,
     _pick_variant,
@@ -73,20 +73,6 @@ from utils.scheduling import _expand_dates  # you already use this
 from utils.utils import bad, sanitize_text
 
 logger = logging.getLogger(__name__)
-
-# Module-level cache: star rating question IDs change only when questions are
-# added/removed, which is rare. Re-query at most once every 10 minutes.
-_star_q_ids_cache: dict = {"ids": None, "ts": 0.0}
-_STAR_Q_CACHE_TTL = 600  # seconds
-
-
-def _get_star_q_ids() -> list:
-    now = time.monotonic()
-    if _star_q_ids_cache["ids"] is None or now - _star_q_ids_cache["ts"] > _STAR_Q_CACHE_TTL:
-        ids = [q.id for q in FeedbackQuestion.objects(questionKey__startswith="rating_stars_").only("id")]
-        _star_q_ids_cache.update({"ids": ids, "ts": now})
-    return _star_q_ids_cache["ids"]
-
 
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
@@ -1093,43 +1079,68 @@ def list_all_interventions(request, patient_id=None):
             grouped.setdefault(key, []).append(it)
 
         public_serialized = []
+        variant_ids_by_item_id = {}
         for external_id, docs in grouped.items():
             chosen, langs = _pick_variant(docs, preferred_lang, fallback_order=["en", "de"])
-            public_serialized.append(serialize(chosen, langs, all_docs=docs))
+            item = serialize(chosen, langs, all_docs=docs)
+            public_serialized.append(item)
+            # A rating may be logged against any language variant, not just the displayed one.
+            variant_ids_by_item_id[item["_id"]] = [str(d.pk) for d in docs]
+
+        for item in private_serialized:
+            variant_ids_by_item_id[item["_id"]] = [item["_id"]]
 
         all_serialized = private_serialized + public_serialized
 
         # Annotate each intervention with its average star rating from patient feedback.
-        # star_q_ids are cached at module level; see _get_star_q_ids().
-        star_q_ids = _get_star_q_ids()
+        # star_q_ids are cached at module level; see _get_star_q_ids(). Copy so this
+        # view never risks mutating the shared cached list.
+        star_q_ids = list(_get_star_q_ids())
         if star_q_ids:
-            valid_ids = [ObjectId(s["_id"]) for s in all_serialized if ObjectId.is_valid(s["_id"])]
-            if valid_ids:
+            all_variant_ids = [
+                ObjectId(vid) for ids in variant_ids_by_item_id.values() for vid in ids if ObjectId.is_valid(vid)
+            ]
+            if all_variant_ids:
                 logs_col = PatientInterventionLogs._get_collection()
                 pipeline = [
-                    {"$match": {"interventionId": {"$in": valid_ids}}},
+                    {"$match": {"interventionId": {"$in": all_variant_ids}}},
                     {"$unwind": "$feedback"},
                     {"$match": {"feedback.questionId": {"$in": star_q_ids}}},
                     {
-                        "$project": {
-                            "interventionId": 1,
-                            "rating": {"$toInt": {"$arrayElemAt": ["$feedback.answerKey.key", 0]}},
-                        }
-                    },
-                    {
                         "$group": {
                             "_id": "$interventionId",
-                            "avg_rating": {"$avg": "$rating"},
-                            "rating_count": {"$sum": 1},
+                            # Push each entry's full key list (not just index 0) so every
+                            # answerKey item is considered, matching _star_rating_value().
+                            "answer_key_lists": {"$push": {"$ifNull": ["$feedback.answerKey.key", []]}},
                         }
                     },
                 ]
-                rating_map = {str(r["_id"]): r for r in logs_col.aggregate(pipeline)}
+                ratings_by_variant = {}
+                # Parsed in Python (not $toInt/$regex) so this shares _parse_star_key with
+                # _star_rating_value() instead of a parallel Mongo-side validation rule.
+                for row in logs_col.aggregate(pipeline):
+                    values = []
+                    for keys in row["answer_key_lists"]:
+                        # One rating per feedback entry: first valid 1-5 key wins.
+                        value = next((v for v in (_parse_star_key(k) for k in keys) if v is not None), None)
+                        if value is not None:
+                            values.append(value)
+                    if values:
+                        ratings_by_variant[str(row["_id"])] = {
+                            "rating_sum": sum(values),
+                            "rating_count": len(values),
+                        }
                 for item in all_serialized:
-                    rd = rating_map.get(item["_id"], {})
-                    avg = rd.get("avg_rating")
-                    item["avg_rating"] = round(avg, 1) if avg is not None else None
-                    item["rating_count"] = rd.get("rating_count", 0)
+                    rows = [
+                        ratings_by_variant[vid]
+                        for vid in variant_ids_by_item_id.get(item["_id"], [])
+                        if vid in ratings_by_variant
+                    ]
+                    total_count = sum(r["rating_count"] for r in rows)
+                    if total_count:
+                        total_sum = sum(r["rating_sum"] for r in rows)
+                        item["avg_rating"] = round(total_sum / total_count, 1)
+                        item["rating_count"] = total_count
 
         return JsonResponse(all_serialized, safe=False, status=200)
 

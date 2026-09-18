@@ -76,6 +76,11 @@ def mongo_mock():
     from mongoengine import connect, disconnect
     from mongoengine.connection import _connections
 
+    # Reset the module-level star_q_ids cache so each test sees a fresh DB.
+    import utils.interventions as interventions_utils
+
+    interventions_utils._star_q_ids_cache.update({"ids": None, "ts": 0.0})
+
     alias = "default"
     if alias in _connections:
         disconnect(alias)
@@ -1161,7 +1166,7 @@ def test_list_therapist_patients_exposes_thresholds_and_non_questionnaire_feedba
     ).save()
     feedback_question = FeedbackQuestion(
         questionSubject="Intervention",
-        questionKey=f"fb-{ObjectId()}",
+        questionKey=f"rating_stars_{ObjectId()}",
         translations=[Translation(language="en", text="How did it go?")],
         possibleAnswers=[],
         answer_type="select",
@@ -1232,6 +1237,144 @@ def test_list_therapist_patients_exposes_thresholds_and_non_questionnaire_feedba
     assert row["intervention_feedback"]["answered_days_total"] >= 2
     assert row["intervention_feedback"]["recent_avg_score"] is not None
     assert row["intervention_feedback"]["last_answered_at"] is not None
+
+
+def test_list_therapist_patients_skips_feedback_entry_with_deleted_question():
+    therapist, patient = create_therapist_with_patient()
+
+    intervention = Intervention(
+        external_id=f"ext-{ObjectId()}",
+        language="en",
+        title="Breathing",
+        description="desc",
+        content_type="Audio",
+        patient_types=[],
+    ).save()
+    live_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey=f"rating_stars_{ObjectId()}",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+        answer_type="select",
+    ).save()
+    stale_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey=f"rating_stars_{ObjectId()}",
+        translations=[Translation(language="en", text="Old question")],
+        possibleAnswers=[],
+        answer_type="select",
+    ).save()
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=7),
+        endDate=datetime.now() + timedelta(days=7),
+        status="active",
+        interventions=[InterventionAssignment(interventionId=intervention, dates=[datetime.now() - timedelta(days=1)])],
+    ).save()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.now() - timedelta(days=1),
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=stale_question,
+                answerKey=[AnswerOption(key="5", translations=[Translation(language="en", text="5")])],
+            )
+        ],
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.now() - timedelta(days=2),
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=live_question,
+                answerKey=[AnswerOption(key="4", translations=[Translation(language="en", text="4")])],
+            )
+        ],
+    ).save()
+
+    # A re-seed of feedback questions deletes and recreates them by key, leaving
+    # old logs holding a dangling questionId reference.
+    FeedbackQuestion.objects(id=stale_question.id).delete()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    # The dangling entry must be skipped, not blow up the whole summary.
+    assert row["intervention_feedback"]["recent_avg_score"] == pytest.approx(4.0, rel=1e-3)
+
+
+def test_list_therapist_patients_excludes_out_of_range_numeric_answer_key():
+    """
+    Regression: a FeedbackEntry on a rating_stars_* question with a numeric but
+    out-of-range answerKey (e.g. a malformed/direct API submission, not the 1-5
+    star widget) must not feed recent_avg_score / the traffic-light logic.
+    """
+    therapist, patient = create_therapist_with_patient()
+
+    intervention = Intervention(
+        external_id=f"ext-{ObjectId()}",
+        language="en",
+        title="Breathing",
+        description="desc",
+        content_type="Audio",
+        patient_types=[],
+    ).save()
+    star_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey=f"rating_stars_{ObjectId()}",
+        translations=[Translation(language="en", text="How did it go?")],
+        possibleAnswers=[],
+        answer_type="select",
+    ).save()
+    plan = RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=7),
+        endDate=datetime.now() + timedelta(days=7),
+        status="active",
+        interventions=[InterventionAssignment(interventionId=intervention, dates=[datetime.now() - timedelta(days=1)])],
+    ).save()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.now() - timedelta(days=1),
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="4", translations=[Translation(language="en", text="4")])],
+            ),
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="99999999999999", translations=[Translation(language="en", text="x")])],
+            ),
+        ],
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    assert row["intervention_feedback"]["recent_avg_score"] == pytest.approx(
+        4.0, rel=1e-3
+    ), "Out-of-range answerKey leaked into recent_avg_score"
 
 
 # ---------------------------------------------------------------------------

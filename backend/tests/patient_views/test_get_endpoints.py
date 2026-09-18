@@ -75,6 +75,11 @@ def mongo_mock():
     from mongoengine import connect, disconnect
     from mongoengine.connection import _connections
 
+    # Reset the module-level star_q_ids cache so each test sees a fresh DB.
+    import utils.interventions as interventions_utils
+
+    interventions_utils._star_q_ids_cache.update({"ids": None, "ts": 0.0})
+
     alias = "default"
     if alias in _connections:
         disconnect(alias)
@@ -390,6 +395,286 @@ def test_therapist_plan_includes_rating_count(mongo_mock):
     entry = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention.id))
     assert entry["ratingCount"] == 3
     assert entry["averageRating"] == round((4 + 4 + 2) / 3, 1)
+
+
+def test_therapist_plan_rating_count_excludes_non_star_feedback(mongo_mock):
+    """
+    Regression: only ``rating_stars_*`` questions must feed ratingCount /
+    averageRating. A non-star question with a numeric-looking answer key
+    (e.g. a difficulty scale) must not be counted as a rating.
+    """
+    patient, therapist, intervention, plan = setup_basic_plan()
+    assignment = plan.interventions[0]
+
+    star_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_exercise",
+        translations=[Translation(language="en", text="Rate this")],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=str(i))]) for i in range(1, 6)
+        ],
+        answer_type="select",
+    )
+    star_question.save()
+
+    difficulty_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="difficulty_scale",
+        translations=[Translation(language="en", text="How difficult?")],
+        possibleAnswers=[AnswerOption(key="3", translations=[Translation(language="en", text="Medium")])],
+        answer_type="select",
+    )
+    difficulty_question.save()
+
+    day = assignment.dates[0]
+    log_date = timezone.localtime(timezone.make_aware(day, dt_timezone.utc)).replace(tzinfo=None)
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=log_date,
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="5", translations=[Translation(language="en", text="x")])],
+            ),
+            FeedbackEntry(
+                questionId=difficulty_question,
+                answerKey=[AnswerOption(key="3", translations=[Translation(language="en", text="x")])],
+            ),
+        ],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    entry = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention.id))
+    assert entry["ratingCount"] == 1, f"Expected only the star rating to count, got {entry['ratingCount']}"
+    assert entry["averageRating"] == 5.0, f"Difficulty answer leaked into averageRating: {entry['averageRating']}"
+
+
+def test_therapist_plan_rating_count_excludes_out_of_range_numeric_answer_key(mongo_mock):
+    """
+    Regression: a FeedbackEntry on a rating_stars_* question with a numeric but
+    out-of-range answerKey (e.g. a malformed/direct API submission, not the 1-5
+    star widget) must be excluded from ratingCount/averageRating, not counted.
+    """
+    patient, therapist, intervention, plan = setup_basic_plan()
+    assignment = plan.interventions[0]
+
+    star_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_exercise",
+        translations=[Translation(language="en", text="Rate this")],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=str(i))]) for i in range(1, 6)
+        ],
+        answer_type="select",
+    )
+    star_question.save()
+
+    day = assignment.dates[0]
+    log_date = timezone.localtime(timezone.make_aware(day, dt_timezone.utc)).replace(tzinfo=None)
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=log_date,
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="5", translations=[Translation(language="en", text="x")])],
+            ),
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="99999999999999", translations=[Translation(language="en", text="x")])],
+            ),
+        ],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    entry = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention.id))
+    assert entry["ratingCount"] == 1, f"Out-of-range answerKey counted as a rating: {entry['ratingCount']}"
+    assert entry["averageRating"] == 5.0, f"Out-of-range answerKey diluted averageRating: {entry['averageRating']}"
+
+
+def test_get_patient_plan_for_therapist_skips_feedback_entry_with_deleted_question(mongo_mock):
+    """
+    Regression: a FeedbackEntry whose questionId was deleted (e.g. a reseed
+    that deletes and recreates rating_stars_* questions by key) must be
+    skipped, not crash the whole therapist plan view with an uncaught
+    DoesNotExist on dereference.
+    """
+    patient, therapist, intervention, plan = setup_basic_plan()
+    assignment = plan.interventions[0]
+
+    live_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_exercise",
+        translations=[Translation(language="en", text="Rate this")],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=str(i))]) for i in range(1, 6)
+        ],
+        answer_type="select",
+    )
+    live_question.save()
+
+    stale_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_old",
+        translations=[Translation(language="en", text="Old question")],
+        possibleAnswers=[],
+        answer_type="select",
+    )
+    stale_question.save()
+
+    day0, day1 = assignment.dates[0], assignment.dates[1]
+    stale_log_date = timezone.localtime(timezone.make_aware(day0, dt_timezone.utc)).replace(tzinfo=None)
+    live_log_date = timezone.localtime(timezone.make_aware(day1, dt_timezone.utc)).replace(tzinfo=None)
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=stale_log_date,
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=stale_question,
+                answerKey=[AnswerOption(key="5", translations=[Translation(language="en", text="x")])],
+            )
+        ],
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=live_log_date,
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=live_question,
+                answerKey=[AnswerOption(key="4", translations=[Translation(language="en", text="x")])],
+            )
+        ],
+    ).save()
+
+    # A re-seed of feedback questions deletes and recreates them by key, leaving
+    # old logs holding a dangling questionId reference.
+    FeedbackQuestion.objects(id=stale_question.id).delete()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    body = resp.json()
+    entry = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention.id))
+    # The dangling entry must be skipped, not blow up the whole plan view.
+    assert entry["ratingCount"] == 1
+    assert entry["averageRating"] == 4.0
+    all_feedback = [fb for d in entry["dates"] for fb in d["feedback"]]
+    assert len(all_feedback) == 1
+    assert all_feedback[0]["question"]["id"] == str(live_question.id)
+
+
+def test_get_patient_plan_for_therapist_multiple_interventions_ratings_stay_separate(mongo_mock):
+    """
+    Regression: feedback/ratings for one intervention in a plan must not leak
+    into another when the therapist plan view batches its log and
+    FeedbackQuestion lookups across the whole plan instead of per intervention.
+    """
+    patient, therapist, intervention_a, plan = setup_basic_plan()
+
+    intervention_b = Intervention(
+        title="Balance",
+        description="desc",
+        content_type="Video",
+        external_id="TEST-EXT-002",
+        language="en",
+    )
+    intervention_b.save()
+    plan.interventions.append(
+        InterventionAssignment(
+            interventionId=intervention_b,
+            frequency="Daily",
+            notes="",
+            dates=[datetime.now() + timedelta(days=i) for i in range(3)],
+        )
+    )
+    plan.save()
+
+    star_question = FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_exercise",
+        translations=[Translation(language="en", text="Rate this")],
+        possibleAnswers=[
+            AnswerOption(key=str(i), translations=[Translation(language="en", text=str(i))]) for i in range(1, 6)
+        ],
+        answer_type="select",
+    )
+    star_question.save()
+
+    day_a = plan.interventions[0].dates[0]
+    log_date_a = timezone.localtime(timezone.make_aware(day_a, dt_timezone.utc)).replace(tzinfo=None)
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention_a,
+        rehabilitationPlanId=plan,
+        date=log_date_a,
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="5", translations=[Translation(language="en", text="x")])],
+            )
+        ],
+    ).save()
+
+    day_b = plan.interventions[1].dates[0]
+    log_date_b = timezone.localtime(timezone.make_aware(day_b, dt_timezone.utc)).replace(tzinfo=None)
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention_b,
+        rehabilitationPlanId=plan,
+        date=log_date_b,
+        status=["completed"],
+        feedback=[
+            FeedbackEntry(
+                questionId=star_question,
+                answerKey=[AnswerOption(key="2", translations=[Translation(language="en", text="x")])],
+            )
+        ],
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    body = resp.json()
+
+    entry_a = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention_a.id))
+    entry_b = next(iv for iv in body["interventions"] if iv["_id"] == str(intervention_b.id))
+
+    assert entry_a["ratingCount"] == 1
+    assert entry_a["averageRating"] == 5.0
+    assert entry_b["ratingCount"] == 1
+    assert entry_b["averageRating"] == 2.0
+
+    feedback_a = [fb for d in entry_a["dates"] for fb in d["feedback"]]
+    feedback_b = [fb for d in entry_b["dates"] for fb in d["feedback"]]
+    assert len(feedback_a) == 1 and feedback_a[0]["answer"][0]["key"] == "5"
+    assert len(feedback_b) == 1 and feedback_b[0]["answer"][0]["key"] == "2"
 
 
 def test_get_patient_plan_for_therapist_post_method_not_allowed(mongo_mock):
