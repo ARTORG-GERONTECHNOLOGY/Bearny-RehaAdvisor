@@ -53,7 +53,6 @@ dependencies:
   - wheel=0.43.0
   - xz=5.4.6
   - zlib=1.2.13
-  - djongo
   - pip:
       - django==5.1.1
       - django-cors-headers==4.4.0
