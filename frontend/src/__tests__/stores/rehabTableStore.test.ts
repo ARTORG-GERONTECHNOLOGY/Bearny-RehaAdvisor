@@ -1056,6 +1056,24 @@ describe('deleteExercise', () => {
       datetime: '2026-01-01T00:00:00.000Z',
     });
   });
+
+  // Regression: a stuck translation call used to block deleteExercise, leaving the confirm modal open.
+  it('resolves without waiting for translateVisibleItems to finish', async () => {
+    const store = makeStore();
+    store.explicitPatientId = 'p1';
+    mockApiClient.post.mockResolvedValueOnce({ status: 200 });
+    mockApiClient.get.mockResolvedValue({
+      data: { interventions: [{ _id: 'int-2', title: 'Squats', contentType: 'exercise' }] },
+    });
+    require('@/utils/translate').translateText.mockReturnValue(new Promise(() => {}));
+
+    await store.deleteExercise(
+      'int-1',
+      jest.fn((k: string) => k)
+    );
+
+    expect(mockApiClient.post).toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
