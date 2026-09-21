@@ -770,7 +770,8 @@ export class RehabTableStore {
         runInAction(() => {
           this.patientData = this.mergePlanWithCatalog(this.patientData, this.allInterventions);
         });
-        await this.translateVisibleItems();
+        // Not awaited: translation is rate-limited and can be slow; don't block the caller on it.
+        void this.translateVisibleItems();
       }
     } catch (err: unknown) {
       const msg = extractApiError(
@@ -806,7 +807,8 @@ export class RehabTableStore {
           this.patientData = this.mergePlanWithCatalog(this.patientData, this.allInterventions);
           this.error = null;
         });
-        await this.translateVisibleItems();
+        // Not awaited: translation is rate-limited and can be slow; don't block the caller on it.
+        void this.translateVisibleItems();
         return true;
       }
       return false;
