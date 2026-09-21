@@ -270,6 +270,28 @@ describe('rehabTableStore.rescheduleInterventionDate', () => {
     expect(store.error).toBeNull();
   });
 
+  // Regression: a stuck translation call used to block rescheduleInterventionDate, leaving
+  // the calendar's drag-and-drop event stuck in its optimistic "pending" position.
+  it('resolves without waiting for translateVisibleItems to finish', async () => {
+    const store = makeStore();
+    const mockT = jest.fn((key: string) => key);
+    mockApiClient.post.mockResolvedValueOnce({ status: 200, data: { success: true } });
+    mockApiClient.get.mockResolvedValue({
+      status: 200,
+      data: { interventions: [{ _id: 'int-2', title: 'Squats', contentType: 'exercise' }] },
+    });
+    require('@/utils/translate').translateText.mockReturnValueOnce(new Promise(() => {}));
+
+    const result = await store.rescheduleInterventionDate(
+      'int-1',
+      '2026-07-21T09:00:00',
+      new Date('2026-07-21T14:00:00.000Z'),
+      mockT
+    );
+
+    expect(result).toBe(true);
+  });
+
   it('returns false without refetching when the response status is not 200/201', async () => {
     const store = makeStore();
     const mockT = jest.fn((key: string) => key);
@@ -1065,7 +1087,7 @@ describe('deleteExercise', () => {
     mockApiClient.get.mockResolvedValue({
       data: { interventions: [{ _id: 'int-2', title: 'Squats', contentType: 'exercise' }] },
     });
-    require('@/utils/translate').translateText.mockReturnValue(new Promise(() => {}));
+    require('@/utils/translate').translateText.mockReturnValueOnce(new Promise(() => {}));
 
     await store.deleteExercise(
       'int-1',
