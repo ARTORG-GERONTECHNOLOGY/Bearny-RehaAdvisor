@@ -181,14 +181,14 @@ def upload_intervention_media(request):
             continue
         try:
             result = _process_single_file(f)
-        except Exception:
+        except Exception as e:
             logger.exception("Failed to process uploaded media file %s", getattr(f, "name", ""))
             result = {
                 "filename": getattr(f, "name", ""),
                 "status": "error",
                 "external_id": None,
                 "interventions_updated": [],
-                "error": "Unexpected error while processing this file.",
+                "error": f"Unexpected error: {str(e)}",
             }
         results.append(result)
 
