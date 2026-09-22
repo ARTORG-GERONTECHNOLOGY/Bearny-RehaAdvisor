@@ -194,19 +194,37 @@ class Command(BaseCommand):
                         hrv_data[dt] = item.get("value")
 
                 # ---------------------------
-                # SLEEP
+                # SLEEP — accumulate multiple entries per dateOfSleep
                 # ---------------------------
                 sleep_url = f"{FITBIT_API_URL}/sleep/date/{date_range}.json"
                 sleep_resp = requests.get(sleep_url, headers=headers)
                 if sleep_resp.status_code == 200:
+                    _raw_sleep: dict = {}
                     for entry in sleep_resp.json().get("sleep", []):
                         dt = datetime.datetime.strptime(entry["dateOfSleep"], "%Y-%m-%d").date()
+                        if dt not in _raw_sleep:
+                            _raw_sleep[dt] = {
+                                "duration": 0,
+                                "minutes_asleep": 0,
+                                "awakenings": 0,
+                                "start": entry.get("startTime"),
+                                "end": entry.get("endTime"),
+                            }
+                        sd = _raw_sleep[dt]
+                        sd["duration"] += int(entry.get("duration") or 0)
+                        sd["minutes_asleep"] += int(entry.get("minutesAsleep") or 0)
+                        sd["awakenings"] += int(entry.get("awakeningsCount") or 0)
+                        if entry.get("startTime") and (not sd["start"] or entry["startTime"] < sd["start"]):
+                            sd["start"] = entry["startTime"]
+                        if entry.get("endTime") and (not sd["end"] or entry["endTime"] > sd["end"]):
+                            sd["end"] = entry["endTime"]
+                    for dt, sd in _raw_sleep.items():
                         sleep_data[dt] = SleepData(
-                            sleep_duration=entry.get("duration"),
-                            minutes_asleep=entry.get("minutesAsleep"),
-                            sleep_start=entry.get("startTime"),
-                            sleep_end=entry.get("endTime"),
-                            awakenings=entry.get("awakeningsCount"),
+                            sleep_duration=sd["duration"] or None,
+                            minutes_asleep=sd["minutes_asleep"] or None,
+                            sleep_start=sd["start"],
+                            sleep_end=sd["end"],
+                            awakenings=sd["awakenings"] or None,
                         )
 
                 # ---------------------------

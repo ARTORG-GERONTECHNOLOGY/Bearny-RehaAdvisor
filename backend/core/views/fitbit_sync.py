@@ -184,18 +184,31 @@ def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: 
             dt = datetime.datetime.strptime(item["dateTime"], "%Y-%m-%d").date()
             hrv_data[dt] = item.get("value")
 
-    # Sleep
+    # Sleep — accumulate multiple entries per dateOfSleep (Fitbit can split one night into
+    # several sessions with the same wakeup date; overwriting loses the earlier sessions).
     r = requests.get(f"{FITBIT_API_URL}/sleep/date/{date_range}.json", headers=headers, timeout=20)
     if r.status_code == 200:
         for entry in r.json().get("sleep", []):
             dt = datetime.datetime.strptime(entry["dateOfSleep"], "%Y-%m-%d").date()
-            sleep_data[dt] = {
-                "sleep_duration": entry.get("duration"),
-                "minutes_asleep": entry.get("minutesAsleep"),
-                "sleep_start": entry.get("startTime"),
-                "sleep_end": entry.get("endTime"),
-                "awakenings": entry.get("awakeningsCount"),
-            }
+            if dt not in sleep_data:
+                sleep_data[dt] = {
+                    "sleep_duration": 0,
+                    "minutes_asleep": 0,
+                    "sleep_start": entry.get("startTime"),
+                    "sleep_end": entry.get("endTime"),
+                    "awakenings": 0,
+                }
+            sd = sleep_data[dt]
+            try:
+                sd["sleep_duration"] = (sd["sleep_duration"] or 0) + int(entry.get("duration") or 0)
+                sd["minutes_asleep"] = (sd["minutes_asleep"] or 0) + int(entry.get("minutesAsleep") or 0)
+                sd["awakenings"] = (sd["awakenings"] or 0) + int(entry.get("awakeningsCount") or 0)
+            except (TypeError, ValueError):
+                pass
+            if entry.get("startTime") and (not sd["sleep_start"] or entry["startTime"] < sd["sleep_start"]):
+                sd["sleep_start"] = entry["startTime"]
+            if entry.get("endTime") and (not sd["sleep_end"] or entry["endTime"] > sd["sleep_end"]):
+                sd["sleep_end"] = entry["endTime"]
 
     # Exercise sessions
     r = requests.get(
@@ -439,19 +452,31 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
         if dataset:
             intraday_hr_map[today] = dataset
 
-    # Sleep
+    # Sleep — accumulate multiple entries per dateOfSleep (see backfill for rationale)
     sleep_url = f"{FITBIT_API_URL}/sleep/date/{date_str}/{date_str}.json"
     sleep_resp = requests.get(sleep_url, headers=headers, timeout=20)
     if sleep_resp.status_code == 200:
         for entry in sleep_resp.json().get("sleep", []):
             dt = datetime.datetime.strptime(entry["dateOfSleep"], "%Y-%m-%d").date()
-            sleep_data[dt] = {
-                "sleep_duration": entry.get("duration"),
-                "minutes_asleep": entry.get("minutesAsleep"),
-                "sleep_start": entry.get("startTime"),
-                "sleep_end": entry.get("endTime"),
-                "awakenings": entry.get("awakeningsCount"),
-            }
+            if dt not in sleep_data:
+                sleep_data[dt] = {
+                    "sleep_duration": 0,
+                    "minutes_asleep": 0,
+                    "sleep_start": entry.get("startTime"),
+                    "sleep_end": entry.get("endTime"),
+                    "awakenings": 0,
+                }
+            sd = sleep_data[dt]
+            try:
+                sd["sleep_duration"] = (sd["sleep_duration"] or 0) + int(entry.get("duration") or 0)
+                sd["minutes_asleep"] = (sd["minutes_asleep"] or 0) + int(entry.get("minutesAsleep") or 0)
+                sd["awakenings"] = (sd["awakenings"] or 0) + int(entry.get("awakeningsCount") or 0)
+            except (TypeError, ValueError):
+                pass
+            if entry.get("startTime") and (not sd["sleep_start"] or entry["startTime"] < sd["sleep_start"]):
+                sd["sleep_start"] = entry["startTime"]
+            if entry.get("endTime") and (not sd["sleep_end"] or entry["endTime"] > sd["sleep_end"]):
+                sd["sleep_end"] = entry["endTime"]
 
     # Exercise sessions (filter to today)
     act_url = f"{FITBIT_API_URL}/activities/list.json?afterDate={date_str}&sort=asc&limit=100&offset=0"

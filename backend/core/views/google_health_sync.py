@@ -1,6 +1,7 @@
 # core/views/google_health_sync.py
 import datetime
 import logging
+import zoneinfo
 from datetime import timedelta
 
 import requests
@@ -9,6 +10,10 @@ from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware
 
 from core.models import GoogleHealthData, GoogleHealthUserToken, HeartRateZone, SleepData
+
+# Local timezone for civil-date attribution of sleep sessions.
+# settings.TIME_ZONE is "Europe/Zurich", so all patients' civil midnight is in that zone.
+_SLEEP_TZ = zoneinfo.ZoneInfo(settings.TIME_ZONE)
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +173,33 @@ def _list_points(access_token: str, data_type: str, filter_expr: str = "") -> li
     return points
 
 
+def _sleep_civil_date(start_str: str, end_str: str) -> datetime.date | None:
+    """
+    Return the calendar date a sleep session should be attributed to (local timezone).
+
+    Matches Google Health's own attribution:
+    - Session crosses local midnight (overnight sleep) → wakeup date (local end date)
+    - Session stays within one local calendar day (nap) → local start date
+
+    This replaces the old UTC-hour >= 18 heuristic that incorrectly pushed evening naps
+    (e.g. 22:23 local CEST = 20:23 UTC) to the next calendar day.
+    """
+    try:
+        start_dt = datetime.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return None
+    start_local = start_dt.astimezone(_SLEEP_TZ)
+    if end_str:
+        try:
+            end_dt = datetime.datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+            end_local = end_dt.astimezone(_SLEEP_TZ)
+            if end_local.date() > start_local.date():
+                return end_local.date()  # overnight → wakeup date
+        except (ValueError, AttributeError):
+            pass
+    return start_local.date()  # intraday nap or missing end → start date
+
+
 def _prefetch_unfiltered(access_token: str) -> dict:
     """
     Pre-fetch all data for the three types that don't support AIP-160 filters
@@ -182,21 +214,17 @@ def _prefetch_unfiltered(access_token: str) -> dict:
     Call once per user before iterating over dates; pass the result to _sync_day()
     as the `prefetch` argument to avoid re-fetching on every day.
     """
-    # --- sleep: group by civil date (6pm prev to 6pm next = night for date d) ---
+    # --- sleep: group by civil date using local timezone ---
     sleep_by_date: dict[datetime.date, list] = {}
     for pt in _list_points(access_token, "sleep"):
-        start_str = pt.get("sleep", {}).get("interval", {}).get("startTime", "")
+        iv = pt.get("sleep", {}).get("interval", {})
+        start_str = iv.get("startTime", "")
+        end_str = iv.get("endTime", "")
         if not start_str:
             continue
-        try:
-            start_dt = datetime.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-        except ValueError:
+        civil_date = _sleep_civil_date(start_str, end_str)
+        if civil_date is None:
             continue
-        # Civil date: if session started after 18:00 UTC, it belongs to the NEXT calendar day
-        if start_dt.hour >= 18:
-            civil_date = start_dt.date() + timedelta(days=1)
-        else:
-            civil_date = start_dt.date()
         sleep_by_date.setdefault(civil_date, []).append(pt)
 
     # --- resting HR: keyed by the date struct ---
@@ -290,24 +318,17 @@ def _fetch_sleep(access_token: str, d: datetime.date) -> dict | None:
     the result to _sync_day() — this avoids fetching all sleep data on every iteration.
 
     The sleep data type does not support AIP-160 filter expressions, so all points
-    are fetched and filtered client-side by startTime (6pm previous day to 6pm target
-    day) to capture overnight sleep for the correct calendar date.
+    are fetched and attributed client-side using _sleep_civil_date() (local timezone).
     """
-    prev = d - timedelta(days=1)
-    prev_cutoff = datetime.datetime.combine(prev, datetime.time(18, 0), tzinfo=datetime.timezone.utc)
-    day_cutoff = datetime.datetime.combine(d, datetime.time(18, 0), tzinfo=datetime.timezone.utc)
-
     all_points = _list_points(access_token, "sleep")
     points = []
     for pt in all_points:
-        start_str = pt.get("sleep", {}).get("interval", {}).get("startTime", "")
+        iv = pt.get("sleep", {}).get("interval", {})
+        start_str = iv.get("startTime", "")
+        end_str = iv.get("endTime", "")
         if not start_str:
             continue
-        try:
-            start_dt = datetime.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-        except ValueError:
-            continue
-        if prev_cutoff <= start_dt < day_cutoff:
+        if _sleep_civil_date(start_str, end_str) == d:
             points.append(pt)
 
     return _aggregate_sleep(points)
