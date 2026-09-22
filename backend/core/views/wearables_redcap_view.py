@@ -164,8 +164,8 @@ def sync_wearables_to_redcap_view(request, patient_id: str):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400)
     except RedcapError as e:
-        logger.exception("REDCap error while syncing wearables: %s", e.detail)
-        return JsonResponse({"error": str(e)}, status=502)
+        logger.exception("REDCap error while syncing wearables: %s (detail=%s)", e, e.detail)
+        return JsonResponse({"error": "Failed to sync wearables data to REDCap."}, status=502)
     except Exception:
         logger.exception("Unexpected error syncing wearables")
         return JsonResponse({"error": "Internal server error."}, status=500)

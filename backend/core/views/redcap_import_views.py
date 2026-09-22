@@ -587,8 +587,8 @@ def import_patient_from_redcap(request):
                 all_fetched = rows
                 rc_row = next((r for r in rows if _has_informed_consent(r)), rows[0])
         except RedcapError as e:
-            logger.exception("REDCap export failed: %s", e.detail)
-            return JsonResponse({"ok": False, "error": str(e)}, status=502)
+            logger.exception("REDCap export failed: %s (detail=%s)", e, e.detail)
+            return JsonResponse({"ok": False, "error": "Failed to export patient data from REDCap."}, status=502)
 
     if rc_row is None:
         return _bad(
@@ -750,7 +750,7 @@ def import_patient_from_redcap(request):
         )
 
     except RedcapError as e:
-        logger.exception("import_patient_from_redcap: REDCap error: %s", e.detail)
+        logger.exception("import_patient_from_redcap: REDCap error: %s (detail=%s)", e, e.detail)
         # cleanup
         try:
             if patient:
@@ -762,7 +762,7 @@ def import_patient_from_redcap(request):
                 user.delete()
         except Exception:
             pass
-        return JsonResponse({"ok": False, "error": str(e)}, status=502)
+        return JsonResponse({"ok": False, "error": "Failed to import patient from REDCap."}, status=502)
 
     except NotUniqueError as e:
         logger.warning("import_patient_from_redcap: duplicate patient_code=%s", final_identifier)
