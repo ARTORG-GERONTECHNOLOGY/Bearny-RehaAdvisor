@@ -1087,7 +1087,7 @@ def send_verification_code(request):
 
     except Exception as e:
         logger.error(f"[send_verification_code] Unexpected error: {str(e)}", exc_info=True)
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 @csrf_exempt
@@ -1158,8 +1158,9 @@ def verify_code_view(request):
         _set_auth_cookies(_resp, str(refresh.access_token), str(refresh))
         return _resp
 
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    except Exception:
+        logger.exception("[verify_code_view] Unexpected error")
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 @api_view(["GET"])
@@ -1212,5 +1213,6 @@ def get_user_info(request, user_id):
             status=200,
         )
 
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    except Exception:
+        logger.exception("[get_user_info] Unexpected error")
+        return JsonResponse({"error": "Internal server error"}, status=500)

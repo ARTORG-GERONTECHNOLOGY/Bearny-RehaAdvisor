@@ -40,6 +40,9 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+permissions:
+  contents: read
+
 jobs:
   # ---------------------------------------------------------------------------
   # 1. Tests — run the full backend + frontend suite against the release tag
@@ -657,6 +660,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy-production]
     if: always()
+    permissions:
+      contents: read
+      deployments: write
     env:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 

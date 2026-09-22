@@ -301,9 +301,9 @@ def admin_access_change_requests(request, request_id: str | None = None):
                 th.clinics = norm_clinics
                 th.projects = norm_projects
                 th.save()
-            except Exception as exc:
+            except Exception:
                 logger.exception("Failed to update therapist access on approval")
-                return _bad(f"Failed to update therapist: {exc}", 500)
+                return _bad("Failed to update therapist.", 500)
 
             req.status = "approved"
             req.save()

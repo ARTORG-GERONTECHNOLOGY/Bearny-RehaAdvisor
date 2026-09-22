@@ -412,9 +412,9 @@ def submit_patient_feedback(request):
 
         return JsonResponse({"message": "Feedback submitted successfully"}, status=200)
 
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error in submit_patient_feedback")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 def _merge_duplicate_logs(keep, others):
@@ -777,7 +777,7 @@ def get_patient_recommendations(request, patient_id):
 
     except Exception as e:
         logger.error(f"[get_patient_recommendations] Unexpected error: {str(e)}", exc_info=True)
-        return JsonResponse({"error": "Internal server error", "details": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 # -----------------------------
@@ -3257,7 +3257,6 @@ def get_patient_plan_for_therapist(request, patient_id):
                 "success": False,
                 "error": "Internal Server Error",
                 "message": "An unexpected error occurred while loading the rehabilitation plan.",
-                "details": str(e),
             },
             status=500,
         )
@@ -3451,7 +3450,6 @@ def remove_intervention_from_patient(request):
                 "success": False,
                 "error": "Internal Server Error",
                 "message": "An unexpected error occurred.",
-                "details": str(e),
             },
             status=500,
         )

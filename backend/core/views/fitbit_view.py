@@ -810,9 +810,9 @@ def get_fitbit_health_data(request, patient_id):
 
     except Patient.DoesNotExist:
         return JsonResponse({"error": "Patient not found"}, status=404)
-    except Exception as e:
+    except Exception:
         logger.exception("[get_fitbit_health_data] error")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 @api_view(["POST"])
@@ -1098,6 +1098,6 @@ def health_combined_history(request, patient_id):
             status=200,
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception("[health_combined_history] error")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error"}, status=500)

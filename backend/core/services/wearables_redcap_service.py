@@ -331,7 +331,8 @@ def compute_wearables_summary(patient: Patient) -> Dict[str, Any]:
     try:
         user = patient.userId
     except Exception as e:
-        raise ValueError(f"Could not resolve userId for patient {patient.patient_code}: {e}") from e
+        logger.exception("Could not resolve userId for patient %s", patient.patient_code)
+        raise ValueError(f"Could not resolve userId for patient {patient.patient_code}.") from e
 
     first_date = _find_first_measurement_date(user)
     if not first_date:

@@ -30,6 +30,7 @@ HEALTHSLIDER_DOWNLOAD_PASSWORD   Shared password used in step 1 above.
 import datetime
 import io
 import json
+import logging
 import mimetypes
 import os
 import re
@@ -49,6 +50,8 @@ from django.views.decorators.csrf import csrf_exempt
 
 from core.models import HealthSliderEntry, SMSVerification
 from utils.utils import check_verify_rate_limit, increment_verify_attempt, reset_verify_attempts
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Download-only auth constants
@@ -105,8 +108,9 @@ def healthslider_download_auth(request):
         )
         msg.send(fail_silently=False)
         return JsonResponse({"ok": True}, status=200)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    except Exception:
+        logger.exception("healthslider_download_auth failed")
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 @csrf_exempt
@@ -152,8 +156,9 @@ def healthslider_download_verify(request):
         reset_verify_attempts(_rl_key)
         token = signing.dumps({"ok": True}, salt=_DL_SALT)
         return JsonResponse({"token": token}, status=200)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    except Exception:
+        logger.exception("healthslider_download_verify failed")
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 def _safe_slug(s: str) -> str:
@@ -268,8 +273,9 @@ def submit_healthslider_item(request):
         entry.save()
         return JsonResponse({"ok": True}, status=201)
 
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+    except Exception:
+        logger.exception("submit_healthslider_item failed")
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 @csrf_exempt
