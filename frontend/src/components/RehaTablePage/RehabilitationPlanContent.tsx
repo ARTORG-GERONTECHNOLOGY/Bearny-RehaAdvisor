@@ -1,10 +1,13 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 
 import authStore from '@/stores/authStore';
 import { RehabTableStore } from '@/stores/rehabTableStore';
+import { appModeStore } from '@/stores/appModeStore';
+import AISuggestionPanel from '@/components/RehaTablePage/AISuggestionPanel';
+import apiClient from '@/api/client';
 
 import InterventionLeftPanel from '@/components/RehaTablePage/InterventionLeftPanel';
 import InterventionCalendar from '@/components/RehaTablePage/InterventionCalendar';
@@ -28,6 +31,39 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
     const { t, i18n } = useTranslation();
 
     const store = useMemo(() => new RehabTableStore(), [patientId]);
+
+    const [aiSuggestion, setAiSuggestion] = useState<any | null>(null);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiDismissed, setAiDismissed] = useState(false);
+
+    // Fetch the latest pending AI suggestion when the feature is enabled
+    useEffect(() => {
+      if (!patientId || !appModeStore.aiSuggestionsEnabled) return;
+      apiClient
+        .get(`/patients/${patientId}/ai-suggestion/latest/`)
+        .then((r) => setAiSuggestion(r.data.suggestion || null))
+        .catch(() => setAiSuggestion(null));
+    }, [patientId, appModeStore.aiSuggestionsEnabled]);
+
+    const handleGenerateSuggestion = async () => {
+      setAiLoading(true);
+      try {
+        const r = await apiClient.post(`/patients/${patientId}/ai-suggestion/generate/`);
+        setAiSuggestion(r.data.suggestion || null);
+        setAiDismissed(false);
+      } catch {
+        // silently ignore — user can retry
+      } finally {
+        setAiLoading(false);
+      }
+    };
+
+    const handleSuggestionApplied = async () => {
+      setAiSuggestion(null);
+      setAiDismissed(true);
+      // Refresh the plan so the newly added interventions appear
+      await Promise.all([store.fetchAll(t as any), store.fetchInts(t as any)]);
+    };
 
     // keep tag translation in sync with current language
     useEffect(() => {
@@ -72,6 +108,27 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
             {store.error}
           </Alert>
         )}
+
+        {/* AI suggestion panel */}
+        {appModeStore.aiSuggestionsEnabled &&
+          (aiSuggestion && !aiDismissed ? (
+            <AISuggestionPanel
+              patientId={patientId}
+              suggestion={aiSuggestion}
+              onDismiss={() => setAiDismissed(true)}
+              onApplied={handleSuggestionApplied}
+            />
+          ) : !aiDismissed ? (
+            <div className="mb-3 flex items-center gap-2">
+              <button
+                onClick={handleGenerateSuggestion}
+                disabled={aiLoading}
+                className="rounded-full border border-brand bg-transparent px-4 py-1.5 text-sm font-medium text-brand hover:bg-brand/10 disabled:opacity-50"
+              >
+                {aiLoading ? t('Generating…') : t('✨ Generate AI suggestion')}
+              </button>
+            </div>
+          ) : null)}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
           {/* LEFT */}

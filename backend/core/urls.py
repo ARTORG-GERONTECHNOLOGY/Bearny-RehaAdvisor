@@ -10,6 +10,7 @@ import core.views.recomendation_views as recomendation_views
 import core.views.template_views as template_views
 import core.views.therapist_views as therapist_views
 import core.views.user_views as user_views
+import core.views.ai_suggestion_view as ai_suggestion_views
 import core.views.views as core_views
 from core.jwt_refresh import MongoTokenRefreshView
 from core.views.access_change_views import (
@@ -430,6 +431,22 @@ urlpatterns = [
         "api/patients/<str:patient_id>/force-logout/",
         user_views.force_logout_patient,
         name="force-logout-patient",
+    ),
+    # ── AI Therapy Suggestions ─────────────────────────────────────────────
+    path(
+        "api/patients/<str:patient_id>/ai-suggestion/generate/",
+        ai_suggestion_views.generate_suggestion,
+        name="ai-suggestion-generate",
+    ),
+    path(
+        "api/patients/<str:patient_id>/ai-suggestion/latest/",
+        ai_suggestion_views.latest_suggestion,
+        name="ai-suggestion-latest",
+    ),
+    path(
+        "api/patients/<str:patient_id>/ai-suggestion/<str:suggestion_id>/decide/",
+        ai_suggestion_views.decide_suggestion,
+        name="ai-suggestion-decide",
     ),
     # ── Intervention Templates ─────────────────────────────────────────────
     path("api/templates/", template_views.template_list_create),

@@ -895,3 +895,45 @@ class HealthSliderEntry(Document):
             ("answered_at",),
         ]
     }
+
+
+# ── AI Therapy Suggestion (Phase 2) ───────────────────────────────────────────
+
+
+class SuggestedItem(EmbeddedDocument):
+    """One intervention suggestion within an AISuggestion document."""
+
+    intervention = ReferenceField("Intervention", required=True)
+    suggested_frequency = StringField()
+    suggested_days = ListField(StringField())
+    rationale = StringField()
+    rule_signals = DictField()
+    decision = StringField(choices=["accepted", "rejected", "modified", "pending"], default="pending")
+    modification = DictField()
+    decided_at = DateTimeField()
+
+
+class AISuggestion(Document):
+    """
+    Stores one AI-generated therapy plan suggestion event.
+    Each document captures inputs (patient_snapshot) and per-item therapist decisions
+    to support prospective research on human-AI collaboration.
+    """
+
+    meta = {
+        "collection": "AISuggestions",
+        "indexes": [
+            ("patient", "-suggested_at"),
+            "therapist",
+        ],
+    }
+
+    patient = ReferenceField("Patient", required=True)
+    therapist = ReferenceField("Therapist", required=True)
+    algorithm_version = StringField(default="2.0")
+    suggested_at = DateTimeField(default=timezone.now)
+    patient_snapshot = DictField()
+    items = ListField(EmbeddedDocumentField(SuggestedItem))
+    overall_decision = StringField(choices=["pending", "partially_applied", "rejected"], default="pending")
+    decided_at = DateTimeField()
+    notes = StringField()

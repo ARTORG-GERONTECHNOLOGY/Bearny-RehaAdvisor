@@ -8,7 +8,10 @@
     "defaultLanguage": "en"
   },
   "patientInfo": {
-    "sex": ["Male", "Female"],
+    "sex": [
+      "Male",
+      "Female"
+    ],
     "functionPat": {
       "Cardiology": [
         "Heart Failure",
@@ -20,28 +23,28 @@
         "Chronic Obstructive Pulmonary Disease (COPD)"
       ],
       "Neurology": [
-          "Stroke"
+        "Stroke"
       ],
       "Endocrinology": [
-    "Diabetes"
+        "Diabetes"
       ],
       "Psychiatry": [
-    "Depression"
+        "Depression"
       ],
       "Orthopedics": [
-    "Hip Fracture"
+        "Hip Fracture"
       ]
     },
     "function": {
       "Cardiology": {
         "diagnosis": [
           "Heart Failure",
-        "Acute Corornary Syndrome",
-        "Chronic Coronary Syndrome",
-        "High blood pressure",
-        "Stroke",
-        "Arrhythmia",
-        "Chronic Obstructive Pulmonary Disease (COPD)"
+          "Acute Corornary Syndrome",
+          "Chronic Coronary Syndrome",
+          "High blood pressure",
+          "Stroke",
+          "Arrhythmia",
+          "Chronic Obstructive Pulmonary Disease (COPD)"
         ]
       },
       "Neurology": {
@@ -51,16 +54,18 @@
       },
       "Orthopedics": {
         "diagnosis": [
-    "Hip Fracture"
+          "Hip Fracture"
         ]
       },
       "Endocrinology": {
         "diagnosis": [
-    "Diabetes"
+          "Diabetes"
         ]
       },
       "Psychiatry": {
-        "diagnosis": ["Depression"]
+        "diagnosis": [
+          "Depression"
+        ]
       }
     },
     "level_of_education": [
@@ -133,42 +138,99 @@
       "Endocrinology",
       "Physical Therapy"
     ],
-"projects": ["COPAIN", "COMPASS", "Demo"],
-  "clinic_projects": {
-    "Berner Reha Centrum": ["COPAIN"],
-    "Inselspital": ["COPAIN", "COMPASS"],
-    "Leuven": ["COMPASS"],
-    "Bern": ["COMPASS"],
-    "Lisbon": ["COMPASS"],
-    "Lumezzane": ["COMPASS"],
-    "Milano": ["COMPASS"],
-    "Demo": ["Demo"]
+    "projects": [
+      "COPAIN",
+      "COMPASS",
+      "Demo"
+    ],
+    "clinic_projects": {
+      "Berner Reha Centrum": [
+        "COPAIN"
+      ],
+      "Inselspital": [
+        "COPAIN",
+        "COMPASS"
+      ],
+      "Leuven": [
+        "COMPASS"
+      ],
+      "Bern": [
+        "COMPASS"
+      ],
+      "Lisbon": [
+        "COMPASS"
+      ],
+      "Lumezzane": [
+        "COMPASS"
+      ],
+      "Milano": [
+        "COMPASS"
+      ],
+      "Demo": [
+        "Demo"
+      ]
+    },
+    "clinic_dag": {
+      "Berner Reha Centrum": "brz",
+      "Inselspital": "inselspital",
+      "Leuven": "leuven",
+      "Bern": "bern",
+      "Lisbon": "lisbon",
+      "Lumezzane": "lumezzane",
+      "Milano": "milano",
+      "Demo": "demo"
+    }
   },
-  "clinic_dag": {
-    "Berner Reha Centrum": "brz",
-    "Inselspital": "inselspital",
-    "Leuven": "leuven",
-    "Bern": "bern",
-    "Lisbon": "lisbon",
-    "Lumezzane": "lumezzane",
-    "Milano": "milano",
-    "Demo": "demo"
-  }
-  },
-  "Users": ["Therapist"],
+  "Users": [
+    "Therapist"
+  ],
   "userInfo": {
-    "userTypes": ["Therapist", "Researcher", "Patient", "Admin"],
+    "userTypes": [
+      "Therapist",
+      "Researcher",
+      "Patient",
+      "Admin"
+    ],
     "formLength": {
-      "Therapist": [7, 9],
-      "Researcher": [7, 9],
-      "Patient": [5, 9, 12, 17]
+      "Therapist": [
+        7,
+        9
+      ],
+      "Researcher": [
+        7,
+        9
+      ],
+      "Patient": [
+        5,
+        9,
+        12,
+        17
+      ]
     }
   },
   "RecomendationInfo": {
-    "frequency": ["Daily", "Every-2nd-day", "Weekly", "Once"],
-    "frequencyDays": [1, 2, 7, 0],
-    "types": ["Text", "Video", "Audio", "Image", "PDF", "Website", "App", "Streaming"],
-
+    "frequency": [
+      "Daily",
+      "Every-2nd-day",
+      "Weekly",
+      "Once"
+    ],
+    "frequencyDays": [
+      1,
+      2,
+      7,
+      0
+    ],
+    "types": [
+      "Text",
+      "Video",
+      "Audio",
+      "Image",
+      "PDF",
+      "Website",
+      "App",
+      "Streaming"
+    ],
     "tags": [
       "Disease",
       "Symptoms",
@@ -191,9 +253,17 @@
       "Cardiorespiratory fitness",
       "Support"
     ],
-    "intensity": ["Core", "Supportive"]
+    "intensity": [
+      "Core",
+      "Supportive"
+    ]
   },
-  "RehaInfo": ["< 30 days", "30-60 days", "60-90 days", "> 90 days"],
+  "RehaInfo": [
+    "< 30 days",
+    "30-60 days",
+    "60-90 days",
+    "> 90 days"
+  ],
   "PatientForm": [
     {
       "title": "Personal Information",
@@ -239,7 +309,11 @@
           "type": "dropdown",
           "required": false,
           "be_name": "wearable_device",
-          "options": ["google_health", "omron", "none"]
+          "options": [
+            "google_health",
+            "omron",
+            "none"
+          ]
         },
         {
           "name": "password",
@@ -248,7 +322,12 @@
           "required": true,
           "be_name": "password"
         },
-        { "name": "repeatPassword", "label": "Confirm Password", "type": "text", "required": true }
+        {
+          "name": "repeatPassword",
+          "label": "Confirm Password",
+          "type": "text",
+          "required": true
+        }
       ]
     },
     {
@@ -266,7 +345,10 @@
           "label": "Gender",
           "type": "dropdown",
           "required": true,
-          "options": ["Male", "Female"],
+          "options": [
+            "Male",
+            "Female"
+          ],
           "be_name": "sex"
         },
         {
@@ -328,7 +410,6 @@
       ]
     }
   ],
-
   "TherapistForm": [
     {
       "title": "Personal Information",
@@ -354,7 +435,13 @@
           "required": true,
           "be_name": "email"
         },
-        { "name": "phone", "label": "Phone", "type": "text", "required": true, "be_name": "phone" },
+        {
+          "name": "phone",
+          "label": "Phone",
+          "type": "text",
+          "required": true,
+          "be_name": "phone"
+        },
         {
           "name": "password",
           "label": "Password",
@@ -374,16 +461,40 @@
           "label": "User Type",
           "type": "dropdown",
           "required": true,
-          "options": ["Therapist", "Admin"],
+          "options": [
+            "Therapist",
+            "Admin"
+          ],
           "be_name": "userType"
         }
       ]
     },
     {
-"fields": [
-        { "name": "specialisation", "label": "Specialisation", "type": "multi-select", "required": true, "options": "fromConfig", "be_name": "specialisation" },
-        { "name": "clinic", "label": "Clinics (Choose all that apply)", "type": "multi-select", "required": true, "options": "fromConfig", "be_name": "clinic" },
-        { "name": "projects", "label": "Projects (Choose all that apply)", "type": "multi-select", "required": true, "options": "fromConfig", "be_name": "projects" }
+      "fields": [
+        {
+          "name": "specialisation",
+          "label": "Specialisation",
+          "type": "multi-select",
+          "required": true,
+          "options": "fromConfig",
+          "be_name": "specialisation"
+        },
+        {
+          "name": "clinic",
+          "label": "Clinics (Choose all that apply)",
+          "type": "multi-select",
+          "required": true,
+          "options": "fromConfig",
+          "be_name": "clinic"
+        },
+        {
+          "name": "projects",
+          "label": "Projects (Choose all that apply)",
+          "type": "multi-select",
+          "required": true,
+          "options": "fromConfig",
+          "be_name": "projects"
+        }
       ]
     }
   ],
@@ -410,7 +521,11 @@
           "label": "Wie hat es Ihnen gefallen?",
           "type": "dropdown",
           "required": false,
-          "options": ["Negativ", "Neutral", "Positiv"],
+          "options": [
+            "Negativ",
+            "Neutral",
+            "Positiv"
+          ],
           "be_name": "opinion"
         },
         {
@@ -460,7 +575,7 @@
       ]
     }
   ],
-  "PatientInitialQuestionaire":[
+  "PatientInitialQuestionaire": [
     {
       "title": "Life Style Information",
       "fields": [
@@ -499,7 +614,14 @@
           "label": "Civil Status",
           "type": "dropdown",
           "required": false,
-          "options": ["Single", "Married", "Divorced", "Widowed", "In a Relationship", "Separated"],
+          "options": [
+            "Single",
+            "Married",
+            "Divorced",
+            "Widowed",
+            "In a Relationship",
+            "Separated"
+          ],
           "be_name": "marital_status"
         },
         {
@@ -572,67 +694,72 @@
             "Enhanced Mental Health"
           ],
           "be_name": "personal_goals"
-        
-  }]
-    }],
-    "RedCap_Characteristics": [
-"record_id",
-        "pat_id",
-        "language",
-        "secondary_languages",
-        "migrant",
-        "ethnicity",
-        "schooling_yrs",
-        "education",
-        "maritalstatus",
-        "form_of_living",
-        "workstatus",
-        "primarydiagnose",
-        "referral_diagnosis",
-        "referral_intervention",
-        "hypertension",
-        "arrhythmia",
-        "vhd",
-        "cvd",
-        "pad",
-        "chronic_pulm",
-        "pulm_circ",
-        "diabetes",
-        "obesity",
-        "dyslipidemia",
-        "ckd",
-        "cld",
-        "pepticulcer",
-        "movement_disorder",
-        "periph_neuropathy",
-        "other_neuro",
-        "osteoporosis",
-        "chronic_msk",
-        "solid_tumors",
-        "lymphona",
-        "cogn_imp",
-        "depression",
-        "other_mental_dis",
-        "malnutrition",
-        "sarcopenia",
-        "anemia",
-        "autoimmune_cond",
-        "aquired_immune_defficiency",
-        "thyroid_dis"
-    ],
-    "study_group_redcap_field": "rando_res",
-    "study_group_labels": {
-        "1": "Control Group",
-        "2": "Deeper Group"
-    },
-    "project_study_group_labels": {
-        "compass": {
-            "1": "Control Group",
-            "2": "Deeper Group"
-        },
-        "copain": {
-            "1": "Control Group",
-            "2": "Intervention Group"
         }
+      ]
     }
+  ],
+  "RedCap_Characteristics": [
+    "record_id",
+    "pat_id",
+    "language",
+    "secondary_languages",
+    "migrant",
+    "ethnicity",
+    "schooling_yrs",
+    "education",
+    "maritalstatus",
+    "form_of_living",
+    "workstatus",
+    "primarydiagnose",
+    "referral_diagnosis",
+    "referral_intervention",
+    "hypertension",
+    "arrhythmia",
+    "vhd",
+    "cvd",
+    "pad",
+    "chronic_pulm",
+    "pulm_circ",
+    "diabetes",
+    "obesity",
+    "dyslipidemia",
+    "ckd",
+    "cld",
+    "pepticulcer",
+    "movement_disorder",
+    "periph_neuropathy",
+    "other_neuro",
+    "osteoporosis",
+    "chronic_msk",
+    "solid_tumors",
+    "lymphona",
+    "cogn_imp",
+    "depression",
+    "other_mental_dis",
+    "malnutrition",
+    "sarcopenia",
+    "anemia",
+    "autoimmune_cond",
+    "aquired_immune_defficiency",
+    "thyroid_dis"
+  ],
+  "study_group_redcap_field": "rando_res",
+  "study_group_labels": {
+    "1": "Control Group",
+    "2": "Deeper Group"
+  },
+  "project_study_group_labels": {
+    "compass": {
+      "1": "Control Group",
+      "2": "Deeper Group"
+    },
+    "copain": {
+      "1": "Control Group",
+      "2": "Intervention Group"
+    }
+  },
+  "ai_suggestion_clinics": [
+    "Inselspital",
+    "Berner Reha Centrum"
+  ]
 }

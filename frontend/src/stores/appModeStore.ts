@@ -6,6 +6,7 @@ type AppMode = 'dev' | 'normal' | 'study';
 class AppModeStore {
   mode: AppMode = 'normal';
   redcapVisible: boolean = true;
+  aiSuggestionsEnabled: boolean = false;
   loaded: boolean = false;
 
   constructor() {
@@ -44,11 +45,16 @@ class AppModeStore {
 
   async fetchMode(): Promise<void> {
     try {
-      const response = await apiClient.get<{ mode: AppMode; redcapVisible: boolean }>('/app-mode/');
+      const response = await apiClient.get<{
+        mode: AppMode;
+        redcapVisible: boolean;
+        aiSuggestionsEnabled: boolean;
+      }>('/app-mode/');
       runInAction(() => {
         const raw = response.data.mode;
         this.mode = ['dev', 'normal', 'study'].includes(raw) ? raw : 'normal';
         this.redcapVisible = response.data.redcapVisible ?? true;
+        this.aiSuggestionsEnabled = response.data.aiSuggestionsEnabled ?? false;
         this.loaded = true;
       });
     } catch {
@@ -56,6 +62,7 @@ class AppModeStore {
       runInAction(() => {
         this.mode = 'normal';
         this.redcapVisible = true;
+        this.aiSuggestionsEnabled = false;
         this.loaded = true;
       });
     }

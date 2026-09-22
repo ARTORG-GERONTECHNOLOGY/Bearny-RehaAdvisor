@@ -28,3 +28,4 @@ isort
 sentry-sdk[django]
 cryptography
 pywebpush
+anthropic
