@@ -78,6 +78,18 @@ class Command(BaseCommand):
         )
         self.stdout.write(self.style.SUCCESS(f"{'Created' if created4 else 'Updated'} task: {task4.name}"))
 
+        # Task 4b: Fetch today's Google Health data every 4 hours (mirrors Fitbit 4h task)
+        task4b, created4b = PeriodicTask.objects.update_or_create(
+            name="Run Fetch Google Health Data Today (4h)",
+            defaults={
+                "crontab": every_4h_schedule,
+                "task": "core.tasks.run_fetch_google_health_data_today_all",
+                "enabled": True,
+                "args": json.dumps([]),
+            },
+        )
+        self.stdout.write(self.style.SUCCESS(f"{'Created' if created4b else 'Updated'} task: {task4b.name}"))
+
         # Hourly, on the hour (intervention push notifications — the task
         # itself checks the full past hour, see send_due_intervention_push_notifications)
         hourly_schedule, _ = CrontabSchedule.objects.get_or_create(

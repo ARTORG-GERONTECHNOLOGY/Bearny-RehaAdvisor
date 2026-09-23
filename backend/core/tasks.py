@@ -13,7 +13,7 @@ from django.core.management import call_command
 from django.utils import timezone
 from mongoengine.errors import DoesNotExist, NotUniqueError
 
-from core.views.fitbit_sync import fetch_fitbit_today_for_user
+from core.views.fitbit_sync import fetch_fitbit_date_range_for_user, fetch_fitbit_today_for_user
 from core.views.google_health_sync import (
     _prefetch_unfiltered,
     _sync_day,
@@ -205,6 +205,35 @@ def fetch_google_health_data_async(user_id: str):
 
 
 @shared_task(
+    name="core.tasks.run_fetch_google_health_data_today_all",
+    autoretry_for=(Exception,),
+    retry_backoff=120,
+    max_retries=2,
+)
+def run_fetch_google_health_data_today_all():
+    """Fetch today's Google Health data for every connected user (runs every 4 h).
+
+    Mirrors run_fetch_fitbit_data_today_all so GH patients get the same
+    same-day refresh cadence as Fitbit patients without a full 30-day backfill.
+    """
+    from core.models import GoogleHealthUserToken
+
+    tokens = GoogleHealthUserToken.objects(is_revoked__ne=True).all()
+    synced = 0
+    errors = 0
+    for token in tokens:
+        try:
+            fetch_google_health_today_for_user(token.user)
+            synced += 1
+        except Exception:
+            logger.exception("[fetch_google_health_today_all] failed for user=%s", token.user)
+            errors += 1
+
+    logger.info("[fetch_google_health_today_all] synced=%d errors=%d", synced, errors)
+    return {"synced": synced, "errors": errors}
+
+
+@shared_task(
     name="core.tasks.backfill_google_health_on_connect",
     autoretry_for=(Exception,),
     retry_backoff=120,
@@ -248,6 +277,31 @@ def backfill_google_health_on_connect(user_id: str, days: int = 365):
             logger.error("[google_health_backfill] error syncing %s for user %s: %s", d, user_id, e)
 
     logger.info("[google_health_backfill] user %s: %d/%d days written", user_id, written, days)
+
+
+@shared_task(
+    name="core.tasks.backfill_fitbit_on_connect",
+    autoretry_for=(Exception,),
+    retry_backoff=120,
+    max_retries=2,
+)
+def backfill_fitbit_on_connect(user_id: str, days: int = 365):
+    """Backfill up to `days` days of Fitbit data when a patient first connects.
+
+    Called automatically from the OAuth callback so the full monitoring history
+    is populated immediately after authentication — mirrors the GH equivalent.
+    """
+    import datetime
+
+    user = User.objects(pk=user_id).first()
+    if not user:
+        logger.warning("[fitbit_backfill] user %s not found", user_id)
+        return
+
+    today = datetime.date.today()
+    start_date = today - datetime.timedelta(days=days)
+    written = fetch_fitbit_date_range_for_user(user, start_date, today)
+    logger.info("[fitbit_backfill] user %s: wrote %d days", user_id, written)
 
 
 @shared_task(

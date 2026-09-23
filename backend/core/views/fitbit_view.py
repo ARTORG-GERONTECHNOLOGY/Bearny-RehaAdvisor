@@ -422,6 +422,7 @@ def fitbit_status(request, patient_id):
         return JsonResponse({"connected": False, "has_data": False, "last_data": None})
 
     connected = FitbitUserToken.objects(user=user, is_revoked__ne=True).count() > 0
+    needs_reconnect = not connected and FitbitUserToken.objects(user=user).count() > 0
     latest_row = FitbitData.objects(user=user).order_by("-date").first()
     has_data = latest_row is not None
     last_data = latest_row.date.isoformat() if latest_row else None
@@ -430,10 +431,20 @@ def fitbit_status(request, patient_id):
     wearable_device = getattr(pt, "wearable_device", None) or "fitbit"
 
     logger.info(
-        "[fitbit_status] status connected=%s has_data=%s wearable_device=%s", connected, has_data, wearable_device
+        "[fitbit_status] status connected=%s needs_reconnect=%s has_data=%s wearable_device=%s",
+        connected,
+        needs_reconnect,
+        has_data,
+        wearable_device,
     )
     return JsonResponse(
-        {"connected": connected, "has_data": has_data, "last_data": last_data, "wearable_device": wearable_device}
+        {
+            "connected": connected,
+            "needs_reconnect": needs_reconnect,
+            "has_data": has_data,
+            "last_data": last_data,
+            "wearable_device": wearable_device,
+        }
     )
 
 
@@ -647,6 +658,9 @@ def fitbit_callback(request):
             )
 
             logger.info(f"[fitbit_callback] Fitbit token saved for user {user.id}")
+            from core.tasks import backfill_fitbit_on_connect
+
+            backfill_fitbit_on_connect.delay(str(user.id))
             return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=connected")
 
         else:
