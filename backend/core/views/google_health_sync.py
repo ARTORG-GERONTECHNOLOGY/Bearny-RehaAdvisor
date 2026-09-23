@@ -460,14 +460,19 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     levels = v.get("activeMinutes", {}).get("activeMinutesRollupByActivityLevel", [])
     moderate_plus = [l for l in levels if l.get("activityLevel") in _MODERATE_PLUS_LEVELS]
     if levels and not moderate_plus:
-        logger.warning(
-            "[google_health] activeMinutesRollupByActivityLevel has no activityLevel key "
-            "for user %s on %s — using all levels. First entry: %s",
-            user.id,
-            d,
-            levels[0],
-        )
-        moderate_plus = levels
+        # Only fall back when the activityLevel key is genuinely absent from all entries
+        # (indicates an API schema change).  If entries exist but all are LIGHT, that is a
+        # valid rest/light day — active_minutes should be 0, not a fallback sum.
+        has_level_key = any("activityLevel" in l for l in levels)
+        if not has_level_key:
+            logger.warning(
+                "[google_health] activeMinutesRollupByActivityLevel entries have no activityLevel key "
+                "for user %s on %s — using all levels. First entry: %s",
+                user.id,
+                d,
+                levels[0],
+            )
+            moderate_plus = levels
     am_total = sum(int(l.get("activeMinutesSum") or 0) for l in moderate_plus if l.get("activeMinutesSum") is not None)
     active_minutes = am_total if am_total > 0 else None
 
