@@ -2,7 +2,12 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 
 export type NotificationCategory =
-  'education' | 'exercise' | 'instructions' | 'reminder' | 'behavior_change' | 'other';
+  | 'education'
+  | 'exercise'
+  | 'instructions'
+  | 'reminder'
+  | 'behavior_change'
+  | 'other';
 
 export type NotificationPreferences = Record<NotificationCategory, boolean>;
 
