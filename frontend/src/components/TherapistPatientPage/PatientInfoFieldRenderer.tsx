@@ -18,14 +18,7 @@ import { PatientPopupStore, toDateInput, toDisplayDate } from '@/stores/patientP
 import PatientInfoSourceBadge from './PatientInfoSourceBadge';
 
 export type PatientFieldType =
-  | 'text'
-  | 'email'
-  | 'date'
-  | 'checkbox'
-  | 'dropdown'
-  | 'multi-select'
-  | 'comma-list'
-  | 'textarea';
+  'text' | 'email' | 'date' | 'checkbox' | 'dropdown' | 'multi-select' | 'comma-list' | 'textarea';
 
 export interface PatientFieldConfig {
   be_name: string;

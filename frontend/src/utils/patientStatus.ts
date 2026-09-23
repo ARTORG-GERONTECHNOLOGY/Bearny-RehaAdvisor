@@ -217,10 +217,7 @@ const getBio = (p: PatientType): BioLike => {
 
 export const getWearInfo = (p: PatientType) => {
   const device = String((p as any).wearable_device ?? 'fitbit') as
-    | 'fitbit'
-    | 'omron'
-    | 'google_health'
-    | 'none';
+    'fitbit' | 'omron' | 'google_health' | 'none';
 
   if (device === 'omron' || device === 'none') {
     return {

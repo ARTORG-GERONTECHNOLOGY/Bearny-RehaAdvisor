@@ -6,13 +6,7 @@ import { PatientComment, PatientType } from '@/types';
 import { extractApiErrorWithDetails, toStr } from '@/utils/apiErrorMessages';
 
 export type SortKey =
-  | 'ampel'
-  | 'created'
-  | 'last_login'
-  | 'adherence'
-  | 'feedback'
-  | 'wear'
-  | 'flag';
+  'ampel' | 'created' | 'last_login' | 'adherence' | 'feedback' | 'wear' | 'flag';
 
 export type RedcapCandidate = {
   project: string;
