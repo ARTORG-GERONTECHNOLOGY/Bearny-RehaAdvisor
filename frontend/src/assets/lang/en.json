@@ -1478,6 +1478,8 @@
   "reconnectBannerWarning": "Your health data connection expires in {{count}} day(s). Reconnect now to keep your data flowing.",
   "reconnectBannerExpired": "Your health data connection has expired. Reconnect to restore it.",
   "reconnectBannerReason": "App verification requires periodic re-authorisation.",
+  "hrScopeBannerTitle": "Heart rate data unavailable — please reconnect Google Health.",
+  "hrScopeBannerReason": "Reconnecting grants the app access to heart rate zone data needed for wear time tracking.",
   "1. Research Use": "1. Research Use",
   "2. Data Privacy": "2. Data Privacy",
   "3. No Guarantees": "3. No Guarantees",

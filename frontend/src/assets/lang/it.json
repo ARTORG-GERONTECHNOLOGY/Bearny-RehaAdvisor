@@ -1478,6 +1478,8 @@
   "reconnectBannerWarning": "La connessione dei dati sanitari scade tra {{count}} giorno/i. Riconnettiti ora.",
   "reconnectBannerExpired": "La connessione dei dati sanitari è scaduta. Riconnettiti per ripristinarla.",
   "reconnectBannerReason": "La verifica dell'app richiede una nuova autorizzazione periodica.",
+  "hrScopeBannerTitle": "Dati sulla frequenza cardiaca non disponibili — riconnettere Google Health.",
+  "hrScopeBannerReason": "La riconnessione consente all'app di accedere ai dati delle zone di frequenza cardiaca necessari per il rilevamento del tempo di utilizzo.",
   "1. Research Use": "1. Finalità di ricerca",
   "2. Data Privacy": "2. Privacy dei dati",
   "3. No Guarantees": "3. Nessuna garanzia",

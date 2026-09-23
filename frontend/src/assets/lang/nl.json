@@ -1478,6 +1478,8 @@
   "reconnectBannerWarning": "Uw gezondheidsdataverbinding verloopt over {{count}} dag(en). Verbind opnieuw om uw data bij te houden.",
   "reconnectBannerExpired": "Uw gezondheidsdataverbinding is verlopen. Verbind opnieuw om deze te herstellen.",
   "reconnectBannerReason": "App-verificatie vereist periodieke hertoestemming.",
+  "hrScopeBannerTitle": "Hartslaggegevens niet beschikbaar — verbind Google Health opnieuw.",
+  "hrScopeBannerReason": "Door opnieuw te verbinden krijgt de app toegang tot hartslagzonegegevens die nodig zijn voor het bijhouden van de draagduur.",
   "1. Research Use": "1. Onderzoeksdoeleinden",
   "2. Data Privacy": "2. Gegevensprivacy",
   "3. No Guarantees": "3. Geen garanties",

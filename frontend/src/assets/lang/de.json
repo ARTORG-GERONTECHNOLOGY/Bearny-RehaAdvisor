@@ -1478,6 +1478,8 @@
   "reconnectBannerWarning": "Ihre Gesundheitsdatenverbindung läuft in {{count}} Tag(en) ab. Verbinden Sie sich jetzt erneut.",
   "reconnectBannerExpired": "Ihre Gesundheitsdatenverbindung ist abgelaufen. Verbinden Sie sich erneut.",
   "reconnectBannerReason": "Die App-Verifizierung erfordert eine regelmäßige erneute Autorisierung.",
+  "hrScopeBannerTitle": "Herzfrequenzdaten nicht verfügbar — bitte Google Health erneut verbinden.",
+  "hrScopeBannerReason": "Durch die erneute Verbindung erhält die App Zugriff auf Herzfrequenzzonendaten, die für die Tragezeit-Erkennung benötigt werden.",
   "1. Research Use": "1. Forschungszweck",
   "2. Data Privacy": "2. Datenschutz",
   "3. No Guarantees": "3. Keine Garantien",

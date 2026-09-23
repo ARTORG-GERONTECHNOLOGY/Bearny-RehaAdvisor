@@ -257,6 +257,16 @@ def google_health_status(request, patient_id):
     except Exception:
         pass
 
+    # Detect missing health_metrics_and_measurements scope: if recent active days
+    # all have wear_time_minutes=None, the HR zone rollup is not returning data.
+    hr_scope_ok = None
+    if connected:
+        active_days = list(
+            GoogleHealthData.objects(user=user, steps__gt=0).order_by("-date").limit(7)
+        )
+        if active_days:
+            hr_scope_ok = any((d.wear_time_minutes or 0) > 0 for d in active_days)
+
     return JsonResponse(
         {
             "connected": connected,
@@ -265,6 +275,7 @@ def google_health_status(request, patient_id):
             "needs_reconnect": needs_reconnect,
             "days_until_expiry": days_until_expiry,
             "wearable_device": getattr(patient, "wearable_device", "fitbit") or "fitbit",
+            "hr_scope_ok": hr_scope_ok,
         }
     )
 
