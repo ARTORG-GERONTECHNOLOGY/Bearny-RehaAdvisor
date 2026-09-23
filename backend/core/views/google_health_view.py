@@ -261,9 +261,7 @@ def google_health_status(request, patient_id):
     # all have wear_time_minutes=None, the HR zone rollup is not returning data.
     hr_scope_ok = None
     if connected:
-        active_days = list(
-            GoogleHealthData.objects(user=user, steps__gt=0).order_by("-date").limit(7)
-        )
+        active_days = list(GoogleHealthData.objects(user=user, steps__gt=0).order_by("-date").limit(7))
         if active_days:
             hr_scope_ok = any((d.wear_time_minutes or 0) > 0 for d in active_days)
 
