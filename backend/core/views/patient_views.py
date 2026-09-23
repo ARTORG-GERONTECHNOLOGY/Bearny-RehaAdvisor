@@ -738,48 +738,6 @@ def unmark_intervention_completed(request):
         return JsonResponse({"error": "Internal server error."}, status=500)
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_patient_recommendations(request, patient_id):
-    """
-    GET /api/patients/<patient_id>/recommendations/
-    Fetches today's assigned interventions for a patient.
-    """
-
-    try:
-        # Authorization: only a therapist whose clinics include this patient's
-        # clinic (or an Admin) may view the patient's recommendations.
-        # Skipped in test mode because test requests use a synthetic user.
-        from django.conf import settings as _dj_settings
-
-        if not getattr(_dj_settings, "TESTING", False):
-            try:
-                from bson import ObjectId as _OID
-
-                from core.models import User as _User
-
-                _caller = _User.objects.get(pk=_OID(request.user.id))
-                _is_admin = _caller.role == "Admin" and _caller.isActive
-            except Exception:
-                _is_admin = False
-
-            if not _is_admin:
-                _patient = resolve_patient(patient_id)
-                if _patient is None:
-                    return JsonResponse({"error": "Patient not found"}, status=404)
-                _caller_therapist = get_therapist_for_user(request.user)
-                _patient_clinic = getattr(_patient, "clinic", None)
-                if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
-                    return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
-
-        recommendations = PatientIntervention.get_todays_recommendations(patient_id)
-        return JsonResponse({"recommendations": recommendations}, safe=False, status=200)
-
-    except Exception as e:
-        logger.error(f"[get_patient_recommendations] Unexpected error: {str(e)}", exc_info=True)
-        return JsonResponse({"error": "Internal server error"}, status=500)
-
-
 # -----------------------------
 # Helpers
 # -----------------------------
@@ -4090,17 +4048,6 @@ def _resolve_patient(patient_id: str) -> Patient:
             return Patient.objects.get(userId=ObjectId(patient_id))
         except Exception:
             raise Patient.DoesNotExist()
-
-
-def _parse_day(date_str: str) -> tuple[datetime, datetime, datetime]:
-    """
-    YYYY-MM-DD -> (date_only, day_start_aware, day_end_aware)
-    """
-    d = datetime.strptime(date_str, "%Y-%m-%d")
-    tz = timezone.get_current_timezone()
-    start = timezone.make_aware(datetime.combine(d.date(), time.min), tz)
-    end = timezone.make_aware(datetime.combine(d.date(), time.max), tz)
-    return d, start, end
 
 
 def _has_weight(row) -> bool:

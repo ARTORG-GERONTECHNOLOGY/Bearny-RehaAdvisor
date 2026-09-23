@@ -46,6 +46,7 @@ from utils.interventions import (
     _as_str_or_none,
     _available_language_variants,
     _canonical_assignment_for,
+    _clip_before,
     _detect_file_media_type,
     _first_str_from_any,
     _get_star_q_ids,
@@ -66,6 +67,7 @@ from utils.interventions import (
     _save_file,
     _serialize_media,
     _split_taglist_into_fields,
+    _upsert_intervention,
     _variant_ids_for_external_id,
     normalize_content_type,
 )

@@ -859,6 +859,7 @@ from rest_framework.permissions import IsAuthenticated
 from core.models import (
     FitbitData,
     Patient,
+    PatientICFRating,
     PatientInterventionLogs,
     PatientVitals,
     RehabilitationPlan,
