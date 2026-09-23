@@ -658,9 +658,12 @@ def fitbit_callback(request):
             )
 
             logger.info(f"[fitbit_callback] Fitbit token saved for user {user.id}")
-            from core.tasks import backfill_fitbit_on_connect
+            try:
+                from core.tasks import backfill_fitbit_on_connect
 
-            backfill_fitbit_on_connect.delay(str(user.id))
+                backfill_fitbit_on_connect.delay(str(user.id))
+            except Exception:
+                logger.warning("[fitbit_callback] could not dispatch backfill task for user %s", user.id)
             return redirect(f"{settings.FRONTEND_URL}/patient?fitbit_status=connected")
 
         else:
