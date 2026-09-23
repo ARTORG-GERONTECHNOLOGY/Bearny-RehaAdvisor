@@ -78,11 +78,12 @@ export async function loginAsTherapist(page: PlaywrightPage): Promise<void> {
 
   // Reload to replace the pending pushState event with a real committed navigation,
   // preventing subsequent page.goto() calls from throwing "interrupted by another navigation".
-  await page.reload({ waitUntil: 'load' });
-  // On webkit, React's post-mount effects (auth-store reactions, route guards) can fire
-  // navigate('/therapist') and interrupt a subsequent page.goto(). Waiting for networkidle
-  // gives those effects time to settle. Cap at 2 s so Redis timeouts on CI (~4 s per check)
-  // don't block the test — React effects complete in < 100 ms, well inside the cap.
+  // On webkit, React's route guards can fire navigate('/therapist') concurrently and interrupt
+  // the reload itself — catch that, confirm the URL is still correct, and continue.
+  await page.reload({ waitUntil: 'load' }).catch(async (err: Error) => {
+    if (!err.message.includes('interrupted')) throw err;
+    await page.waitForURL(/\/therapist/, { timeout: 5_000 });
+  });
   await page.waitForLoadState('networkidle', { timeout: 2000 }).catch(() => {});
 }
 
@@ -146,7 +147,10 @@ export async function loginAsAdmin(page: PlaywrightPage): Promise<void> {
   expect(verifyResponse.status()).toBe(200);
 
   await page.waitForURL(/\/admin/, { timeout: 30_000 });
-  await page.reload({ waitUntil: 'load' });
+  await page.reload({ waitUntil: 'load' }).catch(async (err: Error) => {
+    if (!err.message.includes('interrupted')) throw err;
+    await page.waitForURL(/\/admin/, { timeout: 5_000 });
+  });
   await page.waitForLoadState('networkidle', { timeout: 2000 }).catch(() => {});
 }
 

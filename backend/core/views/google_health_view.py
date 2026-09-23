@@ -202,6 +202,16 @@ def google_health_callback(request):
         )
         logger.info("[google_health_callback] token saved for user %s", user.id)
 
+        # Switch the patient's active data source to Google Health.
+        try:
+            patient = Patient.objects.get(userId=user)
+            if getattr(patient, "wearable_device", None) != "google_health":
+                patient.wearable_device = "google_health"
+                patient.save()
+                logger.info("[google_health_callback] wearable_device set to google_health for user %s", user.id)
+        except Exception:
+            logger.warning("[google_health_callback] could not update wearable_device for user %s", user.id)
+
         # Sync today immediately, then backfill up to 365 days in the background
         # to cover the full monitoring period from the start of usage.
         from core.tasks import backfill_google_health_on_connect, fetch_google_health_data_async
