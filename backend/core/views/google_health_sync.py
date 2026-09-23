@@ -556,7 +556,8 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     else:
         sleep_raw = _fetch_sleep(access_token, d)
     sleep_obj = SleepData(**sleep_raw) if sleep_raw else None
-    sleep_minutes = (sleep_raw.get("minutes_asleep") or sleep_raw["sleep_duration"] // 60000) if sleep_raw else 0
+    ma = sleep_raw.get("minutes_asleep") if sleep_raw else None
+    sleep_minutes = (ma if ma is not None else sleep_raw["sleep_duration"] // 60000) if sleep_raw else 0
 
     # ---- Exercise sessions ----
     exercise_sessions = _fetch_exercise(access_token, d)

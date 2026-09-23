@@ -378,9 +378,10 @@ class Command(BaseCommand):
                         set__hrv=hrv_data.get(dt),
                         set__exercise=exercise_data.get(dt, []),
                     )
-                    wt = wear_time_map.get(dt)
-                    if wt is not None:
-                        update_kwargs["set__wear_time_minutes"] = wt
+                    # Always write wear_time (even None) so stale positive values
+                    # from previous syncs are overwritten on days where intraday
+                    # data is now empty (device not worn).
+                    update_kwargs["set__wear_time_minutes"] = wear_time_map.get(dt)
                     FitbitData.objects(user=user_token.user, date=dt).update_one(**update_kwargs, upsert=True)
 
                 logger.info(f"[Fitbit Sync] Completed for {user_token.user}")
