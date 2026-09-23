@@ -38,6 +38,9 @@ FOLLOWUP_DAY_END = 180
 # Validity thresholds
 MIN_WEAR_MINUTES = 600  # 10 hours — minimum for a valid activity day
 MIN_SLEEP_MINUTES = 180  # 3 hours  — minimum for a valid sleep night
+# Steps-based wear proxy: when HR zone rollup returns no data (wear_time_minutes is None),
+# ≥1000 steps means the device was worn.  Used only when wear_time_minutes is None, not 0.
+MIN_WEAR_STEPS_FALLBACK = 1000
 
 # Day-selection targets per window
 MAX_WEEKDAYS = 5
@@ -135,9 +138,18 @@ def _build_period_diagnosis(user, window_start: date_type, window_end: date_type
     return info
 
 
-def _is_valid_activity_day(r: FitbitData) -> bool:
-    """A day is valid for activity aggregation if wear_time_minutes >= 10 h."""
-    return (r.wear_time_minutes or 0) >= MIN_WEAR_MINUTES
+def _is_valid_activity_day(r) -> bool:
+    """A day is valid for activity aggregation if wear_time_minutes >= 10 h.
+
+    When wear_time_minutes is None (HR zone rollup returned no data — e.g. patient
+    connected before health_metrics_and_measurements scope was added), fall back to
+    steps as a wear proxy.  None means 'no HR data', 0 means 'device not worn'.
+    """
+    if (r.wear_time_minutes or 0) >= MIN_WEAR_MINUTES:
+        return True
+    if r.wear_time_minutes is None and (r.steps or 0) >= MIN_WEAR_STEPS_FALLBACK:
+        return True
+    return False
 
 
 def _is_valid_sleep_night(r: FitbitData) -> bool:

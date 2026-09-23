@@ -22,6 +22,11 @@ _TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 # Canonical zone names matching the frontend chart (HRZonesStacked.tsx).
 # Covers both Fitbit-style names (FAT_BURN etc.) and Google Health v4 names (MODERATE etc.).
+# Activity levels to count toward active_minutes — matches Fitbit AZM (fat-burn, cardio, peak).
+# LIGHT is excluded because it covers slow walking / household activity and inflates totals to
+# 300-500 min/day for ambulatory patients.
+_MODERATE_PLUS_LEVELS = frozenset({"MODERATE", "VIGOROUS", "VIGOROUS_PLUS"})
+
 _ZONE_NAME_MAP = {
     # Google Health v4 names
     "LIGHT": "Out of Range",
@@ -450,13 +455,20 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     floors_raw = v.get("floors", {}).get("countSum")
     floors = int(floors_raw) if floors_raw is not None else None
 
-    # ---- Active minutes ---- sum of activeMinutesRollupByActivityLevel[*].activeMinutesSum
+    # ---- Active minutes ---- sum of MODERATE+ levels only (matches Fitbit AZM definition)
     v = rollup("active-minutes")
-    am_total = sum(
-        int(level.get("activeMinutesSum") or 0)
-        for level in v.get("activeMinutes", {}).get("activeMinutesRollupByActivityLevel", [])
-        if level.get("activeMinutesSum") is not None
-    )
+    levels = v.get("activeMinutes", {}).get("activeMinutesRollupByActivityLevel", [])
+    moderate_plus = [l for l in levels if l.get("activityLevel") in _MODERATE_PLUS_LEVELS]
+    if levels and not moderate_plus:
+        logger.warning(
+            "[google_health] activeMinutesRollupByActivityLevel has no activityLevel key "
+            "for user %s on %s — using all levels. First entry: %s",
+            user.id,
+            d,
+            levels[0],
+        )
+        moderate_plus = levels
+    am_total = sum(int(l.get("activeMinutesSum") or 0) for l in moderate_plus if l.get("activeMinutesSum") is not None)
     active_minutes = am_total if am_total > 0 else None
 
     # ---- Resting heart rate ----
@@ -496,6 +508,15 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     hr_zones = _parse_hr_zones(v)
     # Wear time = total minutes across all zones
     wear_time = sum(z.minutes for z in hr_zones) or None
+    if not hr_zones and (steps or active_minutes):
+        logger.warning(
+            "[google_health] time-in-heart-rate-zone returned no data for user %s on %s "
+            "(steps=%s, active_minutes=%s) — wear_time_minutes=None",
+            user.id,
+            d,
+            steps,
+            active_minutes,
+        )
 
     # ---- Weight ---- weight.weightGramsAvg (int, grams → kg)
     v = rollup("weight")
