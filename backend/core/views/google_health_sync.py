@@ -339,6 +339,9 @@ def _fetch_sleep(access_token: str, d: datetime.date) -> dict | None:
     return _aggregate_sleep(points)
 
 
+_MAX_EXERCISE_DURATION_MS = 4 * 60 * 60 * 1000  # 4 hours — filters out multi-day background tracking entries
+
+
 def _fetch_exercise(access_token: str, d: datetime.date) -> list[dict]:
     """Fetch exercise sessions for date d (civil day boundary)."""
     filter_expr = (
@@ -356,6 +359,14 @@ def _fetch_exercise(access_token: str, d: datetime.date) -> list[dict]:
             end_dt = datetime.datetime.fromisoformat(iv["endTime"].replace("Z", "+00:00"))
             duration_ms = int((end_dt - start_dt).total_seconds() * 1000)
         except (KeyError, ValueError):
+            continue
+
+        if duration_ms > _MAX_EXERCISE_DURATION_MS:
+            logger.debug(
+                "[google_health] Skipping exercise session for user on %s: duration %d ms exceeds 4 h limit",
+                d,
+                duration_ms,
+            )
             continue
 
         sessions.append(

@@ -622,9 +622,9 @@ def test_health_combined_history_invalid_date_query_returns_400():
 
 @patch("core.views.fitbit_view.PatientInterventionLogs.objects")
 @patch("core.views.fitbit_view.PatientVitals.objects")
-@patch("core.views.fitbit_view.GoogleHealthData.objects")
+@patch("core.views.fitbit_view.fetch_merged_wearable_records")
 def test_health_combined_history_google_health_patient_returns_google_health_data(
-    mock_gh_objects, mock_vitals_objects, mock_logs
+    mock_merged, mock_vitals_objects, mock_logs
 ):
     """
     When patient.wearable_device == 'google_health', health_combined_history must
@@ -659,7 +659,7 @@ def test_health_combined_history_google_health_patient_returns_google_health_dat
         bp_sys=None,
         bp_dia=None,
     )
-    mock_gh_objects.return_value.order_by.return_value = [fake_gh]
+    mock_merged.return_value = [fake_gh]
 
     with patch(
         "core.views.fitbit_view.PatientICFRating",
@@ -680,11 +680,11 @@ def test_health_combined_history_google_health_patient_returns_google_health_dat
 
 @patch("core.views.fitbit_view.PatientInterventionLogs.objects")
 @patch("core.views.fitbit_view.PatientVitals.objects")
-@patch("core.views.fitbit_view.FitbitData.objects")
+@patch("core.views.fitbit_view.fetch_merged_wearable_records")
 def test_health_combined_history_fitbit_patient_not_affected_by_google_health_fix(
-    mock_fb_objects, mock_vitals_objects, mock_logs
+    mock_merged, mock_vitals_objects, mock_logs
 ):
-    """Fitbit patients continue to read from FitbitData after the wearable routing fix."""
+    """Fitbit patients continue to receive wearable data via the day-by-day merge."""
     _, _, _patient_user, patient = create_patient_graph()
     # create_patient_graph() sets wearable_device="fitbit" explicitly
 
@@ -711,7 +711,7 @@ def test_health_combined_history_fitbit_patient_not_affected_by_google_health_fi
         bp_sys=None,
         bp_dia=None,
     )
-    mock_fb_objects.return_value.order_by.return_value = [fake_fitbit]
+    mock_merged.return_value = [fake_fitbit]
 
     with patch(
         "core.views.fitbit_view.PatientICFRating",
@@ -783,8 +783,8 @@ def test_health_data_includes_minutes_asleep():
 
 @patch("core.views.fitbit_view.PatientInterventionLogs.objects")
 @patch("core.views.fitbit_view.PatientVitals.objects")
-@patch("core.views.fitbit_view.FitbitData.objects")
-def test_health_combined_history_includes_minutes_asleep_and_wear_time(mock_fb_objects, mock_vitals_objects, mock_logs):
+@patch("core.views.fitbit_view.fetch_merged_wearable_records")
+def test_health_combined_history_includes_minutes_asleep_and_wear_time(mock_merged, mock_vitals_objects, mock_logs):
     """health-combined-history FitbitEntry contains minutes_asleep and wear_time_minutes."""
     _, _, _patient_user, patient = create_patient_graph()
     entry_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
@@ -816,7 +816,7 @@ def test_health_combined_history_includes_minutes_asleep_and_wear_time(mock_fb_o
         bp_sys=None,
         bp_dia=None,
     )
-    mock_fb_objects.return_value.order_by.return_value = [fake_fitbit]
+    mock_merged.return_value = [fake_fitbit]
 
     with patch(
         "core.views.fitbit_view.PatientICFRating",
@@ -838,8 +838,8 @@ def test_health_combined_history_includes_minutes_asleep_and_wear_time(mock_fb_o
 
 @patch("core.views.fitbit_view.PatientInterventionLogs.objects")
 @patch("core.views.fitbit_view.PatientVitals.objects")
-@patch("core.views.fitbit_view.FitbitData.objects")
-def test_health_combined_history_wear_time_none_when_absent(mock_fb_objects, mock_vitals_objects, mock_logs):
+@patch("core.views.fitbit_view.fetch_merged_wearable_records")
+def test_health_combined_history_wear_time_none_when_absent(mock_merged, mock_vitals_objects, mock_logs):
     """wear_time_minutes is None in FitbitEntry when not recorded."""
     _, _, _patient_user, patient = create_patient_graph()
     entry_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
@@ -871,7 +871,7 @@ def test_health_combined_history_wear_time_none_when_absent(mock_fb_objects, moc
         bp_sys=None,
         bp_dia=None,
     )
-    mock_fb_objects.return_value.order_by.return_value = [fake_fitbit]
+    mock_merged.return_value = [fake_fitbit]
 
     with patch(
         "core.views.fitbit_view.PatientICFRating",

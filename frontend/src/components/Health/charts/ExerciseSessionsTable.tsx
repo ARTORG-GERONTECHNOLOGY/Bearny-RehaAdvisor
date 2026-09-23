@@ -58,7 +58,7 @@ const ExerciseSessionsTable: React.FC<Props> = ({ data, date }) => {
           const peak = getPeakZone(s.heartRateZones);
 
           result.push({
-            name: s.name || '-',
+            name: s.name === 'Exercise' ? t('exercise_auto_detected') : s.name || '-',
             duration: formatDurationHM(s.duration),
             avgHR: typeof s.averageHeartRate === 'number' ? s.averageHeartRate : null,
             peakRange: peak.range,

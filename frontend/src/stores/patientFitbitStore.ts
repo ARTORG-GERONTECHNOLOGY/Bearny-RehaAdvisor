@@ -65,6 +65,7 @@ class PatientFitbitStore {
   wearableDevice: 'fitbit' | 'omron' | 'google_health' | 'none' = 'fitbit';
   needsReconnect = false;
   daysUntilExpiry: number | null = null;
+  hrScopeOk: boolean | null = null;
 
   summary: FitbitSummary | null = null;
   summaryLoading = false;
@@ -124,6 +125,7 @@ class PatientFitbitStore {
           this.connected = !!ghData?.connected;
           this.needsReconnect = !!ghData?.needs_reconnect;
           this.daysUntilExpiry = ghData?.days_until_expiry ?? null;
+          this.hrScopeOk = ghData?.hr_scope_ok ?? null;
         });
       } else {
         // Fitbit (or omron/none): fall through to Fitbit status for accurate connected state
