@@ -7,6 +7,7 @@ from datetime import timezone as dt_tz
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.models import FitbitData, GoogleHealthData, Patient
+from core.views.wearable_utils import fetch_merged_wearable_records
 from core.services.redcap_service import (
     RedcapError,
     _parse_invalid_fields,
@@ -256,11 +257,8 @@ def _summarize_period(
     start_dt = datetime.combine(window_start, datetime.min.time()).replace(tzinfo=dt_tz.utc)
     end_dt = datetime.combine(window_end, datetime.max.time()).replace(tzinfo=dt_tz.utc)
 
-    # Prefer GoogleHealthData; fall back to FitbitData for users who haven't migrated yet
-    records = list(GoogleHealthData.objects(user=user, date__gte=start_dt, date__lte=end_dt).order_by("date"))
-
-    if not records:
-        records = list(FitbitData.objects(user=user, date__gte=start_dt, date__lte=end_dt).order_by("date"))
+    # Per-day merge: GH where it has real data, Fitbit fills any gaps
+    records = fetch_merged_wearable_records(user, start_dt, end_dt)
     if not records:
         return None
 

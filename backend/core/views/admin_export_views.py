@@ -47,6 +47,7 @@ from core.models import (
     User,
 )
 from core.permissions import IsAdmin
+from core.views.wearable_utils import fetch_merged_wearable_records
 from utils.interventions import _safe_intervention
 
 logger = logging.getLogger(__name__)
@@ -377,13 +378,6 @@ def _csv_health_fitbit(patients, user_map):
         "bp_dia",
     ]
 
-    fitbit_ids = [
-        uid for uid, pt in user_map.items() if (getattr(pt, "wearable_device", None) or "fitbit") != "google_health"
-    ]
-    gh_ids = [
-        uid for uid, pt in user_map.items() if (getattr(pt, "wearable_device", None) or "fitbit") == "google_health"
-    ]
-
     def _row(doc, pt):
         sleep = getattr(doc, "sleep", None)
         sleep_duration_min = ""
@@ -410,25 +404,15 @@ def _csv_health_fitbit(patients, user_map):
         }
 
     rows = []
-    if fitbit_ids:
-        for doc in FitbitData.objects(user__in=fitbit_ids).order_by("date"):
-            try:
-                uid = str(doc.user.id) if hasattr(doc.user, "id") else str(doc.user)
-            except Exception:
-                continue
-            pt = user_map.get(uid)
-            if pt:
-                rows.append(_row(doc, pt))
+    for uid, pt in user_map.items():
+        try:
+            from core.models import User as MongoUser
 
-    if gh_ids:
-        for doc in GoogleHealthData.objects(user__in=gh_ids).order_by("date"):
-            try:
-                uid = str(doc.user.id) if hasattr(doc.user, "id") else str(doc.user)
-            except Exception:
-                continue
-            pt = user_map.get(uid)
-            if pt:
-                rows.append(_row(doc, pt))
+            user_obj = MongoUser.objects.get(pk=uid)
+        except Exception:
+            continue
+        for doc in fetch_merged_wearable_records(user_obj, None, None):
+            rows.append(_row(doc, pt))
 
     rows.sort(key=lambda r: (r["patient_code"], r["date"]))
     return _make_csv(headers, rows)

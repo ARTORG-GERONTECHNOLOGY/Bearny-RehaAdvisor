@@ -22,6 +22,7 @@ from core.views.wearable_utils import (
     _resolve_patient,
     _resolve_user_for_fitbit_status,
     avg_excluding_zero,
+    fetch_merged_wearable_records,
 )
 
 logger = logging.getLogger(__name__)
@@ -179,6 +180,8 @@ def fitbit_summary(request, patient_id=None):
             return sleep_end_dt, wake_minute
 
         # ---------- Build daily ----------
+        # Per-day merge: GH where real data, Fitbit fills gaps
+        qs = fetch_merged_wearable_records(patient.userId, start, end)
         covered_days = set()
         for d in qs:
             sm = _sleep_minutes(d)
@@ -680,11 +683,8 @@ def get_fitbit_health_data(request, patient_id):
             to_date = timezone.now().date()
             from_date = to_date - timedelta(days=30)
 
-        # ---- Query wearable data (Fitbit or Google Health) ----
-        WearableModel = GoogleHealthData if getattr(patient, "wearable_device", None) == "google_health" else FitbitData
-        fitbit_entries = WearableModel.objects(user=patient.userId, date__gte=from_date, date__lte=to_date).order_by(
-            "date"
-        )
+        # ---- Query wearable data (per-day GH+Fitbit merge) ----
+        fitbit_entries = fetch_merged_wearable_records(patient.userId, from_date, to_date)
 
         # ---- Query Vitals ----
         vitals_qs = PatientVitals.objects(patientId=patient, date__gte=from_date, date__lte=to_date).order_by("date")
@@ -894,17 +894,9 @@ def health_combined_history(request, patient_id):
             from_date = to_date - timedelta(days=30)
 
         # -------------------------
-        # 3) Load wearable data
-        # Route to GoogleHealthData for google_health patients so the therapist
-        # dashboard shows the correct data regardless of device type.
+        # 3) Load wearable data (per-day GH+Fitbit merge)
         # -------------------------
-        wearable_device = getattr(patient, "wearable_device", "fitbit") or "fitbit"
-        WearableModel = GoogleHealthData if wearable_device == "google_health" else FitbitData
-        fitbit_qs = WearableModel.objects(
-            user=patient.userId,
-            date__gte=from_date,
-            date__lte=to_date,
-        ).order_by("date")
+        fitbit_qs = fetch_merged_wearable_records(patient.userId, from_date, to_date)
 
         # Index by date for merging
         fitbit_map = {}

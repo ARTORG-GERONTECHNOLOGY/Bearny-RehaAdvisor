@@ -1,8 +1,45 @@
 import logging
 
-from core.models import Patient, User
+from core.models import FitbitData, GoogleHealthData, Patient, User
 
 logger = logging.getLogger(__name__)
+
+
+def fetch_merged_wearable_records(user, start_dt, end_dt):
+    """
+    Merge GH + Fitbit records day-by-day.
+
+    For each date, GH wins when it has any real data (steps/active_minutes/wear_time > 0).
+    Fitbit fills dates where GH has no record or all-zero/None activity fields.
+    Returns a date-sorted list of mixed GH/Fitbit document instances.
+    """
+
+    def _key(r):
+        d = r.date
+        return d.date() if hasattr(d, "date") else d
+
+    def _query(model):
+        qs = model.objects(user=user)
+        if start_dt is not None:
+            qs = qs.filter(date__gte=start_dt)
+        if end_dt is not None:
+            qs = qs.filter(date__lte=end_dt)
+        return qs
+
+    gh_by_date = {_key(r): r for r in _query(GoogleHealthData)}
+    fb_by_date = {_key(r): r for r in _query(FitbitData)}
+
+    merged = []
+    for d in sorted(set(gh_by_date) | set(fb_by_date)):
+        gh = gh_by_date.get(d)
+        fb = fb_by_date.get(d)
+        if gh and ((gh.steps or 0) > 0 or (gh.active_minutes or 0) > 0 or (gh.wear_time_minutes or 0) > 0):
+            merged.append(gh)
+        elif fb:
+            merged.append(fb)
+        elif gh:
+            merged.append(gh)
+    return merged
 
 
 def _resolve_patient(request, patient_id: str | None):
