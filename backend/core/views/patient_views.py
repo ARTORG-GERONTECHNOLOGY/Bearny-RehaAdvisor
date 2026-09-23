@@ -3292,8 +3292,7 @@ def remove_intervention_from_patient(request):
     {
         "success": false,
         "error": "Internal Server Error",
-        "message": "An unexpected error occurred.",
-        "details": "Exception text"
+        "message": "An unexpected error occurred."
     }
     """
     try:

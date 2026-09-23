@@ -83,7 +83,7 @@ def redcap_record(request):
         logger.exception("REDCap error while exporting record: %s", getattr(e, "detail", None))
         return JsonResponse(
             {
-                "error": str(e),
+                "error": "REDCap error.",
                 "project": project,
                 "pat_id": pat_id,
             },

@@ -300,7 +300,9 @@ def test_redcap_record_returns_502_on_redcap_error(mock_get_th, mock_allowed, mo
     req.user = SimpleNamespace()
     resp = redcap_record(req)
     assert resp.status_code == 502
-    assert json.loads(resp.content)["error"] == "upstream"
+    body = json.loads(resp.content)
+    assert body["error"] == "REDCap error."
+    assert "upstream" not in resp.content.decode()
 
 
 @patch("core.views.redcap_views.export_record_by_pat_id", side_effect=Exception("boom"))
