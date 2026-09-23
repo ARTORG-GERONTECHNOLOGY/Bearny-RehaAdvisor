@@ -7,7 +7,6 @@ from datetime import timezone as dt_tz
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.models import FitbitData, GoogleHealthData, Patient
-from core.views.wearable_utils import fetch_merged_wearable_records
 from core.services.redcap_service import (
     RedcapError,
     _parse_invalid_fields,
@@ -16,6 +15,7 @@ from core.services.redcap_service import (
     get_token_for_project,
     resolve_project,
 )
+from core.views.wearable_utils import fetch_merged_wearable_records
 
 logger = logging.getLogger(__name__)
 
