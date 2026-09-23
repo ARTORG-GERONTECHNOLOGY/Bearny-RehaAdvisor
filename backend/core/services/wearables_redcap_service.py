@@ -4,7 +4,7 @@ import os
 from datetime import date as date_type
 from datetime import datetime, timedelta
 from datetime import timezone as dt_tz
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from core.models import FitbitData, GoogleHealthData, Patient
 from core.services.redcap_service import (
@@ -117,9 +117,7 @@ def _build_period_diagnosis(user, window_start: date_type, window_end: date_type
     start_dt = datetime.combine(window_start, datetime.min.time()).replace(tzinfo=dt_tz.utc)
     end_dt = datetime.combine(window_end, datetime.max.time()).replace(tzinfo=dt_tz.utc)
 
-    records = list(GoogleHealthData.objects(user=user, date__gte=start_dt, date__lte=end_dt))
-    if not records:
-        records = list(FitbitData.objects(user=user, date__gte=start_dt, date__lte=end_dt))
+    records = fetch_merged_wearable_records(user, start_dt, end_dt)
 
     total = len(records)
     valid_activity = sum(1 for r in records if _is_valid_activity_day(r))
@@ -153,7 +151,7 @@ def _is_valid_activity_day(r) -> bool:
     return False
 
 
-def _is_valid_sleep_night(r: FitbitData) -> bool:
+def _is_valid_sleep_night(r: Union[FitbitData, GoogleHealthData]) -> bool:
     """A night is valid for sleep aggregation if sleep >= 3 h."""
     try:
         if r.sleep is None:
@@ -168,10 +166,10 @@ def _is_valid_sleep_night(r: FitbitData) -> bool:
 
 
 def _split_weekday_weekend(
-    records: List[FitbitData],
+    records: List[Union[FitbitData, GoogleHealthData]],
     max_weekdays: int = MAX_WEEKDAYS,
     max_weekends: int = MAX_WEEKENDS,
-) -> Tuple[List[FitbitData], List[FitbitData]]:
+) -> Tuple[List[Union[FitbitData, GoogleHealthData]], List[Union[FitbitData, GoogleHealthData]]]:
     """
     Sort records chronologically, then greedily pick up to *max_weekdays*
     weekdays (Mon–Fri) and *max_weekends* weekend days (Sat–Sun).
@@ -181,8 +179,8 @@ def _split_weekday_weekend(
         (r for r in records if _record_date(r) is not None),
         key=lambda r: _record_date(r),
     )
-    weekdays: List[FitbitData] = []
-    weekends: List[FitbitData] = []
+    weekdays: List[Union[FitbitData, GoogleHealthData]] = []
+    weekends: List[Union[FitbitData, GoogleHealthData]] = []
     for r in sorted_records:
         dow = _record_date(r).weekday()  # Monday=0, Sunday=6
         if dow < 5:
@@ -194,7 +192,7 @@ def _split_weekday_weekend(
     return weekdays, weekends
 
 
-def _sleep_minutes(r: FitbitData) -> Optional[float]:
+def _sleep_minutes(r: Union[FitbitData, GoogleHealthData]) -> Optional[float]:
     """Return sleep duration in minutes (preferred: minutes_asleep; fallback: sleep_duration ms)."""
     try:
         if r.sleep is None:
