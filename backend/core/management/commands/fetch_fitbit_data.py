@@ -297,7 +297,7 @@ class Command(BaseCommand):
 
                         session = ExerciseSession(
                             logId=act.get("logId"),
-                            name=act.get("activityName"),
+                            name=act.get("activityName") or act.get("name") or act.get("activityParentName"),
                             startTime=act.get("startTime"),
                             duration=act.get("duration"),
                             calories=act.get("calories"),

@@ -291,7 +291,7 @@ def sync_wearables_to_redcap_all():
         if not (patient.project or "").strip():
             continue
         try:
-            results = export_wearables_to_redcap(patient)
+            results = export_wearables_to_redcap(patient, skip_if_populated=False)
             logger.info("[sync_wearables_all] %s → %s", patient.patient_code, results)
             synced += 1
         except Exception as e:

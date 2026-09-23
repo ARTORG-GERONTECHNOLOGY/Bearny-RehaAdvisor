@@ -680,8 +680,9 @@ def get_fitbit_health_data(request, patient_id):
             to_date = timezone.now().date()
             from_date = to_date - timedelta(days=30)
 
-        # ---- Query FitbitData ----
-        fitbit_entries = FitbitData.objects(user=patient.userId, date__gte=from_date, date__lte=to_date).order_by(
+        # ---- Query wearable data (Fitbit or Google Health) ----
+        WearableModel = GoogleHealthData if getattr(patient, "wearable_device", None) == "google_health" else FitbitData
+        fitbit_entries = WearableModel.objects(user=patient.userId, date__gte=from_date, date__lte=to_date).order_by(
             "date"
         )
 
