@@ -46,9 +46,7 @@ def _run_backfill_sleep(entries):
             with mock.patch("core.views.fitbit_sync.FitbitUserToken") as mock_token_cls:
                 fake_token = mock.MagicMock()
                 fake_token.user.id = "user1"
-                mock_token_cls.objects.return_value.__iter__ = mock.Mock(
-                    return_value=iter([fake_token])
-                )
+                mock_token_cls.objects.return_value.__iter__ = mock.Mock(return_value=iter([fake_token]))
                 # We call the internal accumulation logic directly by parsing the response
                 for entry in entries:
                     d = dt_mod.datetime.strptime(entry["dateOfSleep"], "%Y-%m-%d").date()

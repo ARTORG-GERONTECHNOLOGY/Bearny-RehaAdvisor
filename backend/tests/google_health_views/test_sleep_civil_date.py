@@ -12,8 +12,8 @@ import datetime
 
 import pytest
 
-
 # ---- helper ----------------------------------------------------------------
+
 
 def _make_utc(year, month, day, hour, minute=0):
     return f"{year:04d}-{month:02d}-{day:02d}T{hour:02d}:{minute:02d}:00+00:00"
@@ -30,9 +30,7 @@ def test_evening_nap_stays_on_same_day():
     start = _make_utc(2026, 9, 21, 20, 23)
     end = _make_utc(2026, 9, 21, 21, 3)
     result = _sleep_civil_date(start, end)
-    assert result == datetime.date(2026, 9, 21), (
-        f"Evening nap should stay on Sep 21, got {result}"
-    )
+    assert result == datetime.date(2026, 9, 21), f"Evening nap should stay on Sep 21, got {result}"
 
 
 def test_overnight_sleep_attributed_to_wakeup_day():
@@ -40,11 +38,9 @@ def test_overnight_sleep_attributed_to_wakeup_day():
     from core.views.google_health_sync import _sleep_civil_date
 
     start = _make_utc(2026, 9, 21, 21, 35)  # 23:35 CEST
-    end = _make_utc(2026, 9, 22, 6, 22)    # 08:22 CEST
+    end = _make_utc(2026, 9, 22, 6, 22)  # 08:22 CEST
     result = _sleep_civil_date(start, end)
-    assert result == datetime.date(2026, 9, 22), (
-        f"Overnight sleep should be on wakeup day Sep 22, got {result}"
-    )
+    assert result == datetime.date(2026, 9, 22), f"Overnight sleep should be on wakeup day Sep 22, got {result}"
 
 
 def test_early_morning_session_stays_on_same_day():
@@ -57,9 +53,7 @@ def test_early_morning_session_stays_on_same_day():
     end = _make_utc(2026, 9, 22, 0, 30)
     result = _sleep_civil_date(start, end)
     # Both are on Sep 22 in local time (01:00 and 02:30 CEST)
-    assert result == datetime.date(2026, 9, 22), (
-        f"Early-morning session should be Sep 22, got {result}"
-    )
+    assert result == datetime.date(2026, 9, 22), f"Early-morning session should be Sep 22, got {result}"
 
 
 def test_cet_winter_evening_nap_stays_on_same_day():
@@ -70,9 +64,7 @@ def test_cet_winter_evening_nap_stays_on_same_day():
     start = _make_utc(2026, 12, 10, 21, 30)
     end = _make_utc(2026, 12, 10, 22, 10)
     result = _sleep_civil_date(start, end)
-    assert result == datetime.date(2026, 12, 10), (
-        f"Winter nap should stay on Dec 10, got {result}"
-    )
+    assert result == datetime.date(2026, 12, 10), f"Winter nap should stay on Dec 10, got {result}"
 
 
 def test_missing_end_time_falls_back_to_start_date():
@@ -98,7 +90,7 @@ def test_prefetch_unfiltered_groups_nap_with_start_day(monkeypatch):
         "sleep": {
             "interval": {
                 "startTime": _make_utc(2026, 9, 21, 20, 23),  # 22:23 CEST Sep 21
-                "endTime": _make_utc(2026, 9, 21, 21, 3),     # 23:03 CEST Sep 21
+                "endTime": _make_utc(2026, 9, 21, 21, 3),  # 23:03 CEST Sep 21
             },
             "summary": {"minutesAsleep": "38"},
         }
@@ -107,7 +99,7 @@ def test_prefetch_unfiltered_groups_nap_with_start_day(monkeypatch):
         "sleep": {
             "interval": {
                 "startTime": _make_utc(2026, 9, 21, 21, 35),  # 23:35 CEST Sep 21
-                "endTime": _make_utc(2026, 9, 22, 6, 22),     # 08:22 CEST Sep 22
+                "endTime": _make_utc(2026, 9, 22, 6, 22),  # 08:22 CEST Sep 22
             },
             "summary": {"minutesAsleep": "391"},
         }
