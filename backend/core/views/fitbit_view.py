@@ -14,7 +14,7 @@ from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from core.models import FitbitData, FitbitUserToken, GoogleHealthData, Patient, User
+from core.models import FitbitData, FitbitUserToken, GoogleHealthData, GoogleHealthUserToken, Patient, User
 from core.services.redcap_access import get_therapist_for_user
 from core.views.wearable_utils import (
     _default_thresholds,
@@ -30,6 +30,7 @@ FITBIT_API_URL = "https://api.fitbit.com/1/user/-"
 import datetime as _dt
 
 from core.views.fitbit_sync import fetch_fitbit_date_range_for_user, fetch_fitbit_today_for_user
+from core.views.google_health_sync import fetch_google_health_today_for_user
 
 
 def _sleep_minutes(entry: FitbitData) -> int:
@@ -65,10 +66,20 @@ def fitbit_summary(request, patient_id=None):
         if not user:
             return JsonResponse({"error": "User not found for patient"}, status=404)
         thresholds = _merge_thresholds(patient)
-        # Fetch today's Fitbit data
-        fetch_fitbit_today_for_user(user)
 
-        token = FitbitUserToken.objects(user=patient.userId).first()
+        wearable_device = getattr(patient, "wearable_device", None) or "fitbit"
+        WearableModel = GoogleHealthData if wearable_device == "google_health" else FitbitData
+
+        # Fetch today's data from the active source
+        if wearable_device == "google_health":
+            fetch_google_health_today_for_user(user)
+        else:
+            fetch_fitbit_today_for_user(user)
+
+        if wearable_device == "google_health":
+            token = GoogleHealthUserToken.objects(user=patient.userId).first()
+        else:
+            token = FitbitUserToken.objects(user=patient.userId).first()
         connected = bool(token) and not getattr(token, "is_revoked", False)
 
         days = max(1, min(int(request.GET.get("days", 7)), 31))
@@ -76,39 +87,36 @@ def fitbit_summary(request, patient_id=None):
         end = timezone.now()
         start = (end - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
-        qs = FitbitData.objects(user=patient.userId, date__gte=start, date__lte=end).order_by("date")
+        qs = WearableModel.objects(user=patient.userId, date__gte=start, date__lte=end).order_by("date")
 
-        # Backfill any historical days missing from the DB.
-        # The background 4-hour task only syncs *today*, and the nightly 30-day
-        # task runs at 01:00 UTC.  If the patient synced their Fitbit device after
-        # 01:00 UTC, those days won't be in the DB until the next nightly run.
-        # We detect gaps here and fill them synchronously so the patient sees
-        # their data immediately.
-        try:
-            today_date = timezone.now().date()
-            yesterday_date = today_date - _dt.timedelta(days=1)
-            window_start_date = start.date()
+        # Backfill any historical days missing from the DB (Fitbit only — GH gaps
+        # are filled by background tasks).
+        if wearable_device != "google_health":
+            try:
+                today_date = timezone.now().date()
+                yesterday_date = today_date - _dt.timedelta(days=1)
+                window_start_date = start.date()
 
-            if window_start_date <= yesterday_date:
-                existing_dates = set()
-                for _d in qs:
-                    try:
-                        existing_dates.add(_d.date.date())
-                    except Exception:
-                        existing_dates.add(_d.date)
+                if window_start_date <= yesterday_date:
+                    existing_dates = set()
+                    for _d in qs:
+                        try:
+                            existing_dates.add(_d.date.date())
+                        except Exception:
+                            existing_dates.add(_d.date)
 
-                missing_dates = set()
-                cur = window_start_date
-                while cur <= yesterday_date:
-                    if cur not in existing_dates:
-                        missing_dates.add(cur)
-                    cur += _dt.timedelta(days=1)
+                    missing_dates = set()
+                    cur = window_start_date
+                    while cur <= yesterday_date:
+                        if cur not in existing_dates:
+                            missing_dates.add(cur)
+                        cur += _dt.timedelta(days=1)
 
-                if missing_dates:
-                    fetch_fitbit_date_range_for_user(user, min(missing_dates), max(missing_dates))
-                    qs = FitbitData.objects(user=patient.userId, date__gte=start, date__lte=end).order_by("date")
-        except Exception:
-            logger.exception("[fitbit_summary] backfill check failed for user=%s", user)
+                    if missing_dates:
+                        fetch_fitbit_date_range_for_user(user, min(missing_dates), max(missing_dates))
+                        qs = WearableModel.objects(user=patient.userId, date__gte=start, date__lte=end).order_by("date")
+            except Exception:
+                logger.exception("[fitbit_summary] backfill check failed for user=%s", user)
 
         # -----------------------------
         # Pull patient vitals (BP) for range
@@ -297,7 +305,9 @@ def fitbit_summary(request, patient_id=None):
 
         # ---------- Today payload ----------
         today_end = today_start + _dt.timedelta(days=1)
-        today_qs = FitbitData.objects(user=patient.userId, date__gte=today_start, date__lt=today_end).order_by("-date")
+        today_qs = WearableModel.objects(user=patient.userId, date__gte=today_start, date__lt=today_end).order_by(
+            "-date"
+        )
         today = today_qs.first()
 
         # Keyed by the real current day (not today's record) so manual vitals surface even without a device sync.
