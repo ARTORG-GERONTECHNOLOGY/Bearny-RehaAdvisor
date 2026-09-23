@@ -50,6 +50,7 @@ from core.models import (
     FeedbackEntry,
     FeedbackQuestion,
     FitbitData,
+    GoogleHealthData,
     Intervention,
     InterventionAssignment,
     Logs,
@@ -149,6 +150,7 @@ def _make_patient(
     last_name="Smith",
     diagnosis=None,
     function=None,
+    wearable_device=None,
 ):
     user = User(
         username=f"patient_{patient_code}",
@@ -156,7 +158,7 @@ def _make_patient(
         createdAt=datetime.now(),
         isActive=True,
     ).save()
-    return Patient(
+    kwargs = dict(
         userId=user,
         patient_code=patient_code,
         therapist=therapist,
@@ -169,7 +171,10 @@ def _make_patient(
         reha_end_date=datetime(2025, 12, 31),
         duration=90,
         preferred_language="de",
-    ).save()
+    )
+    if wearable_device is not None:
+        kwargs["wearable_device"] = wearable_device
+    return Patient(**kwargs).save()
 
 
 def _make_intervention(external_id="iv_001", language="en"):
@@ -711,7 +716,7 @@ def test_health_vitals_csv_contains_vitals_rows(mongo_mock):
 
 def test_health_fitbit_csv_contains_fitbit_rows(mongo_mock):
     therapist = _make_therapist()
-    patient = _make_patient(therapist, "P001", clinic="Inselspital")
+    patient = _make_patient(therapist, "P001", clinic="Inselspital", wearable_device="fitbit")
 
     FitbitData(
         user=patient.userId,
@@ -732,6 +737,33 @@ def test_health_fitbit_csv_contains_fitbit_rows(mongo_mock):
     assert rows[0]["steps"] == "8500"
     assert rows[0]["active_minutes"] == "45"
     assert rows[0]["resting_heart_rate"] == "62"
+
+
+def test_health_fitbit_csv_contains_google_health_rows(mongo_mock):
+    therapist = _make_therapist()
+    patient = _make_patient(therapist, "P002", clinic="Inselspital", wearable_device="google_health")
+
+    from core.models import SleepData
+
+    GoogleHealthData(
+        user=patient.userId,
+        date=datetime(2025, 3, 2),
+        steps=9000,
+        active_minutes=60,
+        resting_heart_rate=58,
+        calories=2200.0,
+        distance=7.1,
+        sleep=SleepData(minutes_asleep=420),
+    ).save()
+
+    with _open_zip(client.get(EXPORT_URL)) as zf:
+        rows = _read_csv_from_zip(zf, "health_fitbit.csv")
+
+    assert len(rows) == 1
+    assert rows[0]["patient_code"] == "P002"
+    assert rows[0]["steps"] == "9000"
+    assert rows[0]["active_minutes"] == "60"
+    assert rows[0]["sleep_minutes_asleep"] == "420"
 
 
 # ===========================================================================

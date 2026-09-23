@@ -14,7 +14,7 @@ rehab_calendar.csv      — scheduled intervention dates from RehabilitationPlan
 intervention_logs.csv   — PatientInterventionLogs execution records
 intervention_feedback.csv — per-intervention FeedbackEntry answers
 health_vitals.csv       — manually-entered PatientVitals (weight, BP)
-health_fitbit.csv       — FitbitData (steps, sleep, HR, ...)
+health_fitbit.csv       — wearable health data (FitbitData or GoogleHealthData per patient)
 questionnaire_answers.csv — PatientICFRating health-status questionnaire answers
 thresholds.csv          — current PatientThresholds per patient
 threshold_history.csv   — PatientThresholdsSnapshot change history
@@ -34,6 +34,7 @@ from rest_framework.decorators import api_view, permission_classes
 from core.models import (
     FitbitData,
     GeneralFeedback,
+    GoogleHealthData,
     Intervention,
     Logs,
     Patient,
@@ -356,7 +357,8 @@ def _csv_health_vitals(patient_map):
 
 
 def _csv_health_fitbit(patients, user_map):
-    """user_map: user_id string → Patient doc."""
+    """Export wearable health data. Routes each patient to FitbitData or
+    GoogleHealthData based on their wearable_device field."""
     headers = [
         "clinic",
         "patient_code",
@@ -374,42 +376,61 @@ def _csv_health_fitbit(patients, user_map):
         "bp_sys",
         "bp_dia",
     ]
-    rows = []
-    user_ids = list(user_map.keys())
-    fitbit_rows = list(FitbitData.objects(user__in=user_ids).order_by("date"))
-    for fb in fitbit_rows:
-        try:
-            uid = str(fb.user.id) if hasattr(fb.user, "id") else str(fb.user)
-        except Exception:
-            continue
-        pt = user_map.get(uid)
-        if not pt:
-            continue
-        sleep = getattr(fb, "sleep", None)
+
+    fitbit_ids = [
+        uid for uid, pt in user_map.items() if (getattr(pt, "wearable_device", None) or "fitbit") != "google_health"
+    ]
+    gh_ids = [
+        uid for uid, pt in user_map.items() if (getattr(pt, "wearable_device", None) or "fitbit") == "google_health"
+    ]
+
+    def _row(doc, pt):
+        sleep = getattr(doc, "sleep", None)
         sleep_duration_min = ""
         sleep_minutes_asleep = ""
         if sleep:
             sleep_duration_min = str(getattr(sleep, "sleep_duration", "") or "")
             sleep_minutes_asleep = str(getattr(sleep, "minutes_asleep", "") or "")
-        rows.append(
-            {
-                "clinic": getattr(pt, "clinic", "") or "",
-                "patient_code": getattr(pt, "patient_code", "") or "",
-                "date": _fmt_date(getattr(fb, "date", None)),
-                "steps": str(getattr(fb, "steps", "") or ""),
-                "active_minutes": str(getattr(fb, "active_minutes", "") or ""),
-                "wear_time_minutes": str(getattr(fb, "wear_time_minutes", "") or ""),
-                "sleep_minutes_asleep": sleep_minutes_asleep,
-                "sleep_duration_min": sleep_duration_min,
-                "resting_heart_rate": str(getattr(fb, "resting_heart_rate", "") or ""),
-                "max_heart_rate": str(getattr(fb, "max_heart_rate", "") or ""),
-                "calories": str(getattr(fb, "calories", "") or ""),
-                "distance_km": str(getattr(fb, "distance", "") or ""),
-                "weight_kg": str(getattr(fb, "weight_kg", "") or ""),
-                "bp_sys": str(getattr(fb, "bp_sys", "") or ""),
-                "bp_dia": str(getattr(fb, "bp_dia", "") or ""),
-            }
-        )
+        return {
+            "clinic": getattr(pt, "clinic", "") or "",
+            "patient_code": getattr(pt, "patient_code", "") or "",
+            "date": _fmt_date(getattr(doc, "date", None)),
+            "steps": str(getattr(doc, "steps", "") or ""),
+            "active_minutes": str(getattr(doc, "active_minutes", "") or ""),
+            "wear_time_minutes": str(getattr(doc, "wear_time_minutes", "") or ""),
+            "sleep_minutes_asleep": sleep_minutes_asleep,
+            "sleep_duration_min": sleep_duration_min,
+            "resting_heart_rate": str(getattr(doc, "resting_heart_rate", "") or ""),
+            "max_heart_rate": str(getattr(doc, "max_heart_rate", "") or ""),
+            "calories": str(getattr(doc, "calories", "") or ""),
+            "distance_km": str(getattr(doc, "distance", "") or ""),
+            "weight_kg": str(getattr(doc, "weight_kg", "") or ""),
+            "bp_sys": str(getattr(doc, "bp_sys", "") or ""),
+            "bp_dia": str(getattr(doc, "bp_dia", "") or ""),
+        }
+
+    rows = []
+    if fitbit_ids:
+        for doc in FitbitData.objects(user__in=fitbit_ids).order_by("date"):
+            try:
+                uid = str(doc.user.id) if hasattr(doc.user, "id") else str(doc.user)
+            except Exception:
+                continue
+            pt = user_map.get(uid)
+            if pt:
+                rows.append(_row(doc, pt))
+
+    if gh_ids:
+        for doc in GoogleHealthData.objects(user__in=gh_ids).order_by("date"):
+            try:
+                uid = str(doc.user.id) if hasattr(doc.user, "id") else str(doc.user)
+            except Exception:
+                continue
+            pt = user_map.get(uid)
+            if pt:
+                rows.append(_row(doc, pt))
+
+    rows.sort(key=lambda r: (r["patient_code"], r["date"]))
     return _make_csv(headers, rows)
 
 
@@ -602,7 +623,7 @@ def admin_export_patients(request):
         # patient_id (str) → Patient doc — used for cross-collection lookups
         patient_map = {str(pt.pk): pt for pt in patients}
 
-        # user_id (str) → Patient doc — used for FitbitData (indexed by User)
+        # user_id (str) → Patient doc — used for wearable data (indexed by User)
         user_map = {}
         for pt in patients:
             try:

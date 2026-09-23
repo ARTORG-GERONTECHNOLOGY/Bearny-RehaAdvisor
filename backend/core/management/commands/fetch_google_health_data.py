@@ -49,12 +49,16 @@ class Command(BaseCommand):
             date_range.append(d)
             d += datetime.timedelta(days=1)
 
-        tokens = GoogleHealthUserToken.objects.all()
+        tokens_qs = GoogleHealthUserToken.objects.all()
         if user_id_filter:
-            tokens = tokens.filter(user=user_id_filter)
+            tokens_qs = tokens_qs.filter(user=user_id_filter)
+        # Materialise into a list so the MongoDB cursor closes immediately —
+        # the per-user API calls take hours total and would exhaust the
+        # server-side cursor timeout on large cohorts.
+        tokens = list(tokens_qs)
 
         self.stdout.write(
-            f"[google_health] Starting sync for {tokens.count()} user(s)"
+            f"[google_health] Starting sync for {len(tokens)} user(s)"
             f" from {start_date} to {today} ({len(date_range)} days)"
         )
 

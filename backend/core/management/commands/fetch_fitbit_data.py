@@ -24,11 +24,44 @@ FITBIT_API_URL = "https://api.fitbit.com/1/user/-"
 class Command(BaseCommand):
     help = "Fetch extended Fitbit metrics and store in MongoDB (no duplicates)"
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--days",
+            type=int,
+            default=30,
+            help="Number of days to backfill counting back from today (default 30)",
+        )
+        parser.add_argument(
+            "--start-date",
+            type=str,
+            default=None,
+            help="Explicit start date YYYY-MM-DD; overrides --days",
+        )
+        parser.add_argument(
+            "--user",
+            type=str,
+            default=None,
+            help="MongoDB user ID — backfill a single user only",
+        )
+
     def handle(self, *args, **kwargs):
-        users = FitbitUserToken.objects(is_revoked__ne=True).all()
+        user_id_filter = kwargs.get("user")
+        users_qs = FitbitUserToken.objects(is_revoked__ne=True)
+        if user_id_filter:
+            users_qs = users_qs.filter(user=user_id_filter)
+        # Materialise into a list so the MongoDB cursor closes immediately —
+        # the per-user API calls take hours total and would exhaust the
+        # server-side cursor timeout on large cohorts.
+        users = list(users_qs)
 
         today = datetime.date.today()
-        start_date = today - datetime.timedelta(days=30)
+        if kwargs.get("start_date"):
+            start_date = datetime.date.fromisoformat(kwargs["start_date"])
+        else:
+            days = max(1, kwargs.get("days", 30))
+            start_date = today - datetime.timedelta(days=days)
+
+        self.stdout.write(f"[fitbit] Starting sync for {len(users)} user(s) from {start_date} to {today}")
 
         for user_token in users:
             try:
@@ -110,7 +143,7 @@ class Command(BaseCommand):
                 intraday_ok = 0
                 intraday_empty = 0
                 intraday_errors = {}  # status_code -> first date seen
-                for offset in range(31):
+                for offset in range((today - start_date).days + 1):
                     d = start_date + datetime.timedelta(days=offset)
                     d_str = d.strftime("%Y-%m-%d")
 
@@ -294,7 +327,7 @@ class Command(BaseCommand):
 
                 # Log any days in the 30-day window where the steps endpoint
                 # returned zero rows — these will be missing from the display.
-                expected_dates = {start_date + datetime.timedelta(days=i) for i in range(31)}
+                expected_dates = {start_date + datetime.timedelta(days=i) for i in range((today - start_date).days + 1)}
                 step_dates = set(series["steps"].keys())
                 missing_step_dates = sorted(expected_dates - step_dates - {today})
                 if missing_step_dates:
