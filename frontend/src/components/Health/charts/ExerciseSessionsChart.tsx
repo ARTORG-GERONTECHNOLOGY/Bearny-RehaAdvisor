@@ -130,7 +130,7 @@ const ExerciseSessionsChart = forwardRef<HTMLDivElement, Props>(({ data, start, 
         const wide: Record<string, number | string> = { date: row.date };
         row.sessions.forEach((s, i) => {
           wide[`s${i}`] = s.duration;
-          wide[`s${i}Name`] = s.name || t('Exercise');
+          wide[`s${i}Name`] = s.name === 'Exercise' ? t('exercise_auto_detected') : s.name || t('Exercise');
         });
         return wide;
       }),

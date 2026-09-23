@@ -391,6 +391,7 @@
   "Distance": "Distance",
   "Breathing": "Respiration",
   "Exercise": "Exercice",
+  "exercise_auto_detected": "Exercice (détecté automatiquement par le wearable)",
   "Resting HR": "Fréquence cardiaque au repos",
   "HRV": "Variabilité de la fréquence cardiaque",
   "Breathing Rate": "Fréquence respiratoire",
