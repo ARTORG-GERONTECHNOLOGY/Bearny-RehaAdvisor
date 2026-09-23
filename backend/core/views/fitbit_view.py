@@ -34,6 +34,15 @@ from core.views.fitbit_sync import fetch_fitbit_date_range_for_user, fetch_fitbi
 from core.views.google_health_sync import fetch_google_health_today_for_user
 
 
+def _normalize_exercise_field(raw) -> dict:
+    """Return exercise as {"sessions": [...]} regardless of whether raw is a list or dict."""
+    if isinstance(raw, dict):
+        return {"sessions": raw.get("sessions", [])}
+    if isinstance(raw, list):
+        return {"sessions": raw}
+    return {"sessions": []}
+
+
 def _sleep_minutes(entry: FitbitData) -> int:
     """Return sleep in minutes, matching what the Fitbit app shows.
 
@@ -970,7 +979,7 @@ def health_combined_history(request, patient_id):
                     ),
                     "breathing_rate": f.breathing_rate if f else None,
                     "hrv": f.hrv if f else None,
-                    "exercise": (f.exercise or {}) if f else {},
+                    "exercise": _normalize_exercise_field(f.exercise) if f else {"sessions": []},
                     "weight_kg": weight_kg,
                     "bp_sys": bp_sys,
                     "bp_dia": bp_dia,

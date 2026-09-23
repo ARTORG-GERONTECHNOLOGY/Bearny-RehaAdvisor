@@ -383,7 +383,8 @@ def _csv_health_fitbit(patients, user_map):
         sleep_duration_min = ""
         sleep_minutes_asleep = ""
         if sleep:
-            sleep_duration_min = str(getattr(sleep, "sleep_duration", "") or "")
+            raw_ms = getattr(sleep, "sleep_duration", None)
+            sleep_duration_min = str(round(raw_ms / 60000)) if raw_ms else ""
             sleep_minutes_asleep = str(getattr(sleep, "minutes_asleep", "") or "")
         return {
             "clinic": getattr(pt, "clinic", "") or "",
