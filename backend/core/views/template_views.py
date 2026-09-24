@@ -1100,6 +1100,6 @@ def template_calendar(request, template_id):
 
         return JsonResponse({"horizon_days": horizon, "items": items}, status=200)
 
-    except Exception as e:
+    except Exception:
         logger.exception("template_calendar failed")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error"}, status=500)

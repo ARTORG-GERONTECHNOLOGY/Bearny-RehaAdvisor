@@ -46,6 +46,7 @@ from utils.interventions import (
     _as_str_or_none,
     _available_language_variants,
     _canonical_assignment_for,
+    _clip_before,
     _detect_file_media_type,
     _first_str_from_any,
     _get_star_q_ids,
@@ -66,6 +67,7 @@ from utils.interventions import (
     _save_file,
     _serialize_media,
     _split_taglist_into_fields,
+    _upsert_intervention,
     _variant_ids_for_external_id,
     normalize_content_type,
 )
@@ -376,9 +378,9 @@ def template_plan_preview(request, therapist_id):
 
     except Therapist.DoesNotExist:
         return JsonResponse({"error": "Therapist not found"}, status=404)
-    except Exception as e:
+    except Exception:
         logger.exception("template_plan_preview failed")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 # --------------------------------------------------------------------
@@ -854,8 +856,9 @@ def add_new_intervention(request):
             status=200,
         )
 
-    except Exception as e:
-        return JsonResponse({"success": False, "error": str(e)}, status=500)
+    except Exception:
+        logger.exception("add_new_intervention failed")
+        return JsonResponse({"success": False, "error": "Internal server error"}, status=500)
 
 
 # --------------------------------------------------------------------
@@ -936,9 +939,9 @@ def get_intervention_detail(request, intervention_id):
 
     except Intervention.DoesNotExist:
         return JsonResponse({"error": "Intervention not found"}, status=404)
-    except Exception as e:
+    except Exception:
         logger.exception("[get_intervention_detail] Unexpected error")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 # --------------------------------------------------------------------
@@ -1144,9 +1147,9 @@ def list_all_interventions(request, patient_id=None):
 
         return JsonResponse(all_serialized, safe=False, status=200)
 
-    except Exception as e:
+    except Exception:
         logger.exception("[list_all_interventions] Unexpected error")
-        return JsonResponse({"error": "Internal Server Error", "details": str(e)}, status=500)
+        return JsonResponse({"error": "Internal Server Error"}, status=500)
 
 
 # --------------------------------------------------------------------
@@ -1359,12 +1362,12 @@ def assign_intervention_to_types(request, therapist_id):
 
     try:
         therapist_obj.save()
-    except Exception as e:
+    except Exception:
+        logger.exception("Failed to save therapist default_recommendations assignment")
         return JsonResponse(
             {
                 "success": False,
                 "message": "Database error: could not update assignments.",
-                "detail": str(e),
             },
             status=500,
         )
@@ -1617,12 +1620,12 @@ def remove_intervention_from_types(request, therapist_id):
 
     try:
         therapist_obj.save()
-    except Exception as e:
+    except Exception:
+        logger.exception("Failed to save therapist default_recommendations removal")
         return JsonResponse(
             {
                 "success": False,
                 "message": "Database error while saving changes.",
-                "detail": str(e),
             },
             status=500,
         )
@@ -1728,13 +1731,12 @@ def create_patient_group(request):
             intervention_obj.patient_types = []
         intervention_obj.patient_types.append(new_entry)
         intervention_obj.save()
-    except Exception as e:
+    except Exception:
         logger.exception("[create_patient_group] Failed to save intervention")
         return JsonResponse(
             {
                 "success": False,
                 "message": "Database error while saving patient group.",
-                "detail": str(e),
             },
             status=500,
         )

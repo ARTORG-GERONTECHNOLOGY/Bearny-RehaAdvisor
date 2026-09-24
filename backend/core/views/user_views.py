@@ -438,9 +438,9 @@ def user_profile_view(request, user_id):
 
             return JsonResponse(obj, status=200)
 
-        except Exception as e:
+        except Exception:
             logger.exception("GET profile failed")
-            return JsonResponse({"error": str(e)}, status=500)
+            return JsonResponse({"error": "Internal server error"}, status=500)
 
     # ================================ PUT ======================================
     if request.method == "PUT":

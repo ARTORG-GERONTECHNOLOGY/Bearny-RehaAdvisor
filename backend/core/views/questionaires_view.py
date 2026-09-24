@@ -782,9 +782,9 @@ def assign_questionnaire(request):
         return JsonResponse({"error": "Questionnaire not found"}, status=404)
     except Patient.DoesNotExist:
         return JsonResponse({"error": "Patient not found"}, status=404)
-    except Exception as e:
+    except Exception:
         logger.exception("assign_questionnaire failed")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 @api_view(["POST"])
@@ -820,9 +820,9 @@ def remove_questionnaire(request):
         plan.save()
         return JsonResponse({"message": "removed"}, status=200)
 
-    except Exception as e:
+    except Exception:
         logger.exception("remove_questionnaire failed")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 @api_view(["POST"])
@@ -853,6 +853,6 @@ def reset_patient_feedback(request):
         deleted = PatientICFRating.objects(patientId=patient, date__gte=from_dt).delete()
         return JsonResponse({"deleted": deleted}, status=200)
 
-    except Exception as e:
+    except Exception:
         logger.exception("reset_patient_feedback failed")
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": "Internal server error"}, status=500)

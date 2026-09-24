@@ -1845,7 +1845,7 @@ If omitted, defaults come from `REDCAP_WEARABLES_EVENT_BASELINE` / `REDCAP_WEARA
 |--------|-------|
 | 400    | Patient has no `reha_end_date`, or no `project` set |
 | 404    | `patient_id` not found |
-| 502    | REDCap API rejected the write (`detail` field contains REDCap error) |
+| 502    | REDCap API rejected the write (the REDCap response is logged server-side, not returned) |
 | 500    | Unexpected server error |
 
 **REDCap fields written:**

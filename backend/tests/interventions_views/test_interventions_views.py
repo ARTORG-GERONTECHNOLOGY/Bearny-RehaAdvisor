@@ -58,6 +58,7 @@ filesystem.
 
 import io
 import json
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import mongomock
@@ -71,8 +72,10 @@ from core.models import (
     DefaultInterventions,
     DiagnosisAssignmentSettings,
     Intervention,
+    Patient,
     PatientInterventionLogs,
     PatientType,
+    RehabilitationPlan,
     Therapist,
     User,
 )
@@ -747,6 +750,37 @@ def test_assign_intervention_to_types_all_past_and_future_payload(mongo_mock):
     assert "existing_patients_applied" in body
 
 
+def test_assign_intervention_to_types_keep_previous_clips_earlier_block(mongo_mock):
+    """
+    keep_previous=true clips the existing block at the new start_day and appends
+    the new block instead of replacing it.
+    """
+    therapist, intervention = create_therapist_and_intervention()
+    add_default_recommendation_block(therapist, intervention)  # days 1-7
+    payload = dict(VALID_ASSIGN_PAYLOAD)
+    payload["interventions"] = [
+        {
+            **VALID_ASSIGN_PAYLOAD["interventions"][0],
+            "interventionId": str(intervention.id),
+            "start_day": 5,
+            "keep_previous": True,
+        }
+    ]
+
+    resp = client.post(
+        ASSIGN_URL.format(th_id=therapist.userId.id),
+        data=json.dumps(payload),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code in (200, 201), resp.content.decode()
+
+    blocks = Therapist.objects.get(id=therapist.id).default_recommendations[0].diagnosis_assignments["Heart Attack"]
+    assert [(b.start_day, b.end_day) for b in blocks][0] == (1, 4)
+    assert len(blocks) == 2
+    assert blocks[1].start_day == 5
+
+
 def test_assign_intervention_to_types_therapist_not_found(mongo_mock):
     """
     Supplying an unknown therapist ObjectId returns 404.
@@ -1236,6 +1270,50 @@ def test_apply_template_invalid_effective_date(mongo_mock):
     )
     assert resp.status_code == 400
     assert "effectiveFrom" in resp.json().get("field_errors", {})
+
+
+def test_apply_template_success_creates_plan(mongo_mock):
+    """
+    Applying a diagnosis template with a matching default recommendation
+    writes the intervention into the patient's rehabilitation plan.
+    """
+    therapist, intervention = create_therapist_and_intervention()
+    add_default_recommendation_block(therapist, intervention)
+    patient_user = User(username="patient", createdAt=datetime.now(), isActive=True).save()
+    patient = Patient(
+        userId=patient_user,
+        patient_code="PAT-APPLY",
+        name="Patient",
+        first_name="Test",
+        age="30",
+        therapist=therapist,
+        sex="Male",
+        diagnosis=["Heart Attack"],
+        function=["Cardiology"],
+        level_of_education="High School",
+        professional_status="Employed Full-Time",
+        marital_status="Single",
+        lifestyle=[],
+        personal_goals=[],
+        reha_end_date=datetime.now() + timedelta(days=60),
+    ).save()
+
+    resp = client.post(
+        APPLY_URL.format(th_id=therapist.userId.id),
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "diagnosis": "Heart Attack",
+                "effectiveFrom": datetime.now().date().isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    plan = RehabilitationPlan.objects(patientId=patient).first()
+    assert plan is not None
+    assert len(plan.interventions) == 1
 
 
 def test_apply_template_get_method_not_allowed(mongo_mock):

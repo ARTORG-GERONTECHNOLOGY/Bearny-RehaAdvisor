@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -7,6 +8,8 @@ from rest_framework.permissions import IsAuthenticated
 
 from core.models import Intervention, InterventionMedia
 from utils.interventions import _save_file
+
+logger = logging.getLogger(__name__)
 
 # Matches: {4-5 digits}_{format}_{lang}[_{slot}].{ext}
 # The optional trailing _{slot} (integer ≥ 2) identifies additional media slots
@@ -179,6 +182,7 @@ def upload_intervention_media(request):
         try:
             result = _process_single_file(f)
         except Exception as e:
+            logger.exception("Failed to process uploaded media file %s", getattr(f, "name", ""))
             result = {
                 "filename": getattr(f, "name", ""),
                 "status": "error",

@@ -80,17 +80,16 @@ def redcap_record(request):
             status=200,
         )
     except RedcapError as e:
-        logger.exception("REDCap error while exporting record")
+        logger.exception("REDCap error while exporting record: %s", getattr(e, "detail", None))
         return JsonResponse(
             {
-                "error": str(e),
-                "detail": getattr(e, "detail", None),
+                "error": "REDCap error.",
                 "project": project,
                 "pat_id": pat_id,
             },
             status=502,
         )
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected server error in redcap_record")
         return JsonResponse(
             {"error": "Unexpected server error.", "project": project, "pat_id": pat_id},

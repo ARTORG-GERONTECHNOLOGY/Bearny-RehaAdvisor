@@ -497,9 +497,9 @@ def patient_thresholds_view(request, patient_id: str):
     except MEValidationError as e:
         logger.exception("MongoEngine validation error updating thresholds")
         return bad("Validation error.", non_field_errors=[str(e)], status=400)
-    except Exception as e:
+    except Exception:
         logger.exception("Error updating thresholds")
-        return bad("Unexpected error.", non_field_errors=[str(e)], status=500)
+        return bad("Unexpected error.", status=500)
 
     hist = list(getattr(updated, "thresholds_history", []) or [])
     hist_sorted = sorted(

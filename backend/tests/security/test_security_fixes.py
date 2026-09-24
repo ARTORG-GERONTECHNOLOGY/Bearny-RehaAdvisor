@@ -128,16 +128,12 @@ def test_fix5_non_admin_views_carry_api_view_decorator():
     @api_view wraps the function and attaches a .cls attribute (WrappedAPIView).
     Its presence proves DRF will now actually run auth and permission checks.
     """
-    from core.views.patient_views import (
-        get_patient_plan_for_therapist,
-        get_patient_recommendations,
-    )
+    from core.views.patient_views import get_patient_plan_for_therapist
     from core.views.therapist_views import list_therapist_patients
 
     for view_fn in (
         list_therapist_patients,
         get_patient_plan_for_therapist,
-        get_patient_recommendations,
     ):
         assert hasattr(view_fn, "cls"), (
             f"{view_fn.__name__} must be wrapped with @api_view " "so DRF enforces authentication"

@@ -1,6 +1,7 @@
 # core/services/intervention_import.py
 
 import json
+import logging
 import os
 import re
 import tempfile
@@ -15,6 +16,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Intervention, InterventionMedia
+
+logger = logging.getLogger(__name__)
 
 # ---------------- taxonomy ----------------
 
@@ -245,8 +248,9 @@ def import_interventions(request):
             return _bad(msg, status=400, error_code="missing_column")
         return _bad(msg, status=400, error_code="validation_error")
 
-    except Exception as e:
-        return _bad("Import failed.", status=500, details=str(e))
+    except Exception:
+        logger.exception("Intervention import failed")
+        return _bad("Import failed.", status=500)
 
     finally:
         if tmp_path and os.path.exists(tmp_path):

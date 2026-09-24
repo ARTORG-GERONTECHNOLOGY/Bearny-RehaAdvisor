@@ -599,7 +599,6 @@ def test_health_combined_history_success_merges_fitbit_vitals_and_lists(
     with patch(
         "core.views.fitbit_view.PatientICFRating",
         new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [qrow])),
-        create=True,
     ):
         req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
         resp = health_combined_history(req, str(patient.id))
@@ -664,7 +663,6 @@ def test_health_combined_history_google_health_patient_returns_google_health_dat
     with patch(
         "core.views.fitbit_view.PatientICFRating",
         new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [])),
-        create=True,
     ):
         req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
         resp = health_combined_history(req, str(patient.id))
@@ -716,7 +714,6 @@ def test_health_combined_history_fitbit_patient_not_affected_by_google_health_fi
     with patch(
         "core.views.fitbit_view.PatientICFRating",
         new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [])),
-        create=True,
     ):
         req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
         resp = health_combined_history(req, str(patient.id))
@@ -821,7 +818,6 @@ def test_health_combined_history_includes_minutes_asleep_and_wear_time(mock_merg
     with patch(
         "core.views.fitbit_view.PatientICFRating",
         new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [])),
-        create=True,
     ):
         req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
         resp = health_combined_history(req, str(patient.id))
@@ -876,7 +872,6 @@ def test_health_combined_history_wear_time_none_when_absent(mock_merged, mock_vi
     with patch(
         "core.views.fitbit_view.PatientICFRating",
         new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [])),
-        create=True,
     ):
         req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
         resp = health_combined_history(req, str(patient.id))
@@ -928,7 +923,6 @@ def test_health_combined_history_questionnaire_rows_include_comment_and_media_fi
     with patch(
         "core.views.fitbit_view.PatientICFRating",
         new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [fake_q])),
-        create=True,
     ):
         req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
         resp = health_combined_history(req, str(patient.id))

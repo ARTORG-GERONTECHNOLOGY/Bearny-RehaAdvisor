@@ -213,7 +213,8 @@ def test_redcap_error_returns_502():
     assert resp.status_code == 502
     body = resp.json()
     assert "REDCap" in body["error"]
-    assert body["detail"] == {"status": 400}
+    # detail is logged server-side only, not exposed to the client (info-disclosure fix)
+    assert "detail" not in body
 
 
 # ---------------------------------------------------------------------------
