@@ -20,6 +20,7 @@ def test_seed_periodic_tasks_creates_or_updates_tasks():
                 (SimpleNamespace(name="Run Fetch Fitbit Data"), False),
                 (SimpleNamespace(name="Run Fetch Fitbit Data Today (4h)"), True),
                 (SimpleNamespace(name="Run Fetch Google Health Data"), True),
+                (SimpleNamespace(name="Run Fetch Google Health Data Today (4h)"), True),
                 (SimpleNamespace(name="Send Due Intervention Push Notifications"), True),
                 (SimpleNamespace(name="Sync Wearables to REDCap (nightly)"), True),
             ],
@@ -28,7 +29,7 @@ def test_seed_periodic_tasks_creates_or_updates_tasks():
         cmd.handle()
 
     assert get_sched.call_count == 3  # midnight + every-4h + hourly schedules
-    assert upsert.call_count == 6
+    assert upsert.call_count == 7
 
 
 def test_set_celerybeat_every_minute_updates_expected_tasks():

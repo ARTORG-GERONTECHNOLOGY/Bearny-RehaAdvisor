@@ -133,7 +133,7 @@ class PatientFitbitStore {
           const { data: fbData } = await apiClient.get(`/fitbit/status/${patientId}/`);
           runInAction(() => {
             this.connected = !!fbData?.connected;
-            this.needsReconnect = false;
+            this.needsReconnect = !!fbData?.needs_reconnect;
             this.daysUntilExpiry = null;
           });
         } catch {
