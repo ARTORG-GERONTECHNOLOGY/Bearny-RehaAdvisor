@@ -30,7 +30,7 @@ export const filterRestingHRInRange = (
   start?: Date | null,
   end?: Date | null
 ): RestingHRRow[] =>
-  buildDailyRows(data, start, end, 'restingHR', (d) => d.resting_heart_rate ?? null);
+  buildDailyRows(data, start, end, 'restingHR', (d) => d.resting_heart_rate || null);
 
 export const averageRestingHR = (
   data: FitbitEntry[],

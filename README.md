@@ -47,7 +47,7 @@ Build containers. Add -up flag to bring services up after build.
 
 $> docker compose -f docker-compose.dev.yml build --no-cache
 or
-$> docker compose -f docker-compose.prod.yml build --no-cache
+$> docker compose -f docker-compose.prod.reha-advisor.yml build --no-cache
 
 ```
 
@@ -57,7 +57,7 @@ Bring containers up. Add -d flag to run output detached from current shell.
 
 $> docker compose -f docker-compose.dev.yml up -d
 or
-$> docker compose -f docker-compose.prod.yml up -d
+$> docker compose -f docker-compose.prod.reha-advisor.yml up -d
 ```
 
 Bring containers down. Add -v flag to also delete named volumes
@@ -65,7 +65,7 @@ Bring containers down. Add -v flag to also delete named volumes
 ```sh
 
 $>  docker compose -f docker-compose.dev.yml down --volumes --remove-orphans
-$>  docker compose -f docker-compose.prod.yml down --volumes --remove-orphans
+$>  docker compose -f docker-compose.prod.reha-advisor.yml down --volumes --remove-orphans
 
 ```
 
@@ -91,14 +91,20 @@ See all logs and container details.
 $> lazydocker
 
 ```
-### Containers, Services and Ports
+### Containers, Services and Ports (dev)
 
-| Container  | Service | Host Port | Docker Port |
-|------------|---------|-----------|-------------|
-|[dev-]django| django  | 8001      | 8000        |
-|[dev-]react | react   | 3001      | 3000        |
-|[dev-]db    | db      | 27017     | 27017       |
-|[dev-]nginx | nginx   | 8080 443  | 80  443     |
+| Container     | Service       | Host Port | Docker Port | Notes |
+|---------------|---------------|-----------|-------------|-------|
+| django-dev    | django-dev    | 8001      | 8000        |       |
+| react-dev     | react-dev     | 3001      | 3000        |       |
+| db-dev        | db-dev        | 27017     | 27017       | MongoDB 8, TLS + auth |
+| redis         | redis         | —         | 6379        | TLS-only |
+| celery        | celery        | —         | —           | Celery worker |
+| celery-beat   | celery-beat   | —         | —           | Periodic task scheduler |
+| libretranslate| libretranslate| —         | 5000        | Translation service |
+| nginx-dev     | nginx-dev     | via gateway| 80 443     | Ports owned by gateway compose |
+
+> **Gateway**: nginx-dev does not expose ports directly. Run `docker compose -f docker-compose.gateway.yml up -d` to route 80/443 to the dev stack.
 
 ## Testing
 
@@ -171,7 +177,7 @@ pytest -vv
 ### CI/CD Pipeline
 
 Tests automatically run on GitHub Actions for:
-- Every push to `main` and `develop` branches
+- Every push to `main` and `dev` branches
 - Every pull request
 - Triggered by changes to backend/, frontend/, or workflow files
 

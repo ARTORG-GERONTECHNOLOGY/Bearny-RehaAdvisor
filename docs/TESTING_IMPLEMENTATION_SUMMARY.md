@@ -1,5 +1,13 @@
 # Testing Implementation Summary
 
+> **Superseded.** This file is from early 2026 and is no longer maintained. See the canonical testing docs:
+> - [`docs/TESTING.md`](./TESTING.md) — entry point
+> - [`docs/testing/MASTER_TESTING_GUIDE.md`](./testing/MASTER_TESTING_GUIDE.md) — overview
+> - [`docs/testing/BACKEND_TEST_DOCUMENTATION.md`](./testing/BACKEND_TEST_DOCUMENTATION.md) — backend
+> - [`docs/testing/FRONTEND_TEST_DOCUMENTATION.md`](./testing/FRONTEND_TEST_DOCUMENTATION.md) — frontend
+
+---
+
 ## Overview
 
 This document summarizes the comprehensive testing improvements implemented across the RehaAdvisor platform. All test locations have been consolidated to follow consistent directory structure, and all tests have been documented with clear scenario descriptions and business context.

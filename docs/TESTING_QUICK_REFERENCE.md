@@ -1,5 +1,9 @@
 # Testing Quick Reference Guide
 
+> **Superseded.** See [`docs/TESTING.md`](./TESTING.md) and [`docs/testing/MASTER_TESTING_GUIDE.md`](./testing/MASTER_TESTING_GUIDE.md) for current guidance.
+
+---
+
 ## For Developers: Fast Lookup for Common Testing Tasks
 
 ---
