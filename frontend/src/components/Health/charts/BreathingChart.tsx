@@ -30,7 +30,7 @@ export const filterBreathingInRange = (
   start?: Date | null,
   end?: Date | null
 ): BreathingRow[] =>
-  buildDailyRows(data, start, end, 'breathingRate', (d) => d.breathing_rate?.breathingRate ?? null);
+  buildDailyRows(data, start, end, 'breathingRate', (d) => d.breathing_rate?.breathingRate || null);
 
 export const averageBreathingRate = (
   data: FitbitEntry[],
