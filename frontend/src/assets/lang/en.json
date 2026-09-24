@@ -392,7 +392,7 @@
   "Distance": "Distance Traveled (km)",
   "Breathing": "Breathing Rate (breaths/min)",
   "Exercise": "Exercise",
-  "exercise_auto_detected": "Exercise (automatically detected by wearable)",
+  "exercise_auto_detected": "Exercise (automatic)",
   "Resting HR": "Resting Heart Rate",
   "HRV": "Heart Rate Variability (dailyRmssd in ms)",
   "Breathing Rate": "Breathing Rate (breaths/min)",

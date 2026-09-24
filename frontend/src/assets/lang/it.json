@@ -390,7 +390,7 @@
   "Distance": "Distanza (km)",
   "Breathing": "Frequenza respiratoria (respiri/min)",
   "Exercise": "Esercizio",
-  "exercise_auto_detected": "Esercizio (rilevato automaticamente dall'indossabile)",
+  "exercise_auto_detected": "Esercizio (automatico)",
   "Resting HR": "Frequenza cardiaca a riposo",
   "HRV": "HRV",
   "Breathing Rate": "Frequenza respiratoria",

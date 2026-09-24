@@ -385,7 +385,7 @@
   "Distance": "Afstand (km)",
   "Breathing": "Ademhalingsfrequentie (ademhalingen/min)",
   "Exercise": "Oefening",
-  "exercise_auto_detected": "Oefening (automatisch gedetecteerd door wearable)",
+  "exercise_auto_detected": "Oefening (automatisch)",
   "Resting HR": "Rusthartslag",
   "HRV": "Hartslagvariabiliteit (dailyRmssd in ms)",
   "Breathing Rate": "Ademhalingsfrequentie (ademhalingen/min)",
