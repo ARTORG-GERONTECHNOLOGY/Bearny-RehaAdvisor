@@ -192,6 +192,7 @@ class GoogleHealthData(Document):
     distance = FloatField()  # km
     calories = FloatField()
     active_minutes = IntField()
+    active_zone_minutes = DictField(null=True)  # {"fat_burn": N, "cardio": N, "peak": N, "total": N}
 
     sleep = EmbeddedDocumentField(SleepData)
 

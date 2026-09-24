@@ -522,11 +522,19 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
                     hrv = {"dailyRmssd": rmssd}
                 break
 
-    # ---- HR zones + wear time ----
+    # ---- HR zones + wear time + active_zone_minutes ----
     v = rollup("time-in-heart-rate-zone")
     hr_zones = _parse_hr_zones(v)
     # Wear time = total minutes across all zones
     wear_time = sum(z.minutes for z in hr_zones) or None
+    # Derive active_zone_minutes breakdown from HR zone names (matches Fitbit AZM schema)
+    _AZM_KEY_MAP = {"Fat Burn": "fat_burn", "Cardio": "cardio", "Peak": "peak"}
+    azm_zones = {_AZM_KEY_MAP[z.name]: z.minutes for z in hr_zones if z.name in _AZM_KEY_MAP}
+    if azm_zones:
+        azm_zones["total"] = sum(azm_zones.values())
+        active_zone_minutes = azm_zones
+    else:
+        active_zone_minutes = None
     if not hr_zones and (steps or active_minutes):
         logger.warning(
             "[google_health] time-in-heart-rate-zone returned no data for user %s on %s "
@@ -572,6 +580,7 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
         set__max_heart_rate=None,  # no dedicated max-HR data type in v4
         set__heart_rate_zones=hr_zones,
         set__active_minutes=active_minutes,
+        set__active_zone_minutes=active_zone_minutes,
         set__inactivity_minutes=inactivity,
         set__sleep=sleep_obj,
         set__exercise=exercise,
