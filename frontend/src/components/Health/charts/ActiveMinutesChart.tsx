@@ -33,7 +33,7 @@ export const filterActiveMinutesInRange = (
   start?: Date | null,
   end?: Date | null
 ): ActiveMinutesRow[] =>
-  buildDailyRows(data, start, end, 'activeMinutes', (d) => d.active_minutes ?? null);
+  buildDailyRows(data, start, end, 'activeMinutes', (d) => d.active_minutes || null);
 
 export const averageActiveMinutes = (
   data: FitbitEntry[],

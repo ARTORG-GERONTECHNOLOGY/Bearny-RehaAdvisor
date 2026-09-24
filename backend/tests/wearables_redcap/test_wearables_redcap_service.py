@@ -59,7 +59,7 @@ def mongo_mock():
     disconnect(alias)
 
 
-def _make_patient(project="COMPASS"):
+def _make_patient(project="COMPASS", created_at=None):
     th_user = User(
         username=f"th-{ObjectId()}",
         email=f"th-{ObjectId()}@example.com",
@@ -80,6 +80,7 @@ def _make_patient(project="COMPASS"):
         patient_code=f"P-{ObjectId()}",
         therapist=th,
         project=project,
+        createdAt=created_at or datetime.now(tz=dt_tz.utc),
     ).save()
     return pt_user, patient
 
@@ -253,9 +254,16 @@ class TestComputeWearablesSummary:
     First measurement date = 2024-01-01 (Monday).
     Baseline window:  Day 8–28  = 2024-01-08 – 2024-01-28
     Follow-up window: Day 150–180 = 2024-05-29 – 2024-06-28
+
+    Patient createdAt is pinned to FIRST_DATE so the enrollment-cap does not
+    shift the anchor in any of the existing window tests.
     """
 
     FIRST_DATE = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
+
+    def _make(self, project="COMPASS"):
+        """Create a patient whose createdAt == FIRST_DATE."""
+        return _make_patient(project=project, created_at=self.FIRST_DATE)
 
     def _anchor(self, user):
         """Seed a Day-1 record so first_date is always 2024-01-01."""
@@ -269,13 +277,13 @@ class TestComputeWearablesSummary:
         return self.FIRST_DATE + timedelta(days=149 + offset_from_day150)
 
     def test_raises_when_no_fitbit_data(self):
-        _, patient = _make_patient()
+        _, patient = self._make()
         with pytest.raises(Exception, match="No wearable data"):
             compute_wearables_summary(patient)
 
     def test_baseline_window_is_day_8_to_28(self):
         """Data on Day 7 (excluded period) must not appear in baseline."""
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         # Day 7 — excluded
         _make_fitbit_day(user, self.FIRST_DATE + timedelta(days=6), steps=9999)
@@ -286,14 +294,14 @@ class TestComputeWearablesSummary:
         assert summary["baseline"]["fitbit_steps"] == 1000
 
     def test_data_before_day_8_excluded_from_baseline(self):
-        user, patient = _make_patient()
+        user, patient = self._make()
         # Only data on Day 1 (excluded period); anchors first_date and proves window is empty
         _make_fitbit_day(user, self.FIRST_DATE, steps=9999)
         summary = compute_wearables_summary(patient)
         assert summary["baseline"] is None
 
     def test_data_after_day_28_excluded_from_baseline(self):
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         # Day 29 — outside baseline
         _make_fitbit_day(user, self.FIRST_DATE + timedelta(days=28), steps=9999)
@@ -301,7 +309,7 @@ class TestComputeWearablesSummary:
         assert summary["baseline"] is None
 
     def test_followup_window_is_day_150_to_180(self):
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         _make_fitbit_day(user, self._in_followup(0), steps=7777)
         summary = compute_wearables_summary(patient)
@@ -310,7 +318,7 @@ class TestComputeWearablesSummary:
 
     def test_monitoring_start_end_are_window_boundaries_not_data_boundaries(self):
         """monitoring_start/end must reflect the protocol window, not the earliest/latest data."""
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         # Only one day of data, in the middle of the baseline window
         _make_fitbit_day(user, self._in_baseline(5))  # Day 13
@@ -321,7 +329,7 @@ class TestComputeWearablesSummary:
 
     def test_only_valid_activity_days_count(self):
         """Days below 10h wear time must not contribute to activity averages."""
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         # Invalid day: wear_min=300 (< 600), steps=9999
         _make_fitbit_day(user, self._in_baseline(0), steps=9999, wear_min=300)
@@ -333,7 +341,7 @@ class TestComputeWearablesSummary:
 
     def test_only_valid_sleep_nights_count(self):
         """Nights below 3h sleep must not contribute to sleep averages."""
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         # Invalid night: 60 min sleep
         _make_fitbit_day(user, self._in_baseline(0), sleep_min=60)
@@ -345,7 +353,7 @@ class TestComputeWearablesSummary:
 
     def test_activity_and_sleep_are_selected_independently(self):
         """A day can be a valid sleep night without being a valid activity day and vice versa."""
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         # Day A: valid activity (wear=700), no sleep
         _make_fitbit_day(user, self._in_baseline(0), steps=5000, wear_min=700, sleep_min=None)
@@ -359,7 +367,7 @@ class TestComputeWearablesSummary:
 
     def test_weekday_weekend_counts_in_output(self):
         """valid_week_days / valid_weekend_days reflect the selection, not total valid days."""
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         # Day 8 = Mon, Day 9 = Tue, Day 13 = Sat, Day 14 = Sun
         for offset in [0, 1, 5, 6]:  # Mon, Tue, Sat, Sun
@@ -370,7 +378,7 @@ class TestComputeWearablesSummary:
         assert b["valid_weekend_days"] == 2
 
     def test_at_most_5_weekdays_and_2_weekends_selected(self):
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         for i in range(20):
             _make_fitbit_day(user, self._in_baseline(i), wear_min=700)
@@ -380,28 +388,28 @@ class TestComputeWearablesSummary:
         assert b["valid_weekend_days"] <= 2
 
     def test_compass_sleep_in_integer_hours(self):
-        user, patient = _make_patient(project="COMPASS")
+        user, patient = self._make(project="COMPASS")
         self._anchor(user)
         _make_fitbit_day(user, self._in_baseline(0), sleep_min=480)
         summary = compute_wearables_summary(patient)
         assert summary["baseline"]["sleep_duration"] == "8"
 
     def test_copain_sleep_in_hhmm(self):
-        user, patient = _make_patient(project="COPAIN")
+        user, patient = self._make(project="COPAIN")
         self._anchor(user)
         _make_fitbit_day(user, self._in_baseline(0), sleep_min=450)
         summary = compute_wearables_summary(patient)
         assert summary["baseline"]["sleep_duration"] == "07:30"
 
     def test_returns_none_followup_when_window_not_reached(self):
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         _make_fitbit_day(user, self._in_baseline(0))
         summary = compute_wearables_summary(patient)
         assert summary["followup"] is None
 
     def test_means_computed_correctly(self):
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         _make_fitbit_day(user, self._in_baseline(0), steps=4000, active_min=20, inactive_min=200, wear_min=700)
         _make_fitbit_day(user, self._in_baseline(1), steps=6000, active_min=40, inactive_min=400, wear_min=700)
@@ -410,6 +418,21 @@ class TestComputeWearablesSummary:
         assert b["fitbit_steps"] == 5000
         assert b["fitbit_pa"] == 30
         assert b["fitbit_inactivity"] == 300
+
+    def test_backfill_before_enrolment_does_not_shift_anchor(self):
+        """30-day backfill-on-connect can pull data before the patient was enrolled.
+        The baseline anchor must be capped at createdAt, not the earliest data record."""
+        # Patient created on 2024-01-01, but backfill planted a record 30 days earlier
+        user, patient = self._make()  # createdAt == FIRST_DATE == 2024-01-01
+        pre_enrolment = self.FIRST_DATE - timedelta(days=30)  # 2023-12-02
+        _make_fitbit_day(user, pre_enrolment, steps=0, wear_min=0, sleep_min=None)
+        # Valid data inside the window anchored at enrolment (Day 8 from 2024-01-01)
+        _make_fitbit_day(user, self._in_baseline(0), steps=5000, wear_min=700)
+        summary = compute_wearables_summary(patient)
+        assert summary["baseline"] is not None, "Baseline must not be empty when valid days exist in enrolment window"
+        assert summary["baseline"]["fitbit_steps"] == 5000
+        # Window boundaries must be relative to createdAt, not the pre-enrolment record
+        assert summary["baseline"]["monitoring_start"] == "2024-01-08"
 
 
 # ---------------------------------------------------------------------------
@@ -420,6 +443,9 @@ class TestComputeWearablesSummary:
 class TestExportWearablesToRedcap:
     FIRST_DATE = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
 
+    def _make(self, project="COMPASS"):
+        return _make_patient(project=project, created_at=self.FIRST_DATE)
+
     def _anchor(self, user):
         _make_fitbit_day(user, self.FIRST_DATE, steps=0, wear_min=0, sleep_min=None)
 
@@ -427,21 +453,21 @@ class TestExportWearablesToRedcap:
         return self.FIRST_DATE + timedelta(days=7 + offset)
 
     def test_raises_if_no_project(self):
-        _, patient = _make_patient()
+        _, patient = self._make()
         patient.project = ""
         patient.save()
         with pytest.raises(Exception, match="no REDCap project"):
             export_wearables_to_redcap(patient)
 
     def test_raises_if_no_redcap_record(self, monkeypatch):
-        _, patient = _make_patient()
+        _, patient = self._make()
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
         with patch("core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[]):
             with pytest.raises(ValueError, match="No REDCap record"):
                 export_wearables_to_redcap(patient)
 
     def test_both_periods_skipped_when_no_fitbit_data(self, monkeypatch):
-        _, patient = _make_patient()
+        _, patient = self._make()
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
         # No FitbitData → WearablesSyncError is caught and both periods skipped
         with patch("core.services.wearables_redcap_service.export_record_by_pat_id", return_value=[{"record_id": "1"}]):
@@ -449,7 +475,7 @@ class TestExportWearablesToRedcap:
                 export_wearables_to_redcap(patient)
 
     def test_writes_new_fields_to_redcap(self, monkeypatch):
-        user, patient = _make_patient(project="COMPASS")
+        user, patient = self._make(project="COMPASS")
         self._anchor(user)
         # Mon + Sat in baseline
         _make_fitbit_day(
@@ -485,7 +511,7 @@ class TestExportWearablesToRedcap:
 
     def test_skip_if_populated_prevents_overwrite(self, monkeypatch):
         """When monitoring_start already exists in REDCap, skip (default behaviour)."""
-        user, patient = _make_patient(project="COMPASS")
+        user, patient = self._make(project="COMPASS")
         self._anchor(user)
         _make_fitbit_day(user, self._in_baseline(0))
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
@@ -505,7 +531,7 @@ class TestExportWearablesToRedcap:
 
     def test_force_recalculation_when_skip_if_populated_false(self, monkeypatch):
         """skip_if_populated=False allows overwriting an already-populated event."""
-        user, patient = _make_patient(project="COMPASS")
+        user, patient = self._make(project="COMPASS")
         self._anchor(user)
         _make_fitbit_day(user, self._in_baseline(0))
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
@@ -524,7 +550,7 @@ class TestExportWearablesToRedcap:
         mock_post.assert_called_once()
 
     def test_redcap_error_captured_as_error_string(self, monkeypatch):
-        user, patient = _make_patient(project="COMPASS")
+        user, patient = self._make(project="COMPASS")
         self._anchor(user)
         _make_fitbit_day(user, self._in_baseline(0))
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
@@ -536,7 +562,7 @@ class TestExportWearablesToRedcap:
         assert results["baseline"].startswith("error:")
 
     def test_invalid_field_stripped_and_retried(self, monkeypatch):
-        user, patient = _make_patient(project="COMPASS")
+        user, patient = self._make(project="COMPASS")
         self._anchor(user)
         _make_fitbit_day(user, self._in_baseline(0), steps=4000)
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
@@ -562,7 +588,7 @@ class TestExportWearablesToRedcap:
         assert "wearables_complete" not in calls[1]
 
     def test_return_payloads_true(self, monkeypatch):
-        user, patient = _make_patient(project="COMPASS")
+        user, patient = self._make(project="COMPASS")
         self._anchor(user)
         _make_fitbit_day(user, self._in_baseline(0))
         monkeypatch.setenv("REDCAP_TOKEN_COMPASS", "tok")
@@ -656,6 +682,9 @@ class TestWindowBoundaries:
 
     FIRST_DATE = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
 
+    def _make(self, project="COMPASS"):
+        return _make_patient(project=project, created_at=self.FIRST_DATE)
+
     def _anchor(self, user):
         _make_fitbit_day(user, self.FIRST_DATE, wear_min=0, sleep_min=None)
 
@@ -664,7 +693,7 @@ class TestWindowBoundaries:
         return self.FIRST_DATE + timedelta(days=n - 1)
 
     def test_day_7_excluded_day_8_included(self):
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         _make_fitbit_day(user, self._day(7), steps=9999, wear_min=700)  # excluded
         _make_fitbit_day(user, self._day(8), steps=1000, wear_min=700)  # included
@@ -672,7 +701,7 @@ class TestWindowBoundaries:
         assert summary["baseline"]["fitbit_steps"] == 1000
 
     def test_day_28_included_day_29_excluded(self):
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         _make_fitbit_day(user, self._day(28), steps=2000, wear_min=700)  # included
         _make_fitbit_day(user, self._day(29), steps=9999, wear_min=700)  # excluded
@@ -680,7 +709,7 @@ class TestWindowBoundaries:
         assert summary["baseline"]["fitbit_steps"] == 2000
 
     def test_day_149_excluded_day_150_included(self):
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         _make_fitbit_day(user, self._day(149), steps=9999, wear_min=700)  # excluded
         _make_fitbit_day(user, self._day(150), steps=3000, wear_min=700)  # included
@@ -688,7 +717,7 @@ class TestWindowBoundaries:
         assert summary["followup"]["fitbit_steps"] == 3000
 
     def test_day_180_included_day_181_excluded(self):
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         _make_fitbit_day(user, self._day(180), steps=4000, wear_min=700)  # included
         _make_fitbit_day(user, self._day(181), steps=9999, wear_min=700)  # excluded
@@ -704,6 +733,9 @@ class TestWindowBoundaries:
 class TestEdgeCases:
     FIRST_DATE = datetime(2024, 1, 1, tzinfo=dt_tz.utc)
 
+    def _make(self, project="COMPASS"):
+        return _make_patient(project=project, created_at=self.FIRST_DATE)
+
     def _anchor(self, user):
         _make_fitbit_day(user, self.FIRST_DATE, wear_min=0, sleep_min=None)
 
@@ -715,7 +747,7 @@ class TestEdgeCases:
 
     def test_returns_none_when_records_exist_but_no_valid_activity_days(self):
         """Records in window but all below wear threshold → no activity output."""
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         # 3 days in baseline, all below 600 min wear, no sleep either
         for i in range(3):
@@ -725,7 +757,7 @@ class TestEdgeCases:
 
     def test_steps_none_excluded_from_mean(self):
         """Days where steps is None must not be zero-averaged."""
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         _make_fitbit_day(user, self._in_baseline(0), steps=6000, wear_min=700)
         r = _make_fitbit_day(user, self._in_baseline(1), steps=None, wear_min=700)
@@ -737,7 +769,7 @@ class TestEdgeCases:
 
     def test_both_baseline_and_followup_populated(self):
         """When data exists in both windows, both periods return results."""
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         _make_fitbit_day(user, self._in_baseline(0), steps=5000, wear_min=700)
         _make_fitbit_day(user, self._in_followup(0), steps=8000, wear_min=700)
@@ -751,7 +783,7 @@ class TestEdgeCases:
         but wear_min=0 on Days 1-4. Days 8-28 contain real data from Day 8 onward.
         Zero-wear days in Days 1-4 must not be included in the activity average.
         """
-        user, patient = _make_patient()
+        user, patient = self._make()
         # Days 1-4: device not worn (exist in DB with zero wear)
         for i in range(4):
             _make_fitbit_day(
@@ -773,7 +805,7 @@ class TestEdgeCases:
 
     def test_no_sleep_data_in_window_omits_sleep_fields(self):
         """When no valid sleep nights exist, sleep fields are absent from output."""
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         _make_fitbit_day(user, self._in_baseline(0), steps=5000, wear_min=700, sleep_min=None)
         summary = compute_wearables_summary(patient)
@@ -787,7 +819,7 @@ class TestEdgeCases:
 
     def test_all_5_weekdays_5_nights_from_one_week(self):
         """A full Mon–Fri week produces exactly 5 activity days and 5 sleep nights."""
-        user, patient = _make_patient()
+        user, patient = self._make()
         self._anchor(user)
         # Day 8 = Mon, Day 9 = Tue, … Day 12 = Fri  (offsets 0-4)
         for i in range(5):

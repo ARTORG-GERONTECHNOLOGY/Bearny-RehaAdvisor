@@ -33,7 +33,7 @@ export const filterStepsInRange = (
   data: FitbitEntry[],
   start?: Date | null,
   end?: Date | null
-): StepsRow[] => buildDailyRows(data, start, end, 'steps', (d) => d.steps ?? null);
+): StepsRow[] => buildDailyRows(data, start, end, 'steps', (d) => d.steps || null);
 
 export const averageSteps = (
   data: FitbitEntry[],

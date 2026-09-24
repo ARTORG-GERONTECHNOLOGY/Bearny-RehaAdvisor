@@ -342,6 +342,14 @@ def compute_wearables_summary(patient: Patient) -> Dict[str, Any]:
             code="wearables_no_fitbit_data",
         )
 
+    # Backfill-on-connect pulls historical data from before enrollment, which would
+    # place the baseline window in a pre-study period with all-zero data.  Cap the
+    # anchor at the patient's creation date so the baseline never starts before the
+    # patient was imported into the system.
+    if patient.createdAt:
+        enrolment_date = patient.createdAt.date() if hasattr(patient.createdAt, "date") else patient.createdAt
+        first_date = max(first_date, enrolment_date)
+
     project_name = (patient.project or "").strip().upper()
     proj_cfg = _PROJECT_CONFIG.get(project_name, {})
     sleep_fmt = proj_cfg.get("sleep_duration_format", "hours_int")
