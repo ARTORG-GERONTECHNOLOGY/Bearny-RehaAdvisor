@@ -235,6 +235,7 @@ The intraday fetch is **optional**. If the Fitbit app has not been granted "Read
 | `core.tasks.run_fetch_fitbit_data_today_all` | Every 4 hours | Calls `fetch_fitbit_today_for_user` for every connected user; keeps data current even when patients do not open the app |
 | `core.tasks.run_fetch_fitbit_data` | Nightly at 01:00 | Runs the `fetch_fitbit_data` management command — full 30-day backfill for all users |
 | `core.tasks.fetch_fitbit_data_async` | Ad-hoc (after login) | Fetches today for a single user; always bypasses the 15-minute cooldown |
+| `core.tasks.backfill_fitbit_on_connect` | On OAuth connect | Backfills up to 365 days of history after a patient first connects; queued by the OAuth callback |
 
 > **Why two scheduled tasks?** The 4-hour task keeps same-day data current without the expense of a 30-day backfill on every run. The nightly task self-corrects any gaps (e.g. a day where the device had not yet synced to Fitbit's servers when the 4-hour job ran).
 
@@ -263,9 +264,13 @@ Returns whether the patient has a connected Fitbit and the date of the last stor
 {
   "connected": true,
   "has_data": true,
-  "last_data": "2026-05-04T08:00:00"
+  "last_data": "2026-05-04T08:00:00",
+  "needs_reconnect": false,
+  "wearable_device": "fitbit"
 }
 ```
+
+`needs_reconnect` is `true` when the token is revoked or the access token cannot be refreshed. The frontend uses this to show a reconnect prompt.
 
 `patient_id` may be either a `Patient._id` or a `User._id`.
 

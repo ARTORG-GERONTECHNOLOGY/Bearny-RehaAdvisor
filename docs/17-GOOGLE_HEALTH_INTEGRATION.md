@@ -15,16 +15,21 @@ Patient device (Android / Pixel Watch)
 Google Health API v4 (health.googleapis.com)
         │
    ┌────┴──────────────────────────────────────────┐
-   │  Two fetch paths                               │
+   │  Three fetch paths                             │
    │                                               │
    │  1. On-demand today (view layer)              │
    │     google_health_summary view                │
    │     → fetch_google_health_today_for_user()    │
    │                                               │
-   │  2. Scheduled / initial backfill (Celery)     │
-   │     fetch_google_health_data_async task        │
-   │     → fetch_google_health_data command        │
-   │       (30-day backfill per token)             │
+   │  2. Scheduled (Celery)                        │
+   │     Every 4 h: run_fetch_google_health_       │
+   │       data_today_all (today, all users)       │
+   │     Nightly: run_fetch_google_health_data     │
+   │       (30-day backfill, all users)            │
+   │                                               │
+   │  3. On OAuth connect (Celery)                 │
+   │     backfill_google_health_on_connect         │
+   │     → 365-day backfill for new token          │
    └────────────────┬──────────────────────────────┘
                     ▼
            MongoDB (GoogleHealthData)
@@ -95,6 +100,7 @@ https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.rea
 | `active_minutes` | IntField | Active Zone Minutes × 2 + moderate × 1 |
 | `active_zone_minutes` | EmbeddedDoc | fat_burn / cardio / peak breakdown |
 | `sleep` | EmbeddedDoc(SleepData) | Longest session between 18:00 prev–18:00 target |
+| `breathing_rate` | DictField | `{"breathingRate": float}` from `daily-respiratory-rate` data type |
 | `hrv` | DictField | Daily RMSSD from `daily-heart-rate-variability` |
 | `inactivity_minutes` | IntField | 1440 − active_minutes − sleep_minutes |
 | `wear_time_minutes` | IntField | Sum of all HR zone minutes |
@@ -140,9 +146,19 @@ Skips writing if no meaningful data is present for a day.
 
 Called automatically by `google_health_summary` on each summary request. Uses the same `_sync_day` logic for today's date only.
 
-### Celery task (post-OAuth backfill)
+### Celery tasks
 
-`fetch_google_health_data_async` is queued after the OAuth callback completes, running the 30-day backfill asynchronously so the callback redirects immediately.
+| Task name | Schedule | What it does |
+|---|---|---|
+| `core.tasks.run_fetch_google_health_data_today_all` | Every 4 hours | Calls today-sync for every non-revoked token; keeps data current without a full backfill |
+| `core.tasks.run_fetch_google_health_data` | Nightly at 01:00 | Runs the `fetch_google_health_data` management command — full 30-day backfill for all users |
+| `core.tasks.fetch_google_health_data_async` | Ad-hoc (after login) | Fetches today for a single user; dispatched by the summary view |
+| `core.tasks.backfill_google_health_on_connect` | On OAuth connect | Backfills up to 365 days of history after a patient first connects; queued by the OAuth callback |
+
+Register the 4-hour and nightly schedules with:
+```bash
+docker exec django python manage.py seed_periodic_tasks
+```
 
 ---
 

@@ -1,4 +1,11 @@
 
+# LEGACY — do not use for production deployments.
+# Production uses docker-compose.prod.reha-advisor.yml which includes:
+#   - TLS-enabled MongoDB with replica set
+#   - Redis (TLS), Celery, Celery Beat, LibreTranslate
+#   - GHCR-pulled images (no local build)
+# This file has insecure default credentials and is kept only for reference.
+
 services:
   db:
     image: mongo:8.0.3

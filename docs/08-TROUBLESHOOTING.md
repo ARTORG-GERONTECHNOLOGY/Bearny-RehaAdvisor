@@ -860,6 +860,29 @@ logger.critical("Critical errors")
 logger.error(f"Failed to create user: {email}", exc_info=True)
 ```
 
+## LibreTranslate
+
+LibreTranslate is used to translate intervention titles for display in the therapist rehab-plan table. It runs as a Docker service (`libretranslate`) in dev and prod.
+
+### Language models lost on restart
+
+**Symptom:** Translation calls return `{"error": "Language not available"}` after a container restart.
+
+**Cause:** Language model files were not persisted — either the named volume is missing or `LT_PACKAGES_ROOT` is not set.
+
+**Fix:**
+1. Ensure the named volume `libretranslate_packages` exists in `docker-compose.dev.yml` and `docker-compose.prod.reha-advisor.yml`.
+2. Ensure the compose service sets `LT_PACKAGES_ROOT: /app/packages`.
+3. Restart the service — models re-download automatically (`LT_UPDATE_MODELS: "true"`).
+
+Models download on first start (≈ 2–3 minutes for `en,fr,de,it,nl,pt`). Translation calls return errors until the download completes. This is expected on a cold start.
+
+### Supported languages
+
+`LT_LOAD_ONLY: "en,fr,de,it,nl,pt"` — only these language codes will work. Adding a new locale requires extending this list and restarting.
+
+---
+
 ## Getting Help
 
 1. **Check Logs First**:

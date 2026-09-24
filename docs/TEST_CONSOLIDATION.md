@@ -1,5 +1,9 @@
 # Test Structure Consolidation Guide
 
+> **Superseded.** Historical document from early 2026. See [`docs/testing/MASTER_TESTING_GUIDE.md`](./testing/MASTER_TESTING_GUIDE.md) for current test structure.
+
+---
+
 ## Issue Summary
 
 **Problem Identified**: Inconsistent test file locations across the project
