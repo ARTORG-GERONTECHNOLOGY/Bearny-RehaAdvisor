@@ -48,6 +48,9 @@ _ZONE_NAME_MAP = {
 def get_valid_google_access_token(user) -> str:
     token = GoogleHealthUserToken.objects.get(user=user)
 
+    if token.is_revoked:
+        raise Exception(f"Google Health token for user {user.id} is revoked — reconnect required")
+
     if is_naive(token.expires_at):
         token.expires_at = make_aware(token.expires_at)
 

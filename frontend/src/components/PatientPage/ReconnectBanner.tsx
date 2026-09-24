@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import WifiIcon from '@/assets/icons/wifi-fill.svg?react';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
 import authStore from '@/stores/authStore';
+import { buildFitbitAuthUrl } from '@/utils/fitbitAuthUrl';
 import { buildGoogleHealthAuthUrl } from '@/utils/googleHealthAuthUrl';
 
 const DISMISS_KEY = (id: string) => `reconnect_banner_dismissed_${id}`;
@@ -33,7 +34,11 @@ const ReconnectBanner: React.FC = observer(() => {
     if (!patientId || reconnecting) return;
     setReconnecting(true);
     try {
-      const authUrl = await buildGoogleHealthAuthUrl(patientId);
+      const buildAuthUrl =
+        patientFitbitStore.wearableDevice === 'google_health'
+          ? buildGoogleHealthAuthUrl
+          : buildFitbitAuthUrl;
+      const authUrl = await buildAuthUrl(patientId);
       window.location.href = authUrl;
     } catch {
       setReconnecting(false);
