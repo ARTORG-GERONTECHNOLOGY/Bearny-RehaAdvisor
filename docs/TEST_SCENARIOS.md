@@ -1,5 +1,9 @@
 # Test Scenario Reference Guide
 
+> **Superseded.** Historical document from early 2026. See [`docs/testing/BACKEND_TEST_DOCUMENTATION.md`](./testing/BACKEND_TEST_DOCUMENTATION.md) and [`docs/testing/FRONTEND_TEST_DOCUMENTATION.md`](./testing/FRONTEND_TEST_DOCUMENTATION.md) for current scenario coverage.
+
+---
+
 ## Overview
 
 This guide documents all test scenarios in the RehaAdvisor project, explaining what each test validates and why it's important. Tests are organized by feature area and include step-by-step descriptions of test flow and expected outcomes.

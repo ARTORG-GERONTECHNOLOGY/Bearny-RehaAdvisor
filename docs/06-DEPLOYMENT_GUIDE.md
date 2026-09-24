@@ -681,6 +681,33 @@ docker update --memory 2g container-name
 
 ---
 
+## Management Commands Reference
+
+All commands run inside the `django` (dev) or `django-prod` (production) container.
+
+```bash
+docker exec django python manage.py <command>
+```
+
+| Command | What it does | Notes |
+|---|---|---|
+| `seed_admin` | Creates admin user from `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Idempotent; run after every deploy |
+| `seed_periodic_tasks` | Registers Celery-beat `PeriodicTask` entries | Idempotent; run after adding new scheduled tasks |
+| `seed_feedback_questions` | Upserts canonical `FeedbackQuestion` records | Non-destructive by default |
+| `seed_e2e` | Creates E2E test accounts from `E2E_*` env vars | Destroys and recreates on every run |
+| `fetch_fitbit_data` | Pulls Fitbit data for all connected users (`--days N`) | Default 30 days |
+| `fetch_google_health_data` | Pulls Google Health data for all/one connected user | `--days N`, `--user <uid>` |
+| `backfill_existing_google_health_patients` | Dispatches 365-day backfill for GH patients with sparse data | `--min-days N` |
+| `backfill_wearable_device` | Sets `wearable_device` on Patient docs where null | `--dry-run`, `--project`, `--clinic` |
+| `backfill_study_groups` | Sets `patient.study_group` from REDCap `rando_res` | `--dry-run`, `--all`, `--project` |
+| `backfill_creator_name` | Populates `creator_name` on InterventionTemplate docs | `--dry-run` |
+| `migrate_to_google_health` | Switches `wearable_device` from fitbit → google_health | `--project` filter |
+| `encrypt_tokens` | One-time re-encryption of plaintext OAuth tokens | Idempotent |
+| `delete_expired_videos` | Deletes feedback video/audio files past retention window | Gated by `ENABLE_MEDIA_AUTO_DELETE` |
+| `set_celerybeat_every_minute` | Sets named tasks to run every minute | Development helper only |
+
+---
+
 **Related Documentation**:
 - [Getting Started](./01-GETTING_STARTED.md)
 - [Environment Configuration](./07-ENVIRONMENT_CONFIG.md)

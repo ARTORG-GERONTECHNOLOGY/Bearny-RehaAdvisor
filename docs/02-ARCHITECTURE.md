@@ -2,12 +2,12 @@
 
 ## System Overview
 
-RehaAdvisor is built using a modern microservices-based architecture with clear separation of concerns. The system is containerized using Docker and consists of four main components:
+RehaAdvisor is a monolithic Django + React application deployed with Docker Compose. All services run in the same Docker network on a single host; there are no separate microservices. The system consists of eight services:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     NGINX Reverse Proxy                      │
-│                      (Port 80, 443)                          │
+│                   Gateway / NGINX (443)                      │
+│               docker-compose.gateway.yml                     │
 └────────┬──────────────────────────┬────────────────────────┘
          │                          │
     ┌────▼────┐             ┌──────▼──────┐
@@ -19,13 +19,34 @@ RehaAdvisor is built using a modern microservices-based architecture with clear 
          │  HTTP/REST API          │
          └────────────┬────────────┘
                       │
-                 ┌────▼─────┐
-                 │ MongoDB   │
-                 │ Port 27017│
-                 └──────────┘
+         ┌────────────┼────────────┐
+         │            │            │
+    ┌────▼─────┐ ┌────▼────┐ ┌────▼──────────┐
+    │ MongoDB   │ │  Redis  │ │ LibreTranslate │
+    │ Port 27017│ │ (TLS)   │ │ (translation)  │
+    └──────────┘ └────┬────┘ └───────────────┘
+                      │
+              ┌───────┴────────┐
+         ┌────▼────┐   ┌───────▼──────┐
+         │ Celery  │   │ Celery Beat   │
+         │ worker  │   │ (scheduler)   │
+         └─────────┘   └──────────────┘
 ```
 
 ## Architecture Components
+
+### Services at a glance
+
+| Service | Image | Purpose |
+|---|---|---|
+| `django-dev` / `django-prod` | Custom Dockerfile (Ubuntu + Conda) | REST API, auth, all business logic |
+| `react-dev` / `react-prod` | Custom Dockerfile (Node/Vite) | React SPA (dev server or Nginx static) |
+| `db-dev` / `db-prod` | `mongo:8.0.3` | MongoDB 8, TLS + replica set |
+| `redis` / `redis-prod` | `redis:alpine` | Celery broker + result backend (TLS) |
+| `celery` / `celery-prod` | Same image as Django | Celery worker — async and periodic tasks |
+| `celery-beat` / `celery-beat-prod` | Same image as Django | Celery Beat scheduler |
+| `nginx-dev` / `nginx-prod` | `nginx:stable-alpine` | Reverse proxy, static files, SSL |
+| `libretranslate` | `libretranslate/libretranslate:latest` | Intervention title translation |
 
 ### 1. Frontend (React + Vite)
 
@@ -76,7 +97,7 @@ frontend/src/
 - **REST API**: Django REST Framework (DRF)
 - **Authentication**: JWT (JSON Web Tokens) via `drf-simplejwt`
 - **Database ORM**: Django ORM (for MongoDB via Mongoengine or through native Django support)
-- **Task Queue**: Celery with Redis/RabbitMQ (for async tasks)
+- **Task Queue**: Celery with Redis (for async tasks and periodic scheduling)
 - **Testing**: PyTest
 - **API Documentation**: DRF built-in tools
 
@@ -199,13 +220,13 @@ User Action
     ↓
 Django View Enqueues Task (Celery)
     ↓
-Task Broker (RabbitMQ/Redis)
+Task Broker (Redis, TLS)
     ↓
 Celery Worker Processes Task
     ↓
 MongoDB Updated with Results
     ↓
-Status Update to Frontend (WebSocket or Polling)
+Frontend polls REST endpoint
     ↓
 UI Updated with Results
 ```
@@ -240,8 +261,8 @@ UI Updated with Results
 ### Asynchronous Processing
 
 1. **Celery**: Task queue for long-running operations
-2. **Message Broker**: RabbitMQ or Redis
-3. **Celery Beat**: Scheduler for periodic tasks
+2. **Message Broker**: Redis (`rediss://` — TLS)
+3. **Celery Beat**: Scheduler for periodic tasks (nightly backfills, REDCap sync, log pruning)
 4. **Worker Processes**: Execute tasks asynchronously
 
 ## Deployment Architecture
@@ -253,12 +274,12 @@ UI Updated with Results
 - Code mounted as volumes for hot reload
 
 ### Production Environment
-- Scaled Docker deployment or Kubernetes
-- Environment-specific configurations
-- SSL/TLS encryption
-- Database backups and replication
-- Load balancing with NGINX
-- Monitoring and logging infrastructure
+- Single-host Docker Compose deployment (`docker-compose.prod.reha-advisor.yml`)
+- Environment-specific configurations via `.env.prod`
+- SSL/TLS encryption (Let's Encrypt via Certbot, renewed by Celery Beat)
+- MongoDB TLS + replica set for write durability
+- Load balancing with NGINX gateway across dev and prod stacks
+- Sentry for error tracking
 
 ## Security Architecture
 

@@ -74,12 +74,10 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 
 ## 📊 Documentation Statistics
 
-- **Total Documents**: 16 files
-- **Total Content**: ~6,900 lines
-- **Total Size**: 192 KB
+- **Total Documents**: 17+ files (plus testing/, deployment/, PROJECT_PLAN/ subdirectories)
 - **Code Examples**: 150+
 - **Diagrams/Flowcharts**: Architecture diagrams
-- **Coverage**: 100% of major features and workflows
+- **Coverage**: Core features, wearable integrations, deployment, testing, and study/REDCap workflows
 
 ## 🔍 By Topic
 
@@ -162,8 +160,7 @@ This documentation is part of RehaAdvisor. See LICENSE file in repository root.
 
 ---
 
-**Last Updated**: February 17, 2026
-**Documentation Version**: 1.0
-**Status**: Complete and Production Ready
+**Last Updated**: September 2026
+**Status**: Actively maintained
 
 **[Start Reading](./README.md)** →
