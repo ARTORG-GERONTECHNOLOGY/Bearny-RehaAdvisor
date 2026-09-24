@@ -400,7 +400,7 @@
   "Distance": "Entfernung",
   "Breathing": "Atmung",
   "Exercise": "Übung",
-  "exercise_auto_detected": "Übung (automatisch vom Wearable erkannt)",
+  "exercise_auto_detected": "Übung (automatisch)",
   "Resting HR": "Ruheherzfrequenz",
   "HRV": "HRV",
   "Breathing Rate": "Atmungsrate",

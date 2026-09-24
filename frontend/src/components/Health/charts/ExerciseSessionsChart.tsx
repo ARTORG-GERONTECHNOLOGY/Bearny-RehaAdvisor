@@ -97,7 +97,7 @@ const SessionTooltip: React.FC<SessionTooltipProps> = ({ active, label, payload 
               className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
               style={{ backgroundColor: sessionColor(Number(entry.dataKey?.slice(1))) }}
             />
-            <span className="flex-1 text-muted-foreground">
+            <span className="flex-1 min-w-0 text-muted-foreground">
               {String(entry.payload?.[`${entry.dataKey}Name`] ?? '')}
             </span>
             <span className="font-mono font-medium tabular-nums text-foreground">

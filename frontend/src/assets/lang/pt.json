@@ -385,7 +385,7 @@
   "Distance": "Distância Percorrida (km)",
   "Breathing": "Frequência Respiratória (respirações/min)",
   "Exercise": "Exercício",
-  "exercise_auto_detected": "Exercício (detetado automaticamente pelo wearable)",
+  "exercise_auto_detected": "Exercício (automático)",
   "Resting HR": "FC em Repouso",
   "HRV": "Variabilidade da FC (dailyRmssd em ms)",
   "Breathing Rate": "Frequência Respiratória (respirações/min)",
