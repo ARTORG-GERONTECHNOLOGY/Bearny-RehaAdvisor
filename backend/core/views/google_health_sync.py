@@ -210,14 +210,16 @@ def _sleep_civil_date(start_str: str, end_str: str) -> datetime.date | None:
 
 def _prefetch_unfiltered(access_token: str) -> dict:
     """
-    Pre-fetch all data for the three types that don't support AIP-160 filters
-    (sleep, daily-resting-heart-rate, daily-heart-rate-variability).
+    Pre-fetch all data for types that don't support AIP-160 filters
+    (sleep, daily-resting-heart-rate, daily-heart-rate-variability,
+    daily-respiratory-rate).
 
     Returns a dict with pre-built lookups:
       {
-        "sleep":       {date: [points]},           # keyed by civil date (date the night belongs to)
-        "resting_hr":  {date: int|None},           # keyed by civil date
-        "hrv":         {date: dict|None},          # keyed by civil date
+        "sleep":            {date: [points]},       # keyed by civil date
+        "resting_hr":       {date: int|None},       # keyed by civil date
+        "hrv":              {date: dict|None},      # keyed by civil date
+        "breathing_rate":   {date: float|None},     # keyed by civil date
       }
     Call once per user before iterating over dates; pass the result to _sync_day()
     as the `prefetch` argument to avoid re-fetching on every day.
@@ -261,10 +263,24 @@ def _prefetch_unfiltered(access_token: str) -> dict:
         if rmssd is not None:
             hrv_by_date[key] = {"dailyRmssd": rmssd}
 
+    # --- breathing rate: keyed by the date struct ---
+    breathing_by_date: dict[datetime.date, float] = {}
+    for pt in _list_points(access_token, "daily-respiratory-rate"):
+        rr = pt.get("dailyRespiratoryRate", {})
+        pd = rr.get("date", {})
+        try:
+            key = datetime.date(pd["year"], pd["month"], pd["day"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        bpm = rr.get("breathsPerMinute")
+        if bpm is not None:
+            breathing_by_date[key] = float(bpm)
+
     return {
         "sleep": sleep_by_date,
         "resting_hr": resting_hr_by_date,
         "hrv": hrv_by_date,
+        "breathing_rate": breathing_by_date,
     }
 
 
@@ -522,6 +538,24 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
                     hrv = {"dailyRmssd": rmssd}
                 break
 
+    # ---- Breathing rate ----
+    # daily-respiratory-rate does not support dailyRollUp or AIP-160 filters.
+    # Use pre-fetched lookup when available; fall back to a full fetch for single-day use.
+    if prefetch is not None:
+        breathing_rate = prefetch["breathing_rate"].get(d)
+        if breathing_rate is not None:
+            breathing_rate = {"breathingRate": breathing_rate}
+    else:
+        breathing_rate = None
+        for pt in _list_points(access_token, "daily-respiratory-rate"):
+            rr = pt.get("dailyRespiratoryRate", {})
+            pt_date = rr.get("date", {})
+            if pt_date.get("year") == d.year and pt_date.get("month") == d.month and pt_date.get("day") == d.day:
+                bpm = rr.get("breathsPerMinute")
+                if bpm is not None:
+                    breathing_rate = {"breathingRate": float(bpm)}
+                break
+
     # ---- HR zones + wear time + active_zone_minutes ----
     v = rollup("time-in-heart-rate-zone")
     hr_zones = _parse_hr_zones(v)
@@ -589,7 +623,7 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
         set__weight_kg=weight_kg,
         set__bp_sys=None,  # blood pressure not available in confirmed v4 data types
         set__bp_dia=None,
-        set__breathing_rate=None,
+        set__breathing_rate=breathing_rate,
         set__hrv=hrv,
         upsert=True,
     )
