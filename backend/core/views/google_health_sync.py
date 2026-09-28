@@ -506,6 +506,11 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     am_total = sum(int(l.get("activeMinutesSum") or 0) for l in moderate_plus if l.get("activeMinutesSum") is not None)
     active_minutes = am_total if am_total > 0 else None
 
+    # ---- Lightly active minutes ---- LIGHT level from Google Health
+    light_levels = [l for l in levels if l.get("activityLevel") == "LIGHT"]
+    light_total = sum(int(l.get("activeMinutesSum") or 0) for l in light_levels if l.get("activeMinutesSum") is not None)
+    lightly_active_minutes = light_total if light_total > 0 else None
+
     # ---- Resting heart rate ----
     # daily-resting-heart-rate does not support dailyRollUp or AIP-160 filters.
     # Use pre-fetched lookup when available; fall back to a full fetch for single-day use.
@@ -597,8 +602,8 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     exercise_sessions = _fetch_exercise(access_token, d)
     exercise = {"sessions": exercise_sessions} if exercise_sessions else None
 
-    # ---- Inactivity ----
-    inactivity = max(0, 1440 - ((active_minutes or 0) + sleep_minutes))
+    # ---- Inactivity (sedentary) ----
+    inactivity = max(0, 1440 - ((active_minutes or 0) + (lightly_active_minutes or 0) + sleep_minutes))
 
     # Skip writing if there is no meaningful data for this day
     has_data = any(v is not None for v in [steps, calories, distance, resting_hr, sleep_obj, wear_time, weight_kg])
@@ -616,6 +621,7 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
         set__heart_rate_zones=hr_zones,
         set__active_minutes=active_minutes,
         set__active_zone_minutes=active_zone_minutes,
+        set__lightly_active_minutes=lightly_active_minutes,
         set__inactivity_minutes=inactivity,
         set__sleep=sleep_obj,
         set__exercise=exercise,

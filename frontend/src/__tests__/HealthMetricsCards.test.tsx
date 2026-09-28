@@ -126,6 +126,8 @@ const svgRefs = {
   hrZones: React.createRef<HTMLDivElement>(),
   steps: React.createRef<HTMLDivElement>(),
   activeMinutes: React.createRef<HTMLDivElement>(),
+  lightActivity: React.createRef<HTMLDivElement>(),
+  sedentary: React.createRef<HTMLDivElement>(),
   breathing: React.createRef<HTMLDivElement>(),
   weight: React.createRef<HTMLDivElement>(),
   bloodPressure: React.createRef<HTMLDivElement>(),

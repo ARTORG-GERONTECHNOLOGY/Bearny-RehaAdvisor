@@ -110,6 +110,7 @@ def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: 
         "calories": {},
         "minutesVeryActive": {},
         "minutesFairlyActive": {},
+        "minutesLightlyActive": {},
         "activeZoneMinutes": {},
         "resting_heart_rate": {},
         "heart_rate_zones": {},
@@ -141,6 +142,7 @@ def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: 
     _fetch("calories", "activities/calories")
     _fetch("minutesVeryActive", "activities/minutesVeryActive")
     _fetch("minutesFairlyActive", "activities/minutesFairlyActive")
+    _fetch("minutesLightlyActive", "activities/minutesLightlyActive")
 
     # Heart rate (resting + zones)
     r = requests.get(f"{FITBIT_API_URL}/activities/heart/date/{date_range}.json", headers=headers, timeout=15)
@@ -271,6 +273,9 @@ def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: 
             fa = int(series["minutesFairlyActive"].get(dt, 0) or 0)
             active_minutes = va + fa
 
+        lightly_active = series["minutesLightlyActive"].get(dt)
+        lightly_active_minutes = int(lightly_active) if lightly_active is not None else None
+
         sm = sleep_data.get(dt) or {}
         val = sm.get("minutes_asleep")
         if val is not None:
@@ -285,7 +290,8 @@ def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: 
             except Exception:
                 sleep_min = 0
 
-        inactivity = max(0, 1440 - (active_minutes + sleep_min))
+        light_min = lightly_active_minutes or 0
+        inactivity = max(0, 1440 - (active_minutes + light_min + sleep_min))
 
         update_kwargs: dict = {
             "set__steps": series["steps"].get(dt),
@@ -295,6 +301,7 @@ def fetch_fitbit_date_range_for_user(user, start_date: datetime.date, end_date: 
             "set__resting_heart_rate": series["resting_heart_rate"].get(dt),
             "set__active_minutes": active_minutes,
             "set__active_zone_minutes": azm_breakdown.get(dt),
+            "set__lightly_active_minutes": lightly_active_minutes,
             "set__inactivity_minutes": inactivity,
             "set__heart_rate_zones": series["heart_rate_zones"].get(dt),
             "set__sleep": sleep_data.get(dt),
@@ -534,7 +541,10 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
             fa = int(series["minutesFairlyActive"].get(dt, 0) or 0)
             active_minutes = va + fa
 
-        inactivity_minutes = max(0, 1440 - (active_minutes + sleep_minutes_for(dt)))
+        lightly_active = series["minutesLightlyActive"].get(dt)
+        lightly_active_minutes = int(lightly_active) if lightly_active is not None else None
+        light_min = lightly_active_minutes or 0
+        inactivity_minutes = max(0, 1440 - (active_minutes + light_min + sleep_minutes_for(dt)))
 
         max_hr = None
         if today in intraday_hr_map:
@@ -550,6 +560,7 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
             set__calories=series["calories"].get(dt),
             set__active_minutes=active_minutes,
             set__active_zone_minutes=azm_breakdown.get(dt),
+            set__lightly_active_minutes=lightly_active_minutes,
             set__max_heart_rate=max_hr,
             set__heart_rate_zones=series["heart_rate_zones"].get(dt),
             set__sleep=sleep_data.get(dt),

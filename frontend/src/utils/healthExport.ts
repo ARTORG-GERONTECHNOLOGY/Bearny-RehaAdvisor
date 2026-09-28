@@ -480,6 +480,8 @@ export const buildHealthPdf = async (
     { type: 'chart', ref: svgRefs.hrZones, key: 'hrZones', title: t('Heart Rate Zones per Day') },
     { type: 'chart', ref: svgRefs.steps, key: 'steps', title: t('Daily Steps') },
     { type: 'chart', ref: svgRefs.activeMinutes, key: 'activeMinutes', title: t('Active Minutes') },
+    { type: 'chart', ref: svgRefs.lightActivity, key: 'lightActivity', title: t('light_activity') },
+    { type: 'chart', ref: svgRefs.sedentary, key: 'sedentary', title: t('inactivity') },
     { type: 'chart', ref: svgRefs.weight, key: 'weight', title: t('Weight (kg)') },
     { type: 'chart', ref: svgRefs.exercise, key: 'exercise', title: t('Exercise Summary') },
     { type: 'chart', ref: svgRefs.sleep, key: 'sleep', title: t('Sleep Schedule and Duration') },
