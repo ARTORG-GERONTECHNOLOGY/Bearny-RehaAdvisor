@@ -42,6 +42,7 @@ from core.models import (
 )
 from core.services.redcap_access import get_therapist_for_user
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
+from core.views.wearable_utils import fetch_merged_wearable_records
 from utils.interventions import (
     _canonical_assignment_for,
     _get_star_q_ids,
@@ -3651,11 +3652,12 @@ def get_combined_health_data(request, patient_id):
         )
 
         # ---------- 1) Wearable + Manual vitals merge ----------
-        # Route to GoogleHealthData for google_health patients; schema is identical.
-        wearable_device = getattr(patient, "wearable_device", "fitbit") or "fitbit"
-        WearableModel = GoogleHealthData if wearable_device == "google_health" else FitbitData
-        fitbit_entries = WearableModel.objects(user=patient.userId, date__gte=from_date, date__lte=to_date).order_by(
-            "date"
+        # Merge GH + Fitbit records so therapist view matches patient view.
+        # Using from_datetime/to_datetime (timezone-aware, full-day bounds) avoids
+        # excluding records stored after midnight on the last day of the range.
+        fitbit_entries = sorted(
+            fetch_merged_wearable_records(patient.userId, from_datetime, to_datetime),
+            key=lambda e: e.date,
         )
 
         # manual vitals in the same window (keep latest per day)
