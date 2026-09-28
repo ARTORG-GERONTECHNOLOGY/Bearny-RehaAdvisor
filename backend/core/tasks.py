@@ -332,12 +332,14 @@ def sync_wearables_to_redcap_patient(patient_id: str):
 )
 def sync_wearables_to_redcap_all():
     """
-    Nightly task: sync wearables to REDCap for all patients that have both
-    a project and a reha_end_date set.
+    Nightly task: sync wearables to REDCap for all patients assigned to a project.
+    Control-group patients do not have a reha_end_date, so that field is not used
+    as a gate here. Patients with no data or a future baseline window are skipped
+    inside compute_wearables_summary.
     """
     from core.services.wearables_redcap_service import export_wearables_to_redcap
 
-    patients = Patient.objects(project__ne="", reha_end_date__ne=None)
+    patients = Patient.objects(project__ne="")
 
     synced = 0
     errors = 0
