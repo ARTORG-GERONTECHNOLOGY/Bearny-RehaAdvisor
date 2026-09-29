@@ -63,9 +63,7 @@ const SedentaryChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
   );
 
   if (!hasReadings) {
-    return (
-      <ChartEmptyState ref={ref} message={t('no_sedentary_data')} className={className} />
-    );
+    return <ChartEmptyState ref={ref} message={t('no_sedentary_data')} className={className} />;
   }
 
   return (
