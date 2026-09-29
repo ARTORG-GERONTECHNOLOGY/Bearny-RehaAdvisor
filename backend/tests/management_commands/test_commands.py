@@ -274,6 +274,7 @@ def test_fetch_fitbit_command_wear_time_calculated_during_periodic_sync():
 # backfill_lightly_active tests
 # ---------------------------------------------------------------------------
 
+
 def _make_record(date_str, active_minutes=30, sleep_minutes=None, inactivity_minutes=None, record_id="r1"):
     from types import SimpleNamespace
 
@@ -294,9 +295,7 @@ def _api_resp(date_str, value):
 
     m = MagicMock()
     m.status_code = 200
-    m.json.return_value = {
-        "activities-minutesLightlyActive": [{"dateTime": date_str, "value": str(value)}]
-    }
+    m.json.return_value = {"activities-minutesLightlyActive": [{"dateTime": date_str, "value": str(value)}]}
     return m
 
 
@@ -434,9 +433,7 @@ def test_backfill_skips_record_when_api_has_no_matching_date():
 
     wrong_date_resp = MagicMock()
     wrong_date_resp.status_code = 200
-    wrong_date_resp.json.return_value = {
-        "activities-minutesLightlyActive": [{"dateTime": "2026-04-02", "value": "30"}]
-    }
+    wrong_date_resp.json.return_value = {"activities-minutesLightlyActive": [{"dateTime": "2026-04-02", "value": "30"}]}
 
     qs = _make_qs([_make_record("2026-04-01", active_minutes=20, sleep_minutes=300)])
     updater = MagicMock()
