@@ -1,6 +1,8 @@
+import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from core.management.commands.backfill_lightly_active import Command as BackfillCommand
 from core.management.commands.fetch_fitbit_data import Command as FetchFitbitCommand
 from core.management.commands.seed_periodic_tasks import Command as SeedPeriodicTasksCommand
 from core.management.commands.set_celerybeat_every_minute import Command as SetBeatEveryMinuteCommand
@@ -265,3 +267,187 @@ def test_fetch_fitbit_command_wear_time_calculated_during_periodic_sync():
         assert (
             call.kwargs.get("set__wear_time_minutes") == 2
         ), f"Expected set__wear_time_minutes=2 but got {call.kwargs.get('set__wear_time_minutes')}"
+
+
+# ---------------------------------------------------------------------------
+# backfill_lightly_active tests
+# ---------------------------------------------------------------------------
+
+
+def _make_record(date_str, active_minutes=30, sleep_minutes=None, inactivity_minutes=None, record_id="r1"):
+    from types import SimpleNamespace
+
+    sleep = SimpleNamespace(minutes_asleep=sleep_minutes) if sleep_minutes is not None else None
+    user = SimpleNamespace(id="u1", patient=SimpleNamespace(patient_code="905-01"))
+    return SimpleNamespace(
+        id=record_id,
+        user=user,
+        date=datetime.datetime.strptime(date_str, "%Y-%m-%d").date(),
+        active_minutes=active_minutes,
+        sleep=sleep,
+        inactivity_minutes=inactivity_minutes,
+    )
+
+
+def _api_resp(date_str, value):
+    from unittest.mock import MagicMock
+
+    m = MagicMock()
+    m.status_code = 200
+    m.json.return_value = {"activities-minutesLightlyActive": [{"dateTime": date_str, "value": str(value)}]}
+    return m
+
+
+def _make_qs(records):
+    """Return a queryset-like mock backed by the given records list."""
+    from unittest.mock import MagicMock
+
+    qs = MagicMock()
+    qs.count.return_value = len(records)
+    qs.only.return_value = records
+    return qs
+
+
+def _fitbitdata_objects_side_effect(qs_mock, updater):
+    """
+    FitbitData.objects is called two ways:
+      1. FitbitData.objects(lightly_active_minutes=None)  → return the queryset mock
+      2. FitbitData.objects(id=…).update_one(…)           → return a mock with update_one
+    """
+
+    def _side_effect(*args, **kwargs):
+        if "lightly_active_minutes" in kwargs:
+            return qs_mock
+        return type("R", (), {"update_one": updater})()
+
+    return _side_effect
+
+
+def test_backfill_no_records_exits_cleanly():
+    """Nothing to do → exits without touching the API."""
+    from unittest.mock import MagicMock, patch
+
+    qs = _make_qs([])
+    with patch(
+        "core.management.commands.backfill_lightly_active.FitbitData.objects",
+        side_effect=_fitbitdata_objects_side_effect(qs, MagicMock()),
+    ):
+        BackfillCommand().handle(dry_run=False, patient=None)
+
+
+def test_backfill_writes_correct_values():
+    """active=30, sleep=420, lightly_active=60 → inactivity=930."""
+    from unittest.mock import MagicMock, patch
+
+    record = _make_record("2026-01-01", active_minutes=30, sleep_minutes=420, inactivity_minutes=1000)
+    qs = _make_qs([record])
+    updater = MagicMock()
+
+    with (
+        patch(
+            "core.management.commands.backfill_lightly_active.FitbitData.objects",
+            side_effect=_fitbitdata_objects_side_effect(qs, updater),
+        ),
+        patch("core.views.fitbit_sync.get_valid_access_token", return_value="tok"),
+        patch(
+            "core.management.commands.backfill_lightly_active.requests.get",
+            return_value=_api_resp("2026-01-01", 60),
+        ),
+    ):
+        BackfillCommand().handle(dry_run=False, patient=None)
+
+    updater.assert_called_once_with(set__lightly_active_minutes=60, set__inactivity_minutes=930)
+
+
+def test_backfill_dry_run_does_not_write():
+    """--dry-run must never call update_one."""
+    from unittest.mock import MagicMock, patch
+
+    record = _make_record("2026-01-10", active_minutes=20, sleep_minutes=360, inactivity_minutes=900)
+    qs = _make_qs([record])
+    updater = MagicMock()
+
+    with (
+        patch(
+            "core.management.commands.backfill_lightly_active.FitbitData.objects",
+            side_effect=_fitbitdata_objects_side_effect(qs, updater),
+        ),
+        patch("core.views.fitbit_sync.get_valid_access_token", return_value="tok"),
+        patch(
+            "core.management.commands.backfill_lightly_active.requests.get",
+            return_value=_api_resp("2026-01-10", 45),
+        ),
+    ):
+        BackfillCommand().handle(dry_run=True, patient=None)
+
+    updater.assert_not_called()
+
+
+def test_backfill_skips_user_on_token_error():
+    """Token failure → user counted as error, no DB write."""
+    from unittest.mock import MagicMock, patch
+
+    qs = _make_qs([_make_record("2026-02-01", active_minutes=10, sleep_minutes=480)])
+    updater = MagicMock()
+
+    with (
+        patch(
+            "core.management.commands.backfill_lightly_active.FitbitData.objects",
+            side_effect=_fitbitdata_objects_side_effect(qs, updater),
+        ),
+        patch("core.views.fitbit_sync.get_valid_access_token", side_effect=Exception("revoked")),
+    ):
+        BackfillCommand().handle(dry_run=False, patient=None)
+
+    updater.assert_not_called()
+
+
+def test_backfill_no_sleep_uses_zero():
+    """sleep=None → sleep_min defaults to 0; inactivity = 1440-30-50-0 = 1360."""
+    from unittest.mock import MagicMock, patch
+
+    record = _make_record("2026-03-01", active_minutes=30, sleep_minutes=None, inactivity_minutes=1410)
+    qs = _make_qs([record])
+    updater = MagicMock()
+
+    with (
+        patch(
+            "core.management.commands.backfill_lightly_active.FitbitData.objects",
+            side_effect=_fitbitdata_objects_side_effect(qs, updater),
+        ),
+        patch("core.views.fitbit_sync.get_valid_access_token", return_value="tok"),
+        patch(
+            "core.management.commands.backfill_lightly_active.requests.get",
+            return_value=_api_resp("2026-03-01", 50),
+        ),
+    ):
+        BackfillCommand().handle(dry_run=False, patient=None)
+
+    updater.assert_called_once_with(set__lightly_active_minutes=50, set__inactivity_minutes=1360)
+
+
+def test_backfill_skips_record_when_api_has_no_matching_date():
+    """API returns data for a different date → record left untouched."""
+    from unittest.mock import MagicMock, patch
+
+    wrong_date_resp = MagicMock()
+    wrong_date_resp.status_code = 200
+    wrong_date_resp.json.return_value = {"activities-minutesLightlyActive": [{"dateTime": "2026-04-02", "value": "30"}]}
+
+    qs = _make_qs([_make_record("2026-04-01", active_minutes=20, sleep_minutes=300)])
+    updater = MagicMock()
+
+    with (
+        patch(
+            "core.management.commands.backfill_lightly_active.FitbitData.objects",
+            side_effect=_fitbitdata_objects_side_effect(qs, updater),
+        ),
+        patch("core.views.fitbit_sync.get_valid_access_token", return_value="tok"),
+        patch(
+            "core.management.commands.backfill_lightly_active.requests.get",
+            return_value=wrong_date_resp,
+        ),
+    ):
+        BackfillCommand().handle(dry_run=False, patient=None)
+
+    updater.assert_not_called()
