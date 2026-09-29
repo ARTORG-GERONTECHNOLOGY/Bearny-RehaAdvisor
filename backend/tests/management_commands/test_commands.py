@@ -1,7 +1,6 @@
+import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
-
-import datetime
 
 from core.management.commands.backfill_lightly_active import Command as BackfillCommand
 from core.management.commands.fetch_fitbit_data import Command as FetchFitbitCommand
