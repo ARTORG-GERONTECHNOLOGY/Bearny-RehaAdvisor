@@ -41,37 +41,39 @@ export const averageLightActivity = (
 // The ref points at ChartContainer's wrapping <div>, not the inner <svg> — Recharts only
 // mounts its <svg> once it has measured a size, so callers should query for it at read time
 // (e.g. `ref.current?.querySelector('svg')`) rather than caching a possibly-stale node.
-const LightActivityChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, className }, ref) => {
-  const { t } = useTranslation();
+const LightActivityChart = forwardRef<HTMLDivElement, Props>(
+  ({ data, start, end, className }, ref) => {
+    const { t } = useTranslation();
 
-  const rows = useMemo(() => filterLightActivityInRange(data, start, end), [data, start, end]);
-  const hasReadings = useMemo(() => rows.some((r) => r.lightlyActiveMinutes != null), [rows]);
+    const rows = useMemo(() => filterLightActivityInRange(data, start, end), [data, start, end]);
+    const hasReadings = useMemo(() => rows.some((r) => r.lightlyActiveMinutes != null), [rows]);
 
-  const chartConfig: ChartConfig = useMemo(
-    () => ({
-      lightlyActiveMinutes: { label: t('light_activity_minutes'), color: colors.brand },
-    }),
-    [t]
-  );
+    const chartConfig: ChartConfig = useMemo(
+      () => ({
+        lightlyActiveMinutes: { label: t('light_activity_minutes'), color: colors.brand },
+      }),
+      [t]
+    );
 
-  if (!hasReadings) {
+    if (!hasReadings) {
+      return (
+        <ChartEmptyState ref={ref} message={t('no_light_activity_data')} className={className} />
+      );
+    }
+
     return (
-      <ChartEmptyState ref={ref} message={t('no_light_activity_data')} className={className} />
+      <ChartContainer ref={ref} config={chartConfig} className={cn('w-full max-h-28', className)}>
+        <BarChart accessibilityLayer data={rows}>
+          <CartesianGrid vertical={false} />
+          <YAxis domain={[0, 'auto']} {...chartYAxisProps(formatTickInteger)} />
+          <XAxis {...chartXAxisProps} />
+          <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
+          <Bar dataKey="lightlyActiveMinutes" fill={colors.brand} />
+        </BarChart>
+      </ChartContainer>
     );
   }
-
-  return (
-    <ChartContainer ref={ref} config={chartConfig} className={cn('w-full max-h-28', className)}>
-      <BarChart accessibilityLayer data={rows}>
-        <CartesianGrid vertical={false} />
-        <YAxis domain={[0, 'auto']} {...chartYAxisProps(formatTickInteger)} />
-        <XAxis {...chartXAxisProps} />
-        <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
-        <Bar dataKey="lightlyActiveMinutes" fill={colors.brand} />
-      </BarChart>
-    </ChartContainer>
-  );
-});
+);
 
 LightActivityChart.displayName = 'LightActivityChart';
 

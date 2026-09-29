@@ -508,7 +508,9 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
 
     # ---- Lightly active minutes ---- LIGHT level from Google Health
     light_levels = [l for l in levels if l.get("activityLevel") == "LIGHT"]
-    light_total = sum(int(l.get("activeMinutesSum") or 0) for l in light_levels if l.get("activeMinutesSum") is not None)
+    light_total = sum(
+        int(l.get("activeMinutesSum") or 0) for l in light_levels if l.get("activeMinutesSum") is not None
+    )
     lightly_active_minutes = light_total if light_total > 0 else None
 
     # ---- Resting heart rate ----
