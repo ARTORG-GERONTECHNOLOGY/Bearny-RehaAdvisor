@@ -295,7 +295,7 @@ def _summarize_period(
         if pa:
             result["fitbit_pa"] = round(sum(pa) / len(pa))
         if light:
-            result["fitbit_light_pa"] = round(sum(light) / len(light))
+            result["fitbit_pa_light"] = round(sum(light) / len(light))
         if inact:
             result["fitbit_inactivity"] = round(sum(inact) / len(inact))
 

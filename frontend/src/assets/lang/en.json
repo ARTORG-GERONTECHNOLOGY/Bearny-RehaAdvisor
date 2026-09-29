@@ -49,6 +49,7 @@
   "sedentary_minutes": "Sedentary time (min)",
   "no_light_activity_data": "No light activity data",
   "no_sedentary_data": "No sedentary data",
+  "inactivity_sleep_warning": "Inactivity time is likely overestimated due to undetected sleep",
   "Save for today": "Save for today",
   "You can provide either weight, blood pressure, or both.": "You can provide either weight, blood pressure, or both.",
   "Diastolic (mmHg)": "Diastolic (mmHg)",

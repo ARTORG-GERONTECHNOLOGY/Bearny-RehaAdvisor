@@ -46,6 +46,7 @@
   "sedentary_minutes": "Tempo sedentário (min)",
   "no_light_activity_data": "Sem dados de atividade leve",
   "no_sedentary_data": "Sem dados sedentários",
+  "inactivity_sleep_warning": "O tempo de inatividade está provavelmente superestimado devido ao sono não detectado",
   "Save for today": "Guardar para hoje",
   "You can provide either weight, blood pressure, or both.": "Pode fornecer o peso, a pressão arterial, ou ambos.",
   "Diastolic (mmHg)": "Diastólica (mmHg)",

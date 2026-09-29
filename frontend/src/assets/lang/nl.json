@@ -46,6 +46,7 @@
   "sedentary_minutes": "Zittende tijd (min)",
   "no_light_activity_data": "Geen gegevens over lichte activiteit",
   "no_sedentary_data": "Geen gegevens over zittende tijd",
+  "inactivity_sleep_warning": "De inactiviteitstijd is waarschijnlijk overschat door niet-gedetecteerde slaap",
   "Save for today": "Opslaan voor vandaag",
   "You can provide either weight, blood pressure, or both.": "U kunt gewicht, bloeddruk of beide invoeren.",
   "Diastolic (mmHg)": "Diastolisch (mmHg)",

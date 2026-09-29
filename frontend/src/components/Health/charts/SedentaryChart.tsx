@@ -1,5 +1,6 @@
 import { forwardRef, useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import type { ChartConfig } from '@/components/ui/chart';
@@ -47,6 +48,13 @@ const SedentaryChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
   const rows = useMemo(() => filterSedentaryInRange(data, start, end), [data, start, end]);
   const hasReadings = useMemo(() => rows.some((r) => r.sedentaryMinutes != null), [rows]);
 
+  // Warn when any day with sedentary data has no detected sleep — missing sleep
+  // inflates the inactivity figure since sleep_minutes contributes 0 to the formula.
+  const hasMissingSleep = useMemo(() => {
+    const dataByDate = new Map(data.map((d) => [d.date, d]));
+    return rows.some((r) => r.sedentaryMinutes != null && !dataByDate.get(r.date)?.sleep);
+  }, [rows, data]);
+
   const chartConfig: ChartConfig = useMemo(
     () => ({
       sedentaryMinutes: { label: t('sedentary_minutes'), color: colors.chartMuted },
@@ -61,15 +69,23 @@ const SedentaryChart = forwardRef<HTMLDivElement, Props>(({ data, start, end, cl
   }
 
   return (
-    <ChartContainer ref={ref} config={chartConfig} className={cn('w-full max-h-28', className)}>
-      <BarChart accessibilityLayer data={rows}>
-        <CartesianGrid vertical={false} />
-        <YAxis domain={[0, 'auto']} {...chartYAxisProps(formatTickInteger)} />
-        <XAxis {...chartXAxisProps} />
-        <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
-        <Bar dataKey="sedentaryMinutes" fill={colors.chartMuted} />
-      </BarChart>
-    </ChartContainer>
+    <div className={cn('w-full', className)}>
+      <ChartContainer ref={ref} config={chartConfig} className="w-full max-h-28">
+        <BarChart accessibilityLayer data={rows}>
+          <CartesianGrid vertical={false} />
+          <YAxis domain={[0, 'auto']} {...chartYAxisProps(formatTickInteger)} />
+          <XAxis {...chartXAxisProps} />
+          <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
+          <Bar dataKey="sedentaryMinutes" fill={colors.chartMuted} />
+        </BarChart>
+      </ChartContainer>
+      {hasMissingSleep && (
+        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3 shrink-0" />
+          {t('inactivity_sleep_warning')}
+        </p>
+      )}
+    </div>
   );
 });
 
