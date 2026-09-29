@@ -59,7 +59,7 @@ class Command(BaseCommand):
 
         # Group records by user to minimise API round-trips.
         records_by_user: dict = {}
-        for record in qs.only("user", "date", "active_minutes", "sleep_minutes"):
+        for record in qs.only("user", "date", "active_minutes", "sleep", "inactivity_minutes"):
             uid = str(record.user.id)
             records_by_user.setdefault(uid, {"user_doc": record.user, "records": []})
             records_by_user[uid]["records"].append(record)
@@ -127,7 +127,7 @@ class Command(BaseCommand):
                     continue
 
                 active_min = record.active_minutes or 0
-                sleep_min = record.sleep_minutes or 0
+                sleep_min = (record.sleep.minutes_asleep if record.sleep else None) or 0
                 light_min = lightly_active_minutes
                 inactivity = max(0, 1440 - (active_min + light_min + sleep_min))
 
