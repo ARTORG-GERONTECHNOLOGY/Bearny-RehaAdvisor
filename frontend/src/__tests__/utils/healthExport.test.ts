@@ -285,6 +285,8 @@ describe('buildHealthPdf', () => {
     hrZones: { current: null },
     steps: { current: null },
     activeMinutes: { current: null },
+    lightActivity: { current: null },
+    sedentary: { current: null },
     breathing: { current: null },
     weight: { current: null },
     bloodPressure: { current: null },

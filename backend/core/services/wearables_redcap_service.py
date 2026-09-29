@@ -287,12 +287,15 @@ def _summarize_period(
     if selected_activity:
         steps = [r.steps for r in selected_activity if r.steps is not None]
         pa = [r.active_minutes for r in selected_activity if r.active_minutes is not None]
+        light = [r.lightly_active_minutes for r in selected_activity if r.lightly_active_minutes is not None]
         inact = [r.inactivity_minutes for r in selected_activity if r.inactivity_minutes is not None]
 
         if steps:
             result["fitbit_steps"] = round(sum(steps) / len(steps))
         if pa:
             result["fitbit_pa"] = round(sum(pa) / len(pa))
+        if light:
+            result["fitbit_pa_light"] = round(sum(light) / len(light))
         if inact:
             result["fitbit_inactivity"] = round(sum(inact) / len(inact))
 

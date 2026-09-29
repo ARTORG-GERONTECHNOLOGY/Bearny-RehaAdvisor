@@ -33,6 +33,14 @@ import ActiveMinutesChart, {
   averageActiveMinutes,
   filterActiveMinutesInRange,
 } from '@/components/Health/charts/ActiveMinutesChart';
+import LightActivityChart, {
+  averageLightActivity,
+  filterLightActivityInRange,
+} from '@/components/Health/charts/LightActivityChart';
+import SedentaryChart, {
+  averageSedentary,
+  filterSedentaryInRange,
+} from '@/components/Health/charts/SedentaryChart';
 import RestingHRChart, {
   averageRestingHR,
   filterRestingHRInRange,
@@ -84,6 +92,8 @@ export type SvgRefs = {
   hrZones: React.RefObject<HTMLDivElement>;
   steps: React.RefObject<HTMLDivElement>;
   activeMinutes: React.RefObject<HTMLDivElement>;
+  lightActivity: React.RefObject<HTMLDivElement>;
+  sedentary: React.RefObject<HTMLDivElement>;
   breathing: React.RefObject<HTMLDivElement>;
   weight: React.RefObject<HTMLDivElement>;
   bloodPressure: React.RefObject<HTMLDivElement>;
@@ -584,6 +594,74 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
     />
   );
 
+  // Light Activity ─────────────────────────────────────────────────────
+  const avgLightActivity = useMetricAvg(averageLightActivity, store.fitbitData, start, end);
+  const lightActivityRows = useMetricAvg(filterLightActivityInRange, store.fitbitData, start, end);
+  const lightActivityColumns: MetricDetailColumn<(typeof lightActivityRows)[number]>[] = [
+    {
+      key: 'lightlyActiveMinutes',
+      header: t('light_activity_minutes'),
+      format: (v) => `${Math.round(v)} ${t('min')}`,
+    },
+  ];
+  const lightActivityCard = (
+    <MetricCardWithDialog
+      t={t}
+      icon={ActiveMinutesIcon}
+      label={t('light_activity')}
+      value={avgLightActivity != null ? `${Math.round(avgLightActivity)} ${t('min')}` : '--'}
+      emptyMessage={t('no_light_activity_data')}
+      start={start}
+      end={end}
+      rows={lightActivityRows}
+      columns={lightActivityColumns}
+      cardRef={svgRefs.lightActivity}
+      renderChart={(className, ref) => (
+        <LightActivityChart
+          ref={ref}
+          data={store.fitbitData}
+          start={start}
+          end={end}
+          className={className}
+        />
+      )}
+    />
+  );
+
+  // Sedentary ───────────────────────────────────────────────────────────
+  const avgSedentary = useMetricAvg(averageSedentary, store.fitbitData, start, end);
+  const sedentaryRows = useMetricAvg(filterSedentaryInRange, store.fitbitData, start, end);
+  const sedentaryColumns: MetricDetailColumn<(typeof sedentaryRows)[number]>[] = [
+    {
+      key: 'sedentaryMinutes',
+      header: t('sedentary_minutes'),
+      format: (v) => `${Math.round(v)} ${t('min')}`,
+    },
+  ];
+  const sedentaryCard = (
+    <MetricCardWithDialog
+      t={t}
+      icon={ActiveMinutesIcon}
+      label={t('inactivity')}
+      value={avgSedentary != null ? `${Math.round(avgSedentary)} ${t('min')}` : '--'}
+      emptyMessage={t('no_sedentary_data')}
+      start={start}
+      end={end}
+      rows={sedentaryRows}
+      columns={sedentaryColumns}
+      cardRef={svgRefs.sedentary}
+      renderChart={(className, ref) => (
+        <SedentaryChart
+          ref={ref}
+          data={store.fitbitData}
+          start={start}
+          end={end}
+          className={className}
+        />
+      )}
+    />
+  );
+
   // Weight ─────────────────────────────────────────────────────────────
   const avgWeight = useMetricAvg(averageWeight, store.fitbitData, start, end);
   const weightRows = useMetricAvg(filterWeightInRange, store.fitbitData, start, end);
@@ -743,6 +821,8 @@ const HealthMetricsCards: React.FC<Props> = observer(({ store, t, lang, svgRefs 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 items-start">
           {stepsCard}
           {activeMinutesCard}
+          {lightActivityCard}
+          {sedentaryCard}
           {weightCard}
           {exerciseCard}
         </div>

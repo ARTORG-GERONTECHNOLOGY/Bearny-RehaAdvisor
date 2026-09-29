@@ -149,7 +149,11 @@ class FitbitData(Document):
     # New: allow both legacy list and new {"sessions": [...]} dict
     exercise = DynamicField()
 
-    # Inactivity
+    # Activity breakdown
+    lightly_active_minutes = IntField(null=True)
+    # Sedentary/inactive time: 1440 − (active + lightly_active + sleep).
+    # Null for records predating the lightly_active_minutes field; use with caution
+    # as undetected sleep nights inflate this value.
     inactivity_minutes = IntField()
 
     # Fitbit wear time (minutes the device was worn, derived from intraday HR)
@@ -201,6 +205,7 @@ class GoogleHealthData(Document):
     hrv = DictField()
 
     exercise = DynamicField()
+    lightly_active_minutes = IntField(null=True)
     inactivity_minutes = IntField()
 
     # Wear time: derived from 15-minute HR bucket presence (see google_health_sync.py)

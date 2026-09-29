@@ -126,6 +126,8 @@ const svgRefs = {
   hrZones: React.createRef<HTMLDivElement>(),
   steps: React.createRef<HTMLDivElement>(),
   activeMinutes: React.createRef<HTMLDivElement>(),
+  lightActivity: React.createRef<HTMLDivElement>(),
+  sedentary: React.createRef<HTMLDivElement>(),
   breathing: React.createRef<HTMLDivElement>(),
   weight: React.createRef<HTMLDivElement>(),
   bloodPressure: React.createRef<HTMLDivElement>(),
@@ -144,13 +146,15 @@ describe('HealthMetricsCards – card headers', () => {
     'Active HR Time',
     'Steps',
     'Active Minutes',
+    'light_activity',
+    'inactivity',
     'Breathing',
     'WeightLabel',
     'Blood pressure',
     'Exercises',
   ];
 
-  it('renders all 12 card section headers', () => {
+  it('renders all 14 card section headers', () => {
     render(<HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />);
 
     expectedHeaders.forEach((header) => {
@@ -163,11 +167,11 @@ describe('HealthMetricsCards – card headers', () => {
     expect(screen.getByText(header)).toBeInTheDocument();
   });
 
-  it('renders exactly 12 cards', () => {
+  it('renders exactly 14 cards', () => {
     const { container } = render(
       <HealthMetricsCards store={makeStore()} t={t} lang="en" svgRefs={svgRefs} />
     );
-    expect(container.querySelectorAll('.rounded-xl.border.border-accent')).toHaveLength(12);
+    expect(container.querySelectorAll('.rounded-xl.border.border-accent')).toHaveLength(14);
   });
 });
 

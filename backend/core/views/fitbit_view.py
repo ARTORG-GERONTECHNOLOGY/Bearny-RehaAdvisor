@@ -793,6 +793,8 @@ def get_fitbit_health_data(request, patient_id):
                     "calories": entry.calories,
                     "active_minutes": entry.active_minutes,
                     "active_zone_minutes": getattr(entry, "active_zone_minutes", None),
+                    "lightly_active_minutes": getattr(entry, "lightly_active_minutes", None),
+                    "inactivity_minutes": getattr(entry, "inactivity_minutes", None),
                     "wear_time_minutes": getattr(entry, "wear_time_minutes", None),
                     "breathing_rate": entry.breathing_rate,
                     "hrv": entry.hrv,

@@ -17,6 +17,8 @@ export interface FitbitEntry {
   date: string; // YYYY-MM-DD
   steps?: number;
   active_minutes?: number;
+  lightly_active_minutes?: number;
+  inactivity_minutes?: number;
   distance?: number;
   floors?: number;
   resting_heart_rate?: number;
