@@ -44,6 +44,7 @@ from core.models import (
     FitbitData,
     FitbitUserToken,
     GeneralFeedback,
+    GoogleHealthData,
     HealthQuestionnaire,
     Intervention,
     InterventionAssignment,
@@ -1050,6 +1051,40 @@ def test_biomarker_fitbit_revoked_true_when_token_revoked(mongo_mock):
     assert resp.status_code == 200
     row = next(r for r in resp.json() if r["_id"] == str(patient.id))
     assert row["biomarker"]["fitbit_revoked"] is True
+
+
+def test_biomarker_uses_google_health_data_for_fitbit_labelled_patient(mongo_mock):
+    """Merged wearable query surfaces GoogleHealthData even when wearable_device is 'fitbit'.
+
+    This is the regression test for the overview 'no data' bug: previously the endpoint
+    branched on wearable_device and queried only FitbitData for non-google_health patients,
+    silently returning no data for patients whose records live in GoogleHealthData.
+    """
+    therapist, patient = create_therapist_with_patient()
+    user = patient.userId
+    patient.wearable_device = "fitbit"
+    patient.save()
+
+    _now = timezone.now().replace(tzinfo=None)
+    GoogleHealthData(
+        user=user,
+        date=_now - timedelta(days=1),
+        steps=8000,
+        active_minutes=45,
+        wear_time_minutes=600,
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    bio = row["biomarker"]
+    assert bio["wear_time_avg_min"] == pytest.approx(600.0, rel=1e-3)
+    assert bio["wear_time_days_since"] == 1
+    assert bio["steps_avg"] == pytest.approx(8000.0, rel=1e-3)
+    assert bio["activity_min"] == pytest.approx(45.0, rel=1e-3)
 
 
 def test_biomarker_includes_data_from_25_days_ago(mongo_mock):
