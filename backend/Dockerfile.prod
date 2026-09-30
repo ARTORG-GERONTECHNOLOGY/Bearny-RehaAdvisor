@@ -1,7 +1,8 @@
 FROM anaconda/miniconda:26.7.1
 WORKDIR /app
 
-ENV PATH=/opt/miniconda3/bin:$PATH
+ENV PATH=/opt/miniconda3/bin:$PATH \
+    PIP_NO_CACHE_DIR=1
 
 # Install Docker CLI so the Celery cert-renewal task can call certbot via the Docker socket.
 RUN apt-get update \
@@ -21,7 +22,7 @@ RUN if conda --help | grep -qE '^[[:space:]]+tos[[:space:]]'; then \
       echo "conda 'tos' subcommand not available, skipping TOS acceptance step"; \
     fi
 
-RUN conda env create -f environment.yml
+RUN conda env create -f environment.yml && conda clean -afy
 RUN echo "source activate teleRehabApp" > ~/.bashrc
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

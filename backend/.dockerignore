@@ -8,3 +8,6 @@ db.sqlite3
 
 # Docker 
 Dockerfile
+
+# Secrets
+*.pem
