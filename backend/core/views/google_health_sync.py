@@ -312,7 +312,12 @@ def _aggregate_sleep(points: list) -> dict | None:
             # Actual sleep = total bed time minus AWAKE-stage minutes.
             stages = summary.get("stagesSummary", [])
             if stages:
-                awake_min = sum(int(sg.get("minutesInStage") or 0) for sg in stages if sg.get("type") == "AWAKE")
+                # Live API uses "minutes"; older/mocked responses may use "minutesInStage".
+                awake_min = sum(
+                    int(sg.get("minutes") or sg.get("minutesInStage") or 0)
+                    for sg in stages
+                    if sg.get("type") == "AWAKE"
+                )
                 total_minutes_asleep += max(0, dur_ms // 60000 - awake_min)
             else:
                 logger.warning(
