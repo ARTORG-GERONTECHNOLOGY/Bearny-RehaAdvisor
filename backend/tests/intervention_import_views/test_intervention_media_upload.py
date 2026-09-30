@@ -480,7 +480,8 @@ def test_unexpected_error_is_caught_per_file(mock_save):
     assert r.status_code == 200
     result = r.json()["results"][0]
     assert result["status"] == "error"
-    assert "disk full" in result["error"]
+    assert result["error"] == "Unexpected error while processing file."
+    assert "disk full" not in result["error"]
 
 
 # ── Multi-media slot uploads ──────────────────────────────────────────────────
