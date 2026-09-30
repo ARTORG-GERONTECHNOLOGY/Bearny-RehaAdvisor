@@ -282,7 +282,7 @@ def _make_record(date_str, active_minutes=30, sleep_minutes=None, inactivity_min
     return SimpleNamespace(
         id=record_id,
         user=user,
-        date=datetime.datetime.strptime(date_str, "%Y-%m-%d").date(),
+        date=datetime.datetime.strptime(date_str, "%Y-%m-%d"),  # DateTimeField returns datetime, not date
         active_minutes=active_minutes,
         sleep=sleep,
         inactivity_minutes=inactivity_minutes,

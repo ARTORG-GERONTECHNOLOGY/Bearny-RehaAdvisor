@@ -120,7 +120,7 @@ class Command(BaseCommand):
             # Apply values to each record.
             user_updated = 0
             for record in records:
-                dt = record.date if isinstance(record.date, datetime.date) else record.date.date()
+                dt = record.date.date() if isinstance(record.date, datetime.datetime) else record.date
                 lightly_active_minutes = light_by_date.get(dt)
                 if lightly_active_minutes is None:
                     # API returned no data for this date — leave as None.
