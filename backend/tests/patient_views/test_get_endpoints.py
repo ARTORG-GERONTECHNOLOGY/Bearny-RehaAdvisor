@@ -48,6 +48,7 @@ from core.models import (
     AnswerOption,
     FeedbackEntry,
     FeedbackQuestion,
+    GoogleHealthData,
     HealthQuestionnaire,
     Intervention,
     InterventionAssignment,
@@ -56,6 +57,7 @@ from core.models import (
     PatientInterventionLogs,
     QuestionnaireAssignment,
     RehabilitationPlan,
+    SleepData,
     Therapist,
     Translation,
     User,
@@ -1748,3 +1750,40 @@ def test_therapist_plan_for_a_patient_with_two_plan_documents(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 200, resp.content.decode()
+
+
+def test_combined_health_data_includes_minutes_asleep_in_sleep_object(mongo_mock):
+    """
+    The health-combined-history endpoint must include minutes_asleep in the sleep
+    object so the SleepChart can display actual sleep time instead of time-in-bed.
+
+    Regression: the sleep dict was missing minutes_asleep, causing the frontend to
+    always fall back to sleep_duration / 60000 (time-in-bed), inflating all values.
+    """
+    patient, _, _, _ = setup_basic_plan(with_plan=False)
+
+    _now = timezone.now().replace(tzinfo=None)
+    GoogleHealthData(
+        user=patient.userId,
+        date=_now - timedelta(days=1),
+        sleep=SleepData(
+            sleep_duration=32_520_000,  # 542 min time-in-bed
+            minutes_asleep=303,         # actual sleep (901-34 Sep 25 real data)
+            sleep_start="2026-09-24T23:00:00.000",
+            sleep_end="2026-09-25T07:02:00.000",
+        ),
+    ).save()
+
+    resp = client.get(
+        f"/api/patients/health-combined-history/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+    fitbit_rows = resp.json().get("fitbit", [])
+    sleep_rows = [r for r in fitbit_rows if r.get("sleep") is not None]
+    assert sleep_rows, "no sleep rows in response"
+    s = sleep_rows[0]["sleep"]
+    assert s["minutes_asleep"] == 303, "minutes_asleep must be present and correct"
+    assert s["sleep_duration"] == 32_520_000
+    assert s["minutes_asleep"] != s["sleep_duration"] // 60000
