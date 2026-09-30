@@ -233,6 +233,39 @@ describe('buildHealthCsvBlob', () => {
     expect(text).toContain('Fat Burn');
   });
 
+  it('uses minutes_asleep for sleep duration when present (901-34 inflated pattern)', async () => {
+    // 901-34 Sep 25: sleep_duration=32_520_000 ms (542 min = 9.03 h), minutes_asleep=303 (5.05 h).
+    // The export must show 5.05, not 9.03.
+    const sleepStore = {
+      ...store,
+      fitbitData: [
+        {
+          date: '2024-03-01',
+          sleep: { sleep_duration: 32_520_000, minutes_asleep: 303 },
+        },
+      ],
+    };
+    const blob = buildHealthCsvBlob(sleepStore, from, to, { ...noSelections, sleep: true }, 'en');
+    const text = await readBlobText(blob);
+    expect(text).toContain('5.05');
+    expect(text).not.toContain('9.03');
+  });
+
+  it('falls back to sleep_duration when minutes_asleep is absent (legacy records)', async () => {
+    const sleepStore = {
+      ...store,
+      fitbitData: [
+        {
+          date: '2024-03-01',
+          sleep: { sleep_duration: 32_520_000 },
+        },
+      ],
+    };
+    const blob = buildHealthCsvBlob(sleepStore, from, to, { ...noSelections, sleep: true }, 'en');
+    const text = await readBlobText(blob);
+    expect(text).toContain('9.03');
+  });
+
   it('emits sleep, heart-rate-zone, and exercise rows when the underlying data is present', async () => {
     const richStore = {
       ...store,

@@ -148,6 +148,31 @@ describe('buildPatientHealthPdf', () => {
     ]);
   });
 
+  it('uses minutes_asleep not sleep_duration when both are present (901-34 Sep 30 pattern)', () => {
+    // 901-34 Sep 30 prod values: bed=29_160_000 ms (486 min = 8.10h), asleep=303 min (5.05h).
+    // The PDF must show 5.05h, not 8.10h.
+    const sleepStore = {
+      fitbitData: [
+        {
+          date: '2024-03-01',
+          sleep: { sleep_duration: 29_160_000, minutes_asleep: 303 },
+        },
+        {
+          date: '2024-03-02',
+          sleep: { sleep_duration: 17_760_000, minutes_asleep: 156 }, // 901-28 Sep 30
+        },
+      ],
+    } as any;
+    buildPatientHealthPdf(sleepStore, from, to, { ...noSelections, sleep: true }, t);
+
+    const [[, opts]] = autoTableMock.mock.calls;
+    // 303 / 60 = 5.05h, 156 / 60 = 2.60h — NOT 8.10h or 4.93h (time-in-bed)
+    expect(opts.body).toEqual([
+      ['01.03.2024', '5.05'],
+      ['02.03.2024', '2.60'],
+    ]);
+  });
+
   it('builds a Date/Systolic/Diastolic blood pressure table', () => {
     buildPatientHealthPdf(store, from, to, { ...noSelections, bloodPressure: true }, t);
 

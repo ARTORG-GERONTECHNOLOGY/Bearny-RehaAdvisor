@@ -3713,6 +3713,7 @@ def get_combined_health_data(request, patient_id):
                 sleep_end = getattr(entry.sleep, "sleep_end", None)
                 sleep_obj = {
                     "sleep_duration": getattr(entry.sleep, "sleep_duration", None),
+                    "minutes_asleep": getattr(entry.sleep, "minutes_asleep", None),
                     "sleep_start": (
                         _iso(sleep_start)
                         if isinstance(sleep_start, (datetime.datetime, datetime.date))

@@ -233,4 +233,13 @@ describe('averageSleepMinutes', () => {
     const avg = averageSleepMinutes(data, new Date('2026-01-01'), new Date('2026-01-03'));
     expect(avg).toBe(405);
   });
+
+  it('uses minutes_asleep not sleep_duration for the average (901-28 Sep 30 pattern)', () => {
+    // 901-28 Sep 30: bed=17_760_000 ms (296 min), actual sleep=156 min.
+    // Average must be 156, not 296.
+    const data: FitbitEntry[] = [
+      { date: '2026-09-30', sleep: { minutes_asleep: 156, sleep_duration: 17_760_000 } },
+    ];
+    expect(averageSleepMinutes(data)).toBe(156);
+  });
 });
