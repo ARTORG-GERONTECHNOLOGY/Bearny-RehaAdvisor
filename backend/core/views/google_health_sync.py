@@ -305,7 +305,22 @@ def _aggregate_sleep(points: list) -> dict | None:
         total_duration_ms += dur_ms
         # All numeric fields in the sleep summary are returned as strings by the API.
         ma = summary.get("minutesAsleep")
-        total_minutes_asleep += int(ma) if ma is not None else (dur_ms // 60000)
+        if ma is not None:
+            total_minutes_asleep += int(ma)
+        else:
+            # The GH API often omits minutesAsleep and provides stagesSummary instead.
+            # Actual sleep = total bed time minus AWAKE-stage minutes.
+            stages = summary.get("stagesSummary", [])
+            if stages:
+                awake_min = sum(int(sg.get("minutesInStage") or 0) for sg in stages if sg.get("type") == "AWAKE")
+                total_minutes_asleep += max(0, dur_ms // 60000 - awake_min)
+            else:
+                logger.warning(
+                    "_aggregate_sleep: no minutesAsleep or stagesSummary for %s–%s; " "falling back to time-in-bed",
+                    iv.get("startTime"),
+                    iv.get("endTime"),
+                )
+                total_minutes_asleep += dur_ms // 60000
         # Awakenings: prefer summary.awakenings (live API simple field), then
         # stagesSummary AWAKE count (some API versions return it there).
         aw_direct = summary.get("awakenings")

@@ -170,7 +170,10 @@ export const buildHealthCsvBlob = (
     const rows = fitIn
       .filter((d: any) => d.sleep?.sleep_duration != null)
       .map((d: any) => {
-        const h = (d.sleep.sleep_duration / 3600000).toFixed(2);
+        const h =
+          d.sleep.minutes_asleep != null
+            ? (d.sleep.minutes_asleep / 60).toFixed(2)
+            : (d.sleep.sleep_duration / 3600000).toFixed(2);
         return [
           toEuroDate(d.date.slice(0, 10)),
           d.sleep.sleep_start ?? '',
