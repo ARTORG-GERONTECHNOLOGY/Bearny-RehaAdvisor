@@ -40,6 +40,8 @@ from utils.interventions import _safe_intervention
 
 _LOG_RETENTION_DAYS = int(os.getenv("LOG_RETENTION_DAYS", "365"))
 _AUDIT_EXPORT_RETENTION_DAYS = int(os.getenv("AUDIT_EXPORT_RETENTION_DAYS", "1825"))  # 5 years
+# pywebpush's default ttl=0 drops pushes while the browser is closed; 6h keeps reminders from arriving stale.
+PUSH_TTL_SECONDS = 6 * 60 * 60
 
 
 @shared_task(
@@ -505,6 +507,7 @@ def _send_push_to_patient(patient: Patient, category: str) -> None:
                 vapid_claims={"sub": f"mailto:{settings.VAPID_ADMIN_EMAIL}"},
                 # requests has no default timeout, so set one to avoid hanging the worker.
                 timeout=10,
+                ttl=PUSH_TTL_SECONDS,
             )
             subscription.last_used_at = timezone.now()
             subscription.save()

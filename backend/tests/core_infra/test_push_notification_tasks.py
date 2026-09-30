@@ -26,7 +26,7 @@ from core.models import (
     User,
 )
 from core.notifications.categorize import resolve_notification_category
-from core.tasks import send_due_intervention_push_notifications
+from core.tasks import PUSH_TTL_SECONDS, send_due_intervention_push_notifications
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -172,6 +172,7 @@ def test_sends_push_for_due_enabled_category():
 
     assert result["sent"] == 1
     mocked_webpush.assert_called_once()
+    assert mocked_webpush.call_args.kwargs["ttl"] == PUSH_TTL_SECONDS
     assert SentPushNotification.objects(patient=patient, category="education").count() == 1
 
 
