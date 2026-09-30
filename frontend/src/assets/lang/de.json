@@ -87,7 +87,6 @@
   "Shown when applying the template to a patient; can be overridden.": "Wird bei der Anwendung der Vorlage auf einen Patienten angezeigt; kann überschrieben werden.",
   "Suggested execution times": "Vorgeschlagene Ausführungszeiten",
   "K must be at least 1.": "K muss mindestens 1 sein. Versuchen Sie es erneut.",
-  "Every K days": "Alle K Tage",
   "Generates Day S, Day S+K, … until Day N.": "Generiert Tag S, Tag S+K, … bis Tag N. K = Intervall.",
   "Last day must be ≥ start day.": "Der letzte Tag muss ≥ Starttag sein. Versuchen Sie es erneut.",
   "Last day (N)": "Letzter Tag (N)",
@@ -1701,5 +1700,7 @@
   "optional — leave blank for all": "optional — leer lassen für alle",
   "patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.": "Patienten, Reha-Kalender, Interventionsprotokolle, Feedback, Vitaldaten, Fitbit-Daten, Fragebogenantworten, Schwellenwerte, Schwellenwertverlauf, Aktivitätsprotokolle.",
   "public": "öffentlich",
-  "{{count}} session(s): Days S,S+K,…≤N at ~{{time}}": "{{count}} Sitzung(en): Tage S, S+K, …≤N um ~{{time}}"
+  "{{count}} session(s): Days S,S+K,…≤N at ~{{time}}": "{{count}} Sitzung(en): Tage S, S+K, …≤N um ~{{time}}",
+  "Repeat unit": "Wiederholungseinheit",
+  "Every {{interval}} week(s) on {{days}}, between day {{start}} and day {{end}} at ~{{time}}": "Alle {{interval}} Woche(n) am {{days}}, zwischen Tag {{start}} und Tag {{end}} um ~{{time}}"
 }

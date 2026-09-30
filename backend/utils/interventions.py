@@ -407,7 +407,7 @@ def _normalize_segments(raw):
     return items
 
 
-BASE_ANCHOR = "2000-01-01"  # fixed origin so "Day N" is stable
+BASE_ANCHOR = "2000-01-03"  # fixed Monday origin so "Day N" is stable and Day 1 previews as Monday
 
 
 def _occ_count_for_day_range(start_day, end_day, interval):

@@ -36,6 +36,7 @@ from core.models import (
     Therapist,
 )
 from utils.interventions import (
+    BASE_ANCHOR,
     _anchor_date_for_day,
     _normalize_segments,
     _occ_count_for_day_range,
@@ -43,8 +44,6 @@ from utils.interventions import (
 )
 from utils.scheduling import _expand_dates
 from utils.utils import bad
-
-BASE_ANCHOR = "2000-01-01"
 
 # Sentinel key used when no diagnosis is linked to a template entry.
 _ALL_DX = "_all"

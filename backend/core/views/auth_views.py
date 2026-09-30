@@ -190,19 +190,26 @@ def create_rehab_plan(patient, therapist):
                     # optional time per block, otherwise default
                     start_time = _safe_get(block, "start_time", default_start_time) or default_start_time
 
-                    # legacy 'count_limit' still respected; else derive from start/end days
-                    count_limit = _safe_get(block, "count_limit", None)
-                    if count_limit is None:
-                        count_limit = _make_count(
-                            unit,
-                            interval,
-                            selected_days,
-                            start_day,
-                            end_day,
-                            fallback=50,
-                        )
+                    # Bound by end_day when known (legacy blocks store count_limit == end_day, not a count)
+                    if end_day is not None and unit != "day":
+                        block_end_date = plan_start_date + timedelta(days=max(start_day, end_day) - 1)
+                        end = {"type": "date", "date": block_end_date.isoformat()}
+                        max_occ = 1000
                     else:
-                        count_limit = int(count_limit or 1)
+                        count_limit = _safe_get(block, "count_limit", None)
+                        if end_day is not None or count_limit is None:
+                            count_limit = _make_count(
+                                unit,
+                                interval,
+                                selected_days,
+                                start_day,
+                                end_day,
+                                fallback=50,
+                            )
+                        else:
+                            count_limit = int(count_limit or 1)
+                        end = {"type": "count", "count": count_limit}
+                        max_occ = count_limit
 
                     # Compute the actual start date for this block
                     block_start_date = (plan_start_date + timedelta(days=max(0, start_day - 1))).isoformat()
@@ -215,8 +222,8 @@ def create_rehab_plan(patient, therapist):
                             unit=unit,
                             interval=interval,
                             selected_days=selected_days,
-                            end={"type": "count", "count": count_limit},
-                            max_occurrences=count_limit,
+                            end=end,
+                            max_occurrences=max_occ,
                         )
                         or []
                     )

@@ -88,7 +88,6 @@
   "Shown when applying the template to a patient; can be overridden.": "Mostrato quando si applica il modello a un paziente; può essere sovrascritto.",
   "Suggested execution times": "Tempi di esecuzione suggeriti",
   "K must be at least 1.": "K deve essere almeno 1.",
-  "Every K days": "Ogni K giorni",
   "Generates Day S, Day S+K, … until Day N.": "Genera Giorno S, Giorno S+K, … fino a Giorno N.",
   "Last day must be ≥ start day.": "L'ultimo giorno deve essere ≥ giorno di inizio.",
   "Last day (N)": "Ultimo giorno (N)",
@@ -1701,5 +1700,7 @@
   "optional — leave blank for all": "opzionale — lasciare vuoto per tutti",
   "patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.": "pazienti, calendario riabilitativo, registri degli interventi, feedback, valori vitali, dati Fitbit, risposte ai questionari, soglie, storico delle soglie, registri di attività.",
   "public": "pubblico",
-  "{{count}} session(s): Days S,S+K,…≤N at ~{{time}}": "{{count}} sessione/i: giorni S, S+K, …≤N alle ~{{time}}"
+  "{{count}} session(s): Days S,S+K,…≤N at ~{{time}}": "{{count}} sessione/i: giorni S, S+K, …≤N alle ~{{time}}",
+  "Repeat unit": "Unità di ripetizione",
+  "Every {{interval}} week(s) on {{days}}, between day {{start}} and day {{end}} at ~{{time}}": "Ogni {{interval}} settimana/e il {{days}}, tra il giorno {{start}} e il giorno {{end}} alle ~{{time}}"
 }

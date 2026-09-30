@@ -87,7 +87,6 @@
   "Shown when applying the template to a patient; can be overridden.": "Shown when applying the template to a patient; can be overridden.",
   "Suggested execution times": "Suggested execution times",
   "K must be at least 1.": "K must be at least 1. Try again.",
-  "Every K days": "Every K days",
   "Generates Day S, Day S+K, … until Day N.": "Generates Day S, Day S+K, … until Day N. K = interval.",
   "Last day must be ≥ start day.": "Last day must be ≥ start day. Try again.",
   "Last day (N)": "Last day (N)",
@@ -1701,5 +1700,7 @@
   "optional — leave blank for all": "optional — leave blank for all",
   "patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.": "patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.",
   "public": "public",
-  "{{count}} session(s): Days S,S+K,…≤N at ~{{time}}": "{{count}} session(s): Days S,S+K,…≤N at ~{{time}}"
+  "{{count}} session(s): Days S,S+K,…≤N at ~{{time}}": "{{count}} session(s): Days S,S+K,…≤N at ~{{time}}",
+  "Repeat unit": "Repeat unit",
+  "Every {{interval}} week(s) on {{days}}, between day {{start}} and day {{end}} at ~{{time}}": "Every {{interval}} week(s) on {{days}}, between day {{start}} and day {{end}} at ~{{time}}"
 }

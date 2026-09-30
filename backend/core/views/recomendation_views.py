@@ -41,6 +41,7 @@ from core.models import (
 )
 from utils.config import config
 from utils.interventions import (
+    BASE_ANCHOR,
     _abs_media_url,
     _anchor_date_for_day,
     _as_str_or_none,
@@ -106,8 +107,6 @@ ALLOWED_CONTENT_TYPES = set(config["RecomendationInfo"]["types"])
 MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024  # 1GB
 MAX_LIST_ITEMS = 30
 MAX_ITEM_LEN = 80
-
-BASE_ANCHOR = "2000-01-01"  # fixed origin so "Day N" is stable
 
 
 # --------------------------------------------------------------------

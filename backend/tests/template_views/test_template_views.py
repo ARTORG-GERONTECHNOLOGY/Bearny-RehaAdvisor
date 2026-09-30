@@ -1445,6 +1445,33 @@ def test_calendar_custom_horizon(mongo_mock):
             assert occ["day"] <= 30
 
 
+def test_calendar_weekly_segment_previews_day_1_as_monday(mongo_mock):
+    """
+    A Mon/Wed/Fri segment over days 1–10 lands on days 1, 3, 5, 8, 10 in the
+    preview, because Day 1 is anchored on a Monday.
+    """
+    _, therapist = _make_therapist()
+    tmpl = _make_template(therapist)
+    intervention = _make_intervention()
+
+    _post_json(
+        ASSIGN_URL.format(id=tmpl.id),
+        {
+            "interventionId": str(intervention.id),
+            "end_day": 10,
+            "unit": "week",
+            "selected_days": ["Mon", "Wed", "Fri"],
+        },
+        therapist,
+    )
+
+    resp = _get(CALENDAR_URL.format(id=tmpl.id), therapist)
+
+    assert resp.status_code == 200
+    occurrences = resp.json()["items"][0]["occurrences"]
+    assert [occ["day"] for occ in occurrences] == [1, 3, 5, 8, 10]
+
+
 def test_calendar_diagnosis_filter(mongo_mock):
     """
     GET with ``?diagnosis=Stroke`` returns only items whose diagnosis matches
