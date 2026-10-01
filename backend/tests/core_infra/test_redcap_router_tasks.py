@@ -7,6 +7,7 @@ from core.redcap import redcap_export_record
 from core.routers import BeatRouter
 from core.tasks import (
     fetch_fitbit_data_async,
+    fetch_google_health_data_async,
     run_delete_expired_videos,
     run_fetch_fitbit_data,
 )
@@ -83,3 +84,13 @@ def test_fetch_fitbit_data_async_noop_when_user_missing():
     ):
         fetch_fitbit_data_async("507f1f77bcf86cd799439011")
     mocked.assert_not_called()
+
+
+def test_fetch_google_health_data_async_bypasses_cooldown():
+    fake_qs = SimpleNamespace(first=lambda: "user-doc")
+    with (
+        patch("core.tasks.User.objects", return_value=fake_qs),
+        patch("core.tasks.fetch_google_health_today_for_user") as mocked,
+    ):
+        fetch_google_health_data_async("507f1f77bcf86cd799439011")
+    mocked.assert_called_once_with("user-doc", bypass_cooldown=True)

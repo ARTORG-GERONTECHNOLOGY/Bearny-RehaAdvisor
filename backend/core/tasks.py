@@ -203,7 +203,7 @@ def run_fetch_google_health_data():
 def fetch_google_health_data_async(user_id: str):
     user = User.objects(pk=user_id).first()
     if user:
-        fetch_google_health_today_for_user(user)
+        fetch_google_health_today_for_user(user, bypass_cooldown=True)
 
 
 @shared_task(

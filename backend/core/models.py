@@ -179,6 +179,7 @@ class GoogleHealthUserToken(Document):
     connected_at = DateTimeField()  # set on every successful auth code exchange
     is_revoked = BooleanField(default=False)  # True when refresh fails with invalid_grant
     revoked_at = DateTimeField(null=True)
+    last_fetched_at = DateTimeField()
 
 
 class GoogleHealthData(Document):

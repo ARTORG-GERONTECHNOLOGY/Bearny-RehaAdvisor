@@ -7,8 +7,9 @@ Endpoints covered
 - GET  /api/google-health/status/<patient_id>/
 - GET  /api/google-health/callback/
 
-Also covers the sync-layer helper:
+Also covers the sync-layer helpers:
 - get_valid_google_access_token  (invalid_grant → is_revoked)
+- fetch_google_health_today_for_user  (15-minute cooldown, bypass_cooldown)
 
 Status endpoint contract
 ------------------------
@@ -383,6 +384,84 @@ def test_valid_token_not_expired_skips_refresh(mock_post):
     result = get_valid_google_access_token(user)
     mock_post.assert_not_called()
     assert result == "still_valid"
+
+
+# ---------------------------------------------------------------------------
+# fetch_google_health_today_for_user — 15-minute cooldown
+# ---------------------------------------------------------------------------
+
+
+def _token_fetched_minutes_ago(minutes):
+    user = _make_user()
+    token = _make_token(user)
+    if minutes is not None:
+        # Naive UTC, as MongoDB returns it.
+        token.last_fetched_at = datetime.utcnow() - timedelta(minutes=minutes)
+        token.save()
+    return user, token
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_skipped_within_cooldown(mock_token, mock_sync):
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, _ = _token_fetched_minutes_ago(5)
+
+    assert fetch_google_health_today_for_user(user) == 0
+    mock_token.assert_not_called()
+    mock_sync.assert_not_called()
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_runs_after_cooldown_and_restamps(mock_token, mock_sync):
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(20)
+    before = token.last_fetched_at
+
+    assert fetch_google_health_today_for_user(user) == 1
+    mock_sync.assert_called_once()
+    assert GoogleHealthUserToken.objects.get(id=token.id).last_fetched_at > before
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=False)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_first_run_stamps_even_without_data(mock_token, mock_sync):
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(None)
+
+    assert fetch_google_health_today_for_user(user) == 0
+    mock_sync.assert_called_once()
+    assert GoogleHealthUserToken.objects.get(id=token.id).last_fetched_at is not None
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+@patch("core.views.google_health_sync.get_valid_google_access_token", side_effect=Exception("refresh failed"))
+def test_today_sync_token_failure_does_not_stamp(mock_token, mock_sync):
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(None)
+
+    assert fetch_google_health_today_for_user(user) == 0
+    mock_sync.assert_not_called()
+    assert GoogleHealthUserToken.objects.get(id=token.id).last_fetched_at is None
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_bypass_cooldown_ignores_recent_sync(mock_token, mock_sync):
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, _ = _token_fetched_minutes_ago(5)
+
+    assert fetch_google_health_today_for_user(user, bypass_cooldown=True) == 1
+    mock_sync.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

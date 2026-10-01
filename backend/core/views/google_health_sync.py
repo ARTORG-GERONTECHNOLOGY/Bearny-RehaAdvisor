@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 _BASE = "https://health.googleapis.com/v4/users/me"
 _TOKEN_URL = "https://oauth2.googleapis.com/token"
 
+FETCH_COOLDOWN_MINUTES = 15
+
 # Canonical zone names matching the frontend chart (HRZonesStacked.tsx).
 # Covers both Fitbit-style names (FAT_BURN etc.) and Google Health v4 names (MODERATE etc.).
 # Activity levels to count toward active_minutes — matches Fitbit AZM (fat-burn, cardio, peak).
@@ -732,18 +734,31 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     return True
 
 
-def fetch_google_health_today_for_user(user) -> int:
+def fetch_google_health_today_for_user(user, bypass_cooldown: bool = False) -> int:
     """Fetch today only for a single user. Returns 1 if a row was written, else 0."""
     token = GoogleHealthUserToken.objects(user=user).first()
     if not token:
         logger.info("[google_health] no token for user=%s, skip", user.id)
         return 0
 
+    if not bypass_cooldown and token.last_fetched_at:
+        last = token.last_fetched_at
+        if is_naive(last):
+            # MongoDB stores UTC; replace rather than make_aware to avoid a local-timezone shift.
+            last = last.replace(tzinfo=datetime.timezone.utc)
+        age_minutes = (timezone.now() - last).total_seconds() / 60
+        if age_minutes < FETCH_COOLDOWN_MINUTES:
+            logger.info("[google_health] skipping fetch for user=%s, last synced %.1f min ago", user.id, age_minutes)
+            return 0
+
     try:
         access_token = get_valid_google_access_token(user)
     except Exception:
         logger.exception("[google_health] could not get token for user=%s", user.id)
         return 0
+
+    # Stamp before the API calls so failures still cool down; update_one avoids clobbering a refreshed token.
+    GoogleHealthUserToken.objects(id=token.id).update_one(set__last_fetched_at=timezone.now())
 
     today = datetime.date.today()
     written = _sync_day(user, access_token, today)
