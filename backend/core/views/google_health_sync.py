@@ -735,6 +735,16 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     return True
 
 
+def queue_google_health_today_sync(user, bypass_cooldown: bool = False) -> None:
+    """Sync today in Celery so the request answers from the DB instead of waiting ~45 s."""
+    from core.tasks import fetch_google_health_data_async  # lazy: core.tasks imports this module
+
+    try:
+        fetch_google_health_data_async.delay(str(user.id), bypass_cooldown=bypass_cooldown)
+    except Exception:
+        logger.exception("[google_health] could not queue today sync for user=%s", user.id)
+
+
 def fetch_google_health_today_for_user(user, bypass_cooldown: bool = False) -> int:
     """Fetch today only for a single user. Returns 1 if a row was written, else 0."""
     token = GoogleHealthUserToken.objects(user=user).first()

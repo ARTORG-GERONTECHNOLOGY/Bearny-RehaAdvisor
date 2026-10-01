@@ -32,7 +32,7 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
-    # Sync Fitbit wearables data to REDCap every night at 02:30 UTC
+    # Sync wearables data to REDCap every night at 02:30 UTC
     "sync_wearables_to_redcap_all": {
         "task": "core.tasks.sync_wearables_to_redcap_all",
         "schedule": crontab(hour=2, minute=30),

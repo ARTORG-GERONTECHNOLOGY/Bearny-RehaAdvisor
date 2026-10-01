@@ -737,6 +737,22 @@ def test_fitbit_summary_internal_error_branch(mock_fetch):
 
 
 @patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+@patch("core.views.fitbit_view.queue_google_health_today_sync")
+def test_fitbit_summary_queues_google_health_sync_for_gh_patient(mock_queue, mock_fitbit_fetch):
+    """For a Google Health patient the shared summary endpoint queues the sync instead of running it."""
+    _, _, patient_user, patient = create_patient_graph()
+    patient.wearable_device = "google_health"
+    patient.save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+
+    assert resp.status_code == 200
+    mock_queue.assert_called_once()
+    assert mock_queue.call_args.args[0].id == patient_user.id
+    mock_fitbit_fetch.assert_not_called()
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
 def test_fitbit_summary_does_not_bypass_cooldown(mock_fetch):
     """fitbit_summary must not pass bypass_cooldown=True — the cooldown guard must apply."""
     _, _, _, patient = create_patient_graph()

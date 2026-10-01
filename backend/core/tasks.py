@@ -199,11 +199,12 @@ def run_fetch_google_health_data():
         raise
 
 
-@shared_task(name="core.tasks.fetch_google_health_data_async")
-def fetch_google_health_data_async(user_id: str):
+# ignore_result: nobody reads the result; also avoids ~20 s of result-store retries per call when Redis is unreachable.
+@shared_task(name="core.tasks.fetch_google_health_data_async", ignore_result=True)
+def fetch_google_health_data_async(user_id: str, bypass_cooldown: bool = False):
     user = User.objects(pk=user_id).first()
     if user:
-        fetch_google_health_today_for_user(user, bypass_cooldown=True)
+        fetch_google_health_today_for_user(user, bypass_cooldown=bypass_cooldown)
 
 
 @shared_task(

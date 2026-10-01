@@ -10,6 +10,7 @@ Endpoints covered
 Also covers the sync-layer helpers:
 - get_valid_google_access_token  (invalid_grant → is_revoked)
 - fetch_google_health_today_for_user  (15-minute cooldown, bypass_cooldown)
+- queue_google_health_today_sync      (summary queues the sync in Celery)
 
 Status endpoint contract
 ------------------------
@@ -203,9 +204,11 @@ def _mock_redis_for_nonce(nonce, patient_id):
     return mock_rc
 
 
+@patch("core.tasks.backfill_google_health_on_connect.delay")
+@patch("core.tasks.fetch_google_health_data_async.delay")
 @patch("core.views.google_health_view.requests.post")
 @patch("core.views.google_health_view._get_redis_client")
-def test_callback_sets_connected_at_on_success(mock_redis, mock_post):
+def test_callback_sets_connected_at_on_success(mock_redis, mock_post, mock_today_delay, mock_backfill_delay):
     from core.models import GoogleHealthUserToken, User
 
     user = User(
@@ -235,6 +238,8 @@ def test_callback_sets_connected_at_on_success(mock_redis, mock_post):
     assert token is not None
     assert token.connected_at is not None
     assert token.is_revoked is False
+    # A fresh connection syncs today straight away, ignoring any cooldown left from an earlier connection.
+    mock_today_delay.assert_called_once_with(str(user.id), bypass_cooldown=True)
 
 
 @patch("core.views.google_health_view.requests.post")
@@ -743,11 +748,60 @@ def test_sleep_minutes_falls_back_to_duration_when_no_minutes_asleep():
 
 
 # ---------------------------------------------------------------------------
+# queue_google_health_today_sync — summary syncs in Celery, not in the request
+# ---------------------------------------------------------------------------
+
+
+@patch("core.views.google_health_view.queue_google_health_today_sync")
+def test_summary_queues_today_sync_instead_of_syncing_inline(mock_queue):
+    from core.models import Patient, Therapist, User
+
+    th_user = User(
+        username=f"th-{ObjectId()}",
+        email="th@example.com",
+        role="Therapist",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    th = Therapist(userId=th_user, clinics=["Inselspital"], projects=["COPAIN"]).save()
+    patient_user = _make_user()
+    patient = Patient(userId=patient_user, patient_code=f"P-{ObjectId()}", therapist=th).save()
+
+    with patch("core.views.google_health_sync.fetch_google_health_today_for_user") as mock_sync:
+        resp = Client().get(f"/api/google-health/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+
+    assert resp.status_code == 200
+    mock_queue.assert_called_once()
+    assert mock_queue.call_args.args[0].id == patient_user.id
+    mock_sync.assert_not_called()
+
+
+@patch("core.tasks.fetch_google_health_data_async.delay")
+def test_queue_today_sync_respects_cooldown(mock_delay):
+    """The summary path must not pass bypass_cooldown; only the connect callback does."""
+    from core.views.google_health_sync import queue_google_health_today_sync
+
+    user = _make_user()
+    queue_google_health_today_sync(user)
+
+    mock_delay.assert_called_once_with(str(user.id), bypass_cooldown=False)
+
+
+@patch("core.tasks.fetch_google_health_data_async.delay", side_effect=Exception("broker down"))
+def test_queue_today_sync_broker_error_does_not_break_summary(mock_delay):
+    from core.views.google_health_sync import queue_google_health_today_sync
+
+    queue_google_health_today_sync(_make_user())  # must not raise
+
+    mock_delay.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
 # google_health_summary — "today" resolution
 # ---------------------------------------------------------------------------
 
 
-@patch("core.views.google_health_view.fetch_google_health_today_for_user")
+@patch("core.views.google_health_view.queue_google_health_today_sync")
 def test_summary_today_ignores_future_dated_manual_entry(mock_fetch):
     """A manually-entered steps count for a future date must not leak into "today"."""
     from core.models import GoogleHealthData, Patient, Therapist, User
@@ -775,7 +829,7 @@ def test_summary_today_ignores_future_dated_manual_entry(mock_fetch):
     assert body["today"]["steps"] == 1000
 
 
-@patch("core.views.google_health_view.fetch_google_health_today_for_user")
+@patch("core.views.google_health_view.queue_google_health_today_sync")
 def test_summary_today_does_not_fall_back_to_past_dated_entry(mock_fetch):
     """When there's no record for today, a past-dated (e.g. manually backfilled)
     entry must not be shown as if it were today's data."""
@@ -804,7 +858,7 @@ def test_summary_today_does_not_fall_back_to_past_dated_entry(mock_fetch):
     assert body["today"] is None
 
 
-@patch("core.views.google_health_view.fetch_google_health_today_for_user")
+@patch("core.views.google_health_view.queue_google_health_today_sync")
 def test_summary_today_shows_manual_vitals_when_no_device_data_yet(mock_fetch):
     """A patient who has only logged weight/BP manually today (no device sync
     yet) must still see those values under "today", not a null payload."""
@@ -837,7 +891,7 @@ def test_summary_today_shows_manual_vitals_when_no_device_data_yet(mock_fetch):
 
 
 @patch("core.views.google_health_view.timezone.now")
-@patch("core.views.google_health_view.fetch_google_health_today_for_user")
+@patch("core.views.google_health_view.queue_google_health_today_sync")
 def test_summary_today_uses_local_not_utc_calendar_day(mock_fetch, mock_now):
     """Just after local midnight, "today" must be keyed by the Zurich calendar
     day, not the (still-previous) UTC day. Regression test for the local-vs-UTC
@@ -873,7 +927,7 @@ def test_summary_today_uses_local_not_utc_calendar_day(mock_fetch, mock_now):
     assert body["today"]["steps"] == 4242
 
 
-@patch("core.views.google_health_view.fetch_google_health_today_for_user")
+@patch("core.views.google_health_view.queue_google_health_today_sync")
 def test_summary_period_daily_includes_vitals_only_day(mock_fetch):
     """A day with only manually-logged BP/weight (no GoogleHealthData row at
     all) must still appear in period.daily, not be silently dropped."""

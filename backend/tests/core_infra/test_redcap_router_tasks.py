@@ -86,11 +86,26 @@ def test_fetch_fitbit_data_async_noop_when_user_missing():
     mocked.assert_not_called()
 
 
-def test_fetch_google_health_data_async_bypasses_cooldown():
+def test_fetch_google_health_data_async_respects_cooldown_by_default():
     fake_qs = SimpleNamespace(first=lambda: "user-doc")
     with (
         patch("core.tasks.User.objects", return_value=fake_qs),
         patch("core.tasks.fetch_google_health_today_for_user") as mocked,
     ):
         fetch_google_health_data_async("507f1f77bcf86cd799439011")
+    mocked.assert_called_once_with("user-doc", bypass_cooldown=False)
+
+
+def test_fetch_google_health_data_async_passes_bypass_cooldown():
+    fake_qs = SimpleNamespace(first=lambda: "user-doc")
+    with (
+        patch("core.tasks.User.objects", return_value=fake_qs),
+        patch("core.tasks.fetch_google_health_today_for_user") as mocked,
+    ):
+        fetch_google_health_data_async("507f1f77bcf86cd799439011", bypass_cooldown=True)
     mocked.assert_called_once_with("user-doc", bypass_cooldown=True)
+
+
+def test_fetch_google_health_data_async_ignores_result():
+    """Publishing must not subscribe to the Redis result store, or a Redis outage stalls page loads ~20 s."""
+    assert fetch_google_health_data_async.ignore_result is True

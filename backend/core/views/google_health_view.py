@@ -52,7 +52,7 @@ def _parse_sleep_end(sleep_end_raw, day_start_dt):
     return sleep_end_dt, max(0, min(1440, wake_minute))
 
 
-from core.views.google_health_sync import fetch_google_health_today_for_user
+from core.views.google_health_sync import queue_google_health_today_sync
 
 logger = logging.getLogger(__name__)
 
@@ -214,9 +214,9 @@ def google_health_callback(request):
 
         # Sync today immediately, then backfill up to 365 days in the background
         # to cover the full monitoring period from the start of usage.
-        from core.tasks import backfill_google_health_on_connect, fetch_google_health_data_async
+        from core.tasks import backfill_google_health_on_connect
 
-        fetch_google_health_data_async.delay(str(user.id))
+        queue_google_health_today_sync(user, bypass_cooldown=True)
         backfill_google_health_on_connect.delay(str(user.id))
 
         return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=connected")
@@ -291,7 +291,7 @@ def google_health_summary(request, patient_id=None):
             return JsonResponse({"error": "User not found"}, status=404)
 
         thresholds = _merge_thresholds(patient)
-        fetch_google_health_today_for_user(user)
+        queue_google_health_today_sync(user)
 
         token = GoogleHealthUserToken.objects(user=patient.userId).first()
         connected = bool(token)
