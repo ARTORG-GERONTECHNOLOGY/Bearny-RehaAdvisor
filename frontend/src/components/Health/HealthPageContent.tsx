@@ -3,6 +3,7 @@ import { saveAs } from 'file-saver';
 import { observer } from 'mobx-react-lite';
 import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
+import apiClient from '@/api/client';
 
 import ExportModal from '@/components/Health/ExportModal';
 import HealthViewControls from '@/components/Health/HealthViewControls';
@@ -25,6 +26,10 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
 
   // Export modal state (UI-only)
   const [showExport, setShowExport] = useState(false);
+
+  // Fitbit history banner: shown when the patient has wearable data earlier than the current view
+  const [firstDataDate, setFirstDataDate] = useState<string | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Chart container refs for PDF export. Each ref points at the chart's wrapping <div> —
   // populated natively by React the moment it mounts, unlike the inner <svg>, which Recharts
@@ -81,6 +86,26 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
     );
   }, [patientId, store, store.viewMode, store.referenceDate, t]);
 
+  // Fetch earliest wearable date once per patient to detect pre-switch Fitbit history
+  useEffect(() => {
+    if (!patientId) return;
+    setBannerDismissed(false);
+    apiClient
+      .get<{ first_data_date?: string }>(`/google-health/status/${patientId}/`)
+      .then((res) => {
+        const d = res.data?.first_data_date;
+        if (d) setFirstDataDate(d);
+      })
+      .catch(() => {});
+  }, [patientId]);
+
+  const showFitbitBanner =
+    !bannerDismissed && firstDataDate !== null && new Date(firstDataDate) < store.startDate;
+
+  const fitbitBannerLabel = firstDataDate
+    ? new Date(firstDataDate).toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' })
+    : '';
+
   const formatRangeLabel = (start: Date, end: Date) =>
     `${formatDateEU(start)} — ${formatDateEU(end)}`;
 
@@ -100,6 +125,21 @@ const HealthPageContent: React.FC<HealthPageContentProps> = observer(({ patientI
     <div className="flex flex-col gap-3">
       {store.error && <Alert variant="destructive">{store.error}</Alert>}
       {store.thresholdsError && <Alert variant="warning">{store.thresholdsError}</Alert>}
+
+      {showFitbitBanner && (
+        <Alert variant="info" onClose={() => setBannerDismissed(true)}>
+          {t('Fitbit history available from')} {fitbitBannerLabel}.{' '}
+          <button
+            className="underline font-medium"
+            onClick={() => {
+              store.setReferenceDate(new Date(firstDataDate!));
+              store.setViewMode('monthly');
+            }}
+          >
+            {t('View')}
+          </button>
+        </Alert>
+      )}
 
       <HealthViewControls
         store={store}
