@@ -31,12 +31,12 @@ describe('TemplateTimeline', () => {
         },
       });
       render(<TemplateTimeline items={[item]} horizonDays={3} />);
-      expect(screen.getByText(/Weekdays are an example \(Day 1 = Monday\)/)).toBeInTheDocument();
+      expect(screen.getByText(/shown as if Day 1 were a Monday/)).toBeInTheDocument();
     });
 
     it('omits the weekday hint for day-based schedules', () => {
       render(<TemplateTimeline items={[makeItem()]} horizonDays={3} />);
-      expect(screen.queryByText(/Weekdays are an example/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/shown as if Day 1 were a Monday/)).not.toBeInTheDocument();
     });
 
     it('renders one day card per horizon day', () => {
@@ -164,7 +164,7 @@ describe('TemplateTimeline', () => {
       } as any);
       render(<TemplateTimeline items={[item]} horizonDays={5} />);
       fireEvent.click(screen.getByText('Day 5').closest('[role="button"]')!);
-      expect(screen.getByText(/• Weekly •/)).toBeInTheDocument();
+      expect(screen.getByText(/• Weekly • Day 4 → 10/)).toBeInTheDocument();
     });
 
     it('closes the modal via the header close button', async () => {

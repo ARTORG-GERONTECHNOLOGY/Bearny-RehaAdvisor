@@ -65,7 +65,7 @@ const TemplateTimeline: React.FC<Props> = ({ items, horizonDays = 84, translated
       {showWeekdayHint && (
         <Alert className="mb-3">
           {t(
-            "Weekdays are an example (Day 1 = Monday). When assigned, Day 1 follows the patient's start date."
+            'Weekday sessions are shown as if Day 1 were a Monday. When applying to a patient, Day 1 is their start date, so these sessions may fall on other days.'
           )}
         </Alert>
       )}
@@ -142,7 +142,7 @@ const TemplateTimeline: React.FC<Props> = ({ items, horizonDays = 84, translated
                     )}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {t('For:')} {ev.item.diagnosis}{' '}
+                    {t('For:')} {ev.item.diagnosis} •{' '}
                     {formatSegmentSummary(
                       seg,
                       countOccurrencesInRange(ev.item, seg.start_day, seg.end_day),

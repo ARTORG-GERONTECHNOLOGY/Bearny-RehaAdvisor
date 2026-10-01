@@ -78,7 +78,7 @@ export const formatFrequency = (
 export const formatDayRange = (start: number, end: number | undefined, t: TFunction): string =>
   end ? t('scheduleDayRange', { start, end }) : t('scheduleFromDay', { start });
 
-/** "• Every 2 weeks on Wed • Day 1 → 14 • 1 session" */
+/** "Every 2 weeks on Wed • Day 1 → 14 • 1 session" */
 export const formatSegmentSummary = (
   segment: TemplateSegment,
   occurrenceCount: number,
@@ -89,5 +89,5 @@ export const formatSegmentSummary = (
     formatDayRange(segment.start_day, segment.end_day, t),
     t('scheduleOccurrences', { count: occurrenceCount }),
   ];
-  return `• ${parts.join(' • ')}`;
+  return parts.join(' • ');
 };

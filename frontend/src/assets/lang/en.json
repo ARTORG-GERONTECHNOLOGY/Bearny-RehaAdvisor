@@ -1699,7 +1699,7 @@
   "patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.": "patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.",
   "public": "public",
   "Repeat unit": "Repeat unit",
-  "Weekdays are an example (Day 1 = Monday). When assigned, Day 1 follows the patient's start date.": "Weekdays are an example (Day 1 = Monday). When assigned, Day 1 follows the patient's start date.",
+  "Weekday sessions are shown as if Day 1 were a Monday. When applying to a patient, Day 1 is their start date, so these sessions may fall on other days.": "Weekday sessions are shown as if Day 1 were a Monday. When applying to a patient, Day 1 is their start date, so these sessions may fall on other days.",
   "scheduleEveryDay_one": "Daily",
   "scheduleEveryDay_other": "Every {{count}} days",
   "scheduleEveryWeek_one": "Weekly",

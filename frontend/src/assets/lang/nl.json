@@ -1699,7 +1699,7 @@
   "patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.": "patiënten, revalidatiekalender, interventielogboeken, feedback, vitale gegevens, Fitbit-gegevens, vragenlijstantwoorden, drempelwaarden, drempelwaardegeschiedenis, activiteitenlogboeken.",
   "public": "openbaar",
   "Repeat unit": "Herhalingseenheid",
-  "Weekdays are an example (Day 1 = Monday). When assigned, Day 1 follows the patient's start date.": "Weekdagen zijn een voorbeeld (dag 1 = maandag). Bij toewijzing volgt dag 1 de startdatum van de patiënt.",
+  "Weekday sessions are shown as if Day 1 were a Monday. When applying to a patient, Day 1 is their start date, so these sessions may fall on other days.": "Sessies op vaste weekdagen worden weergegeven alsof dag 1 een maandag is. Bij toepassing op een patiënt is dag 1 diens startdatum, dus deze sessies kunnen op andere dagen vallen.",
   "scheduleEveryDay_one": "Dagelijks",
   "scheduleEveryDay_other": "Elke {{count}} dagen",
   "scheduleEveryWeek_one": "Wekelijks",

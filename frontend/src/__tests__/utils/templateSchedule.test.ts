@@ -167,6 +167,6 @@ describe('formatting', () => {
         1,
         t
       )
-    ).toBe('• Every 2 weeks on Wed • Day 1 → 14 • 1 session');
+    ).toBe('Every 2 weeks on Wed • Day 1 → 14 • 1 session');
   });
 });

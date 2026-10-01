@@ -1699,7 +1699,7 @@
   "patients, rehab calendar, intervention logs, feedback, health vitals, Fitbit data, questionnaire answers, thresholds, threshold history, activity logs.": "pazienti, calendario riabilitativo, registri degli interventi, feedback, valori vitali, dati Fitbit, risposte ai questionari, soglie, storico delle soglie, registri di attività.",
   "public": "pubblico",
   "Repeat unit": "Unità di ripetizione",
-  "Weekdays are an example (Day 1 = Monday). When assigned, Day 1 follows the patient's start date.": "I giorni della settimana sono un esempio (giorno 1 = lunedì). Al momento dell'assegnazione, il giorno 1 corrisponde alla data di inizio del paziente.",
+  "Weekday sessions are shown as if Day 1 were a Monday. When applying to a patient, Day 1 is their start date, so these sessions may fall on other days.": "Le sessioni in giorni fissi della settimana sono mostrate come se il giorno 1 fosse un lunedì. Quando si applica a un paziente, il giorno 1 è la sua data di inizio, quindi queste sessioni possono cadere in altri giorni.",
   "scheduleEveryDay_one": "Ogni giorno",
   "scheduleEveryDay_other": "Ogni {{count}} giorni",
   "scheduleEveryWeek_one": "Ogni settimana",
