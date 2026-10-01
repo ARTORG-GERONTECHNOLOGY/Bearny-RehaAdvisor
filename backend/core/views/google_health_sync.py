@@ -212,14 +212,16 @@ def _prefetch_unfiltered(access_token: str) -> dict:
     """
     Pre-fetch all data for types that don't support AIP-160 filters
     (sleep, daily-resting-heart-rate, daily-heart-rate-variability,
-    daily-respiratory-rate).
+    daily-respiratory-rate, daily-oxygen-saturation, daily-vo2-max).
 
     Returns a dict with pre-built lookups:
       {
         "sleep":            {date: [points]},       # keyed by civil date
-        "resting_hr":       {date: int|None},       # keyed by civil date
-        "hrv":              {date: dict|None},      # keyed by civil date
-        "breathing_rate":   {date: float|None},     # keyed by civil date
+        "resting_hr":       {date: int},            # keyed by civil date
+        "hrv":              {date: dict},           # keyed by civil date
+        "breathing_rate":   {date: float},          # keyed by civil date
+        "spo2":             {date: float},          # average SpO2 %
+        "vo2_max":          {date: float},          # mL/kg/min
       }
     Call once per user before iterating over dates; pass the result to _sync_day()
     as the `prefetch` argument to avoid re-fetching on every day.
@@ -276,11 +278,39 @@ def _prefetch_unfiltered(access_token: str) -> dict:
         if bpm is not None:
             breathing_by_date[key] = float(bpm)
 
+    # --- SpO2: daily-oxygen-saturation ---
+    spo2_by_date: dict[datetime.date, float] = {}
+    for pt in _list_points(access_token, "daily-oxygen-saturation"):
+        spo2_data = pt.get("dailyOxygenSaturation", {})
+        pd = spo2_data.get("date", {})
+        try:
+            key = datetime.date(pd["year"], pd["month"], pd["day"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        val = spo2_data.get("averageSaturationPercent")
+        if val is not None:
+            spo2_by_date[key] = float(val)
+
+    # --- VO2 max: daily-vo2-max ---
+    vo2_by_date: dict[datetime.date, float] = {}
+    for pt in _list_points(access_token, "daily-vo2-max"):
+        vo2_data = pt.get("dailyVo2Max", {})
+        pd = vo2_data.get("date", {})
+        try:
+            key = datetime.date(pd["year"], pd["month"], pd["day"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        val = vo2_data.get("vo2MaxMillilitersPerKilogramPerMinute")
+        if val is not None:
+            vo2_by_date[key] = float(val)
+
     return {
         "sleep": sleep_by_date,
         "resting_hr": resting_hr_by_date,
         "hrv": hrv_by_date,
         "breathing_rate": breathing_by_date,
+        "spo2": spo2_by_date,
+        "vo2_max": vo2_by_date,
     }
 
 
@@ -312,7 +342,12 @@ def _aggregate_sleep(points: list) -> dict | None:
             # Actual sleep = total bed time minus AWAKE-stage minutes.
             stages = summary.get("stagesSummary", [])
             if stages:
-                awake_min = sum(int(sg.get("minutesInStage") or 0) for sg in stages if sg.get("type") == "AWAKE")
+                # Live API uses "minutes"; older/mocked responses may use "minutesInStage".
+                awake_min = sum(
+                    int(sg.get("minutes") or sg.get("minutesInStage") or 0)
+                    for sg in stages
+                    if sg.get("type") == "AWAKE"
+                )
                 total_minutes_asleep += max(0, dur_ms // 60000 - awake_min)
             else:
                 logger.warning(
@@ -470,7 +505,8 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     Returns True if a row was written.
 
     For multi-day backfills, pass the result of _prefetch_unfiltered(access_token)
-    as `prefetch` so that sleep, resting HR, and HRV are not re-fetched on every call.
+    as `prefetch` so that sleep, resting HR, HRV, SpO2, and VO2 max are not re-fetched
+    on every call.
     """
 
     def rollup(data_type: str) -> dict:
@@ -485,9 +521,16 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     steps_raw = v.get("steps", {}).get("countSum")
     steps = int(steps_raw) if steps_raw is not None else None
 
-    # ---- Calories ---- activeEnergyBurned.kilocaloriesSum (field unconfirmed — no data in test account)
-    v = rollup("active-energy-burned")
-    cal_raw = v.get("activeEnergyBurned", {}).get("kilocaloriesSum")
+    # ---- Calories ---- prefer total-calories (BMR + active, equivalent to Fitbit's calories field).
+    # Falls back to active-energy-burned (active cals only) when total-calories is unavailable.
+    # Field names are best-guesses from API naming conventions; logged at DEBUG when absent.
+    v = rollup("total-calories")
+    cal_raw = v.get("totalCalories", {}).get("kilocaloriesSum")
+    if cal_raw is None:
+        v = rollup("active-energy-burned")
+        cal_raw = v.get("activeEnergyBurned", {}).get("kilocaloriesSum")
+        if cal_raw is None:
+            logger.debug("[google_health] no calories data for user %s on %s", user.id, d)
     calories = float(cal_raw) if cal_raw is not None else None
 
     # ---- Distance (mm → km) ---- distance.millimetersSum (string)
@@ -578,6 +621,36 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
                     breathing_rate = {"breathingRate": float(bpm)}
                 break
 
+    # ---- SpO2 (blood oxygen saturation) ----
+    # daily-oxygen-saturation does not support dailyRollUp or AIP-160 filters.
+    if prefetch is not None:
+        spo2 = prefetch["spo2"].get(d)
+    else:
+        spo2 = None
+        for pt in _list_points(access_token, "daily-oxygen-saturation"):
+            spo2_data = pt.get("dailyOxygenSaturation", {})
+            pt_date = spo2_data.get("date", {})
+            if pt_date.get("year") == d.year and pt_date.get("month") == d.month and pt_date.get("day") == d.day:
+                val = spo2_data.get("averageSaturationPercent")
+                if val is not None:
+                    spo2 = float(val)
+                break
+
+    # ---- VO2 max ----
+    # daily-vo2-max does not support dailyRollUp or AIP-160 filters.
+    if prefetch is not None:
+        vo2_max = prefetch["vo2_max"].get(d)
+    else:
+        vo2_max = None
+        for pt in _list_points(access_token, "daily-vo2-max"):
+            vo2_data = pt.get("dailyVo2Max", {})
+            pt_date = vo2_data.get("date", {})
+            if pt_date.get("year") == d.year and pt_date.get("month") == d.month and pt_date.get("day") == d.day:
+                val = vo2_data.get("vo2MaxMillilitersPerKilogramPerMinute")
+                if val is not None:
+                    vo2_max = float(val)
+                break
+
     # ---- HR zones + wear time + active_zone_minutes ----
     v = rollup("time-in-heart-rate-zone")
     hr_zones = _parse_hr_zones(v)
@@ -619,6 +692,10 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     exercise_sessions = _fetch_exercise(access_token, d)
     exercise = {"sessions": exercise_sessions} if exercise_sessions else None
 
+    # ---- Max HR ---- best available proxy: peak maxHeartRate across exercise sessions.
+    max_hr_vals = [s["maxHeartRate"] for s in exercise_sessions if s.get("maxHeartRate") is not None]
+    max_heart_rate = max(max_hr_vals) if max_hr_vals else None
+
     # ---- Inactivity (sedentary) ----
     inactivity = max(0, 1440 - ((active_minutes or 0) + (lightly_active_minutes or 0) + sleep_minutes))
 
@@ -634,7 +711,7 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
         set__distance=distance,
         set__floors=floors,
         set__resting_heart_rate=resting_hr,
-        set__max_heart_rate=None,  # no dedicated max-HR data type in v4
+        set__max_heart_rate=max_heart_rate,
         set__heart_rate_zones=hr_zones,
         set__active_minutes=active_minutes,
         set__active_zone_minutes=active_zone_minutes,
@@ -648,6 +725,8 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
         set__bp_dia=None,
         set__breathing_rate=breathing_rate,
         set__hrv=hrv,
+        set__spo2=spo2,
+        set__vo2_max=vo2_max,
         upsert=True,
     )
     return True

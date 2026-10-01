@@ -501,9 +501,36 @@ def test_aggregate_sleep_uses_stages_when_minutes_asleep_absent():
     When minutesAsleep is absent but stagesSummary is present, actual sleep =
     total_time − AWAKE_minutes.
 
-    Modelled on patient 901-34 Sep 25 2026 (confirmed inflated in prod):
-      sleep_duration = 542 min (time in bed), minutes_asleep was wrongly stored as 542.
-    Expected after fix: minutes_asleep = 542 − 110 (AWAKE) = 432.
+    Uses the real live API field name "minutes" (confirmed by live inspection of 901-34
+    Sep 25 2026 response). The legacy "minutesInStage" field name is also supported.
+    """
+    from core.views.google_health_sync import _aggregate_sleep
+
+    # Real field name from live API: "minutes" (not "minutesInStage")
+    # 901-34 Sep 25 real API payload: AWAKE=112 min; bed=542 min → sleep=430 min.
+    # Note: API now also returns minutesAsleep=542 for this night, so this test
+    # exercises the fallback by deliberately omitting minutesAsleep.
+    point = _make_sleep_point_with_stages(
+        "2026-09-24T21:18:00Z",
+        "2026-09-25T06:20:00Z",  # 542 min total (real prod interval)
+        stages=[
+            {"type": "AWAKE", "minutes": "112", "count": "10"},
+            {"type": "LIGHT", "minutes": "336", "count": "18"},
+            {"type": "DEEP", "minutes": "25", "count": "4"},
+            {"type": "REM", "minutes": "69", "count": "9"},
+        ],
+    )
+    result = _aggregate_sleep([point])
+    assert result is not None
+    assert result["sleep_duration"] == 542 * 60_000
+    assert result["minutes_asleep"] == 430  # 542 − 112 AWAKE
+    assert result["minutes_asleep"] != result["sleep_duration"] // 60_000
+
+
+def test_aggregate_sleep_uses_stages_legacy_minutesInStage_field():
+    """
+    The legacy "minutesInStage" field name (used in older API responses and test
+    mocks) is still supported as a fallback alongside the live "minutes" field.
     """
     from core.views.google_health_sync import _aggregate_sleep
 
@@ -519,8 +546,7 @@ def test_aggregate_sleep_uses_stages_when_minutes_asleep_absent():
     )
     result = _aggregate_sleep([point])
     assert result is not None
-    assert result["sleep_duration"] == 542 * 60_000
-    assert result["minutes_asleep"] == 432  # 542 − 110, not 542
+    assert result["minutes_asleep"] == 432  # 542 − 110
     assert result["minutes_asleep"] != result["sleep_duration"] // 60_000
 
 
@@ -563,8 +589,8 @@ def test_aggregate_sleep_prefers_minutes_asleep_over_stages():
             "summary": {
                 "minutesAsleep": "303",
                 "stagesSummary": [
-                    {"type": "AWAKE", "count": "3", "minutesInStage": "183"},
-                    {"type": "LIGHT", "count": "6", "minutesInStage": "303"},
+                    {"type": "AWAKE", "count": "3", "minutes": "183"},
+                    {"type": "LIGHT", "count": "6", "minutes": "303"},
                 ],
             },
         }
