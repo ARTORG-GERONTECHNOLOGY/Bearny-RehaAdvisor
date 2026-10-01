@@ -205,10 +205,10 @@ def _mock_redis_for_nonce(nonce, patient_id):
 
 
 @patch("core.tasks.backfill_google_health_on_connect.delay")
-@patch("core.tasks.fetch_google_health_data_async.delay")
+@patch("core.tasks.fetch_google_health_data_async.apply_async")
 @patch("core.views.google_health_view.requests.post")
 @patch("core.views.google_health_view._get_redis_client")
-def test_callback_sets_connected_at_on_success(mock_redis, mock_post, mock_today_delay, mock_backfill_delay):
+def test_callback_sets_connected_at_on_success(mock_redis, mock_post, mock_today_apply_async, mock_backfill_delay):
     from core.models import GoogleHealthUserToken, User
 
     user = User(
@@ -239,7 +239,7 @@ def test_callback_sets_connected_at_on_success(mock_redis, mock_post, mock_today
     assert token.connected_at is not None
     assert token.is_revoked is False
     # A fresh connection syncs today straight away, ignoring any cooldown left from an earlier connection.
-    mock_today_delay.assert_called_once_with(str(user.id), bypass_cooldown=True)
+    mock_today_apply_async.assert_called_once_with(args=(str(user.id),), kwargs={"bypass_cooldown": True}, retry=False)
 
 
 @patch("core.views.google_health_view.requests.post")
@@ -767,33 +767,38 @@ def test_summary_queues_today_sync_instead_of_syncing_inline(mock_queue):
     patient_user = _make_user()
     patient = Patient(userId=patient_user, patient_code=f"P-{ObjectId()}", therapist=th).save()
 
-    with patch("core.views.google_health_sync.fetch_google_health_today_for_user") as mock_sync:
+    # Patch both names: an inline sync would call it via the sync module or via a name imported into the view.
+    with (
+        patch("core.views.google_health_sync.fetch_google_health_today_for_user") as mock_sync,
+        patch("core.views.google_health_view.fetch_google_health_today_for_user", create=True) as mock_view_sync,
+    ):
         resp = Client().get(f"/api/google-health/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
 
     assert resp.status_code == 200
     mock_queue.assert_called_once()
     assert mock_queue.call_args.args[0].id == patient_user.id
     mock_sync.assert_not_called()
+    mock_view_sync.assert_not_called()
 
 
-@patch("core.tasks.fetch_google_health_data_async.delay")
-def test_queue_today_sync_respects_cooldown(mock_delay):
+@patch("core.tasks.fetch_google_health_data_async.apply_async")
+def test_queue_today_sync_respects_cooldown(mock_apply_async):
     """The summary path must not pass bypass_cooldown; only the connect callback does."""
     from core.views.google_health_sync import queue_google_health_today_sync
 
     user = _make_user()
     queue_google_health_today_sync(user)
 
-    mock_delay.assert_called_once_with(str(user.id), bypass_cooldown=False)
+    mock_apply_async.assert_called_once_with(args=(str(user.id),), kwargs={"bypass_cooldown": False}, retry=False)
 
 
-@patch("core.tasks.fetch_google_health_data_async.delay", side_effect=Exception("broker down"))
-def test_queue_today_sync_broker_error_does_not_break_summary(mock_delay):
+@patch("core.tasks.fetch_google_health_data_async.apply_async", side_effect=Exception("broker down"))
+def test_queue_today_sync_broker_error_does_not_break_summary(mock_apply_async):
     from core.views.google_health_sync import queue_google_health_today_sync
 
     queue_google_health_today_sync(_make_user())  # must not raise
 
-    mock_delay.assert_called_once()
+    mock_apply_async.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

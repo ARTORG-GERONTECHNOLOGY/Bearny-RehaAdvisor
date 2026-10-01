@@ -6,10 +6,13 @@ import pytest
 from core.redcap import redcap_export_record
 from core.routers import BeatRouter
 from core.tasks import (
+    backfill_fitbit_on_connect,
+    backfill_google_health_on_connect,
     fetch_fitbit_data_async,
     fetch_google_health_data_async,
     run_delete_expired_videos,
     run_fetch_fitbit_data,
+    run_fetch_google_health_data_today_all,
 )
 
 
@@ -109,3 +112,20 @@ def test_fetch_google_health_data_async_passes_bypass_cooldown():
 def test_fetch_google_health_data_async_ignores_result():
     """Publishing must not subscribe to the Redis result store, or a Redis outage stalls page loads ~20 s."""
     assert fetch_google_health_data_async.ignore_result is True
+
+
+@pytest.mark.parametrize("task", [backfill_google_health_on_connect, backfill_fitbit_on_connect])
+def test_backfill_tasks_sent_from_oauth_callbacks_ignore_result(task):
+    """Storing a result subscribes on Celery's shared Redis pubsub, which concurrent gthread requests would corrupt."""
+    assert task.ignore_result is True
+
+
+def test_google_health_today_all_counts_only_users_actually_synced():
+    """Users skipped by the cooldown or without data return 0 and must not be reported as synced."""
+    tokens = [SimpleNamespace(user=f"user-{i}") for i in range(3)]
+    with (
+        patch("core.models.GoogleHealthUserToken.objects", return_value=SimpleNamespace(all=lambda: tokens)),
+        patch("core.tasks.fetch_google_health_today_for_user", side_effect=[1, 0, Exception("boom")]),
+    ):
+        result = run_fetch_google_health_data_today_all()
+    assert result == {"synced": 1, "errors": 1}

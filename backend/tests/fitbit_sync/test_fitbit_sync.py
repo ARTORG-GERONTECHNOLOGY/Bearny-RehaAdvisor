@@ -120,6 +120,31 @@ def test_get_valid_access_token_refresh_success(mock_post):
     token.reload()
     assert token.access_token == "new-access"
     assert token.refresh_token == "new-refresh"
+    assert mock_post.call_args.kwargs["timeout"]  # a stalled Fitbit endpoint must not pin a gunicorn thread
+
+
+@patch("core.views.fitbit_sync.requests.post")
+def test_get_valid_access_token_refresh_success_clears_revoke_from_lost_race(mock_post):
+    """A parallel request that lost the refresh race may mark the token revoked before the winner saves."""
+    user, token = make_user_with_token(expired=True)
+
+    def loser_revokes_first(*args, **kwargs):
+        FitbitUserToken.objects(user=user).update_one(set__is_revoked=True, set__revoked_at=timezone.now())
+        resp = Mock()
+        resp.status_code = 200
+        resp.text = "ok"
+        resp.json.return_value = {"access_token": "new-access", "refresh_token": "new-refresh", "expires_in": 3600}
+        return resp
+
+    mock_post.side_effect = loser_revokes_first
+
+    assert get_valid_access_token(user) == "new-access"
+    token.reload()
+    assert token.is_revoked is False
+    assert token.revoked_at is None
+    assert token.refresh_token == "new-refresh"
+    raw = FitbitUserToken.objects(id=token.id).as_pymongo().first()
+    assert raw["refresh_token"] != "new-refresh"  # still stored encrypted
 
 
 @patch("core.views.fitbit_sync.requests.post")
@@ -208,6 +233,22 @@ def test_get_valid_access_token_invalid_grant_waits_for_winner_still_saving(mock
     assert get_valid_access_token(user) == "winner-access"
     assert FitbitUserToken.objects(user=user).first().is_revoked is False
     mock_sleep.assert_called_once()
+
+
+@patch("core.views.fitbit_sync._token_rotated_by_concurrent_refresh")
+@patch("core.views.fitbit_sync.requests.post")
+def test_get_valid_access_token_invalid_grant_does_not_revoke_token_rotated_after_recheck(mock_post, mock_recheck):
+    """The winner can save just after the loser's last re-check; the revoke must not land on its new token."""
+    user, _ = make_user_with_token(expired=True)
+    mock_post.return_value = _invalid_grant_response()
+    mock_recheck.side_effect = lambda _token: _rotate_stored_token(user)
+
+    with pytest.raises(Exception, match="Failed to refresh Fitbit token"):
+        get_valid_access_token(user)
+
+    token = FitbitUserToken.objects(user=user).first()
+    assert token.is_revoked is False
+    assert token.refresh_token == "winner-refresh"
 
 
 def test_get_valid_access_token_raises_immediately_for_revoked_token():

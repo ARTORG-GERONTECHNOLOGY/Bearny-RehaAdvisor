@@ -740,7 +740,10 @@ def queue_google_health_today_sync(user, bypass_cooldown: bool = False) -> None:
     from core.tasks import fetch_google_health_data_async  # lazy: core.tasks imports this module
 
     try:
-        fetch_google_health_data_async.delay(str(user.id), bypass_cooldown=bypass_cooldown)
+        # retry=False: if Redis is down, fail fast instead of holding the request thread through publish retries.
+        fetch_google_health_data_async.apply_async(
+            args=(str(user.id),), kwargs={"bypass_cooldown": bypass_cooldown}, retry=False
+        )
     except Exception:
         logger.exception("[google_health] could not queue today sync for user=%s", user.id)
 

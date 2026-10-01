@@ -620,7 +620,7 @@ def fitbit_callback(request):
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
     try:
-        response = requests.post(token_url, auth=basic_auth, data=data, headers=headers)
+        response = requests.post(token_url, auth=basic_auth, data=data, headers=headers, timeout=15)
         logger.debug("[fitbit_callback] Token exchange response: %s", response.status_code)
 
         if response.status_code == 200:

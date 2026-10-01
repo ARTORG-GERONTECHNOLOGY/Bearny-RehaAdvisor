@@ -313,6 +313,7 @@ def test_fitbit_callback_success_saves_token(mock_redis_factory, mock_post):
     tok = FitbitUserToken.objects(user=patient_user).first()
     assert tok is not None
     assert tok.access_token == "acc"
+    assert mock_post.call_args.kwargs["timeout"]  # a stalled Fitbit endpoint must not pin a gunicorn thread
 
 
 def test_get_fitbit_health_data_patient_not_found():

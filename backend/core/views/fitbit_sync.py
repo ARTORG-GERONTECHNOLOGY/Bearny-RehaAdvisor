@@ -34,6 +34,7 @@ def get_valid_access_token(user):
     if getattr(token, "is_revoked", False):
         raise Exception(f"Fitbit token for user {user.id} is revoked — reconnect required")
 
+    stored_expires_at = token.expires_at  # exactly as stored, before make_aware
     if is_naive(token.expires_at):
         token.expires_at = make_aware(token.expires_at)
 
@@ -50,7 +51,7 @@ def get_valid_access_token(user):
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
         try:
-            response = requests.post(refresh_url, auth=basic_auth, data=data, headers=headers)
+            response = requests.post(refresh_url, auth=basic_auth, data=data, headers=headers, timeout=15)
             logger.debug(f"[get_valid_access_token] Refresh token response status: {response.status_code}")
             logger.debug(f"[get_valid_access_token] Response text: {response.text}")
 
@@ -59,7 +60,11 @@ def get_valid_access_token(user):
                 token.access_token = token_data["access_token"]
                 token.refresh_token = token_data.get("refresh_token", token.refresh_token)
                 token.expires_at = timezone.now() + timedelta(seconds=token_data["expires_in"])
-                token.save()
+                token.save()  # not update_one: only save() encrypts the token fields
+                # A request that lost the refresh race to this one may have marked the token revoked meanwhile.
+                FitbitUserToken.objects(id=token.id, is_revoked=True).update_one(
+                    set__is_revoked=False, set__revoked_at=None
+                )
                 logger.info(f"[get_valid_access_token] Token refreshed for user {user.id}")
             else:
                 logger.error(
@@ -81,9 +86,13 @@ def get_valid_access_token(user):
                         "the disconnected state",
                         user.id,
                     )
-                    token.is_revoked = True
-                    token.revoked_at = timezone.now()
-                    token.save()
+                    # Every refresh and reconnect rewrites expires_at, so matching the value we read skips the
+                    # revoke if a parallel request rotated the token meanwhile. (The encrypted refresh_token
+                    # can't be matched: Fernet gives a different ciphertext each time.)
+                    FitbitUserToken.objects(id=token.id, expires_at=stored_expires_at).update_one(
+                        set__is_revoked=True,
+                        set__revoked_at=timezone.now(),
+                    )
                 raise Exception("Failed to refresh Fitbit token")
         except Exception as e:
             logger.exception(f"[get_valid_access_token] Exception while refreshing token: {e}")
