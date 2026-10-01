@@ -72,8 +72,29 @@ class MongoTokenRefreshSerializer(TokenRefreshSerializer):
         if api_settings.ROTATE_REFRESH_TOKENS:
             if api_settings.BLACKLIST_AFTER_ROTATION:
                 try:
-                    refresh.blacklist()
-                except AttributeError:
+                    # SimpleJWT ≥ 5.5 added User.objects.get() inside blacklist(),
+                    # which raises ValueError when the JWT user_id is a MongoDB
+                    # ObjectId string (not a SQL integer PK). We implement the
+                    # blacklist write ourselves with user=None to avoid that lookup.
+                    from rest_framework_simplejwt.token_blacklist.models import (
+                        BlacklistedToken,
+                        OutstandingToken,
+                    )
+                    from rest_framework_simplejwt.utils import datetime_from_epoch
+
+                    jti = refresh.payload[api_settings.JTI_CLAIM]
+                    exp = refresh.payload["exp"]
+                    outstanding, _ = OutstandingToken.objects.get_or_create(
+                        jti=jti,
+                        defaults={
+                            "user": None,
+                            "created_at": refresh.current_time,
+                            "token": str(refresh),
+                            "expires_at": datetime_from_epoch(exp),
+                        },
+                    )
+                    BlacklistedToken.objects.get_or_create(token=outstanding)
+                except (AttributeError, ImportError):
                     pass
 
             refresh.set_jti()
