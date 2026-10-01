@@ -8,6 +8,7 @@ import requests
 from django.conf import settings
 from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware
+from mongoengine.queryset.visitor import Q
 
 from core.models import GoogleHealthData, GoogleHealthUserToken, HeartRateZone, SleepData
 
@@ -741,24 +742,28 @@ def fetch_google_health_today_for_user(user, bypass_cooldown: bool = False) -> i
         logger.info("[google_health] no token for user=%s, skip", user.id)
         return 0
 
-    if not bypass_cooldown and token.last_fetched_at:
-        last = token.last_fetched_at
-        if is_naive(last):
-            # MongoDB stores UTC; replace rather than make_aware to avoid a local-timezone shift.
-            last = last.replace(tzinfo=datetime.timezone.utc)
-        age_minutes = (timezone.now() - last).total_seconds() / 60
-        if age_minutes < FETCH_COOLDOWN_MINUTES:
-            logger.info("[google_health] skipping fetch for user=%s, last synced %.1f min ago", user.id, age_minutes)
-            return 0
+    now = timezone.now()
+    now = now.replace(microsecond=now.microsecond // 1000 * 1000)  # Mongo keeps ms; lets the rollback match exactly
+    tokens = GoogleHealthUserToken.objects(id=token.id)
+    if not bypass_cooldown:
+        # Check and stamp in one update so concurrent page loads can't all start a sync.
+        cutoff = now - timedelta(minutes=FETCH_COOLDOWN_MINUTES)
+        tokens = tokens.filter(Q(last_fetched_at=None) | Q(last_fetched_at__lt=cutoff))
+    if not tokens.update_one(set__last_fetched_at=now):
+        logger.info(
+            "[google_health] skipping fetch for user=%s, synced in the last %d min", user.id, FETCH_COOLDOWN_MINUTES
+        )
+        return 0
 
     try:
         access_token = get_valid_google_access_token(user)
     except Exception:
         logger.exception("[google_health] could not get token for user=%s", user.id)
+        # Release the claim so the next page load retries.
+        GoogleHealthUserToken.objects(id=token.id, last_fetched_at=now).update_one(
+            set__last_fetched_at=token.last_fetched_at
+        )
         return 0
-
-    # Stamp before the API calls so failures still cool down; update_one avoids clobbering a refreshed token.
-    GoogleHealthUserToken.objects(id=token.id).update_one(set__last_fetched_at=timezone.now())
 
     today = datetime.date.today()
     written = _sync_day(user, access_token, today)

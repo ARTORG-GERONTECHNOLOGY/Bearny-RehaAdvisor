@@ -454,6 +454,41 @@ def test_today_sync_token_failure_does_not_stamp(mock_token, mock_sync):
 
 
 @patch("core.views.google_health_sync._sync_day", return_value=True)
+@patch("core.views.google_health_sync.get_valid_google_access_token", side_effect=Exception("refresh failed"))
+def test_today_sync_token_failure_restores_previous_stamp(mock_token, mock_sync):
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(20)
+    before = GoogleHealthUserToken.objects.get(id=token.id).last_fetched_at  # stored value, ms precision
+
+    assert fetch_google_health_today_for_user(user) == 0
+    assert GoogleHealthUserToken.objects.get(id=token.id).last_fetched_at == before
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+def test_today_sync_concurrent_request_skips_while_first_is_running(mock_sync):
+    """Three summary requests arrive together on page load; only the first may hit Google."""
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, _ = _token_fetched_minutes_ago(None)
+    concurrent_results = []
+
+    def token_while_second_request_arrives(u):
+        concurrent_results.append(fetch_google_health_today_for_user(u))
+        return "access"
+
+    with patch(
+        "core.views.google_health_sync.get_valid_google_access_token",
+        side_effect=token_while_second_request_arrives,
+    ):
+        assert fetch_google_health_today_for_user(user) == 1
+
+    assert concurrent_results == [0]
+    mock_sync.assert_called_once()
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=True)
 @patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
 def test_today_sync_bypass_cooldown_ignores_recent_sync(mock_token, mock_sync):
     from core.views.google_health_sync import fetch_google_health_today_for_user
