@@ -787,6 +787,7 @@ def test_queue_today_sync_respects_cooldown(mock_apply_async):
     from core.views.google_health_sync import queue_google_health_today_sync
 
     user = _make_user()
+    _make_token(user)
     queue_google_health_today_sync(user)
 
     mock_apply_async.assert_called_once_with(args=(str(user.id),), kwargs={"bypass_cooldown": False}, retry=False)
@@ -796,9 +797,58 @@ def test_queue_today_sync_respects_cooldown(mock_apply_async):
 def test_queue_today_sync_broker_error_does_not_break_summary(mock_apply_async):
     from core.views.google_health_sync import queue_google_health_today_sync
 
-    queue_google_health_today_sync(_make_user())  # must not raise
+    user = _make_user()
+    _make_token(user)
+    queue_google_health_today_sync(user)  # must not raise
 
     mock_apply_async.assert_called_once()
+
+
+@pytest.mark.parametrize("state", ["no_token", "revoked", "synced_recently"])
+@patch("core.tasks.fetch_google_health_data_async.apply_async")
+def test_queue_today_sync_skips_when_the_task_could_only_skip(mock_apply_async, state):
+    """Page loads must not publish a no-op task (and touch Redis) for every summary request."""
+    from core.views.google_health_sync import queue_google_health_today_sync
+
+    user = _make_user()
+    if state == "revoked":
+        _make_token(user, is_revoked=True)
+    elif state == "synced_recently":
+        token = _make_token(user)
+        token.last_fetched_at = timezone.now() - timedelta(minutes=5)
+        token.save()
+
+    queue_google_health_today_sync(user)
+
+    mock_apply_async.assert_not_called()
+
+
+@patch("core.tasks.fetch_google_health_data_async.apply_async")
+def test_queue_today_sync_queues_once_the_cooldown_has_passed(mock_apply_async):
+    from core.views.google_health_sync import queue_google_health_today_sync
+
+    user = _make_user()
+    token = _make_token(user)
+    token.last_fetched_at = timezone.now() - timedelta(minutes=20)
+    token.save()
+
+    queue_google_health_today_sync(user)
+
+    mock_apply_async.assert_called_once()
+
+
+@patch("core.tasks.fetch_google_health_data_async.apply_async")
+def test_queue_today_sync_on_connect_ignores_the_cooldown(mock_apply_async):
+    from core.views.google_health_sync import queue_google_health_today_sync
+
+    user = _make_user()
+    token = _make_token(user)
+    token.last_fetched_at = timezone.now() - timedelta(minutes=5)
+    token.save()
+
+    queue_google_health_today_sync(user, bypass_cooldown=True)
+
+    mock_apply_async.assert_called_once_with(args=(str(user.id),), kwargs={"bypass_cooldown": True}, retry=False)
 
 
 # ---------------------------------------------------------------------------

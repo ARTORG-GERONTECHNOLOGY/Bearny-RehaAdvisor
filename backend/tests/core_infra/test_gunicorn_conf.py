@@ -12,28 +12,45 @@ import pytest
 CONF_PATH = Path(__file__).resolve().parents[2] / "gunicorn.conf.py"
 
 
+def _watchdogs():
+    return [t for t in threading.enumerate() if t.name == "request-watchdog"]
+
+
 @pytest.fixture
-def conf(monkeypatch):
+def conf():
+    # A fresh copy of the module per test, so patching it never touches the real os._exit.
     spec = importlib.util.spec_from_file_location("gunicorn_conf_under_test", CONF_PATH)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    monkeypatch.setattr(module, "WATCHDOG_INTERVAL_SECONDS", 0.01)
-    exited = threading.Event()
+    module.WATCHDOG_INTERVAL_SECONDS = 0.01
+    module.calls = []
+    module.exited = threading.Event()
 
-    def fake_exit(code):
-        exited.code = code
-        exited.set()
-        raise SystemExit  # ends the watchdog thread quietly
+    def fake_exit(code):  # returning ends the watchdog thread, as the real one never returns
+        module.calls.append(("exit", code))
+        module.exited.set()
 
-    monkeypatch.setattr(module.os, "_exit", fake_exit)
-    module.exited = exited
-    return module
+    module.os = SimpleNamespace(_exit=fake_exit)
+    module._flush_sentry = lambda: module.calls.append("flush")
+    yield module
+
+    # Stop this test's watchdogs: a request that is long overdue makes each one exit through fake_exit.
+    module.DRAIN_SECONDS = 0
+    with module._lock:
+        module._requests.clear()
+        module._requests[-1] = (float("-inf"), "teardown")
+    for t in _watchdogs():
+        t.join(5)
+    assert not _watchdogs()
 
 
-def _worker(timeout, graceful_timeout=5):
-    return SimpleNamespace(
+def _worker(timeout, graceful_timeout=5, futures=None):
+    worker = SimpleNamespace(
         cfg=SimpleNamespace(timeout=timeout, graceful_timeout=graceful_timeout), log=Mock(), pid=123, alive=True
     )
+    if futures is not None:
+        worker.futures = futures
+    return worker
 
 
 def _req(path="/api/x/"):
@@ -44,13 +61,17 @@ def _in_flight(conf, thread_id, age_seconds, what):
     conf._requests[thread_id] = (time.monotonic() - age_seconds, what)
 
 
+def _future(done):
+    return SimpleNamespace(done=lambda: done)
+
+
 def test_watchdog_restarts_worker_when_a_request_outlives_timeout(conf):
     worker = _worker(timeout=0.05)
     conf.pre_request(worker, _req("/api/fitbit/summary/1/"))  # never finishes, like a call stuck without a timeout
     conf.post_worker_init(worker)
 
     assert conf.exited.wait(2)
-    assert conf.exited.code == 1  # 3 and 4 would make the master shut down instead of respawning
+    assert conf.calls == ["flush", ("exit", 1)]  # 3 or 4 would make the master shut down instead of respawning
     assert worker.alive is False  # stopped taking new requests first
     logged = worker.log.critical.call_args.args
     assert ["GET /api/fitbit/summary/1/"] in logged  # names the stuck request
@@ -70,10 +91,26 @@ def test_watchdog_lets_other_requests_finish_before_restarting(conf):
     assert conf.exited.wait(2)
 
 
-def test_watchdog_restarts_after_graceful_timeout_even_if_others_keep_running(conf):
-    worker = _worker(timeout=0.05, graceful_timeout=0.2)
+def test_watchdog_waits_for_requests_still_queued_for_a_thread(conf):
+    """gthread queues accepted requests until a thread is free; they haven't reached pre_request yet."""
+    queued = _future(done=False)
+    futures = [_future(done=False), queued]  # the stuck request and one waiting for a thread
+    worker = _worker(timeout=0.05, futures=futures)
     _in_flight(conf, 1, age_seconds=10, what="GET /stuck")
-    _in_flight(conf, 2, age_seconds=0, what="POST /upload")
+    conf.post_worker_init(worker)
+
+    time.sleep(0.2)
+    assert not conf.exited.is_set()
+
+    futures[1] = _future(done=True)  # the queued request got a thread and finished
+    assert conf.exited.wait(2)
+
+
+def test_watchdog_drain_is_capped(conf):
+    conf.DRAIN_SECONDS = 0.2
+    worker = _worker(timeout=0.05, graceful_timeout=30)
+    _in_flight(conf, 1, age_seconds=10, what="GET /stuck")
+    _in_flight(conf, 2, age_seconds=0, what="POST /upload")  # never finishes in time
     conf.post_worker_init(worker)
 
     assert conf.exited.wait(2)
@@ -92,6 +129,5 @@ def test_watchdog_ignores_requests_that_finish_in_time(conf):
 
 
 def test_watchdog_off_when_timeout_disabled(conf):
-    before = threading.active_count()
     conf.post_worker_init(_worker(timeout=0))
-    assert threading.active_count() == before
+    assert not _watchdogs()

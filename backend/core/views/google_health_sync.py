@@ -739,8 +739,19 @@ def queue_google_health_today_sync(user, bypass_cooldown: bool = False) -> None:
     """Sync today in Celery so the request answers from the DB instead of waiting ~45 s."""
     from core.tasks import fetch_google_health_data_async  # lazy: core.tasks imports this module
 
+    if not bypass_cooldown:
+        # Skip when the task could only skip: no token, revoked, or synced within the cooldown.
+        token = GoogleHealthUserToken.objects(user=user).only("is_revoked", "last_fetched_at").first()
+        if not token or token.is_revoked:
+            return
+        last = token.last_fetched_at
+        if last and timezone.now() - last.replace(tzinfo=datetime.timezone.utc) < timedelta(
+            minutes=FETCH_COOLDOWN_MINUTES
+        ):
+            return
+
     try:
-        # retry=False: if Redis is down, fail fast instead of holding the request thread through publish retries.
+        # retry=False: no publish retries if Redis is down (connecting can still take a few seconds).
         fetch_google_health_data_async.apply_async(
             args=(str(user.id),), kwargs={"bypass_cooldown": bypass_cooldown}, retry=False
         )
