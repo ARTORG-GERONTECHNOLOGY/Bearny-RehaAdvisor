@@ -39,6 +39,7 @@ from utils.interventions import (
     _segment_end,
     _upsert_intervention,
 )
+from utils.scheduling import _expand_dates
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -286,6 +287,23 @@ def test_segment_end_counts_sessions_for_daily_blocks():
 def test_segment_end_stops_weekly_and_monthly_blocks_on_the_last_day():
     assert _segment_end(date(2026, 1, 5), "week", 1, 1, 28) == ({"type": "date", "date": "2026-02-01"}, 2000)
     assert _segment_end(datetime(2026, 1, 5), "month", 1, 3, 40)[0] == {"type": "date", "date": "2026-02-13"}
+
+
+def test_monthly_block_has_no_session_after_its_last_day():
+    end, max_occ = _segment_end(date(2026, 1, 1), "month", 1, 1, 30)
+    occ = _expand_dates(start_date="2026-01-01", unit="month", interval=1, end=end, max_occurrences=max_occ)
+    assert [d.date() for d in occ] == [date(2026, 1, 1)]
+
+
+def test_monthly_block_includes_a_session_on_its_last_day():
+    end, max_occ = _segment_end(date(2026, 1, 1), "month", 1, 1, 32)
+    occ = _expand_dates(start_date="2026-01-01", unit="month", interval=1, end=end, max_occurrences=max_occ)
+    assert [d.date() for d in occ] == [date(2026, 1, 1), date(2026, 2, 1)]
+
+
+def test_monthly_block_on_the_31st_returns_to_the_31st_after_february():
+    occ = _expand_dates(start_date="2026-01-31", unit="month", interval=1, end={"type": "count", "count": 3})
+    assert [d.date() for d in occ] == [date(2026, 1, 31), date(2026, 2, 28), date(2026, 3, 31)]
 
 
 def test_segment_end_never_ends_before_the_start_day():
