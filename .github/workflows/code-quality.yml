@@ -174,7 +174,7 @@ jobs:
         working-directory: frontend
         run: |
           npm ci
-          npm run test:components -- --coverage || true
+          npm run test:components -- --coverage
 
       - name: Upload component test coverage
         uses: codecov/codecov-action@v3

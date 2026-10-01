@@ -87,7 +87,7 @@ services:
       libretranslate:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "-qO/dev/null", "http://localhost:8000/api/"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/')"]
       interval: 30s
       timeout: 10s
       retries: 3
