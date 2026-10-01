@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
 from bson.errors import InvalidId
+from dateutil.relativedelta import relativedelta
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -134,15 +135,17 @@ def _expand_dates(
             weeks_added += 1
 
     if unit == "month":
+        first = current
         while True:
             out.append(current)
             if end_type == "count" and len(out) >= count_limit:
                 break
-            if end_type == "date" and end_date_aware and current >= end_date_aware:
-                break
             if len(out) >= max_occurrences:
                 break
-            current = _add_months(current, interval)
+            # Offset from first so day 31 isn't clamped to the 28th for good after February
+            current = first + relativedelta(months=interval * len(out))
+            if end_type == "date" and end_date_aware and current > end_date_aware:
+                break
         return out
 
     # Fallback: weekly on start weekday

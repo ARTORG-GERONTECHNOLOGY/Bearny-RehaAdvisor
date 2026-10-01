@@ -5,6 +5,7 @@ import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
 import { toLocalYMD } from '@/utils/dateFormat';
+import { countDailySessions, formatDayRange, formatFrequency } from '@/utils/templateSchedule';
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,8 @@ type Props = {
 
 type ErrorMap = Record<string, string>;
 type AutoApplyScope = 'off' | 'future' | 'all_past_and_future';
+type Unit = 'day' | 'week';
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const todayIso = () => toLocalYMD(new Date());
 // Sentinel for the "All diagnoses" Select item — Radix forbids an empty-string item value.
 const ALL_DIAGNOSES_VALUE = '__all__';
@@ -63,6 +66,8 @@ const TemplateAssignModal: React.FC<Props> = ({
   const [startDay, setStartDay] = useState<number>(1);
   const [lastDay, setLastDay] = useState<number>(10);
   const [everyK, setEveryK] = useState<number>(1);
+  const [unit, setUnit] = useState<Unit>('day');
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
 
   const [startTime, setStartTime] = useState<string>('08:00');
   const [keepPrevious, setKeepPrevious] = useState<boolean>(mode === 'modify');
@@ -92,6 +97,8 @@ const TemplateAssignModal: React.FC<Props> = ({
     setStartDay(1);
     setLastDay(10);
     setEveryK(1);
+    setUnit('day');
+    setSelectedDays([]);
     setStartTime('08:00');
     setKeepPrevious(mode === 'modify');
     setAutoApplyScope(templateId ? 'off' : 'future');
@@ -105,15 +112,41 @@ const TemplateAssignModal: React.FC<Props> = ({
   }, [show, defaultDiagnosis, mode, templateId]);
 
   const validRange = startDay >= 1 && lastDay >= startDay;
+  const daysValid = unit !== 'week' || selectedDays.length > 0;
+  // Weekdays only apply to weekly schedules; daily ones always send an empty list.
+  const weekdays = useMemo(() => (unit === 'week' ? selectedDays : []), [unit, selectedDays]);
   const canSubmit = useMemo(
-    () => !!interventionId && (templateId ? true : !!diagnosis) && validRange && everyK >= 1,
-    [interventionId, diagnosis, validRange, everyK, templateId]
+    () =>
+      !!interventionId &&
+      (templateId ? true : !!diagnosis) &&
+      validRange &&
+      everyK >= 1 &&
+      daysValid,
+    [interventionId, diagnosis, validRange, everyK, templateId, daysValid]
   );
 
-  const occurrencesCount = useMemo(() => {
-    if (!validRange || everyK < 1) return 0;
-    return Math.floor((lastDay - startDay) / everyK) + 1;
-  }, [startDay, lastDay, everyK, validRange]);
+  const toggleDay = (day: string) =>
+    setSelectedDays((prev) =>
+      prev.includes(day)
+        ? prev.filter((d) => d !== day)
+        : WEEKDAYS.filter((d) => d === day || prev.includes(d))
+    );
+
+  const summary = useMemo(() => {
+    if (!validRange) return t('Invalid range.');
+    const parts = [
+      formatFrequency(unit, everyK, weekdays, t),
+      formatDayRange(startDay, lastDay, t),
+    ];
+    // Weekly counts depend on the patient's start weekday, so only daily schedules show one.
+    if (unit === 'day' && everyK >= 1) {
+      parts.push(
+        t('scheduleOccurrences', { count: countDailySessions(startDay, lastDay, everyK) })
+      );
+    }
+    parts.push(t('scheduleAtTime', { time: startTime }));
+    return parts.join(' • ');
+  }, [validRange, unit, everyK, weekdays, startDay, lastDay, startTime, t]);
 
   // track local edits for confirm-close (minimal: diagnosis / startDay / lastDay / everyK / time / checkbox / error)
   const hasUnsavedChanges = useMemo(() => {
@@ -125,6 +158,8 @@ const TemplateAssignModal: React.FC<Props> = ({
       startDay !== 1 ||
       lastDay !== 10 ||
       everyK !== 1 ||
+      unit !== 'day' ||
+      selectedDays.length > 0 ||
       startTime !== '08:00' ||
       (mode === 'modify' ? keepPrevious !== true : keepPrevious !== false) ||
       autoApplyScope !== 'off';
@@ -136,6 +171,8 @@ const TemplateAssignModal: React.FC<Props> = ({
     startDay,
     lastDay,
     everyK,
+    unit,
+    selectedDays,
     startTime,
     keepPrevious,
     autoApplyScope,
@@ -221,8 +258,8 @@ const TemplateAssignModal: React.FC<Props> = ({
           start_day: startDay,
           end_day: lastDay,
           interval: everyK,
-          unit: 'day',
-          selected_days: [],
+          unit,
+          selected_days: weekdays,
           suggested_execution_time: suggestedExecution,
           auto_apply_scope: autoApplyScope,
           auto_apply_starting_from:
@@ -238,8 +275,8 @@ const TemplateAssignModal: React.FC<Props> = ({
             {
               interventionId,
               interval: everyK,
-              unit: 'day',
-              selectedDays: [],
+              unit,
+              selectedDays: weekdays,
               start_day: startDay,
               end: { type: 'count', count: lastDay },
               keep_previous: mode === 'modify' ? !!keepPrevious : undefined,
@@ -394,20 +431,53 @@ const TemplateAssignModal: React.FC<Props> = ({
               </Field>
 
               <Field className="md:col-span-4">
-                <FieldLabel htmlFor="template-every-k">{t('Every K days')}</FieldLabel>
-                <Input
-                  id="template-every-k"
-                  type="number"
-                  value={everyK}
-                  min={1}
-                  onChange={(e) => setEveryK(parseInt(e.target.value || '1', 10))}
-                  aria-invalid={!!fieldErrors['interventions[0].interval']}
-                />
+                <FieldLabel htmlFor="template-every-k">{t('Repeat every')}</FieldLabel>
+                <div className="flex gap-2">
+                  <Input
+                    id="template-every-k"
+                    type="number"
+                    value={everyK}
+                    min={1}
+                    onChange={(e) => setEveryK(parseInt(e.target.value || '1', 10))}
+                    aria-invalid={!!fieldErrors['interventions[0].interval']}
+                  />
+                  <Select value={unit} onValueChange={(v) => setUnit(v as Unit)}>
+                    <SelectTrigger id="template-unit" aria-label={t('Repeat unit')}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="day">{t('Day')}</SelectItem>
+                      <SelectItem value="week">{t('Week')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 {fieldErrors['interventions[0].interval'] && (
                   <FieldError>{fieldErrors['interventions[0].interval']}</FieldError>
                 )}
               </Field>
             </div>
+
+            {unit === 'week' && (
+              <Field>
+                <div className="flex flex-wrap gap-2">
+                  {WEEKDAYS.map((day) => (
+                    <Button
+                      key={day}
+                      type="button"
+                      size="dashboard"
+                      variant={selectedDays.includes(day) ? undefined : 'secondary'}
+                      aria-pressed={selectedDays.includes(day)}
+                      onClick={() => toggleDay(day)}
+                    >
+                      {t(day)}
+                    </Button>
+                  ))}
+                </div>
+                {selectedDays.length === 0 && (
+                  <FieldError>{t('Select at least one weekday.')}</FieldError>
+                )}
+              </Field>
+            )}
 
             {/* Suggested execution time */}
             <Field>
@@ -496,14 +566,7 @@ const TemplateAssignModal: React.FC<Props> = ({
               </Field>
             )}
 
-            <div className="text-muted-foreground">
-              {validRange
-                ? t('{{count}} session(s): Days S,S+K,…≤N at ~{{time}}', {
-                    count: occurrencesCount,
-                    time: startTime,
-                  })
-                : t('Invalid range.')}
-            </div>
+            <div className="text-muted-foreground">{summary}</div>
           </FieldGroup>
         </form>
 

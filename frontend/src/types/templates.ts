@@ -1,10 +1,17 @@
 // src/types/templates.ts
 export type TemplateOcc = { day: number; time?: string };
 
-export type TemplateScheduleEnd =
-  | { type: 'never' }
-  | { type: 'date'; date: string } // ISO date string e.g. "2026-02-16"
-  | { type: 'count'; count: number };
+export type ScheduleUnit = 'day' | 'week' | 'month';
+
+// One stored block of an item's schedule, as returned by the calendar endpoints.
+export type TemplateSegmentPayload = {
+  unit: ScheduleUnit;
+  interval: number;
+  selected_days: string[];
+  start_day: number;
+  end_day: number;
+  start_time: string;
+};
 
 export type TemplateItem = {
   diagnosis: string;
@@ -15,13 +22,16 @@ export type TemplateItem = {
     content_type?: string;
     tags?: string[];
   };
+  // The latest segment, summarised.
   schedule: {
-    unit: 'day' | 'week' | 'month';
+    unit: ScheduleUnit;
     interval: number;
     selectedDays: string[];
-    end: TemplateScheduleEnd;
+    start_day: number;
+    end_day: number | null;
   };
   occurrences: TemplateOcc[];
+  segments?: TemplateSegmentPayload[];
 };
 
 export type TemplatePayload = { horizon_days: number; items: TemplateItem[] };
@@ -45,7 +55,7 @@ export type TemplateDoc = {
 export type TemplateScheduleBlock = {
   active: boolean;
   interval: number;
-  unit: 'day' | 'week' | 'month';
+  unit: ScheduleUnit;
   selected_days: string[];
   start_day: number;
   end_day: number | null;

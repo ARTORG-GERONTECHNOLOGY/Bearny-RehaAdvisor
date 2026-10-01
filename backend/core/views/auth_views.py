@@ -40,7 +40,7 @@ from core.throttles import LoginRateThrottle
 from core.token_revocation import invalidate_user_tokens, revoke_jti
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from utils.config import WEARABLE_DEVICE_CHOICES, config
-from utils.interventions import _canonical_assignment_for, _instant_key
+from utils.interventions import _canonical_assignment_for, _instant_key, _segment_end
 from utils.scheduling import _expand_dates
 from utils.utils import (
     check_rate_limit,
@@ -129,28 +129,6 @@ def _safe_get(obj, key, default=None):
     return default
 
 
-def _make_count(unit, interval, selected_days, start_day, end_day, fallback=50):
-    """
-    Convert (start_day..end_day, interval) into a count when possible.
-    If end_day not provided, fall back to a reasonable default.
-    """
-    interval = max(int(interval or 1), 1)
-    if end_day and start_day:
-        span = max(0, int(end_day) - int(start_day))
-        if unit == "day":
-            return (span // interval) + 1
-        elif unit == "week":
-            # rough count: weeks in span * selected-days-per-week (or 1)
-            per_week = max(len(selected_days or []) or 1, 1)
-            weeks = max(1, (span // 7) // interval + 1)
-            return weeks * per_week
-        elif unit == "month":
-            # very rough: ~30 days/month
-            months = max(1, (span // 30) // interval + 1)
-            return months
-    return fallback
-
-
 def create_rehab_plan(patient, therapist):
     try:
         # 1) Anchor "Day 1" for initial schedule
@@ -190,19 +168,13 @@ def create_rehab_plan(patient, therapist):
                     # optional time per block, otherwise default
                     start_time = _safe_get(block, "start_time", default_start_time) or default_start_time
 
-                    # legacy 'count_limit' still respected; else derive from start/end days
-                    count_limit = _safe_get(block, "count_limit", None)
-                    if count_limit is None:
-                        count_limit = _make_count(
-                            unit,
-                            interval,
-                            selected_days,
-                            start_day,
-                            end_day,
-                            fallback=50,
-                        )
+                    # Bound by end_day when known (legacy blocks store count_limit == end_day, not a count)
+                    if end_day is not None:
+                        end, max_occ = _segment_end(plan_start_date, unit, interval, start_day, end_day)
                     else:
-                        count_limit = int(count_limit or 1)
+                        count_limit = _safe_get(block, "count_limit", None)
+                        max_occ = 50 if count_limit is None else int(count_limit or 1)
+                        end = {"type": "count", "count": max_occ}
 
                     # Compute the actual start date for this block
                     block_start_date = (plan_start_date + timedelta(days=max(0, start_day - 1))).isoformat()
@@ -215,8 +187,8 @@ def create_rehab_plan(patient, therapist):
                             unit=unit,
                             interval=interval,
                             selected_days=selected_days,
-                            end={"type": "count", "count": count_limit},
-                            max_occurrences=count_limit,
+                            end=end,
+                            max_occurrences=max_occ,
                         )
                         or []
                     )

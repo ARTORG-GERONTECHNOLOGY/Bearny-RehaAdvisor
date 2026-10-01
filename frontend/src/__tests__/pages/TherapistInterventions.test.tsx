@@ -956,6 +956,20 @@ describe('TherapistInterventions — Templates tab', () => {
       expect(modal).toHaveTextContent('intervention:675a88cc8ea37a32e90afe68');
     });
 
+    it('preselects the item diagnosis in the modify modal without filtering the template list', async () => {
+      mockApiGet([], [planItem]);
+      await goToTemplatesTab();
+      await screen.findByText('modify-item');
+      (apiClient.get as jest.Mock).mockClear();
+
+      fireEvent.click(screen.getByText('modify-item'));
+      const modal = await screen.findByTestId('assign-modal');
+      expect(modal).toHaveTextContent('diag:heart failure');
+
+      await waitFor(() => expect(screen.getByText('modify-item')).toBeInTheDocument());
+      expect(apiClient.get).not.toHaveBeenCalledWith(expect.stringContaining('diagnosis='));
+    });
+
     it('opens the assign modal in create mode via onOpenAssign', async () => {
       await goToTemplatesTab();
       fireEvent.click(await screen.findByText('open-assign'));

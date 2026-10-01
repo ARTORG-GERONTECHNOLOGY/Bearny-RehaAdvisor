@@ -67,7 +67,7 @@ describe('TemplateAssignModal', () => {
 
     it('renders a diagnosis dropdown', () => {
       render(<TemplateAssignModal {...defaultProps} />);
-      expect(screen.getByRole('combobox')).toBeInTheDocument();
+      expect(getDiagnosisSelect()).toBeInTheDocument();
     });
 
     it('shows "(optional — leave blank for all)" hint when templateId is set', () => {
@@ -335,6 +335,64 @@ describe('TemplateAssignModal', () => {
 
       fireEvent.change(lastInput, { target: { value: '9' } });
       expect(screen.queryByText(/Invalid range/i)).not.toBeInTheDocument();
+    });
+
+    it('defaults to a daily schedule without weekday buttons', () => {
+      render(<TemplateAssignModal {...defaultProps} templateId="tpl-1" />);
+      expect(screen.getByRole('combobox', { name: /Repeat unit/i })).toHaveTextContent('Day');
+      expect(screen.queryByRole('button', { name: 'Mon' })).not.toBeInTheDocument();
+    });
+
+    it('requires at least one weekday when repeating weekly', async () => {
+      render(<TemplateAssignModal {...defaultProps} templateId="tpl-1" />);
+      await selectOption(screen.getByRole('combobox', { name: /Repeat unit/i }), 'Week');
+
+      expect(screen.getByText('Select at least one weekday.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Save$/i })).toBeDisabled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Wed' }));
+      expect(screen.queryByText('Select at least one weekday.')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Save$/i })).not.toBeDisabled();
+    });
+
+    it('sends the selected weekdays in week order to the named template endpoint', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({ status: 200, data: {} });
+
+      render(<TemplateAssignModal {...defaultProps} templateId="tpl-1" />);
+      await selectOption(screen.getByRole('combobox', { name: /Repeat unit/i }), 'Week');
+      fireEvent.click(screen.getByRole('button', { name: 'Fri' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Mon' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Wed' }));
+
+      expect(
+        screen.getByText('Weekly on Mon, Wed, Fri • Day 1 → 10 • at ~08:00')
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      await waitFor(() => {
+        expect(apiClient.post).toHaveBeenCalledWith(
+          'templates/tpl-1/interventions/',
+          expect.objectContaining({ unit: 'week', selected_days: ['Mon', 'Wed', 'Fri'] })
+        );
+      });
+    });
+
+    it('sends weekly unit and selectedDays to the legacy endpoint', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({ status: 200, data: {} });
+
+      render(<TemplateAssignModal {...defaultProps} defaultDiagnosis="Stroke" />);
+      await selectOption(screen.getByRole('combobox', { name: /Repeat unit/i }), 'Week');
+      fireEvent.click(screen.getByRole('button', { name: 'Tue' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Thu' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Tue' }));
+
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+      await waitFor(() => {
+        const payload = (apiClient.post as jest.Mock).mock.calls[0][1];
+        expect(payload.interventions[0]).toMatchObject({ unit: 'week', selectedDays: ['Thu'] });
+      });
     });
   });
 
