@@ -411,7 +411,12 @@ class GeneralFeedback(Document):
 
 # Logs for daily intervention execution
 class PatientInterventionLogs(Document):
-    meta = {"collection": "InterventionLogs"}
+    meta = {
+        "collection": "InterventionLogs",
+        "indexes": [
+            ("userId", "rehabilitationPlanId", "interventionId"),  # per-intervention lookup in get_patient_plan
+        ],
+    }
     userId = ReferenceField("Patient", required=True)
     interventionId = ReferenceField("Intervention", required=True)
     rehabilitationPlanId = ReferenceField("RehabilitationPlan", required=True)

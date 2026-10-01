@@ -28,6 +28,7 @@ from core.models import (
     Intervention,
     Patient,
     PatientICFRating,
+    PatientInterventionLogs,
     PatientType,
     RehabilitationPlan,
     SMSVerification,
@@ -351,3 +352,14 @@ def test_intervention_with_patient_types():
     intervention.save()
     assert Intervention.objects.count() == 1
     assert intervention.patient_types[0].type == "Cardiology"
+
+
+def test_intervention_logs_have_plan_lookup_index():
+    """
+    get_patient_plan queries logs by patient, plan and intervention once per
+    assignment; without this index each query scans the whole collection.
+    """
+    PatientInterventionLogs.ensure_indexes()
+    keys = [spec["key"] for spec in PatientInterventionLogs._get_collection().index_information().values()]
+
+    assert [("userId", 1), ("rehabilitationPlanId", 1), ("interventionId", 1)] in keys
