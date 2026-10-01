@@ -106,6 +106,52 @@ def test_watchdog_waits_for_requests_still_queued_for_a_thread(conf):
     assert conf.exited.wait(2)
 
 
+def test_watchdog_keeps_draining_when_the_stuck_request_finishes_first(conf):
+    stuck_future, healthy_future = _future(done=False), _future(done=False)
+    futures = [stuck_future, healthy_future]
+    worker = _worker(timeout=0.05, futures=futures)
+    _in_flight(conf, 1, age_seconds=10, what="GET /stuck")
+    _in_flight(conf, 2, age_seconds=0, what="POST /upload")
+    conf.post_worker_init(worker)
+    time.sleep(0.2)
+
+    conf._requests.pop(1)  # the stuck request completes after all
+    futures[0] = _future(done=True)
+    time.sleep(0.3)
+    assert not conf.exited.is_set()  # the healthy upload is still running
+
+    conf._requests.pop(2)
+    futures[1] = _future(done=True)
+    assert conf.exited.wait(2)
+
+
+def test_watchdog_treats_a_new_request_on_a_freed_thread_as_healthy(conf):
+    worker = _worker(timeout=0.05)
+    _in_flight(conf, 1, age_seconds=10, what="GET /stuck")
+    _in_flight(conf, 2, age_seconds=0, what="POST /upload")
+    conf.post_worker_init(worker)
+    time.sleep(0.2)
+
+    with conf._lock:  # the upload finishes; the stuck request finishes too and its thread takes a new one
+        conf._requests.pop(2)
+        _in_flight(conf, 1, age_seconds=0, what="GET /next")
+    time.sleep(0.3)
+    assert not conf.exited.is_set()
+
+    conf._requests.pop(1)
+    assert conf.exited.wait(2)
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+def test_watchdog_exits_even_if_logging_fails(conf):
+    worker = _worker(timeout=0.05)
+    worker.log.critical.side_effect = RuntimeError("log handler broke")
+    _in_flight(conf, 1, age_seconds=10, what="GET /stuck")
+    conf.post_worker_init(worker)
+
+    assert conf.exited.wait(2)
+
+
 def test_watchdog_drain_is_capped(conf):
     conf.DRAIN_SECONDS = 0.2
     worker = _worker(timeout=0.05, graceful_timeout=30)

@@ -28,19 +28,23 @@ def post_request(worker, req, environ, resp):
         _requests.pop(threading.get_ident(), None)
 
 
-def _stuck_threads(limit):
+def _stuck_requests(limit):
+    """{thread id: (start, "METHOD /path")} of the requests running for longer than limit."""
     now = time.monotonic()
     with _lock:
-        return {tid: what for tid, (started, what) in _requests.items() if now - started > limit}
+        return {tid: entry for tid, entry in _requests.items() if now - entry[0] > limit}
 
 
 def _others_pending(worker, stuck):
     """Whether accepted requests other than the stuck ones are still queued or running."""
+    with _lock:
+        # A stuck request can still finish, and its thread can take a new request: match the start time too.
+        still_stuck = sum(_requests.get(tid) == entry for tid, entry in stuck.items())
+        running = len(_requests)
     futures = getattr(worker, "futures", None)  # gthread: one per accepted request, including those queued
     if futures is not None:
-        return sum(not f.done() for f in list(futures)) > len(stuck)
-    with _lock:
-        return not _requests.keys() <= stuck.keys()
+        return sum(not f.done() for f in list(futures)) > still_stuck
+    return running > still_stuck
 
 
 def _flush_sentry():
@@ -62,16 +66,22 @@ def post_worker_init(worker):
         stuck = {}
         while not stuck:
             time.sleep(WATCHDOG_INTERVAL_SECONDS)
-            stuck = _stuck_threads(limit)
+            stuck = _stuck_requests(limit)
 
-        worker.log.critical(
-            "Restarting worker %s: request(s) running for over %ss: %s", worker.pid, limit, sorted(stuck.values())
-        )
-        worker.alive = False  # stop accepting; the master's socket queues new connections for the next worker
-        deadline = time.monotonic() + min(DRAIN_SECONDS, worker.cfg.graceful_timeout)
-        while time.monotonic() < deadline and _others_pending(worker, stuck):
-            time.sleep(0.2)
-        _flush_sentry()
-        os._exit(1)  # not 3 or 4: the master treats those as boot errors and shuts down
+        try:
+            worker.log.critical(
+                "Restarting worker %s: request(s) running for over %ss: %s",
+                worker.pid,
+                limit,
+                sorted(what for _, what in stuck.values()),
+            )
+            worker.alive = False  # stop accepting; the master's socket queues new connections for the next worker
+            deadline = time.monotonic() + min(DRAIN_SECONDS, worker.cfg.graceful_timeout)
+            while time.monotonic() < deadline and _others_pending(worker, stuck):
+                time.sleep(0.2)
+            _flush_sentry()
+        finally:
+            # Always, even if the above fails: a worker that stopped accepting must not linger.
+            os._exit(1)  # not 3 or 4: the master treats those as boot errors and shuts down
 
     threading.Thread(target=watch, name="request-watchdog", daemon=True).start()
