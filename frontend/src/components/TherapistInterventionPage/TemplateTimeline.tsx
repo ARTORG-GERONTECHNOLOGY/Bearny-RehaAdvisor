@@ -65,7 +65,7 @@ const TemplateTimeline: React.FC<Props> = ({ items, horizonDays = 84, translated
       {showWeekdayHint && (
         <Alert className="mb-3">
           {t(
-            'Weekday sessions are shown as if Day 1 were a Monday. When applying to a patient, Day 1 is their start date, so these sessions may fall on other days.'
+            'Day 1 is shown as a Monday. For a patient, Day 1 is their start date, but weekday sessions stay on the same weekdays.'
           )}
         </Alert>
       )}

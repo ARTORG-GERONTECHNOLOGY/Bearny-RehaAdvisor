@@ -31,12 +31,12 @@ describe('TemplateTimeline', () => {
         },
       });
       render(<TemplateTimeline items={[item]} horizonDays={3} />);
-      expect(screen.getByText(/shown as if Day 1 were a Monday/)).toBeInTheDocument();
+      expect(screen.getByText(/Day 1 is shown as a Monday/)).toBeInTheDocument();
     });
 
     it('omits the weekday hint for day-based schedules', () => {
       render(<TemplateTimeline items={[makeItem()]} horizonDays={3} />);
-      expect(screen.queryByText(/shown as if Day 1 were a Monday/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Day 1 is shown as a Monday/)).not.toBeInTheDocument();
     });
 
     it('renders one day card per horizon day', () => {
