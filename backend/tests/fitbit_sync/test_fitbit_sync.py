@@ -136,8 +136,9 @@ def test_get_valid_access_token_refresh_failure_raises(mock_post):
         get_valid_access_token(user)
 
 
+@patch("core.views.fitbit_sync.time.sleep")
 @patch("core.views.fitbit_sync.requests.post")
-def test_get_valid_access_token_invalid_grant_marks_token_revoked(mock_post):
+def test_get_valid_access_token_invalid_grant_marks_token_revoked(mock_post, mock_sleep):
     """invalid_grant permanently revokes the refresh token — token is marked revoked, NOT deleted,
     so therapists can see the disconnected state."""
     user, _ = make_user_with_token(expired=True)
@@ -159,6 +160,54 @@ def test_get_valid_access_token_invalid_grant_marks_token_revoked(mock_post):
     assert token is not None
     assert token.is_revoked is True
     assert token.revoked_at is not None
+
+
+def _invalid_grant_response():
+    resp = Mock()
+    resp.status_code = 400
+    resp.text = '{"errors":[{"errorType":"invalid_grant"}],"success":false}'
+    resp.json.return_value = {"errors": [{"errorType": "invalid_grant"}], "success": False}
+    return resp
+
+
+def _rotate_stored_token(user):
+    """Simulate a parallel request that already refreshed and saved the token."""
+    FitbitUserToken.objects(user=user).update_one(
+        set__access_token="winner-access",
+        set__refresh_token="winner-refresh",
+        set__expires_at=timezone.now() + timedelta(hours=8),
+    )
+
+
+@patch("core.views.fitbit_sync.time.sleep")
+@patch("core.views.fitbit_sync.requests.post")
+def test_get_valid_access_token_invalid_grant_after_concurrent_refresh_uses_new_token(mock_post, mock_sleep):
+    """Losing a refresh race to a parallel request must not revoke the token the winner just saved."""
+    user, _ = make_user_with_token(expired=True)
+
+    def winner_already_saved(*args, **kwargs):
+        _rotate_stored_token(user)
+        return _invalid_grant_response()
+
+    mock_post.side_effect = winner_already_saved
+
+    assert get_valid_access_token(user) == "winner-access"
+    token = FitbitUserToken.objects(user=user).first()
+    assert token.is_revoked is False
+    mock_sleep.assert_not_called()
+
+
+@patch("core.views.fitbit_sync.time.sleep")
+@patch("core.views.fitbit_sync.requests.post")
+def test_get_valid_access_token_invalid_grant_waits_for_winner_still_saving(mock_post, mock_sleep):
+    """The winner may save its new token just after the loser sees invalid_grant; one re-check catches it."""
+    user, _ = make_user_with_token(expired=True)
+    mock_post.return_value = _invalid_grant_response()
+    mock_sleep.side_effect = lambda _seconds: _rotate_stored_token(user)
+
+    assert get_valid_access_token(user) == "winner-access"
+    assert FitbitUserToken.objects(user=user).first().is_revoked is False
+    mock_sleep.assert_called_once()
 
 
 def test_get_valid_access_token_raises_immediately_for_revoked_token():
@@ -699,6 +748,44 @@ def test_last_fetched_at_stamped_even_when_api_returns_429(mock_get, _):
 
     token.reload()
     assert token.last_fetched_at is not None
+
+
+@patch("core.views.fitbit_sync.requests.get")
+def test_cooldown_concurrent_request_skips_while_first_is_running(mock_get):
+    """Three summary requests arrive together on page load; only the first may sync and refresh the token."""
+    user, _ = make_user_with_token(expired=False, last_fetched_at=None)
+    mock_get.side_effect = _all_empty_side_effect
+    concurrent_results = []
+
+    def token_while_second_request_arrives(u):
+        concurrent_results.append(fetch_fitbit_today_for_user(u))
+        return "access"
+
+    with patch(
+        "core.views.fitbit_sync.get_valid_access_token",
+        side_effect=token_while_second_request_arrives,
+    ) as mock_token:
+        fetch_fitbit_today_for_user(user)
+
+    assert concurrent_results == [0]
+    assert mock_token.call_count == 1
+
+
+@patch("core.views.fitbit_sync.get_valid_access_token", side_effect=Exception("refresh failed"))
+@patch("core.views.fitbit_sync.requests.get")
+def test_cooldown_claim_released_when_token_refresh_fails(mock_get, _):
+    """A failed token step must not block the next page load for 15 minutes."""
+    stale = timezone.now() - timedelta(minutes=FETCH_COOLDOWN_MINUTES + 5)
+    user, token = make_user_with_token(expired=False, last_fetched_at=stale)
+    token.reload()
+    before = token.last_fetched_at  # stored value, ms precision
+
+    with pytest.raises(Exception, match="refresh failed"):
+        fetch_fitbit_today_for_user(user)
+
+    token.reload()
+    assert token.last_fetched_at == before
+    mock_get.assert_not_called()
 
 
 @patch("core.views.fitbit_sync.get_valid_access_token", return_value="access")
