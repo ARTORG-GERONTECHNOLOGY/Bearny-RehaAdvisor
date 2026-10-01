@@ -347,6 +347,30 @@ def test_fix11_verify_rate_limit_locks_after_10_failures():
     assert is_locked, "Must be locked after 10 verify failures"
 
 
+def test_fix8_parallel_failed_logins_all_count():
+    """Requests that read the counter before either saved (parallel gunicorn threads) must each count."""
+    from core.models import PasswordAttempt
+    from utils.utils import check_rate_limit, increment_attempt
+
+    user = _make_user("ratelimit_parallel_fix8", password="correct!")
+    _, first = check_rate_limit(user)
+    _, second = check_rate_limit(user)  # read before the first increment landed
+    increment_attempt(first)
+    increment_attempt(second)
+
+    assert PasswordAttempt.objects(user=user).first().count == 2
+
+
+def test_fix11_parallel_wrong_codes_all_count():
+    """Requests that read the counter before either saved (parallel gunicorn threads) must each count."""
+    _, first = check_verify_rate_limit("fix11_parallel_key")
+    _, second = check_verify_rate_limit("fix11_parallel_key")  # read before the first increment landed
+    increment_verify_attempt(first)
+    increment_verify_attempt(second)
+
+    assert VerifyAttempt.objects(key="fix11_parallel_key").first().count == 2
+
+
 def test_fix11_healthslider_download_verify_returns_429_when_locked():
     """
     healthslider_download_verify must return 429 when the shared

@@ -4,7 +4,8 @@ With gthread, --timeout only checks that the worker's main loop is alive, not ho
 so a request stuck on a call with no timeout would hold its thread for good, and once every thread is
 stuck the API stops answering. This brings back the sync worker's limit: when a request has run longer
 than --timeout, the worker stops taking new requests, lets the others finish (up to DRAIN_SECONDS),
-then exits and the master starts a fresh one. Requests arriving meanwhile wait for the new worker.
+then exits and the master starts a fresh one. New connections wait in the listen queue for the new worker;
+a connection the old worker accepted but had not yet read a request from is dropped (about one per restart).
 """
 
 import os

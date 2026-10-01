@@ -101,9 +101,8 @@ def check_rate_limit(user):
 
 
 def increment_attempt(record):
-    record.count += 1
-    record.last_attempt = datetime.utcnow()
-    record.save()
+    # $inc, not count += 1 then save(): parallel failed attempts would overwrite each other's count.
+    PasswordAttempt.objects(id=record.id).update_one(inc__count=1, set__last_attempt=datetime.utcnow())
 
 
 # ---------------------------------------------------------------------------
@@ -139,9 +138,8 @@ def check_verify_rate_limit(key: str):
 
 
 def increment_verify_attempt(record):
-    record.count += 1
-    record.last_attempt = datetime.utcnow()
-    record.save()
+    # $inc, not count += 1 then save(): parallel wrong codes would overwrite each other's count.
+    VerifyAttempt.objects(id=record.id).update_one(inc__count=1, set__last_attempt=datetime.utcnow())
 
 
 def reset_verify_attempts(key: str):
