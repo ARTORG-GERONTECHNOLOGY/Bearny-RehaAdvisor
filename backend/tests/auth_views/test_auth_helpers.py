@@ -9,7 +9,6 @@ from django.utils import timezone
 from core.views.auth_views import (
     _as_list_of_blocks,
     _err,
-    _make_count,
     _norm_email,
     _parse_body,
     _safe_get,
@@ -31,13 +30,6 @@ def test_auth_helper_list_and_safe_get():
     assert _safe_get(obj, "a") == 10
     assert _safe_get({"a": 20}, "a") == 20
     assert _safe_get({}, "missing", "d") == "d"
-
-
-def test_auth_helper_make_count_variants():
-    assert _make_count("day", 2, [], 1, 5) == 3
-    assert _make_count("week", 1, ["Mon", "Wed"], 1, 14) >= 2
-    assert _make_count("month", 1, [], 1, 62) >= 2
-    assert _make_count("week", 1, [], None, None, fallback=9) == 9
 
 
 def test_auth_helper_make_aware_and_email_and_err():
@@ -278,3 +270,43 @@ def test_create_rehab_plan_weekly_block_yields_mon_wed_fri_until_end_day(monkeyp
         "Wed 14",
         "Fri 16",
     ]
+
+
+def test_create_rehab_plan_without_end_day_uses_count_limit_or_default(monkeypatch):
+    calls = []
+
+    def fake_expand(**kwargs):
+        calls.append(kwargs)
+        return [datetime(2026, 1, 5, 8, 0)]
+
+    class FakePlanModel:
+        def __init__(self, **kwargs):
+            self.interventions = kwargs.get("interventions", [])
+
+        def save(self):
+            return None
+
+        @staticmethod
+        def objects(**kwargs):
+            return SimpleNamespace(first=lambda: None)
+
+    monkeypatch.setattr("core.views.auth_views._expand_dates", fake_expand)
+    monkeypatch.setattr("core.views.auth_views.RehabilitationPlan", FakePlanModel)
+    monkeypatch.setattr(
+        "core.views.auth_views.InterventionAssignment",
+        lambda **kw: SimpleNamespace(**kw),
+    )
+    patient = SimpleNamespace(
+        userId=SimpleNamespace(createdAt=datetime(2026, 1, 5, 9, 0)),
+        diagnosis=["DX"],
+        reha_end_date=timezone.now(),
+        study_end_date=None,
+    )
+    blocks = [
+        {"unit": "week", "selected_days": ["Mon"], "start_day": 1, "count_limit": 6},
+        {"unit": "day", "start_day": 1},
+    ]
+    rec = SimpleNamespace(recommendation=SimpleNamespace(id="i1"), diagnosis_assignments={"DX": blocks})
+
+    assert create_rehab_plan(patient, SimpleNamespace(default_recommendations=[rec])) is True
+    assert [c["end"] for c in calls] == [{"type": "count", "count": 6}, {"type": "count", "count": 50}]

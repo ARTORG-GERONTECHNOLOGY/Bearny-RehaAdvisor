@@ -39,7 +39,7 @@ from utils.interventions import (
     BASE_ANCHOR,
     _anchor_date_for_day,
     _normalize_segments,
-    _occ_count_for_day_range,
+    _segment_end,
     _upsert_intervention,
 )
 from utils.scheduling import _expand_dates
@@ -697,18 +697,9 @@ def _apply_template_to_single_patient(
 
             for seg in segments:
                 seg_start = eff_dt + timedelta(days=max(1, seg["start_day"]) - 1)
-                seg_end = eff_dt + timedelta(days=max(seg["end_day"], seg["start_day"]) - 1)
-
-                if seg["unit"] == "day":
-                    count = _occ_count_for_day_range(seg["start_day"], seg["end_day"], seg["interval"])
-                    end_obj = {"type": "count", "count": count}
-                    max_occ = count
-                else:
-                    end_obj = {
-                        "type": "date",
-                        "date": f"{seg_end.date().isoformat()}T23:59:59",
-                    }
-                    max_occ = 2000
+                end_obj, max_occ = _segment_end(
+                    eff_dt.date(), seg["unit"], seg["interval"], seg["start_day"], seg["end_day"]
+                )
 
                 occurrences = _expand_dates(
                     start_date=seg_start.date().isoformat(),
@@ -1041,15 +1032,9 @@ def template_calendar(request, template_id):
 
                 for seg in segments:
                     start_date = _anchor_date_for_day(seg["start_day"])
-                    end_date = _anchor_date_for_day(seg["end_day"])
-
-                    if seg["unit"] == "day":
-                        count = _occ_count_for_day_range(seg["start_day"], seg["end_day"], seg["interval"])
-                        end_obj = {"type": "count", "count": count}
-                        max_occ = count
-                    else:
-                        end_obj = {"type": "date", "date": f"{end_date}T23:59:59"}
-                        max_occ = 1000
+                    end_obj, max_occ = _segment_end(
+                        base.date(), seg["unit"], seg["interval"], seg["start_day"], seg["end_day"]
+                    )
 
                     occ = _expand_dates(
                         start_date=start_date,

@@ -414,6 +414,15 @@ def _occ_count_for_day_range(start_day, end_day, interval):
     return max(1, (end_day - start_day) // max(1, interval) + 1)
 
 
+def _segment_end(day_one, unit, interval, start_day, end_day):
+    """Returns (end, max_occurrences) for _expand_dates so a block covers template days start_day..end_day."""
+    if unit == "day":
+        count = _occ_count_for_day_range(start_day, end_day, interval)
+        return {"type": "count", "count": count}, count
+    last_day = day_one + timedelta(days=max(start_day, end_day) - 1)
+    return {"type": "date", "date": last_day.isoformat()[:10]}, 2000
+
+
 def _anchor_date_for_day(day_n: int) -> str:
     base = datetime.fromisoformat(f"{BASE_ANCHOR}T00:00:00")
     start = base + timedelta(days=max(1, day_n) - 1)

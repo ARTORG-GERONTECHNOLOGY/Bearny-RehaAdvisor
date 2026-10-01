@@ -3,6 +3,7 @@ import type { TemplateItem } from '@/types/templates';
 import en from '@/assets/lang/en.json';
 import de from '@/assets/lang/de.json';
 import {
+  countDailySessions,
   countOccurrencesInRange,
   formatDayRange,
   formatFrequency,
@@ -132,6 +133,14 @@ describe('hasWeekdaySegment', () => {
     expect(hasWeekdaySegment([segment({ unit: 'week', selectedDays: ['Mon'] })])).toBe(true);
     expect(hasWeekdaySegment([segment({ unit: 'week' })])).toBe(false);
     expect(hasWeekdaySegment([segment({ selectedDays: ['Mon'] })])).toBe(false);
+  });
+});
+
+describe('countDailySessions', () => {
+  it('counts every interval-th day including both ends when they line up', () => {
+    expect(countDailySessions(1, 10, 1)).toBe(10);
+    expect(countDailySessions(1, 10, 3)).toBe(4);
+    expect(countDailySessions(5, 5, 2)).toBe(1);
   });
 });
 

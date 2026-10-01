@@ -45,6 +45,10 @@ export const pickSegmentForDay = (item: TemplateItem, day: number): TemplateSegm
 export const hasWeekdaySegment = (segments: TemplateSegment[]): boolean =>
   segments.some((s) => s.unit === 'week' && s.selectedDays.length > 0);
 
+/** Sessions on days start, start+interval, … up to and including last. */
+export const countDailySessions = (start: number, last: number, interval: number) =>
+  Math.floor((last - start) / interval) + 1;
+
 export const countOccurrencesInRange = (item: TemplateItem, fromDay: number, toDay?: number) =>
   item.occurrences.filter((o) => o.day >= fromDay && (!toDay || o.day <= toDay)).length;
 

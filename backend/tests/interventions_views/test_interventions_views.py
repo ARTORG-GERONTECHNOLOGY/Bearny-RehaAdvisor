@@ -59,6 +59,7 @@ filesystem.
 import io
 import json
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from unittest.mock import patch
 
 import mongomock
@@ -67,6 +68,7 @@ from bson import ObjectId
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import JsonResponse
 from django.test import Client
+from django.utils import timezone
 
 from core.models import (
     DefaultInterventions,
@@ -724,19 +726,64 @@ def test_assign_intervention_to_types_success(mongo_mock):
 
 def test_assign_intervention_to_types_all_past_and_future_payload(mongo_mock):
     """
-    all_past_and_future scope accepts auto_apply_starting_from and returns
-    existing patient apply summary in the response.
+    all_past_and_future scope (sent inside the intervention entry, like the UI does)
+    validates auto_apply_starting_from and returns the existing patient apply summary.
     """
     therapist, intervention = create_therapist_and_intervention()
-    payload = dict(VALID_ASSIGN_PAYLOAD)
-    payload["auto_apply_scope"] = "all_past_and_future"
-    payload["auto_apply_starting_from"] = "2026-02-01"
-    payload["interventions"] = [
-        {
-            **VALID_ASSIGN_PAYLOAD["interventions"][0],
-            "interventionId": str(intervention.id),
-        }
-    ]
+
+    def post(starting_from):
+        payload = dict(VALID_ASSIGN_PAYLOAD)
+        payload["interventions"] = [
+            {
+                **VALID_ASSIGN_PAYLOAD["interventions"][0],
+                "interventionId": str(intervention.id),
+                "auto_apply_scope": "all_past_and_future",
+                "auto_apply_starting_from": starting_from,
+            }
+        ]
+        return client.post(
+            ASSIGN_URL.format(th_id=therapist.userId.id),
+            data=json.dumps(payload),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    resp = post("2026-02-01")
+    assert resp.status_code in (200, 201), resp.content.decode()
+    body = resp.json()
+    assert body.get("success") is True
+    assert body["existing_patients_applied"] == {"patients_affected": 0, "applied": 0, "sessions_created": 0}
+
+    # The start date is only validated for this scope, so a 400 proves the scope was read.
+    resp = post("not-a-date")
+    assert resp.status_code == 400
+    assert "auto_apply_starting_from" in resp.json()["field_errors"]
+
+
+def _assign_now_to_existing_patients(schedule):
+    """Assigns a block with all_past_and_future from Mon 2026-02-02 and returns the matching patient's session times."""
+    therapist, intervention = create_therapist_and_intervention()
+    patient_user = User(username="patient", createdAt=datetime(2026, 1, 1), isActive=True).save()
+    patient = Patient(
+        userId=patient_user,
+        patient_code="PAT-AUTO",
+        therapist=therapist,
+        clinic="Inselspital",
+        diagnosis=["Heart Attack"],
+        reha_end_date=datetime(2026, 6, 1),
+    ).save()
+    payload = {
+        "diagnosis": "Heart Attack",
+        "interventions": [
+            {
+                "interventionId": str(intervention.id),
+                "suggested_execution_time": 600,
+                "auto_apply_scope": "all_past_and_future",
+                "auto_apply_starting_from": "2026-02-02",
+                **schedule,
+            }
+        ],
+    }
 
     resp = client.post(
         ASSIGN_URL.format(th_id=therapist.userId.id),
@@ -745,9 +792,38 @@ def test_assign_intervention_to_types_all_past_and_future_payload(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code in (200, 201), resp.content.decode()
-    body = resp.json()
-    assert body.get("success") is True
-    assert "existing_patients_applied" in body
+    assert resp.json()["existing_patients_applied"]["patients_affected"] == 1
+
+    dates = RehabilitationPlan.objects(patientId=patient).first().interventions[0].dates
+    local = [timezone.localtime(d if timezone.is_aware(d) else d.replace(tzinfo=dt_timezone.utc)) for d in dates]
+    return [d.strftime("%a %d.%m %H:%M") for d in sorted(local)]
+
+
+def test_assign_intervention_to_types_applies_weekly_block_to_existing_patients(mongo_mock):
+    """
+    A weekly Mon/Fri block for days 1–14 lands on those weekdays within the
+    two weeks from auto_apply_starting_from, at the suggested time.
+    """
+    sessions = _assign_now_to_existing_patients(
+        {
+            "unit": "week",
+            "interval": 1,
+            "selectedDays": ["Mon", "Fri"],
+            "start_day": 1,
+            "end": {"type": "count", "count": 14},
+        }
+    )
+    assert sessions == ["Mon 02.02 10:00", "Fri 06.02 10:00", "Mon 09.02 10:00", "Fri 13.02 10:00"]
+
+
+def test_assign_intervention_to_types_applies_daily_block_to_existing_patients(mongo_mock):
+    """
+    A block every 2 days for days 3–9 starts on day 3 and stops at day 9.
+    """
+    sessions = _assign_now_to_existing_patients(
+        {"unit": "day", "interval": 2, "selectedDays": [], "start_day": 3, "end": {"type": "count", "count": 9}}
+    )
+    assert sessions == ["Wed 04.02 10:00", "Fri 06.02 10:00", "Sun 08.02 10:00", "Tue 10.02 10:00"]
 
 
 def test_assign_intervention_to_types_keep_previous_clips_earlier_block(mongo_mock):

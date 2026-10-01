@@ -5,7 +5,7 @@ import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
 import { toLocalYMD } from '@/utils/dateFormat';
-import { formatDayRange, formatFrequency } from '@/utils/templateSchedule';
+import { countDailySessions, formatDayRange, formatFrequency } from '@/utils/templateSchedule';
 import {
   Dialog,
   DialogContent,
@@ -113,6 +113,8 @@ const TemplateAssignModal: React.FC<Props> = ({
 
   const validRange = startDay >= 1 && lastDay >= startDay;
   const daysValid = unit !== 'week' || selectedDays.length > 0;
+  // Weekdays only apply to weekly schedules; daily ones always send an empty list.
+  const weekdays = useMemo(() => (unit === 'week' ? selectedDays : []), [unit, selectedDays]);
   const canSubmit = useMemo(
     () =>
       !!interventionId &&
@@ -133,17 +135,18 @@ const TemplateAssignModal: React.FC<Props> = ({
   const summary = useMemo(() => {
     if (!validRange) return t('Invalid range.');
     const parts = [
-      formatFrequency(unit, everyK, unit === 'week' ? selectedDays : [], t),
+      formatFrequency(unit, everyK, weekdays, t),
       formatDayRange(startDay, lastDay, t),
     ];
     // Weekly counts depend on the patient's start weekday, so only daily schedules show one.
     if (unit === 'day' && everyK >= 1) {
-      const sessions = Math.floor((lastDay - startDay) / everyK) + 1;
-      parts.push(t('scheduleOccurrences', { count: sessions }));
+      parts.push(
+        t('scheduleOccurrences', { count: countDailySessions(startDay, lastDay, everyK) })
+      );
     }
     parts.push(t('scheduleAtTime', { time: startTime }));
     return parts.join(' • ');
-  }, [validRange, unit, everyK, selectedDays, startDay, lastDay, startTime, t]);
+  }, [validRange, unit, everyK, weekdays, startDay, lastDay, startTime, t]);
 
   // track local edits for confirm-close (minimal: diagnosis / startDay / lastDay / everyK / time / checkbox / error)
   const hasUnsavedChanges = useMemo(() => {
@@ -256,7 +259,7 @@ const TemplateAssignModal: React.FC<Props> = ({
           end_day: lastDay,
           interval: everyK,
           unit,
-          selected_days: unit === 'week' ? selectedDays : [],
+          selected_days: weekdays,
           suggested_execution_time: suggestedExecution,
           auto_apply_scope: autoApplyScope,
           auto_apply_starting_from:
@@ -273,7 +276,7 @@ const TemplateAssignModal: React.FC<Props> = ({
               interventionId,
               interval: everyK,
               unit,
-              selectedDays: unit === 'week' ? selectedDays : [],
+              selectedDays: weekdays,
               start_day: startDay,
               end: { type: 'count', count: lastDay },
               keep_previous: mode === 'modify' ? !!keepPrevious : undefined,
