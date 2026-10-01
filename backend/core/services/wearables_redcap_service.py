@@ -193,13 +193,17 @@ def _split_weekday_weekend(
 
 
 def _sleep_minutes(r: Union[FitbitData, GoogleHealthData]) -> Optional[float]:
-    """Return sleep duration in minutes (preferred: minutes_asleep; fallback: sleep_duration ms)."""
+    """Return sleep duration in minutes (preferred: minutes_asleep; fallback: sleep_duration ms).
+
+    For GoogleHealthData, sleep_duration is time-in-bed (not actual sleep), so we never
+    use it as a fallback — a missing minutes_asleep means the night has no usable sleep data.
+    """
     try:
         if r.sleep is None:
             return None
         if r.sleep.minutes_asleep is not None:
             return float(r.sleep.minutes_asleep)
-        if r.sleep.sleep_duration:
+        if r.sleep.sleep_duration and not isinstance(r, GoogleHealthData):
             return r.sleep.sleep_duration / 60_000
     except Exception:
         pass
