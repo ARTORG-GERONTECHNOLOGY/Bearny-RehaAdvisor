@@ -87,7 +87,7 @@ services:
       libretranslate:
         condition: service_started
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/', timeout=5)"]
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen(u.Request('http://localhost:8000/api/', headers={'X-Forwarded-Proto': 'https'}), timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3
