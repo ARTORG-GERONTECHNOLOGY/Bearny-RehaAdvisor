@@ -133,6 +133,7 @@ def submit_patient_feedback(request):
         day_end = datetime.datetime.combine(target_day, datetime.time.max)
 
         recognizer = sr.Recognizer()
+        recognizer.operation_timeout = 30  # gthread ignores --timeout, so a hung call would pin a thread
         answers = {}
 
         # =========================
@@ -210,8 +211,10 @@ def submit_patient_feedback(request):
                         "[submit_patient_feedback] ffmpeg not available; skipping transcription for %s",
                         key,
                     )
-            except (ValueError, sr.UnknownValueError, sr.RequestError) as e:
-                logger.warning("[submit_patient_feedback] Transcription failed for %s: %s", key, e)
+            except (ValueError, sr.UnknownValueError, sr.RequestError, TimeoutError) as e:
+                logger.warning("[submit_patient_feedback] Transcription failed for %s: %r", key, e)
+            except Exception:
+                logger.exception("[submit_patient_feedback] Unexpected transcription error for %s", key)
 
             answers[normalized_key] = {
                 "file_path": saved_path,

@@ -5,6 +5,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+import speech_recognition as sr
 from django.core.files.storage import default_storage
 from django.test import Client, override_settings
 
@@ -110,3 +111,41 @@ def test_audio_upload_and_recognition(mock_audio_file, mock_record, mock_recogni
 
     # ✅ Assert recognizer was called (audio was processed)
     mock_recognize.assert_called()
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+@patch("speech_recognition.Recognizer.recognize_google", autospec=True)
+@patch("speech_recognition.Recognizer.record")
+@patch("speech_recognition.AudioFile")
+@pytest.mark.parametrize(
+    "error",
+    [
+        TimeoutError("timed out"),  # read timeout: urlopen doesn't wrap it in URLError
+        sr.RequestError("recognition connection failed: timed out"),
+        OSError("FLAC conversion utility not available"),  # unexpected: hits the catch-all
+    ],
+)
+def test_audio_transcription_failure_is_capped_and_non_fatal(
+    mock_audio_file, mock_record, mock_recognize, error, mongo_mock
+):
+    patient = setup_patient()
+    mock_recognize.side_effect = error
+    mock_audio_file.return_value.__enter__.return_value = MagicMock()
+    mock_record.return_value = MagicMock()
+
+    file = io.BytesIO(b"Fake audio data")
+    file.name = "test_audio.wav"
+
+    response = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "responses": json.dumps([{"question": "How do you feel?", "answer": "Good"}]),
+            "audio_file": file,
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert response.status_code in [200, 201]
+    recognizer = mock_recognize.call_args.args[0]
+    assert recognizer.operation_timeout == 30
