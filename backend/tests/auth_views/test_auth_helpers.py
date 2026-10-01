@@ -9,7 +9,6 @@ from django.utils import timezone
 from core.views.auth_views import (
     _as_list_of_blocks,
     _err,
-    _make_count,
     _norm_email,
     _parse_body,
     _safe_get,
@@ -31,13 +30,6 @@ def test_auth_helper_list_and_safe_get():
     assert _safe_get(obj, "a") == 10
     assert _safe_get({"a": 20}, "a") == 20
     assert _safe_get({}, "missing", "d") == "d"
-
-
-def test_auth_helper_make_count_variants():
-    assert _make_count("day", 2, [], 1, 5) == 3
-    assert _make_count("week", 1, ["Mon", "Wed"], 1, 14) >= 2
-    assert _make_count("month", 1, [], 1, 62) >= 2
-    assert _make_count("week", 1, [], None, None, fallback=9) == 9
 
 
 def test_auth_helper_make_aware_and_email_and_err():
@@ -174,3 +166,147 @@ def test_create_rehab_plan_merges_existing_and_handles_exception(monkeypatch):
 
     monkeypatch.setattr("core.views.auth_views._expand_dates", broken_expand)
     assert create_rehab_plan(patient, therapist) is False
+
+
+def test_create_rehab_plan_bounds_weekly_block_by_end_day(monkeypatch):
+    intervention = SimpleNamespace(id="i1")
+    # Legacy blocks store count_limit == end_day; it must not be treated as a session count.
+    block = {
+        "active": True,
+        "unit": "week",
+        "interval": 1,
+        "selected_days": ["Mon", "Wed", "Fri"],
+        "start_day": 1,
+        "end_day": 28,
+        "count_limit": 28,
+        "start_time": "08:00",
+    }
+    rec = SimpleNamespace(recommendation=intervention, diagnosis_assignments={"DX": [block]})
+    created = datetime(2026, 1, 5, 9, 0)
+    patient = SimpleNamespace(
+        userId=SimpleNamespace(createdAt=created),
+        diagnosis=["DX"],
+        reha_end_date=timezone.now(),
+        study_end_date=None,
+    )
+    therapist = SimpleNamespace(default_recommendations=[rec])
+
+    class FakePlanModel:
+        def __init__(self, **kwargs):
+            self.interventions = kwargs.get("interventions", [])
+
+        def save(self):
+            return None
+
+        @staticmethod
+        def objects(**kwargs):
+            return SimpleNamespace(first=lambda: None)
+
+    calls = []
+
+    def fake_expand(**kwargs):
+        calls.append(kwargs)
+        return [datetime(2026, 1, 5, 8, 0)]
+
+    monkeypatch.setattr("core.views.auth_views._expand_dates", fake_expand)
+    monkeypatch.setattr("core.views.auth_views.RehabilitationPlan", FakePlanModel)
+    monkeypatch.setattr(
+        "core.views.auth_views.InterventionAssignment",
+        lambda **kw: SimpleNamespace(**kw),
+    )
+
+    assert create_rehab_plan(patient, therapist) is True
+    assert calls[0]["selected_days"] == ["Mon", "Wed", "Fri"]
+    assert calls[0]["end"] == {"type": "date", "date": "2026-02-01"}
+
+
+def test_create_rehab_plan_weekly_block_yields_mon_wed_fri_until_end_day(monkeypatch):
+    intervention = SimpleNamespace(id="i1")
+    block = {
+        "active": True,
+        "unit": "week",
+        "interval": 1,
+        "selected_days": ["Mon", "Wed", "Fri"],
+        "start_day": 1,
+        "end_day": 14,
+        "count_limit": 14,
+        "start_time": "08:00",
+    }
+    rec = SimpleNamespace(recommendation=intervention, diagnosis_assignments={"DX": [block]})
+    patient = SimpleNamespace(
+        userId=SimpleNamespace(createdAt=datetime(2026, 1, 5, 9, 0)),  # a Monday
+        diagnosis=["DX"],
+        reha_end_date=timezone.now(),
+        study_end_date=None,
+    )
+    therapist = SimpleNamespace(default_recommendations=[rec])
+    saved = {}
+
+    class FakePlanModel:
+        def __init__(self, **kwargs):
+            self.interventions = kwargs.get("interventions", [])
+            saved["plan"] = self
+
+        def save(self):
+            return None
+
+        @staticmethod
+        def objects(**kwargs):
+            return SimpleNamespace(first=lambda: None)
+
+    monkeypatch.setattr("core.views.auth_views.RehabilitationPlan", FakePlanModel)
+    monkeypatch.setattr(
+        "core.views.auth_views.InterventionAssignment",
+        lambda **kw: SimpleNamespace(**kw),
+    )
+
+    assert create_rehab_plan(patient, therapist) is True
+    dates = saved["plan"].interventions[0].dates
+    assert [d.strftime("%a %d") for d in dates] == [
+        "Mon 05",
+        "Wed 07",
+        "Fri 09",
+        "Mon 12",
+        "Wed 14",
+        "Fri 16",
+    ]
+
+
+def test_create_rehab_plan_without_end_day_uses_count_limit_or_default(monkeypatch):
+    calls = []
+
+    def fake_expand(**kwargs):
+        calls.append(kwargs)
+        return [datetime(2026, 1, 5, 8, 0)]
+
+    class FakePlanModel:
+        def __init__(self, **kwargs):
+            self.interventions = kwargs.get("interventions", [])
+
+        def save(self):
+            return None
+
+        @staticmethod
+        def objects(**kwargs):
+            return SimpleNamespace(first=lambda: None)
+
+    monkeypatch.setattr("core.views.auth_views._expand_dates", fake_expand)
+    monkeypatch.setattr("core.views.auth_views.RehabilitationPlan", FakePlanModel)
+    monkeypatch.setattr(
+        "core.views.auth_views.InterventionAssignment",
+        lambda **kw: SimpleNamespace(**kw),
+    )
+    patient = SimpleNamespace(
+        userId=SimpleNamespace(createdAt=datetime(2026, 1, 5, 9, 0)),
+        diagnosis=["DX"],
+        reha_end_date=timezone.now(),
+        study_end_date=None,
+    )
+    blocks = [
+        {"unit": "week", "selected_days": ["Mon"], "start_day": 1, "count_limit": 6},
+        {"unit": "day", "start_day": 1},
+    ]
+    rec = SimpleNamespace(recommendation=SimpleNamespace(id="i1"), diagnosis_assignments={"DX": blocks})
+
+    assert create_rehab_plan(patient, SimpleNamespace(default_recommendations=[rec])) is True
+    assert [c["end"] for c in calls] == [{"type": "count", "count": 6}, {"type": "count", "count": 50}]

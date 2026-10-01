@@ -480,6 +480,125 @@ def test_fetch_sleep_no_points_returns_none(mock_get):
     assert _fetch_sleep("fake_token", datetime.date(2026, 8, 13)) is None
 
 
+# ---------------------------------------------------------------------------
+# _aggregate_sleep — stagesSummary fallback tests
+# (fixtures derived from real inflated production records for patients 901-34 / 901-28)
+# ---------------------------------------------------------------------------
+
+
+def _make_sleep_point_with_stages(start_iso: str, end_iso: str, stages: list) -> dict:
+    """Sleep dataPoint WITHOUT minutesAsleep — uses stagesSummary instead."""
+    return {
+        "sleep": {
+            "interval": {"startTime": start_iso, "endTime": end_iso},
+            "summary": {"stagesSummary": stages},
+        }
+    }
+
+
+def test_aggregate_sleep_uses_stages_when_minutes_asleep_absent():
+    """
+    When minutesAsleep is absent but stagesSummary is present, actual sleep =
+    total_time − AWAKE_minutes.
+
+    Uses the real live API field name "minutes" (confirmed by live inspection of 901-34
+    Sep 25 2026 response). The legacy "minutesInStage" field name is also supported.
+    """
+    from core.views.google_health_sync import _aggregate_sleep
+
+    # Real field name from live API: "minutes" (not "minutesInStage")
+    # 901-34 Sep 25 real API payload: AWAKE=112 min; bed=542 min → sleep=430 min.
+    # Note: API now also returns minutesAsleep=542 for this night, so this test
+    # exercises the fallback by deliberately omitting minutesAsleep.
+    point = _make_sleep_point_with_stages(
+        "2026-09-24T21:18:00Z",
+        "2026-09-25T06:20:00Z",  # 542 min total (real prod interval)
+        stages=[
+            {"type": "AWAKE", "minutes": "112", "count": "10"},
+            {"type": "LIGHT", "minutes": "336", "count": "18"},
+            {"type": "DEEP", "minutes": "25", "count": "4"},
+            {"type": "REM", "minutes": "69", "count": "9"},
+        ],
+    )
+    result = _aggregate_sleep([point])
+    assert result is not None
+    assert result["sleep_duration"] == 542 * 60_000
+    assert result["minutes_asleep"] == 430  # 542 − 112 AWAKE
+    assert result["minutes_asleep"] != result["sleep_duration"] // 60_000
+
+
+def test_aggregate_sleep_uses_stages_legacy_minutesInStage_field():
+    """
+    The legacy "minutesInStage" field name (used in older API responses and test
+    mocks) is still supported as a fallback alongside the live "minutes" field.
+    """
+    from core.views.google_health_sync import _aggregate_sleep
+
+    point = _make_sleep_point_with_stages(
+        "2026-09-24T21:00:00Z",
+        "2026-09-25T06:02:00Z",  # 542 min total
+        stages=[
+            {"type": "LIGHT", "count": "8", "minutesInStage": "210"},
+            {"type": "DEEP", "count": "3", "minutesInStage": "122"},
+            {"type": "REM", "count": "4", "minutesInStage": "100"},
+            {"type": "AWAKE", "count": "5", "minutesInStage": "110"},
+        ],
+    )
+    result = _aggregate_sleep([point])
+    assert result is not None
+    assert result["minutes_asleep"] == 432  # 542 − 110
+    assert result["minutes_asleep"] != result["sleep_duration"] // 60_000
+
+
+def test_aggregate_sleep_falls_back_when_no_stages():
+    """
+    Without minutesAsleep or stagesSummary, fall back to time-in-bed.
+    This preserves the existing behaviour for records that truly have no stage data.
+    """
+    from core.views.google_health_sync import _aggregate_sleep
+
+    point = {
+        "sleep": {
+            "interval": {
+                "startTime": "2026-09-24T22:00:00Z",
+                "endTime": "2026-09-25T06:00:00Z",
+            },
+            "summary": {},
+        }
+    }
+    result = _aggregate_sleep([point])
+    assert result is not None
+    assert result["minutes_asleep"] == 480  # 8 h fallback — same as time-in-bed
+
+
+def test_aggregate_sleep_prefers_minutes_asleep_over_stages():
+    """
+    minutesAsleep wins even when stagesSummary is also present.
+
+    Modelled on patient 901-34 Sep 30 2026 (correct record in prod):
+      sleep_duration = 486 min, minutes_asleep = 303 (API returned the field directly).
+    """
+    from core.views.google_health_sync import _aggregate_sleep
+
+    point = {
+        "sleep": {
+            "interval": {
+                "startTime": "2026-09-29T22:00:00Z",
+                "endTime": "2026-09-30T06:06:00Z",  # 486 min
+            },
+            "summary": {
+                "minutesAsleep": "303",
+                "stagesSummary": [
+                    {"type": "AWAKE", "count": "3", "minutes": "183"},
+                    {"type": "LIGHT", "count": "6", "minutes": "303"},
+                ],
+            },
+        }
+    }
+    result = _aggregate_sleep([point])
+    assert result["minutes_asleep"] == 303  # API field wins, not 486−183
+
+
 def test_sleep_minutes_prefers_minutes_asleep():
     """_sleep_minutes() in google_health_view must use minutes_asleep, not sleep_duration."""
     from types import SimpleNamespace

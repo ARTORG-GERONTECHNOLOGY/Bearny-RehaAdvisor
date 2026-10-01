@@ -440,9 +440,9 @@ def list_health_questionnaires(request):
             options = (raw or {}).get("options") or []
 
             if not q_text:
-                raise ValueError(f"Question #{idx}: missing text")
+                return JsonResponse({"error": f"Question #{idx}: missing text"}, status=400)
             if q_type not in allowed_types:
-                raise ValueError(f"Question #{idx}: unsupported type '{q_type}'")
+                return JsonResponse({"error": f"Question #{idx}: unsupported type '{q_type}'"}, status=400)
 
             if q_type in {"one-choice"}:
                 q_type = "select"
@@ -454,7 +454,9 @@ def list_health_questionnaires(request):
             option_docs: List[AnswerOption] = []
             if q_type in {"select", "multi-select"}:
                 if not isinstance(options, list) or len([o for o in options if str(o).strip()]) < 2:
-                    raise ValueError(f"Question #{idx}: at least two non-empty options are required")
+                    return JsonResponse(
+                        {"error": f"Question #{idx}: at least two non-empty options are required"}, status=400
+                    )
 
                 key_counts: Counter[str] = Counter()
                 for opt in options:
@@ -491,13 +493,9 @@ def list_health_questionnaires(request):
 
         return JsonResponse(_serialize_health_questionnaire(hq), status=201)
 
-    except ValueError as ve:
-        logger.warning(
-            "Invalid payload while creating custom health questionnaire: %s",
-            ve,
-            exc_info=True,
-        )
-        return JsonResponse({"error": str(ve)}, status=400)
+    except ValueError:
+        logger.warning("Invalid payload while creating custom health questionnaire", exc_info=True)
+        return JsonResponse({"error": "Invalid questionnaire payload."}, status=400)
     except Exception:
         logger.exception("Failed to create custom health questionnaire")
         return JsonResponse({"error": "An internal error has occurred."}, status=500)

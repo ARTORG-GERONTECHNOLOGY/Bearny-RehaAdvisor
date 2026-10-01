@@ -474,8 +474,8 @@ def patient_thresholds_view(request, patient_id: str):
     # ---- parse body ----
     try:
         body = _parse_json_body(request)
-    except ValueError as ve:
-        return bad(str(ve), status=400)
+    except ValueError:
+        return bad("Invalid JSON body.", status=400)
 
     # ---- validate ----
     validated, v_errors = ThresholdsUpdateSerializer.validate(body)
@@ -494,9 +494,9 @@ def patient_thresholds_view(request, patient_id: str):
             changed_by=_get_username_from_request(request),
             create_history_if_noop=False,
         )
-    except MEValidationError as e:
+    except MEValidationError:
         logger.exception("MongoEngine validation error updating thresholds")
-        return bad("Validation error.", non_field_errors=[str(e)], status=400)
+        return bad("Validation error.", non_field_errors=["Invalid threshold values."], status=400)
     except Exception:
         logger.exception("Error updating thresholds")
         return bad("Unexpected error.", status=500)

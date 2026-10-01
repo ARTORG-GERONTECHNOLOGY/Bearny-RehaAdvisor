@@ -215,6 +215,10 @@ class GoogleHealthData(Document):
     bp_sys = IntField()
     bp_dia = IntField()
 
+    # GH-only metrics not available in Fitbit
+    spo2 = FloatField(null=True)  # average daily SpO₂ percentage (e.g. 97.5)
+    vo2_max = FloatField(null=True)  # VO₂ max in mL/kg/min from daily-vo2-max data type
+
     meta = {
         "collection": "google_health_data",
         "indexes": ["user", "date"],

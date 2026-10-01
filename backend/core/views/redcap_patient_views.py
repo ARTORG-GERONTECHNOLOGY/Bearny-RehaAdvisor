@@ -82,7 +82,7 @@ def redcap_patient(request):
             logger.warning(
                 "REDCap error in redcap_patient (project=%s): %s (detail=%s)", proj, e, getattr(e, "detail", None)
             )
-            errors.append({"project": proj, "error": str(e)})
+            errors.append({"project": proj, "error": "REDCap request failed."})
         except Exception:
             logger.exception("Unexpected error in redcap_patient (project=%s)", proj)
             errors.append({"project": proj, "error": "Unexpected server error."})

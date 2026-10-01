@@ -28,6 +28,12 @@ import apiClient from '@/api/client';
 
 import { filterInterventions } from '@/utils/filterUtils';
 import { generateTagColors, getTaxonomyTags } from '@/utils/interventions';
+import {
+  countOccurrencesInRange,
+  formatSegmentSummary,
+  getSegments,
+  type TemplateSegment,
+} from '@/utils/templateSchedule';
 import { translateText } from '@/utils/translate';
 import { formatLocaleDate } from '@/utils/dateFormat';
 import { Spinner } from '@/components/ui/spinner';
@@ -61,34 +67,6 @@ import { ButtonGroup } from '@/components/ui/button-group';
 import { Separator } from '@/components/ui/separator';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { SearchIcon } from 'lucide-react';
-
-// ---------------- Template helpers (unchanged logic, moved out of render) ----------------
-const normalizeSegment = (segOrSchedule: any) => {
-  const raw = segOrSchedule?.schedule ? segOrSchedule.schedule : segOrSchedule || {};
-  const start_day = segOrSchedule?.from_day ?? raw.start_day ?? 1;
-  const end_day = raw.end_day ?? segOrSchedule?.end_day;
-  const selectedDays = raw.selectedDays || raw.selected_days || [];
-  return {
-    unit: raw.unit || 'day',
-    interval: raw.interval ?? 1,
-    selectedDays,
-    start_day,
-    end_day,
-    start_time: raw.start_time || raw.startTime || '08:00',
-  };
-};
-
-const getSegments = (it: TemplateItem) => {
-  const segs = (it as any).segments;
-  if (Array.isArray(segs) && segs.length) return segs.map((s: any) => normalizeSegment(s));
-  const s = normalizeSegment((it as any).schedule);
-  return [s];
-};
-
-const countOccurrencesInRange = (it: TemplateItem, fromDay: number, toDay?: number) => {
-  const occ = (it as any).occurrences || [];
-  return occ.filter((o: any) => o.day >= fromDay && (toDay ? o.day <= toDay : true)).length;
-};
 
 const defaultLibraryFilters: LibraryFiltersState = {
   searchTerm: '',
@@ -229,6 +207,8 @@ const TherapistRecomendations: React.FC = observer(() => {
     undefined
   );
   const [assignMode, setAssignMode] = useState<'create' | 'modify'>('create');
+  // Kept apart from templateDiag so opening the modal doesn't filter the template list.
+  const [assignDiagnosis, setAssignDiagnosis] = useState<string>('');
 
   // ─────────────────────────── Filters (library tab) ───────────────────────────
   const [libraryFilters, setLibraryFilters] = useState<LibraryFiltersState>(defaultLibraryFilters);
@@ -514,6 +494,7 @@ const TherapistRecomendations: React.FC = observer(() => {
     setAssignMode(mode);
     setAssignInterventionId(id);
     setAssignInterventionTitle(title);
+    setAssignDiagnosis(templateDiag);
     setAssignOpen(true);
   };
 
@@ -523,7 +504,7 @@ const TherapistRecomendations: React.FC = observer(() => {
     setAssignInterventionTitle(
       translatedTitles[it.intervention._id]?.title ?? it.intervention.title
     );
-    setTemplateDiag(it.diagnosis);
+    setAssignDiagnosis(it.diagnosis);
     setAssignOpen(true);
   };
 
@@ -713,15 +694,8 @@ const TherapistRecomendations: React.FC = observer(() => {
     [templateItemsByIntervention, templateDiag]
   );
 
-  const segmentSummary = (seg: any, it: TemplateItem) => {
-    const daysStr =
-      Array.isArray(seg.selectedDays) && seg.selectedDays.length
-        ? ` • ${seg.selectedDays.join(', ')}`
-        : '';
-    const rangeStr = ` ${t('from day')} ${seg.start_day}${seg.end_day ? ` → ${t('day')} ${seg.end_day}` : ''}`;
-    const occCount = countOccurrencesInRange(it, seg.start_day, seg.end_day);
-    return `• ${t(seg.unit)}/${seg.interval}${daysStr}${rangeStr} • ${t('Occurrences')} ${occCount}`;
-  };
+  const segmentSummary = (seg: TemplateSegment, it: TemplateItem) =>
+    formatSegmentSummary(seg, countOccurrencesInRange(it, seg.start_day, seg.end_day), t);
 
   const handleItemClick = (item: InterventionTypeTh) => {
     setSelectedItem(item);
@@ -1265,7 +1239,7 @@ const TherapistRecomendations: React.FC = observer(() => {
           interventionId={assignInterventionId}
           interventionTitle={assignInterventionTitle}
           diagnoses={diagnoses}
-          defaultDiagnosis={templateDiag || undefined}
+          defaultDiagnosis={assignDiagnosis || undefined}
           mode={assignMode}
           templateId={activeTemplateId || undefined}
           onSuccess={() =>

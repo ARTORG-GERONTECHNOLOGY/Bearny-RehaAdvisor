@@ -41,6 +41,7 @@ from core.models import (
 )
 from utils.config import config
 from utils.interventions import (
+    BASE_ANCHOR,
     _abs_media_url,
     _anchor_date_for_day,
     _as_str_or_none,
@@ -56,7 +57,6 @@ from utils.interventions import (
     _list_of_str,
     _media_key,
     _normalize_segments,
-    _occ_count_for_day_range,
     _parse_bool,
     _parse_int,
     _parse_star_key,
@@ -65,6 +65,7 @@ from utils.interventions import (
     _pick_variant,
     _safe_title_slug,
     _save_file,
+    _segment_end,
     _serialize_media,
     _split_taglist_into_fields,
     _upsert_intervention,
@@ -106,8 +107,6 @@ ALLOWED_CONTENT_TYPES = set(config["RecomendationInfo"]["types"])
 MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024  # 1GB
 MAX_LIST_ITEMS = 30
 MAX_ITEM_LEN = 80
-
-BASE_ANCHOR = "2000-01-01"  # fixed origin so "Day N" is stable
 
 
 # --------------------------------------------------------------------
@@ -216,18 +215,9 @@ def apply_template_to_patient(request, therapist_id):
 
             for seg in segments:
                 seg_start = eff_dt + timedelta(days=max(1, seg["start_day"]) - 1)
-                seg_end = eff_dt + timedelta(days=max(seg["end_day"], seg["start_day"]) - 1)
-
-                if seg["unit"] == "day":
-                    count = _occ_count_for_day_range(seg["start_day"], seg["end_day"], seg["interval"])
-                    end_obj = {"type": "count", "count": count}
-                    max_occ = count
-                else:
-                    end_obj = {
-                        "type": "date",
-                        "date": f"{seg_end.date().isoformat()}T23:59:59",
-                    }
-                    max_occ = 2000
+                end_obj, max_occ = _segment_end(
+                    eff_dt.date(), seg["unit"], seg["interval"], seg["start_day"], seg["end_day"]
+                )
 
                 occurrences = _expand_dates(
                     start_date=seg_start.date().isoformat(),
@@ -324,15 +314,13 @@ def template_plan_preview(request, therapist_id):
 
                 for seg in segments:
                     start_date = _anchor_date_for_day(seg["start_day"])
-                    end_date = _anchor_date_for_day(seg["end_day"])
-
-                    if seg["unit"] == "day":
-                        count = _occ_count_for_day_range(seg["start_day"], seg["end_day"], seg["interval"])
-                        end_obj = {"type": "count", "count": count}
-                        max_occ = count
-                    else:
-                        end_obj = {"type": "date", "date": f"{end_date}T23:59:59"}
-                        max_occ = 1000
+                    end_obj, max_occ = _segment_end(
+                        datetime.fromisoformat(BASE_ANCHOR).date(),
+                        seg["unit"],
+                        seg["interval"],
+                        seg["start_day"],
+                        seg["end_day"],
+                    )
 
                     occ = _expand_dates(
                         start_date=start_date,
@@ -1403,19 +1391,13 @@ def assign_intervention_to_types(request, therapist_id):
             collected_dates = []
             for seg in coerced:
                 seg_start = eff_dt + timedelta(days=max(1, int(seg.start_day or 1)) - 1)
-                if seg.unit == "day":
-                    count = _occ_count_for_day_range(
-                        int(seg.start_day or 1), int(seg.end_day or seg.start_day or 1), int(seg.interval or 1)
-                    )
-                    end_obj = {"type": "count", "count": count}
-                    max_occ = count
-                else:
-                    seg_end = eff_dt + timedelta(days=max(1, int(seg.end_day or seg.start_day or 1)) - 1)
-                    end_obj = {
-                        "type": "date",
-                        "date": seg_end.replace(hour=23, minute=59, second=59, microsecond=0).isoformat(),
-                    }
-                    max_occ = 1000
+                end_obj, max_occ = _segment_end(
+                    eff_dt.date(),
+                    seg.unit,
+                    int(seg.interval or 1),
+                    int(seg.start_day or 1),
+                    int(seg.end_day or seg.start_day or 1),
+                )
                 occ = _expand_dates(
                     start_date=seg_start.date().isoformat(),
                     start_time=start_time,

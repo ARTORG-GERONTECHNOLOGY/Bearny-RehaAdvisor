@@ -5,6 +5,14 @@ import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
+import { Alert } from '@/components/ui/alert';
+import {
+  countOccurrencesInRange,
+  formatSegmentSummary,
+  getSegments,
+  hasWeekdaySegment,
+  pickSegmentForDay,
+} from '@/utils/templateSchedule';
 
 type TitleMap = Record<string, { title: string; lang: string | null }>;
 
@@ -12,49 +20,6 @@ type Props = {
   items: TemplateItem[];
   horizonDays?: number; // default 84
   translatedTitles?: TitleMap; // 👈 NEW
-};
-
-const normalizeSegment = (segOrSchedule: any) => {
-  const raw = segOrSchedule?.schedule ? segOrSchedule.schedule : segOrSchedule || {};
-  const start_day = segOrSchedule?.from_day ?? raw.start_day ?? 1;
-  const end_day = raw.end_day ?? segOrSchedule?.end_day;
-  const selectedDays = raw.selectedDays || raw.selected_days || [];
-  return {
-    unit: raw.unit || 'day',
-    interval: raw.interval ?? 1,
-    selectedDays,
-    start_day,
-    end_day,
-    start_time: raw.start_time || raw.startTime || '08:00',
-  };
-};
-
-const getSegments = (it: TemplateItem) => {
-  const segs = (it as any).segments;
-  if (Array.isArray(segs) && segs.length) return segs.map((s: any) => normalizeSegment(s));
-  const s = normalizeSegment(it.schedule);
-  return [s];
-};
-
-const pickSegmentForDay = (it: TemplateItem, day: number) => {
-  const segs = getSegments(it);
-  return (
-    segs.find((seg) => day >= (seg.start_day ?? 1) && (!seg.end_day || day <= seg.end_day)) ||
-    segs[0]
-  );
-};
-
-// ✅ NO hooks here — t is passed in from the component scope
-const segmentSummary = (seg: any, it: TemplateItem, t: (s: string) => string) => {
-  const daysStr =
-    Array.isArray(seg.selectedDays) && seg.selectedDays.length
-      ? ` • ${seg.selectedDays.join(', ')}`
-      : '';
-  const rangeStr = ` ${t('from day')} ${seg.start_day}${seg.end_day ? ` → ${t('day')} ${seg.end_day}` : ''}`;
-  const occCount = (it.occurrences || []).filter(
-    (o) => o.day >= seg.start_day && (seg.end_day ? o.day <= seg.end_day : true)
-  ).length;
-  return `• ${seg.unit}/${seg.interval}${daysStr}${rangeStr} • ${t('Occurrences')} ${occCount}`;
 };
 
 const TemplateTimeline: React.FC<Props> = ({ items, horizonDays = 84, translatedTitles }) => {
@@ -87,11 +52,23 @@ const TemplateTimeline: React.FC<Props> = ({ items, horizonDays = 84, translated
   const [openDay, setOpenDay] = useState<number | null>(null);
   const dayEvents = openDay ? byDay[openDay] || [] : [];
 
+  const showWeekdayHint = useMemo(
+    () => items.some((it) => hasWeekdaySegment(getSegments(it))),
+    [items]
+  );
+
   const displayTitle = (id: string, fallback: string) => translatedTitles?.[id]?.title || fallback;
   const srcLang = (id: string) => translatedTitles?.[id]?.lang;
 
   return (
     <>
+      {showWeekdayHint && (
+        <Alert className="mb-3">
+          {t(
+            'Day 1 is shown as a Monday. For a patient, Day 1 is their start date, but weekday sessions stay on the same weekdays.'
+          )}
+        </Alert>
+      )}
       <div className="template-grid">
         <style>{`
           .template-grid {
@@ -165,7 +142,12 @@ const TemplateTimeline: React.FC<Props> = ({ items, horizonDays = 84, translated
                     )}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {t('For:')} {ev.item.diagnosis} {segmentSummary(seg, ev.item, t)}
+                    {t('For:')} {ev.item.diagnosis} •{' '}
+                    {formatSegmentSummary(
+                      seg,
+                      countOccurrencesInRange(ev.item, seg.start_day, seg.end_day),
+                      t
+                    )}
                   </div>
                 </div>
               );
