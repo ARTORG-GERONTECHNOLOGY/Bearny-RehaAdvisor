@@ -90,22 +90,25 @@ https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.rea
 |---|---|---|
 | `user` | ReferenceField(User) | |
 | `date` | DateTimeField | Unique per user |
-| `steps` | IntField | |
-| `resting_heart_rate` | IntField | |
-| `heart_rate_zones` | List[HeartRateZone] | Same embedded doc as FitbitData |
-| `max_heart_rate` | IntField | Always `None` (no v4 data type) |
-| `floors` | IntField | |
-| `distance` | FloatField | km |
-| `calories` | FloatField | |
-| `active_minutes` | IntField | Active Zone Minutes × 2 + moderate × 1 |
-| `active_zone_minutes` | EmbeddedDoc | fat_burn / cardio / peak breakdown |
-| `sleep` | EmbeddedDoc(SleepData) | Longest session between 18:00 prev–18:00 target |
-| `breathing_rate` | DictField | `{"breathingRate": float}` from `daily-respiratory-rate` data type |
-| `hrv` | DictField | Daily RMSSD from `daily-heart-rate-variability` |
-| `inactivity_minutes` | IntField | 1440 − active_minutes − sleep_minutes |
-| `wear_time_minutes` | IntField | Sum of all HR zone minutes |
-| `weight_kg` | FloatField | |
-| `bp_sys` / `bp_dia` | IntField | Always `None` (not available via v4 API) |
+| `steps` | IntField | `steps.countSum` rollup |
+| `resting_heart_rate` | IntField | `daily-resting-heart-rate` → `beatsPerMinute` |
+| `heart_rate_zones` | List[HeartRateZone] | `time-in-heart-rate-zone` rollup; zone duration in minutes. No bpm boundaries (GH API does not provide them) |
+| `max_heart_rate` | IntField\|None | Derived from peak `exercise.metricsSummary.maxHeartRate` across sessions; `None` on days with no exercise data |
+| `floors` | IntField | `floors.countSum` rollup |
+| `distance` | FloatField | km — `distance.millimetersSum` ÷ 1 000 000 |
+| `calories` | FloatField | `total-calories.kilocaloriesSum` (total expenditure, matches Fitbit); falls back to `active-energy-burned.kilocaloriesSum` when unavailable |
+| `active_minutes` | IntField | Sum of MODERATE + VIGOROUS + VIGOROUS_PLUS from `active-minutes` rollup (matches Fitbit's AZM-eligible minutes) |
+| `lightly_active_minutes` | IntField\|None | LIGHT level from same `active-minutes` rollup |
+| `active_zone_minutes` | DictField\|None | `{"fat_burn": N, "cardio": N, "peak": N, "total": N}` — derived from HR zone names |
+| `sleep` | EmbeddedDoc(SleepData) | Aggregated from `sleep` dataPoints; civil-date attribution in Europe/Zurich timezone |
+| `breathing_rate` | DictField | `{"breathingRate": float}` from `daily-respiratory-rate` → `breathsPerMinute` |
+| `hrv` | DictField | `{"dailyRmssd": float}` from `daily-heart-rate-variability`. No `deepRmssd` (not provided by GH API) |
+| `inactivity_minutes` | IntField | 1440 − active_minutes − lightly_active_minutes − sleep_minutes |
+| `wear_time_minutes` | IntField\|None | Sum of all HR zone minutes (proxy; GH has no intraday HR stream) |
+| `weight_kg` | FloatField\|None | `weight.weightGramsAvg` ÷ 1000 |
+| `bp_sys` / `bp_dia` | IntField\|None | Always `None` — not available in GH v4 API |
+| `spo2` | FloatField\|None | Average daily SpO₂ % from `daily-oxygen-saturation` → `averageSaturationPercent` |
+| `vo2_max` | FloatField\|None | VO₂ max in mL/kg/min from `daily-vo2-max` → `vo2MaxMillilitersPerKilogramPerMinute` |
 
 **`GoogleHealthUserToken`** fields: `user`, `access_token`, `refresh_token`, `expires_at`, `google_user_id`, `connected_at`, `is_revoked`, `revoked_at`
 
@@ -137,8 +140,9 @@ docker exec django python manage.py fetch_google_health_data
 
 Iterates every non-revoked `GoogleHealthUserToken`, refreshes tokens, and calls `_sync_day` for the last 30 days. Uses two Google Health v4 fetch strategies:
 
-- **`dailyRollUp`** (POST body): steps, active-energy-burned, distance, floors, active-minutes, daily-resting-heart-rate, daily-heart-rate-variability, time-in-heart-rate-zone, weight
-- **`dataPoints`** (GET, paginated): sleep (longest session in 18 h window), exercise sessions (civil day)
+- **`dailyRollUp`** (POST body): `steps`, `total-calories` (→ `active-energy-burned` fallback), `distance`, `floors`, `active-minutes`, `time-in-heart-rate-zone`, `weight`
+- **`dataPoints`** (GET, paginated, pre-fetched once per user): `sleep`, `daily-resting-heart-rate`, `daily-heart-rate-variability`, `daily-respiratory-rate`, `daily-oxygen-saturation`, `daily-vo2-max`
+- **`dataPoints`** (GET, filtered per day): `exercise` sessions (civil day boundary)
 
 Skips writing if no meaningful data is present for a day.
 
@@ -215,6 +219,20 @@ The banner appears when `needs_reconnect = True` from the status endpoint (eithe
 
 ---
 
+## Known differences from Fitbit
+
+| Metric | Difference |
+|---|---|
+| **Calories** | GH uses `total-calories` (total expenditure) which should match Fitbit. Falls back to `active-energy-burned` (active calories only, much lower) when unavailable — watch for this in early deployments. |
+| **HR zone boundaries** | GH does not return min/max bpm per zone. Tooltips in HRZonesStacked display zone names only (without "91–127 bpm" ranges). Chart still renders. |
+| **HRV** | GH provides `dailyRmssd` only. `deepRmssd` (deep-sleep window RMSSD) is not available from the GH API. |
+| **Max HR** | Derived from exercise session peaks. `None` on non-exercise days (Fitbit derives it from intraday 1-second HR). |
+| **Wear time** | Sum of HR zone minutes (proxy). Fitbit counts minutes with HR > 0 from intraday data — more accurate on low-activity days. |
+| **Sedentary minutes** | Calculated as 1440 − active − lightly_active − sleep. Fitbit provides a direct `minutesSedentary` endpoint. |
+| **SpO₂ / VO₂ max** | Available from GH (not from Fitbit). Stored in `spo2` and `vo2_max` fields; `None` for Fitbit patients. |
+
+---
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
@@ -224,3 +242,5 @@ The banner appears when `needs_reconnect = True` from the status endpoint (eithe
 | Summary returns empty data | Backfill hasn't run yet | Run `fetch_google_health_data` or wait for Celery task |
 | ReconnectBanner appears after 7 days | App in testing mode (unverified) | Complete Google API verification review |
 | `wearable_device` field missing from patient API response | Old patient record | Update via therapist profile form or admin shell |
+| GH calories much lower than Fitbit | `total-calories` type unavailable; fell back to `active-energy-burned` | Check DEBUG logs for "no calories data"; field name may need updating when confirmed from live API |
+| `spo2` / `vo2_max` always `None` | GH API field names not confirmed | Check DEBUG logs; update `averageSaturationPercent` / `vo2MaxMillilitersPerKilogramPerMinute` in `_prefetch_unfiltered` once confirmed from live response |
