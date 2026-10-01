@@ -364,7 +364,9 @@ describe('TemplateAssignModal', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Mon' }));
       fireEvent.click(screen.getByRole('button', { name: 'Wed' }));
 
-      expect(screen.getByText(/on Mon, Wed, Fri, between day 1 and day 10/)).toBeInTheDocument();
+      expect(
+        screen.getByText('Weekly on Mon, Wed, Fri • Day 1 → 10 • at ~08:00')
+      ).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 

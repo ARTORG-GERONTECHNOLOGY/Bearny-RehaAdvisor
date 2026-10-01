@@ -5,6 +5,7 @@ import apiClient from '@/api/client';
 import authStore from '@/stores/authStore';
 import { useTranslation } from 'react-i18next';
 import { toLocalYMD } from '@/utils/dateFormat';
+import { formatDayRange, formatFrequency } from '@/utils/templateSchedule';
 import {
   Dialog,
   DialogContent,
@@ -129,10 +130,20 @@ const TemplateAssignModal: React.FC<Props> = ({
         : WEEKDAYS.filter((d) => d === day || prev.includes(d))
     );
 
-  const occurrencesCount = useMemo(() => {
-    if (!validRange || everyK < 1) return 0;
-    return Math.floor((lastDay - startDay) / everyK) + 1;
-  }, [startDay, lastDay, everyK, validRange]);
+  const summary = useMemo(() => {
+    if (!validRange) return t('Invalid range.');
+    const parts = [
+      formatFrequency(unit, everyK, unit === 'week' ? selectedDays : [], t),
+      formatDayRange(startDay, lastDay, t),
+    ];
+    // Weekly counts depend on the patient's start weekday, so only daily schedules show one.
+    if (unit === 'day' && everyK >= 1) {
+      const sessions = Math.floor((lastDay - startDay) / everyK) + 1;
+      parts.push(t('scheduleOccurrences', { count: sessions }));
+    }
+    parts.push(t('scheduleAtTime', { time: startTime }));
+    return parts.join(' • ');
+  }, [validRange, unit, everyK, selectedDays, startDay, lastDay, startTime, t]);
 
   // track local edits for confirm-close (minimal: diagnosis / startDay / lastDay / everyK / time / checkbox / error)
   const hasUnsavedChanges = useMemo(() => {
@@ -552,25 +563,7 @@ const TemplateAssignModal: React.FC<Props> = ({
               </Field>
             )}
 
-            <div className="text-muted-foreground">
-              {!validRange
-                ? t('Invalid range.')
-                : unit === 'week'
-                  ? t(
-                      'Every {{interval}} week(s) on {{days}}, between day {{start}} and day {{end}} at ~{{time}}',
-                      {
-                        interval: everyK,
-                        days: selectedDays.map((d) => t(d)).join(', ') || '…',
-                        start: startDay,
-                        end: lastDay,
-                        time: startTime,
-                      }
-                    )
-                  : t('{{count}} session(s): Days S,S+K,…≤N at ~{{time}}', {
-                      count: occurrencesCount,
-                      time: startTime,
-                    })}
-            </div>
+            <div className="text-muted-foreground">{summary}</div>
           </FieldGroup>
         </form>
 

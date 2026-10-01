@@ -148,8 +148,11 @@ describe('TemplatesLayout', () => {
     it('renders the segment summary lines for a template item', () => {
       renderLayout({
         templateItems: [templateItem()],
-        getSegments: () => [{ id: 1 }, { id: 2 }],
-        segmentSummary: (seg: any) => `Segment ${seg.id}`,
+        getSegments: () => [
+          { unit: 'day', interval: 1, selectedDays: [], start_day: 1, start_time: '08:00' },
+          { unit: 'day', interval: 1, selectedDays: [], start_day: 2, start_time: '08:00' },
+        ],
+        segmentSummary: (seg) => `Segment ${seg.start_day}`,
       });
       expect(screen.getByText('Segment 1')).toBeInTheDocument();
       expect(screen.getByText('Segment 2')).toBeInTheDocument();

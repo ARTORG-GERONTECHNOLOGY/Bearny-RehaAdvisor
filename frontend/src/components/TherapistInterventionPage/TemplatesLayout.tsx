@@ -5,6 +5,7 @@ import { getTagColor } from '@/utils/interventions';
 import FilterBar from '@/components/TherapistInterventionPage/FilterBar';
 
 import type { TemplateItem } from '@/types/templates';
+import type { TemplateSegment } from '@/utils/templateSchedule';
 import type { InterventionTypeTh } from '@/types';
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -27,8 +28,8 @@ type Props = {
   tLoading: boolean;
 
   translatedTitles: Record<string, { title: string; lang: string | null }>;
-  getSegments: (it: TemplateItem) => any[];
-  segmentSummary: (seg: any, it: TemplateItem) => string;
+  getSegments: (it: TemplateItem) => TemplateSegment[];
+  segmentSummary: (seg: TemplateSegment, it: TemplateItem) => string;
 
   onTemplateItemClick: (it: TemplateItem) => void;
   onModifyTemplate: (it: TemplateItem) => void;

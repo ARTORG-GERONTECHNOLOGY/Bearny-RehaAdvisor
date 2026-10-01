@@ -10,7 +10,7 @@ const makeItem = (overrides: Partial<TemplateItem> = {}): TemplateItem =>
   ({
     diagnosis: 'Stroke',
     intervention: { _id: 'int-1', title: 'Breathing Exercise' },
-    schedule: { unit: 'day', interval: 1, start_day: 1 },
+    schedule: { unit: 'day', interval: 1, selectedDays: [], start_day: 1, end_day: null },
     occurrences: [],
     ...overrides,
   }) as TemplateItem;
@@ -20,6 +20,25 @@ describe('TemplateTimeline', () => {
   // Grid rendering
   // ------------------------------------------------------------------
   describe('grid rendering', () => {
+    it('explains the example weekdays when a weekly segment has selected days', () => {
+      const item = makeItem({
+        schedule: {
+          unit: 'week',
+          interval: 1,
+          selectedDays: ['Mon', 'Fri'],
+          start_day: 1,
+          end_day: null,
+        },
+      });
+      render(<TemplateTimeline items={[item]} horizonDays={3} />);
+      expect(screen.getByText(/Weekdays are an example \(Day 1 = Monday\)/)).toBeInTheDocument();
+    });
+
+    it('omits the weekday hint for day-based schedules', () => {
+      render(<TemplateTimeline items={[makeItem()]} horizonDays={3} />);
+      expect(screen.queryByText(/Weekdays are an example/)).not.toBeInTheDocument();
+    });
+
     it('renders one day card per horizon day', () => {
       render(<TemplateTimeline items={[]} horizonDays={3} />);
       expect(screen.getByText('Day 1')).toBeInTheDocument();
@@ -106,7 +125,13 @@ describe('TemplateTimeline', () => {
       const item = makeItem({
         diagnosis: 'COPD',
         occurrences: [{ day: 1, time: '10:00' } as any, { day: 1, time: '14:00' } as any],
-        schedule: { unit: 'week', interval: 2, start_day: 1, selectedDays: ['Mon', 'Wed'] },
+        schedule: {
+          unit: 'week',
+          interval: 2,
+          start_day: 1,
+          end_day: null,
+          selectedDays: ['Mon', 'Wed'],
+        },
       });
       render(<TemplateTimeline items={[item]} horizonDays={1} />);
       fireEvent.click(screen.getByText('Day 1').closest('[role="button"]')!);
@@ -114,20 +139,19 @@ describe('TemplateTimeline', () => {
       // Two occurrences on this day render an identical summary line each — assert on the first.
       const summaries = screen.getAllByText(/COPD/);
       expect(summaries.length).toBe(2);
-      expect(summaries[0].textContent).toMatch(/week\/2/);
-      expect(summaries[0].textContent).toMatch(/Mon, Wed/);
-      expect(summaries[0].textContent).toMatch(/from day 1/);
-      expect(summaries[0].textContent).toMatch(/Occurrences 2/);
+      expect(summaries[0].textContent).toMatch(
+        /Every 2 weeks on Mon, Wed • from day 1 • 2 sessions/
+      );
     });
 
     it('shows the end day in the segment summary when present', () => {
       const item = makeItem({
         occurrences: [{ day: 1, time: '10:00' } as any],
-        schedule: { unit: 'day', interval: 1, start_day: 1, end_day: 5 },
+        schedule: { unit: 'day', interval: 1, selectedDays: [], start_day: 1, end_day: 5 },
       });
       render(<TemplateTimeline items={[item]} horizonDays={1} />);
       fireEvent.click(screen.getByText('Day 1').closest('[role="button"]')!);
-      expect(screen.getByText(/day 5/)).toBeInTheDocument();
+      expect(screen.getByText(/Day 1 → 5/)).toBeInTheDocument();
     });
 
     it('picks the matching segment out of multiple segments for the opened day', () => {
@@ -140,7 +164,7 @@ describe('TemplateTimeline', () => {
       } as any);
       render(<TemplateTimeline items={[item]} horizonDays={5} />);
       fireEvent.click(screen.getByText('Day 5').closest('[role="button"]')!);
-      expect(screen.getByText(/week\/1/)).toBeInTheDocument();
+      expect(screen.getByText(/• Weekly •/)).toBeInTheDocument();
     });
 
     it('closes the modal via the header close button', async () => {
