@@ -1064,7 +1064,7 @@
   "Force Re-sync": "Neu synchronisieren (erzwingen)",
   "Force re-sync will overwrite existing wearables data in REDCap. Continue?": "Die erzwungene Neusynchronisierung überschreibt vorhandene Wearable-Daten in REDCap. Fortfahren?",
   "Force re-sync overwrites existing REDCap wearables data": "Erzwingt Neusynchronisierung und überschreibt vorhandene REDCap-Wearable-Daten",
-  "Sync Fitbit wearables data to REDCap (skips periods already populated)": "Fitbit-Daten mit REDCap synchronisieren (bereits befüllte Zeiträume werden übersprungen)",
+  "Sync wearables data to REDCap (skips periods already populated)": "Wearable-Daten mit REDCap synchronisieren (bereits befüllte Zeiträume werden übersprungen)",
   "redcap_fetch_failed": "REDCap-Daten konnten nicht abgerufen werden.",
   "redcap_fetch_error": "REDCap-Datensätze konnten nicht abgerufen werden. Ein oder mehrere Projekte haben einen Fehler zurückgegeben.",
   "redcap_not_found": "Für diesen Patienten wurde in den erlaubten Projekten kein REDCap-Datensatz gefunden.",
