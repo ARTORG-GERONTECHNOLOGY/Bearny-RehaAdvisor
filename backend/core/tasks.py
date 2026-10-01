@@ -238,7 +238,7 @@ def run_fetch_google_health_data_today_all():
 
 @shared_task(
     name="core.tasks.backfill_google_health_on_connect",
-    ignore_result=True,  # unread; storing it subscribes on Celery's shared Redis pubsub, unsafe across gthread threads
+    ignore_result=True,  # nobody reads it; also avoids result-store retries per call when Redis is down
     autoretry_for=(Exception,),
     retry_backoff=120,
     max_retries=2,
@@ -285,7 +285,7 @@ def backfill_google_health_on_connect(user_id: str, days: int = 365):
 
 @shared_task(
     name="core.tasks.backfill_fitbit_on_connect",
-    ignore_result=True,  # unread; storing it subscribes on Celery's shared Redis pubsub, unsafe across gthread threads
+    ignore_result=True,  # nobody reads it; also avoids result-store retries per call when Redis is down
     autoretry_for=(Exception,),
     retry_backoff=120,
     max_retries=2,

@@ -116,7 +116,7 @@ def test_fetch_google_health_data_async_ignores_result():
 
 @pytest.mark.parametrize("task", [backfill_google_health_on_connect, backfill_fitbit_on_connect])
 def test_backfill_tasks_sent_from_oauth_callbacks_ignore_result(task):
-    """Storing a result subscribes on Celery's shared Redis pubsub, which concurrent gthread requests would corrupt."""
+    """Sent from web requests: storing an unread result would also retry per call when Redis is down."""
     assert task.ignore_result is True
 
 

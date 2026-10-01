@@ -133,7 +133,7 @@ def submit_patient_feedback(request):
         day_end = datetime.datetime.combine(target_day, datetime.time.max)
 
         recognizer = sr.Recognizer()
-        recognizer.operation_timeout = 30  # gthread ignores --timeout, so a hung call would pin a thread
+        recognizer.operation_timeout = 30  # per network call; a hung one would hold a gunicorn thread
         answers = {}
 
         # =========================

@@ -30,29 +30,65 @@ def conf(monkeypatch):
     return module
 
 
-def _worker(timeout):
-    return SimpleNamespace(cfg=SimpleNamespace(timeout=timeout), log=Mock(), pid=123)
+def _worker(timeout, graceful_timeout=5):
+    return SimpleNamespace(
+        cfg=SimpleNamespace(timeout=timeout, graceful_timeout=graceful_timeout), log=Mock(), pid=123, alive=True
+    )
+
+
+def _req(path="/api/x/"):
+    return SimpleNamespace(method="GET", path=path)
+
+
+def _in_flight(conf, thread_id, age_seconds, what):
+    conf._requests[thread_id] = (time.monotonic() - age_seconds, what)
 
 
 def test_watchdog_restarts_worker_when_a_request_outlives_timeout(conf):
     worker = _worker(timeout=0.05)
-    conf.pre_request(worker, req=None)  # never finishes, like a call stuck without a timeout
+    conf.pre_request(worker, _req("/api/fitbit/summary/1/"))  # never finishes, like a call stuck without a timeout
     conf.post_worker_init(worker)
 
     assert conf.exited.wait(2)
     assert conf.exited.code == 1  # 3 and 4 would make the master shut down instead of respawning
-    worker.log.critical.assert_called_once()
+    assert worker.alive is False  # stopped taking new requests first
+    logged = worker.log.critical.call_args.args
+    assert ["GET /api/fitbit/summary/1/"] in logged  # names the stuck request
+
+
+def test_watchdog_lets_other_requests_finish_before_restarting(conf):
+    worker = _worker(timeout=0.05)
+    _in_flight(conf, 1, age_seconds=10, what="GET /stuck")
+    _in_flight(conf, 2, age_seconds=0, what="POST /upload")  # healthy, still running
+    conf.post_worker_init(worker)
+
+    time.sleep(0.2)
+    assert worker.alive is False
+    assert not conf.exited.is_set()  # waiting for the healthy request
+
+    conf._requests.pop(2)  # post_request of the healthy one
+    assert conf.exited.wait(2)
+
+
+def test_watchdog_restarts_after_graceful_timeout_even_if_others_keep_running(conf):
+    worker = _worker(timeout=0.05, graceful_timeout=0.2)
+    _in_flight(conf, 1, age_seconds=10, what="GET /stuck")
+    _in_flight(conf, 2, age_seconds=0, what="POST /upload")
+    conf.post_worker_init(worker)
+
+    assert conf.exited.wait(2)
 
 
 def test_watchdog_ignores_requests_that_finish_in_time(conf):
     worker = _worker(timeout=0.05)
-    conf.pre_request(worker, req=None)
-    conf.post_request(worker, req=None, environ={}, resp=None)
+    conf.pre_request(worker, _req())
+    conf.post_request(worker, _req(), environ={}, resp=None)
     conf.post_worker_init(worker)
 
     time.sleep(0.2)
     assert not conf.exited.is_set()
-    assert conf._request_started == {}
+    assert worker.alive is True
+    assert conf._requests == {}
 
 
 def test_watchdog_off_when_timeout_disabled(conf):

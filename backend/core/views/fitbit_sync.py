@@ -34,7 +34,7 @@ def get_valid_access_token(user):
     if getattr(token, "is_revoked", False):
         raise Exception(f"Fitbit token for user {user.id} is revoked — reconnect required")
 
-    stored_expires_at = token.expires_at  # exactly as stored, before make_aware
+    stored_expires_at = token.expires_at  # the revoke below only applies if expires_at still has this exact value
     if is_naive(token.expires_at):
         token.expires_at = make_aware(token.expires_at)
 
