@@ -1,17 +1,31 @@
 # core/services/fitbit_sync.py
 import datetime
 import logging
+import time
 from datetime import timedelta
 
 import requests
 from django.conf import settings
 from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware, now
+from mongoengine.queryset.visitor import Q
 
 from core.models import FitbitData, FitbitUserToken
 
 logger = logging.getLogger(__name__)
 FITBIT_API_URL = "https://api.fitbit.com/1/user/-"
+ROTATION_RECHECK_DELAY_SECONDS = 2
+
+
+def _token_rotated_by_concurrent_refresh(token):
+    """The stored token if a parallel request already rotated the single-use refresh token, else None."""
+    for attempt in range(2):
+        if attempt:  # the winner may still be saving its response
+            time.sleep(ROTATION_RECHECK_DELAY_SECONDS)
+        current = FitbitUserToken.objects(id=token.id).first()
+        if current and not current.is_revoked and current.refresh_token != token.refresh_token:
+            return current
+    return None
 
 
 def get_valid_access_token(user):
@@ -20,6 +34,7 @@ def get_valid_access_token(user):
     if getattr(token, "is_revoked", False):
         raise Exception(f"Fitbit token for user {user.id} is revoked — reconnect required")
 
+    stored_expires_at = token.expires_at  # the revoke below only applies if expires_at still has this exact value
     if is_naive(token.expires_at):
         token.expires_at = make_aware(token.expires_at)
 
@@ -36,7 +51,7 @@ def get_valid_access_token(user):
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
         try:
-            response = requests.post(refresh_url, auth=basic_auth, data=data, headers=headers)
+            response = requests.post(refresh_url, auth=basic_auth, data=data, headers=headers, timeout=15)
             logger.debug(f"[get_valid_access_token] Refresh token response status: {response.status_code}")
             logger.debug(f"[get_valid_access_token] Response text: {response.text}")
 
@@ -45,7 +60,11 @@ def get_valid_access_token(user):
                 token.access_token = token_data["access_token"]
                 token.refresh_token = token_data.get("refresh_token", token.refresh_token)
                 token.expires_at = timezone.now() + timedelta(seconds=token_data["expires_in"])
-                token.save()
+                token.save()  # not update_one: only save() encrypts the token fields
+                # A request that lost the refresh race to this one may have marked the token revoked meanwhile.
+                FitbitUserToken.objects(id=token.id, is_revoked=True).update_one(
+                    set__is_revoked=False, set__revoked_at=None
+                )
                 logger.info(f"[get_valid_access_token] Token refreshed for user {user.id}")
             else:
                 logger.error(
@@ -57,15 +76,23 @@ def get_valid_access_token(user):
                     body = {}
                 errors = body.get("errors", [])
                 if any(e.get("errorType") == "invalid_grant" for e in errors):
+                    rotated = _token_rotated_by_concurrent_refresh(token)
+                    if rotated:
+                        logger.info(f"[get_valid_access_token] Token refreshed concurrently for user {user.id}")
+                        return rotated.access_token
                     logger.warning(
                         "[get_valid_access_token] Refresh token permanently revoked (invalid_grant) "
                         "for user %s — marking FitbitUserToken as revoked so therapists can see "
                         "the disconnected state",
                         user.id,
                     )
-                    token.is_revoked = True
-                    token.revoked_at = timezone.now()
-                    token.save()
+                    # Every refresh and reconnect rewrites expires_at, so matching the value we read skips the
+                    # revoke if a parallel request rotated the token meanwhile. (The encrypted refresh_token
+                    # can't be matched: Fernet gives a different ciphertext each time.)
+                    FitbitUserToken.objects(id=token.id, expires_at=stored_expires_at).update_one(
+                        set__is_revoked=True,
+                        set__revoked_at=timezone.now(),
+                    )
                 raise Exception("Failed to refresh Fitbit token")
         except Exception as e:
             logger.exception(f"[get_valid_access_token] Exception while refreshing token: {e}")
@@ -333,18 +360,26 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
         print(f"[fitbit] no token for user={user}. skip")
         return 0
 
-    if not bypass_cooldown and token.last_fetched_at:
-        last = token.last_fetched_at
-        if is_naive(last):
-            # MongoDB always stores UTC; replace rather than make_aware to avoid
-            # local-timezone offset turning a fresh stamp into a stale one.
-            last = last.replace(tzinfo=datetime.timezone.utc)
-        age_minutes = (timezone.now() - last).total_seconds() / 60
-        if age_minutes < FETCH_COOLDOWN_MINUTES:
-            logger.info(f"[fitbit] skipping fetch for user={user} — last synced {age_minutes:.1f} min ago")
-            return 0
+    # Stamped before any API call so a 429 still resets the cooldown window.
+    stamp = timezone.now()
+    stamp = stamp.replace(microsecond=stamp.microsecond // 1000 * 1000)  # Mongo keeps ms; lets the rollback match
+    tokens = FitbitUserToken.objects(id=token.id)
+    if not bypass_cooldown:
+        # Check and stamp in one update so concurrent page loads can't all sync and refresh the token.
+        cutoff = stamp - timedelta(minutes=FETCH_COOLDOWN_MINUTES)
+        tokens = tokens.filter(Q(last_fetched_at=None) | Q(last_fetched_at__lt=cutoff))
+    if not tokens.update_one(set__last_fetched_at=stamp):
+        logger.info(f"[fitbit] skipping fetch for user={user} — synced in the last {FETCH_COOLDOWN_MINUTES} min")
+        return 0
 
-    access_token = get_valid_access_token(user)
+    try:
+        access_token = get_valid_access_token(user)
+    except Exception:
+        # Release the claim so the next page load retries.
+        FitbitUserToken.objects(id=token.id, last_fetched_at=stamp).update_one(
+            set__last_fetched_at=token.last_fetched_at
+        )
+        raise
     headers = {"Authorization": f"Bearer {access_token}"}
     date_str = today.strftime("%Y-%m-%d")
     date_range = f"{date_str}/{date_str}"
@@ -381,10 +416,6 @@ def fetch_fitbit_today_for_user(user, bypass_cooldown: bool = False) -> int:
             except Exception:
                 val = 0
             series[series_key][dt] = val
-
-    # Stamp before first API call so any 429 still resets the cooldown window
-    token.last_fetched_at = timezone.now()
-    token.save()
 
     # Basic time series (today only)
     fetch_series("steps", "activities/steps")

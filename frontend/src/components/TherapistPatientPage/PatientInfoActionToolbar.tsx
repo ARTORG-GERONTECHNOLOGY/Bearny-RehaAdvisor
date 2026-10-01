@@ -97,9 +97,7 @@ const PatientInfoActionToolbar: React.FC<PatientInfoActionToolbarProps> = observ
                     size="dashboard"
                     onClick={() => store.syncWearablesToRedcap(t)}
                     disabled={store.loading || store.wearablesSyncing}
-                    title={t(
-                      'Sync Fitbit wearables data to REDCap (skips periods already populated)'
-                    )}
+                    title={t('Sync wearables data to REDCap (skips periods already populated)')}
                   >
                     <HardDriveDownload />
                     {store.wearablesSyncing ? t('Syncing...') : t('Sync Wearables')}

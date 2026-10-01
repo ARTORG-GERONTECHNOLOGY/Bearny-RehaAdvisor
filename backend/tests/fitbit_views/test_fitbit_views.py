@@ -313,6 +313,7 @@ def test_fitbit_callback_success_saves_token(mock_redis_factory, mock_post):
     tok = FitbitUserToken.objects(user=patient_user).first()
     assert tok is not None
     assert tok.access_token == "acc"
+    assert mock_post.call_args.kwargs["timeout"]  # a stalled Fitbit endpoint must not pin a gunicorn thread
 
 
 def test_get_fitbit_health_data_patient_not_found():
@@ -734,6 +735,22 @@ def test_fitbit_summary_internal_error_branch(mock_fetch):
     resp = client.get(f"/api/fitbit/summary/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
     assert resp.status_code == 500
     assert resp.json()["error"] == "Internal Server Error"
+
+
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+@patch("core.views.fitbit_view.queue_google_health_today_sync")
+def test_fitbit_summary_queues_google_health_sync_for_gh_patient(mock_queue, mock_fitbit_fetch):
+    """For a Google Health patient the shared summary endpoint queues the sync instead of running it."""
+    _, _, patient_user, patient = create_patient_graph()
+    patient.wearable_device = "google_health"
+    patient.save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+
+    assert resp.status_code == 200
+    mock_queue.assert_called_once()
+    assert mock_queue.call_args.args[0].id == patient_user.id
+    mock_fitbit_fetch.assert_not_called()
 
 
 @patch("core.views.fitbit_view.fetch_fitbit_today_for_user")

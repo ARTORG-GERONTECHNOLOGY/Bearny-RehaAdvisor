@@ -42,4 +42,4 @@ ENV PYTHONUNBUFFERED=1 \
 RUN SECRET_KEY=django-insecure-build-placeholder \
     conda run -n teleRehabApp python manage.py collectstatic --noinput
 
-CMD ["conda", "run", "--no-capture-output", "-n", "teleRehabApp", "gunicorn", "api.wsgi:application", "--bind", "0.0.0.0:8000", "--timeout", "600"]
+CMD ["conda", "run", "--no-capture-output", "-n", "teleRehabApp", "gunicorn", "api.wsgi:application", "--config", "gunicorn.conf.py", "--bind", "0.0.0.0:8000", "--timeout", "600", "--worker-class", "gthread", "--workers", "1", "--threads", "8"]

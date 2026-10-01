@@ -31,7 +31,7 @@ FITBIT_API_URL = "https://api.fitbit.com/1/user/-"
 import datetime as _dt
 
 from core.views.fitbit_sync import fetch_fitbit_date_range_for_user, fetch_fitbit_today_for_user
-from core.views.google_health_sync import fetch_google_health_today_for_user
+from core.views.google_health_sync import queue_google_health_today_sync
 
 
 def _normalize_exercise_field(raw) -> dict:
@@ -82,7 +82,7 @@ def fitbit_summary(request, patient_id=None):
 
         # Fetch today's data from the active source
         if wearable_device == "google_health":
-            fetch_google_health_today_for_user(user)
+            queue_google_health_today_sync(user)
         else:
             fetch_fitbit_today_for_user(user)
 
@@ -620,7 +620,7 @@ def fitbit_callback(request):
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
     try:
-        response = requests.post(token_url, auth=basic_auth, data=data, headers=headers)
+        response = requests.post(token_url, auth=basic_auth, data=data, headers=headers, timeout=15)
         logger.debug("[fitbit_callback] Token exchange response: %s", response.status_code)
 
         if response.status_code == 200:

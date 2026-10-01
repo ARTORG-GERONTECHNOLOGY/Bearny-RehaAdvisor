@@ -8,6 +8,7 @@ import requests
 from django.conf import settings
 from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware
+from mongoengine.queryset.visitor import Q
 
 from core.models import GoogleHealthData, GoogleHealthUserToken, HeartRateZone, SleepData
 
@@ -19,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 _BASE = "https://health.googleapis.com/v4/users/me"
 _TOKEN_URL = "https://oauth2.googleapis.com/token"
+
+FETCH_COOLDOWN_MINUTES = 15
 
 # Canonical zone names matching the frontend chart (HRZonesStacked.tsx).
 # Covers both Fitbit-style names (FAT_BURN etc.) and Google Health v4 names (MODERATE etc.).
@@ -732,17 +735,58 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     return True
 
 
-def fetch_google_health_today_for_user(user) -> int:
+def queue_google_health_today_sync(user, bypass_cooldown: bool = False) -> None:
+    """Sync today in Celery so the request answers from the DB instead of waiting ~45 s."""
+    from core.tasks import fetch_google_health_data_async  # lazy: core.tasks imports this module
+
+    if not bypass_cooldown:
+        # Skip when the task could only skip: no token, revoked, or synced within the cooldown.
+        token = GoogleHealthUserToken.objects(user=user).only("is_revoked", "last_fetched_at").first()
+        if not token or token.is_revoked:
+            return
+        last = token.last_fetched_at
+        if last and timezone.now() - last.replace(tzinfo=datetime.timezone.utc) < timedelta(
+            minutes=FETCH_COOLDOWN_MINUTES
+        ):
+            return
+
+    try:
+        # retry=False: no publish retries if Redis is down (connecting can still take a few seconds).
+        fetch_google_health_data_async.apply_async(
+            args=(str(user.id),), kwargs={"bypass_cooldown": bypass_cooldown}, retry=False
+        )
+    except Exception:
+        logger.exception("[google_health] could not queue today sync for user=%s", user.id)
+
+
+def fetch_google_health_today_for_user(user, bypass_cooldown: bool = False) -> int:
     """Fetch today only for a single user. Returns 1 if a row was written, else 0."""
     token = GoogleHealthUserToken.objects(user=user).first()
     if not token:
         logger.info("[google_health] no token for user=%s, skip", user.id)
         return 0
 
+    now = timezone.now()
+    now = now.replace(microsecond=now.microsecond // 1000 * 1000)  # Mongo keeps ms; lets the rollback match exactly
+    tokens = GoogleHealthUserToken.objects(id=token.id)
+    if not bypass_cooldown:
+        # Check and stamp in one update so concurrent page loads can't all start a sync.
+        cutoff = now - timedelta(minutes=FETCH_COOLDOWN_MINUTES)
+        tokens = tokens.filter(Q(last_fetched_at=None) | Q(last_fetched_at__lt=cutoff))
+    if not tokens.update_one(set__last_fetched_at=now):
+        logger.info(
+            "[google_health] skipping fetch for user=%s, synced in the last %d min", user.id, FETCH_COOLDOWN_MINUTES
+        )
+        return 0
+
     try:
         access_token = get_valid_google_access_token(user)
     except Exception:
         logger.exception("[google_health] could not get token for user=%s", user.id)
+        # Release the claim so the next page load retries.
+        GoogleHealthUserToken.objects(id=token.id, last_fetched_at=now).update_one(
+            set__last_fetched_at=token.last_fetched_at
+        )
         return 0
 
     today = datetime.date.today()

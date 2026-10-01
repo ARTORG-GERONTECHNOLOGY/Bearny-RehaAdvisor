@@ -1064,7 +1064,7 @@
   "Force Re-sync": "Forza risincronizzazione",
   "Force re-sync will overwrite existing wearables data in REDCap. Continue?": "La risincronizzazione forzata sovrascriverà i dati wearable esistenti in REDCap. Continuare?",
   "Force re-sync overwrites existing REDCap wearables data": "Sovrascrive i dati wearable esistenti in REDCap",
-  "Sync Fitbit wearables data to REDCap (skips periods already populated)": "Sincronizza i dati Fitbit su REDCap (i periodi già compilati vengono ignorati)",
+  "Sync wearables data to REDCap (skips periods already populated)": "Sincronizza i dati dei wearable su REDCap (i periodi già compilati vengono ignorati)",
   "redcap_fetch_failed": "Impossibile recuperare i dati REDCap.",
   "redcap_fetch_error": "Impossibile recuperare i record REDCap. Uno o più progetti hanno restituito un errore.",
   "redcap_not_found": "Nessun record REDCap trovato per questo paziente nei progetti consentiti.",

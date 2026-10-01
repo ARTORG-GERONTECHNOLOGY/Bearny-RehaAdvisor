@@ -7,8 +7,10 @@ Endpoints covered
 - GET  /api/google-health/status/<patient_id>/
 - GET  /api/google-health/callback/
 
-Also covers the sync-layer helper:
+Also covers the sync-layer helpers:
 - get_valid_google_access_token  (invalid_grant → is_revoked)
+- fetch_google_health_today_for_user  (15-minute cooldown, bypass_cooldown)
+- queue_google_health_today_sync      (summary queues the sync in Celery)
 
 Status endpoint contract
 ------------------------
@@ -202,9 +204,11 @@ def _mock_redis_for_nonce(nonce, patient_id):
     return mock_rc
 
 
+@patch("core.tasks.backfill_google_health_on_connect.delay")
+@patch("core.tasks.fetch_google_health_data_async.apply_async")
 @patch("core.views.google_health_view.requests.post")
 @patch("core.views.google_health_view._get_redis_client")
-def test_callback_sets_connected_at_on_success(mock_redis, mock_post):
+def test_callback_sets_connected_at_on_success(mock_redis, mock_post, mock_today_apply_async, mock_backfill_delay):
     from core.models import GoogleHealthUserToken, User
 
     user = User(
@@ -234,6 +238,8 @@ def test_callback_sets_connected_at_on_success(mock_redis, mock_post):
     assert token is not None
     assert token.connected_at is not None
     assert token.is_revoked is False
+    # A fresh connection syncs today straight away, ignoring any cooldown left from an earlier connection.
+    mock_today_apply_async.assert_called_once_with(args=(str(user.id),), kwargs={"bypass_cooldown": True}, retry=False)
 
 
 @patch("core.views.google_health_view.requests.post")
@@ -383,6 +389,119 @@ def test_valid_token_not_expired_skips_refresh(mock_post):
     result = get_valid_google_access_token(user)
     mock_post.assert_not_called()
     assert result == "still_valid"
+
+
+# ---------------------------------------------------------------------------
+# fetch_google_health_today_for_user — 15-minute cooldown
+# ---------------------------------------------------------------------------
+
+
+def _token_fetched_minutes_ago(minutes):
+    user = _make_user()
+    token = _make_token(user)
+    if minutes is not None:
+        # Naive UTC, as MongoDB returns it.
+        token.last_fetched_at = datetime.utcnow() - timedelta(minutes=minutes)
+        token.save()
+    return user, token
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_skipped_within_cooldown(mock_token, mock_sync):
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, _ = _token_fetched_minutes_ago(5)
+
+    assert fetch_google_health_today_for_user(user) == 0
+    mock_token.assert_not_called()
+    mock_sync.assert_not_called()
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_runs_after_cooldown_and_restamps(mock_token, mock_sync):
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(20)
+    before = token.last_fetched_at
+
+    assert fetch_google_health_today_for_user(user) == 1
+    mock_sync.assert_called_once()
+    assert GoogleHealthUserToken.objects.get(id=token.id).last_fetched_at > before
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=False)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_first_run_stamps_even_without_data(mock_token, mock_sync):
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(None)
+
+    assert fetch_google_health_today_for_user(user) == 0
+    mock_sync.assert_called_once()
+    assert GoogleHealthUserToken.objects.get(id=token.id).last_fetched_at is not None
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+@patch("core.views.google_health_sync.get_valid_google_access_token", side_effect=Exception("refresh failed"))
+def test_today_sync_token_failure_does_not_stamp(mock_token, mock_sync):
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(None)
+
+    assert fetch_google_health_today_for_user(user) == 0
+    mock_sync.assert_not_called()
+    assert GoogleHealthUserToken.objects.get(id=token.id).last_fetched_at is None
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+@patch("core.views.google_health_sync.get_valid_google_access_token", side_effect=Exception("refresh failed"))
+def test_today_sync_token_failure_restores_previous_stamp(mock_token, mock_sync):
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(20)
+    before = GoogleHealthUserToken.objects.get(id=token.id).last_fetched_at  # stored value, ms precision
+
+    assert fetch_google_health_today_for_user(user) == 0
+    assert GoogleHealthUserToken.objects.get(id=token.id).last_fetched_at == before
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+def test_today_sync_concurrent_request_skips_while_first_is_running(mock_sync):
+    """Three summary requests arrive together on page load; only the first may hit Google."""
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, _ = _token_fetched_minutes_ago(None)
+    concurrent_results = []
+
+    def token_while_second_request_arrives(u):
+        concurrent_results.append(fetch_google_health_today_for_user(u))
+        return "access"
+
+    with patch(
+        "core.views.google_health_sync.get_valid_google_access_token",
+        side_effect=token_while_second_request_arrives,
+    ):
+        assert fetch_google_health_today_for_user(user) == 1
+
+    assert concurrent_results == [0]
+    mock_sync.assert_called_once()
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_bypass_cooldown_ignores_recent_sync(mock_token, mock_sync):
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, _ = _token_fetched_minutes_ago(5)
+
+    assert fetch_google_health_today_for_user(user, bypass_cooldown=True) == 1
+    mock_sync.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -629,11 +748,115 @@ def test_sleep_minutes_falls_back_to_duration_when_no_minutes_asleep():
 
 
 # ---------------------------------------------------------------------------
+# queue_google_health_today_sync — summary syncs in Celery, not in the request
+# ---------------------------------------------------------------------------
+
+
+@patch("core.views.google_health_view.queue_google_health_today_sync")
+def test_summary_queues_today_sync_instead_of_syncing_inline(mock_queue):
+    from core.models import Patient, Therapist, User
+
+    th_user = User(
+        username=f"th-{ObjectId()}",
+        email="th@example.com",
+        role="Therapist",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    th = Therapist(userId=th_user, clinics=["Inselspital"], projects=["COPAIN"]).save()
+    patient_user = _make_user()
+    patient = Patient(userId=patient_user, patient_code=f"P-{ObjectId()}", therapist=th).save()
+
+    # Patch both names: an inline sync would call it via the sync module or via a name imported into the view.
+    with (
+        patch("core.views.google_health_sync.fetch_google_health_today_for_user") as mock_sync,
+        patch("core.views.google_health_view.fetch_google_health_today_for_user", create=True) as mock_view_sync,
+    ):
+        resp = Client().get(f"/api/google-health/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+
+    assert resp.status_code == 200
+    mock_queue.assert_called_once()
+    assert mock_queue.call_args.args[0].id == patient_user.id
+    mock_sync.assert_not_called()
+    mock_view_sync.assert_not_called()
+
+
+@patch("core.tasks.fetch_google_health_data_async.apply_async")
+def test_queue_today_sync_respects_cooldown(mock_apply_async):
+    """The summary path must not pass bypass_cooldown; only the connect callback does."""
+    from core.views.google_health_sync import queue_google_health_today_sync
+
+    user = _make_user()
+    _make_token(user)
+    queue_google_health_today_sync(user)
+
+    mock_apply_async.assert_called_once_with(args=(str(user.id),), kwargs={"bypass_cooldown": False}, retry=False)
+
+
+@patch("core.tasks.fetch_google_health_data_async.apply_async", side_effect=Exception("broker down"))
+def test_queue_today_sync_broker_error_does_not_break_summary(mock_apply_async):
+    from core.views.google_health_sync import queue_google_health_today_sync
+
+    user = _make_user()
+    _make_token(user)
+    queue_google_health_today_sync(user)  # must not raise
+
+    mock_apply_async.assert_called_once()
+
+
+@pytest.mark.parametrize("state", ["no_token", "revoked", "synced_recently"])
+@patch("core.tasks.fetch_google_health_data_async.apply_async")
+def test_queue_today_sync_skips_when_the_task_could_only_skip(mock_apply_async, state):
+    """Page loads must not publish a no-op task (and touch Redis) for every summary request."""
+    from core.views.google_health_sync import queue_google_health_today_sync
+
+    user = _make_user()
+    if state == "revoked":
+        _make_token(user, is_revoked=True)
+    elif state == "synced_recently":
+        token = _make_token(user)
+        token.last_fetched_at = timezone.now() - timedelta(minutes=5)
+        token.save()
+
+    queue_google_health_today_sync(user)
+
+    mock_apply_async.assert_not_called()
+
+
+@patch("core.tasks.fetch_google_health_data_async.apply_async")
+def test_queue_today_sync_queues_once_the_cooldown_has_passed(mock_apply_async):
+    from core.views.google_health_sync import queue_google_health_today_sync
+
+    user = _make_user()
+    token = _make_token(user)
+    token.last_fetched_at = timezone.now() - timedelta(minutes=20)
+    token.save()
+
+    queue_google_health_today_sync(user)
+
+    mock_apply_async.assert_called_once()
+
+
+@patch("core.tasks.fetch_google_health_data_async.apply_async")
+def test_queue_today_sync_on_connect_ignores_the_cooldown(mock_apply_async):
+    from core.views.google_health_sync import queue_google_health_today_sync
+
+    user = _make_user()
+    token = _make_token(user)
+    token.last_fetched_at = timezone.now() - timedelta(minutes=5)
+    token.save()
+
+    queue_google_health_today_sync(user, bypass_cooldown=True)
+
+    mock_apply_async.assert_called_once_with(args=(str(user.id),), kwargs={"bypass_cooldown": True}, retry=False)
+
+
+# ---------------------------------------------------------------------------
 # google_health_summary — "today" resolution
 # ---------------------------------------------------------------------------
 
 
-@patch("core.views.google_health_view.fetch_google_health_today_for_user")
+@patch("core.views.google_health_view.queue_google_health_today_sync")
 def test_summary_today_ignores_future_dated_manual_entry(mock_fetch):
     """A manually-entered steps count for a future date must not leak into "today"."""
     from core.models import GoogleHealthData, Patient, Therapist, User
@@ -661,7 +884,7 @@ def test_summary_today_ignores_future_dated_manual_entry(mock_fetch):
     assert body["today"]["steps"] == 1000
 
 
-@patch("core.views.google_health_view.fetch_google_health_today_for_user")
+@patch("core.views.google_health_view.queue_google_health_today_sync")
 def test_summary_today_does_not_fall_back_to_past_dated_entry(mock_fetch):
     """When there's no record for today, a past-dated (e.g. manually backfilled)
     entry must not be shown as if it were today's data."""
@@ -690,7 +913,7 @@ def test_summary_today_does_not_fall_back_to_past_dated_entry(mock_fetch):
     assert body["today"] is None
 
 
-@patch("core.views.google_health_view.fetch_google_health_today_for_user")
+@patch("core.views.google_health_view.queue_google_health_today_sync")
 def test_summary_today_shows_manual_vitals_when_no_device_data_yet(mock_fetch):
     """A patient who has only logged weight/BP manually today (no device sync
     yet) must still see those values under "today", not a null payload."""
@@ -723,7 +946,7 @@ def test_summary_today_shows_manual_vitals_when_no_device_data_yet(mock_fetch):
 
 
 @patch("core.views.google_health_view.timezone.now")
-@patch("core.views.google_health_view.fetch_google_health_today_for_user")
+@patch("core.views.google_health_view.queue_google_health_today_sync")
 def test_summary_today_uses_local_not_utc_calendar_day(mock_fetch, mock_now):
     """Just after local midnight, "today" must be keyed by the Zurich calendar
     day, not the (still-previous) UTC day. Regression test for the local-vs-UTC
@@ -759,7 +982,7 @@ def test_summary_today_uses_local_not_utc_calendar_day(mock_fetch, mock_now):
     assert body["today"]["steps"] == 4242
 
 
-@patch("core.views.google_health_view.fetch_google_health_today_for_user")
+@patch("core.views.google_health_view.queue_google_health_today_sync")
 def test_summary_period_daily_includes_vitals_only_day(mock_fetch):
     """A day with only manually-logged BP/weight (no GoogleHealthData row at
     all) must still appear in period.daily, not be silently dropped."""

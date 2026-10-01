@@ -200,9 +200,8 @@ def change_password(request, therapist_id):
 
     # Check old password
     if not check_password(old_password, user.pwdhash):
-        attempt.count += 1
-        attempt.last_attempt = now
-        attempt.save()
+        # $inc, not count += 1 then save(): parallel wrong passwords would overwrite each other's count.
+        PasswordAttempt.objects(id=attempt.id).update_one(inc__count=1, set__last_attempt=now)
         return JsonResponse({"error": "Old password incorrect"}, status=403)
 
     # Reset attempt counter

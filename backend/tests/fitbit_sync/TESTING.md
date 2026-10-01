@@ -21,6 +21,8 @@ Tests in [`test_fitbit_sync.py`](test_fitbit_sync.py) cover service logic in
 - Access token passthrough when token is still valid.
 - Expired-token refresh success (token persistence updated).
 - Expired-token refresh non-200 failure.
+- Refresh race: a successful refresh clears an `is_revoked` written by the losing request, and an
+  `invalid_grant` never revokes a token that a parallel request rotated in the meantime.
 - Sync short-circuit when no token exists.
 - Full today-sync upsert path with mocked Fitbit API responses.
 - No-row behavior when Fitbit returns no usable payload for the day.

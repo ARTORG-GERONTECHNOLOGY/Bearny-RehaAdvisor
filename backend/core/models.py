@@ -179,6 +179,7 @@ class GoogleHealthUserToken(Document):
     connected_at = DateTimeField()  # set on every successful auth code exchange
     is_revoked = BooleanField(default=False)  # True when refresh fails with invalid_grant
     revoked_at = DateTimeField(null=True)
+    last_fetched_at = DateTimeField()
 
 
 class GoogleHealthData(Document):
@@ -415,7 +416,12 @@ class GeneralFeedback(Document):
 
 # Logs for daily intervention execution
 class PatientInterventionLogs(Document):
-    meta = {"collection": "InterventionLogs"}
+    meta = {
+        "collection": "InterventionLogs",
+        "indexes": [
+            ("userId", "rehabilitationPlanId", "interventionId"),  # per-intervention lookup in get_patient_plan
+        ],
+    }
     userId = ReferenceField("Patient", required=True)
     interventionId = ReferenceField("Intervention", required=True)
     rehabilitationPlanId = ReferenceField("RehabilitationPlan", required=True)

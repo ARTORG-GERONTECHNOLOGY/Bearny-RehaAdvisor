@@ -199,11 +199,12 @@ def run_fetch_google_health_data():
         raise
 
 
-@shared_task(name="core.tasks.fetch_google_health_data_async")
-def fetch_google_health_data_async(user_id: str):
+# ignore_result: nobody reads the result; also avoids ~20 s of result-store retries per call when Redis is unreachable.
+@shared_task(name="core.tasks.fetch_google_health_data_async", ignore_result=True)
+def fetch_google_health_data_async(user_id: str, bypass_cooldown: bool = False):
     user = User.objects(pk=user_id).first()
     if user:
-        fetch_google_health_today_for_user(user)
+        fetch_google_health_today_for_user(user, bypass_cooldown=bypass_cooldown)
 
 
 @shared_task(
@@ -225,8 +226,8 @@ def run_fetch_google_health_data_today_all():
     errors = 0
     for token in tokens:
         try:
-            fetch_google_health_today_for_user(token.user)
-            synced += 1
+            # 0 when skipped by the cooldown, on a token error, or with no data, so count only real writes.
+            synced += fetch_google_health_today_for_user(token.user)
         except Exception:
             logger.exception("[fetch_google_health_today_all] failed for user=%s", token.user)
             errors += 1
@@ -237,6 +238,7 @@ def run_fetch_google_health_data_today_all():
 
 @shared_task(
     name="core.tasks.backfill_google_health_on_connect",
+    ignore_result=True,  # nobody reads it; also avoids result-store retries per call when Redis is down
     autoretry_for=(Exception,),
     retry_backoff=120,
     max_retries=2,
@@ -283,6 +285,7 @@ def backfill_google_health_on_connect(user_id: str, days: int = 365):
 
 @shared_task(
     name="core.tasks.backfill_fitbit_on_connect",
+    ignore_result=True,  # nobody reads it; also avoids result-store retries per call when Redis is down
     autoretry_for=(Exception,),
     retry_backoff=120,
     max_retries=2,

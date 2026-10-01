@@ -32,7 +32,7 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
-    # Sync Fitbit wearables data to REDCap every night at 02:30 UTC
+    # Sync wearables data to REDCap every night at 02:30 UTC
     "sync_wearables_to_redcap_all": {
         "task": "core.tasks.sync_wearables_to_redcap_all",
         "schedule": crontab(hour=2, minute=30),
@@ -179,6 +179,7 @@ EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
+EMAIL_TIMEOUT = 30
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 _e2e_email_dir = os.environ.get("E2E_EMAIL_DIR", "").strip()
