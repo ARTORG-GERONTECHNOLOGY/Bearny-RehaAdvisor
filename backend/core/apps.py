@@ -17,6 +17,8 @@ class CoreConfig(AppConfig):
     name = "core"
 
     def ready(self):
+        import core.signals  # noqa: F401  — connects the Celery task-run handlers
+
         # CI/tests can opt out because tests usually reconnect with mongomock fixtures.
         if _as_bool(os.environ.get("DISABLE_MONGO_CONNECT"), default=False):
             logger.info("Skipping Mongo connection in CoreConfig.ready (DISABLE_MONGO_CONNECT=true).")

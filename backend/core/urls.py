@@ -16,7 +16,7 @@ from core.views.access_change_views import (
     admin_access_change_requests,
     submit_access_change_request,
 )
-from core.views.admin_analytics_views import admin_device_analytics
+from core.views.admin_analytics_views import admin_active_users, admin_device_analytics
 from core.views.admin_export_views import (
     admin_export_audit,
     admin_export_clinics,
@@ -24,6 +24,7 @@ from core.views.admin_export_views import (
 )
 from core.views.admin_intervention_views import admin_interventions
 from core.views.admin_questionnaire_views import admin_questionnaires
+from core.views.admin_system_status_views import admin_system_status
 from core.views.eva_view import (
     delete_healthslider_session,
     download_healthslider_audio,
@@ -83,6 +84,8 @@ urlpatterns = [
     path("api/admin/export/audit/", admin_export_audit),
     # Admin analytics
     path("api/admin/analytics/devices/", admin_device_analytics),
+    path("api/admin/analytics/active-users/", admin_active_users),
+    path("api/admin/system-status/", admin_system_status),
     # Therapist access change requests
     path("api/therapist/access-change-request/", submit_access_change_request),
     path("api/admin/access-change-requests/", admin_access_change_requests),

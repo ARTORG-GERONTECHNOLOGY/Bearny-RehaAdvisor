@@ -15,8 +15,15 @@ import time
 WATCHDOG_INTERVAL_SECONDS = 10
 DRAIN_SECONDS = 10  # short: with one worker, nothing new is served while it drains
 
+STARTED_AT_ENV = "GUNICORN_STARTED_AT"  # read by the admin system status view
+
 _requests = {}  # thread id -> (monotonic start, "METHOD /path") of the request it is serving
 _lock = threading.Lock()
+
+
+def on_starting(server):
+    # Set once in the master, so a worker restarted by the watchdog still reports the deploy's start time.
+    os.environ[STARTED_AT_ENV] = str(time.time())
 
 
 def pre_request(worker, req):

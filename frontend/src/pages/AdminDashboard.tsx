@@ -10,6 +10,8 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import RejectAccessRequestDialog from '@/components/AdminDashboard/RejectAccessRequestDialog';
 import TherapistAccessDialog from '@/components/AdminDashboard/TherapistAccessDialog';
 import EditQuestionnaireDialog from '@/components/AdminDashboard/EditQuestionnaireDialog';
+import SystemStatusTab from '@/components/AdminDashboard/SystemStatusTab';
+import ActiveUsersCard from '@/components/AdminDashboard/ActiveUsersCard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 import adminStore from '@/stores/adminStore';
@@ -580,6 +582,7 @@ const AdminDashboard: React.FC = observer(() => {
           <TabsTrigger value="analytics" onClick={fetchAnalytics}>
             {t('Analytics')}
           </TabsTrigger>
+          <TabsTrigger value="system">{t('System')}</TabsTrigger>
         </TabsList>
 
         {/* ── Tab 1: pending registrations ── */}
@@ -1104,6 +1107,12 @@ const AdminDashboard: React.FC = observer(() => {
               {t('Click the Analytics tab to load data.')}
             </p>
           )}
+          {!analyticsLoading && <ActiveUsersCard />}
+        </TabsContent>
+
+        {/* ── Tab 7: system status ── */}
+        <TabsContent value="system">
+          <SystemStatusTab />
         </TabsContent>
       </Tabs>
 

@@ -1,6 +1,7 @@
-"""The per-request watchdog in gunicorn.conf.py (gthread's --timeout doesn't cover stuck requests)."""
+"""gunicorn.conf.py: the per-request watchdog (gthread's --timeout misses stuck requests), the master's start time."""
 
 import importlib.util
+import os
 import threading
 import time
 from pathlib import Path
@@ -177,3 +178,10 @@ def test_watchdog_ignores_requests_that_finish_in_time(conf):
 def test_watchdog_off_when_timeout_disabled(conf):
     conf.post_worker_init(_worker(timeout=0))
     assert not _watchdogs()
+
+
+def test_on_starting_records_master_start_for_workers(conf, monkeypatch):
+    monkeypatch.setenv(conf.STARTED_AT_ENV, "0")  # restored after the test
+    conf.os = os
+    conf.on_starting(None)
+    assert abs(float(os.environ[conf.STARTED_AT_ENV]) - time.time()) < 5

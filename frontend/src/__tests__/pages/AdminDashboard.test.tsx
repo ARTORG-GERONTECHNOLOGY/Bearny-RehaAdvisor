@@ -1191,6 +1191,59 @@ describe('AdminDashboard', () => {
     });
   });
 
+  // ── system tab ────────────────────────────────────────────────────────────
+
+  describe('system tab', () => {
+    it('does not fetch system status before the tab has ever been opened', async () => {
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole('heading', { name: 'Admin Dashboard', level: 1 })
+        ).toBeInTheDocument()
+      );
+      expect(apiClient.get).not.toHaveBeenCalledWith('/admin/system-status/');
+    });
+
+    it('fetches and renders system status when the tab is opened', async () => {
+      (apiClient.get as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/admin/system-status/') {
+          const section = { status: 'ok' };
+          return Promise.resolve({
+            data: {
+              generated_at: '2026-10-01T10:00:00Z',
+              overall: 'ok',
+              app: section,
+              jobs: { status: 'ok', items: [] },
+              queue: section,
+              wearables: section,
+              push: section,
+              translation: section,
+            },
+          });
+        }
+        return Promise.resolve({ data: {} });
+      });
+
+      render(
+        <MemoryRouter>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      await userEvent.click(screen.getByText('System'));
+
+      await waitFor(() => {
+        expect(apiClient.get).toHaveBeenCalledWith('/admin/system-status/');
+        expect(screen.getByText('All systems normal')).toBeInTheDocument();
+      });
+    });
+  });
+
   // ── access modal (Edit access from pending tab) ───────────────────────────
 
   describe('access modal', () => {
