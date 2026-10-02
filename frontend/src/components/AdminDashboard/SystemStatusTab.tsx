@@ -224,13 +224,18 @@ const SystemStatusTab: React.FC = () => {
         className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-zinc-50 p-4"
         data-testid="overall-status"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3">
           <span
-            className={`h-4 w-4 shrink-0 rounded-full ${DOT_CLASS[data.overall]}`}
+            className={`mt-1.5 h-4 w-4 shrink-0 rounded-full ${DOT_CLASS[data.overall]}`}
             aria-hidden
           />
           <div>
-            <div className="text-lg font-semibold">{overallLabel[data.overall]}</div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 pb-0.5">
+              <span className="text-lg font-semibold">{overallLabel[data.overall]}</span>
+              {app.status === 'warn' && (
+                <Badge variant="dashboard-warning">{t('Restarted recently')}</Badge>
+              )}
+            </div>
             {affected.length > 0 && (
               <div className="text-sm font-medium" data-testid="affected-sections">
                 {t('Affected: {{sections}}', { sections: affected.join(', ') })}
@@ -252,9 +257,6 @@ const SystemStatusTab: React.FC = () => {
               </span>
             </div>
           </div>
-          {app.status === 'warn' && (
-            <Badge variant="dashboard-warning">{t('Restarted recently')}</Badge>
-          )}
         </div>
         <div className="flex gap-2">
           {app.sentry_url && (
