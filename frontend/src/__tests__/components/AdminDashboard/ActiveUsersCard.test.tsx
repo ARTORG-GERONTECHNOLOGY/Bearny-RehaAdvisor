@@ -75,4 +75,16 @@ describe('ActiveUsersCard', () => {
     render(<ActiveUsersCard />);
     expect(await screen.findByText('Failed to load active users.')).toBeInTheDocument();
   });
+
+  it('can retry with Refresh after loading fails', async () => {
+    (apiClient.get as jest.Mock).mockRejectedValue(new Error('network'));
+    render(<ActiveUsersCard />);
+    await screen.findByText('Failed to load active users.');
+
+    mockActive(active());
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+
+    await waitFor(() => expect(countFor('Total')).toBe('7'));
+    expect(screen.queryByText('Failed to load active users.')).not.toBeInTheDocument();
+  });
 });
