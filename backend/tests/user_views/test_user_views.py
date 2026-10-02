@@ -832,6 +832,42 @@ def test_user_profile_view_update_creates_audit_log():
     assert "first_name" in log.details
 
 
+def test_user_profile_view_update_by_therapist_logs_therapist_role():
+    """
+    A therapist editing a patient's profile is logged with the therapist's
+    role, so the patient isn't counted as active for an edit they didn't make.
+    """
+    from core.models import Logs
+
+    user, patient = create_patient()
+    with mock.patch("core.views.user_views._get_viewer_user", return_value=patient.therapist.userId):
+        client.put(
+            f"/api/users/{user.id}/profile/",
+            data=json.dumps({"first_name": "Edited"}),
+            content_type="application/json",
+        )
+    log = Logs.objects(userId=user, action="UPDATE_PROFILE").first()
+    assert log.actor_role == "Therapist"
+
+
+def test_user_profile_view_update_without_viewer_logs_target_role():
+    """
+    When the caller can't be identified, the log falls back to the profile
+    owner's role rather than a hardcoded "Patient".
+    """
+    from core.models import Logs
+
+    user, _ = create_user_and_therapist()
+    with mock.patch("core.views.user_views._get_viewer_user", return_value=None):
+        client.put(
+            f"/api/users/{user.id}/profile/",
+            data=json.dumps({"first_name": "Self"}),
+            content_type="application/json",
+        )
+    log = Logs.objects(userId=user, action="UPDATE_PROFILE").first()
+    assert log.actor_role == "Therapist"
+
+
 def test_user_profile_view_update_empty_string_does_not_overwrite():
     """
     PUT with an empty string for a whitelisted field must NOT overwrite the
@@ -885,6 +921,20 @@ def test_user_profile_view_delete_is_soft_delete():
     refreshed = User.objects.filter(pk=user.id).first()
     assert refreshed is not None, "User document must still exist after soft-delete"
     assert refreshed.isActive is False, "isActive must be False after soft-delete"
+
+
+def test_user_profile_view_delete_by_therapist_logs_therapist_role():
+    """
+    A therapist deleting a patient is logged with the therapist's role, so the
+    deleted patient isn't counted as active.
+    """
+    from core.models import Logs
+
+    user, patient = create_patient()
+    with mock.patch("core.views.user_views._get_viewer_user", return_value=patient.therapist.userId):
+        client.delete(f"/api/users/{user.id}/profile/")
+    log = Logs.objects(userId=user, action="DELETE_ACCOUNT").first()
+    assert log.actor_role == "Therapist"
 
 
 # ===========================================================================

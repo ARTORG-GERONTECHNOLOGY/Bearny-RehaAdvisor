@@ -137,6 +137,12 @@ def _get_viewer_user(request):
         return None
 
 
+def _actor_role(request, fallback):
+    """Role of whoever made the request, so edits on someone's behalf aren't logged as their own activity."""
+    viewer = _get_viewer_user(request)
+    return getattr(viewer, "role", None) or fallback
+
+
 def valid_update_value(v):
     if v in ("", None, []):
         return False  # skip completely
@@ -471,7 +477,7 @@ def user_profile_view(request, user_id):
                 Logs.objects.create(
                     userId=user,
                     action="UPDATE_PROFILE",
-                    actor_role="Patient",
+                    actor_role=_actor_role(request, target_role),
                     details="Password changed via profile endpoint",
                 )
 
@@ -606,7 +612,7 @@ def user_profile_view(request, user_id):
             Logs.objects.create(
                 userId=user,
                 action="UPDATE_PROFILE",
-                actor_role="Patient",
+                actor_role=_actor_role(request, target_role),
                 details=f"Updated: {updated} | old: {old}",
             )
 
@@ -669,7 +675,7 @@ def user_profile_view(request, user_id):
             Logs.objects.create(
                 userId=user,
                 action="DELETE_ACCOUNT",
-                actor_role="Patient",
+                actor_role=_actor_role(request, target_role),
                 details=f"Soft-deleted {user_id}",
             )
 
