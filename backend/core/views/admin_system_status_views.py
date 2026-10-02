@@ -73,6 +73,9 @@ def job_status(pt: PeriodicTask, run: TaskRun | None) -> tuple[str, str]:
     if failure and (success is None or failure > success):
         return "error", "failed"
     if success is None and started is None:
+        # No TaskRun yet: beat's own dispatch time (or worker start) still reveals a dead scheduler.
+        if _is_overdue(pt, _aware(pt.last_run_at) or STARTED_AT):
+            return "error", "overdue"
         return "unknown", "no_data"
 
     running = started is not None and (success is None or started > success)

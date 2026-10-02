@@ -6,7 +6,8 @@ Coverage
 --------
   * Admin-only: 403 for non-admin users.
   * Response shape and overall status (worst section wins).
-  * Job status: on time, running, overdue, never run, first run hung, disabled, failed, recovered.
+  * Job status: on time, running, overdue, never run, never run while beat is stale, first run hung,
+    disabled, failed, recovered.
   * Overdue check reads crontabs in their own timezone, as beat does.
   * Queue: Redis down is an error section; a long queue warns.
   * Wearable sync: stale and recently revoked token counts and thresholds.
@@ -220,9 +221,23 @@ def test_job_running_is_ok():
 
 
 @pytest.mark.django_db
-def test_job_never_run_is_unknown():
+def test_job_never_run_is_unknown(monkeypatch):
+    monkeypatch.setattr(views, "STARTED_AT", timezone.now())
     pt = _hourly_task()
     assert views.job_status(pt, None) == ("unknown", "no_data")
+
+
+@pytest.mark.django_db
+def test_job_never_run_with_stale_beat_dispatch_is_overdue():
+    pt = _hourly_task()
+    pt.last_run_at = timezone.now() - timedelta(hours=3)
+    assert views.job_status(pt, None) == ("error", "overdue")
+
+
+@pytest.mark.django_db
+def test_job_never_run_long_after_start_is_overdue(monkeypatch):
+    monkeypatch.setattr(views, "STARTED_AT", timezone.now() - timedelta(hours=3))
+    assert views.job_status(_hourly_task(), None) == ("error", "overdue")
 
 
 @pytest.mark.django_db

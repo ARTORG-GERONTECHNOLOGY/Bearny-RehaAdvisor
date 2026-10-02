@@ -14,6 +14,7 @@ Active users
   * Ignores entries older than the window.
   * Excludes users whose latest action in the window was a logout.
   * Ignores entries logged on someone else's behalf (actor role differs from the user's role).
+  * Excludes patients force-logged out by a therapist.
   * Always returns all three roles, with zeros.
   * Admin-only: 403 for non-admin users.
 """
@@ -142,6 +143,15 @@ def test_active_users_ignores_entries_logged_on_behalf_of_others(admin_client):
     # e.g. an admin editing a therapist's access logs the therapist with actor_role "Admin".
     _log(_user("t1", role="Therapist"), action="UPDATE_PROFILE", role="Admin")
     _log(_user("p1"), action="UPDATE_PROFILE", role="Therapist")
+
+    data = admin_client.get(ACTIVE_URL).json()
+    assert data["total"] == 0
+
+
+def test_active_users_excludes_force_logged_out_patients(admin_client):
+    patient = _user("p1")
+    _log(patient, action="INTERVENTION_VIEW", minutes_ago=5)
+    _log(patient, action="FORCE_LOGOUT", minutes_ago=2, role="Therapist")
 
     data = admin_client.get(ACTIVE_URL).json()
     assert data["total"] == 0

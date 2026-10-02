@@ -45,12 +45,13 @@ def admin_active_users(request):
     now = timezone.now()
     pipeline = [
         {"$match": {"timestamp": {"$gte": now - ACTIVE_WINDOW}}},
-        # Skip entries written on someone else's behalf (e.g. an admin editing a therapist), whose userId didn't act.
+        # Skip entries written on someone else's behalf (e.g. an admin editing a therapist), whose userId didn't act;
+        # logouts are kept since a therapist force-logging out a patient still ends the patient's session.
         {"$lookup": {"from": "users", "localField": "userId", "foreignField": "_id", "as": "user"}},
         {"$unwind": "$user"},
-        {"$match": {"$expr": {"$eq": ["$userAgent", "$user.role"]}}},
+        {"$match": {"$expr": {"$or": [{"$in": ["$action", _LOGOUT_ACTIONS]}, {"$eq": ["$userAgent", "$user.role"]}]}}},
         {"$sort": {"timestamp": -1}},
-        {"$group": {"_id": "$userId", "role": {"$first": "$userAgent"}, "last_action": {"$first": "$action"}}},
+        {"$group": {"_id": "$userId", "role": {"$first": "$user.role"}, "last_action": {"$first": "$action"}}},
         # Someone whose latest action was logging out has left.
         {"$match": {"last_action": {"$nin": _LOGOUT_ACTIONS}}},
         {"$group": {"_id": "$role", "count": {"$sum": 1}}},
