@@ -13,6 +13,7 @@ from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
+from api import celery_app
 from core.models import FitbitUserToken, GoogleHealthUserToken, SentPushNotification, TaskRun
 from core.permissions import IsAdmin
 from core.signals import summarize_error
@@ -24,6 +25,8 @@ TRANSLATION_TIMEOUT_S = 3
 
 OVERDUE_GRACE = timedelta(minutes=30)
 QUEUE_WARN_LENGTH = 50
+WORKER_REPLY_TIMEOUT_S = 1  # each inspect call waits this long for replies, even when all workers answered
+LONG_TASK_WARN = timedelta(hours=1)
 STALE_SYNC_AFTER = timedelta(hours=24)
 STALE_SYNC_WARN = 3
 REVOKED_WINDOW = timedelta(days=7)
@@ -141,7 +144,33 @@ def _queue_section():
         length = client.llen(getattr(settings, "CELERY_TASK_DEFAULT_QUEUE", "celery"))
     finally:
         client.close()
-    return {"status": "warn" if length > QUEUE_WARN_LENGTH else "ok", "length": length}
+    workers = _workers(timezone.now())
+    longest = workers["longest_task"]
+    if workers["online"] == 0:
+        status = "error"
+    elif length > QUEUE_WARN_LENGTH or (longest and longest["running_s"] > LONG_TASK_WARN.total_seconds()):
+        status = "warn"
+    else:
+        status = "ok"
+    return {"status": status, "length": length, "workers": workers}
+
+
+def _workers(now):
+    inspect = celery_app.control.inspect(timeout=WORKER_REPLY_TIMEOUT_S)
+    stats = inspect.stats() or {}
+    tasks = [task for worker_tasks in (inspect.active() or {}).values() for task in worker_tasks]
+    # time_start is the worker's Unix timestamp for when it accepted the task.
+    longest = min((t for t in tasks if t.get("time_start")), key=lambda t: t["time_start"], default=None)
+    return {
+        "online": len(stats),
+        "busy": len(tasks),
+        "concurrency": sum(s.get("pool", {}).get("max-concurrency") or 0 for s in stats.values()),
+        "longest_task": (
+            {"name": longest.get("name"), "running_s": max(0, int(now.timestamp() - longest["time_start"]))}
+            if longest
+            else None
+        ),
+    }
 
 
 def _provider_counts(model, now):

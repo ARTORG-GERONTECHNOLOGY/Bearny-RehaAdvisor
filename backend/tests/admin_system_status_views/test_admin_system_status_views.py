@@ -10,12 +10,13 @@ Coverage
     disabled, failed, recovered.
   * Overdue check reads crontabs in their own timezone, as beat does.
   * Queue: Redis down is an error section; a long queue warns.
+  * Workers: none online is an error; busy count, concurrency and longest running task; a task running too long warns.
   * Wearable sync: stale and recently revoked token counts and thresholds.
   * Push: 24h send count is information only.
   * Translation: unreachable is an error; too few languages warns.
   * Response is cached for CACHE_SECONDS.
 
-Redis and LibreTranslate are patched in every test, so nothing leaves the process.
+Redis, Celery's worker inspection and LibreTranslate are patched in every test, so nothing leaves the process.
 """
 
 from datetime import datetime, timedelta
@@ -72,6 +73,15 @@ def redis_client():
     client.llen.return_value = 0
     with patch.object(views.redis.Redis, "from_url", return_value=client):
         yield client
+
+
+@pytest.fixture(autouse=True)
+def celery_inspect():
+    inspect = MagicMock()
+    inspect.stats.return_value = {"celery@w1": {"pool": {"max-concurrency": 4}}}
+    inspect.active.return_value = {"celery@w1": []}
+    with patch.object(views.celery_app.control, "inspect", return_value=inspect):
+        yield inspect
 
 
 @pytest.fixture(autouse=True)
@@ -330,7 +340,62 @@ def test_jobs_section_reports_crontab_timezone(admin_client):
 def test_long_queue_warns(admin_client, redis_client):
     redis_client.llen.return_value = views.QUEUE_WARN_LENGTH + 1
     queue = admin_client.get(URL).json()["queue"]
-    assert queue == {"status": "warn", "length": views.QUEUE_WARN_LENGTH + 1}
+    assert queue["status"] == "warn"
+    assert queue["length"] == views.QUEUE_WARN_LENGTH + 1
+
+
+@pytest.mark.django_db
+def test_idle_worker_is_ok(admin_client):
+    queue = admin_client.get(URL).json()["queue"]
+    assert queue["status"] == "ok"
+    assert queue["workers"] == {"online": 1, "busy": 0, "concurrency": 4, "longest_task": None}
+
+
+@pytest.mark.django_db
+def test_no_worker_online_is_error(admin_client, celery_inspect):
+    celery_inspect.stats.return_value = None
+    celery_inspect.active.return_value = None
+    data = admin_client.get(URL).json()
+    assert data["queue"]["status"] == "error"
+    assert data["queue"]["workers"]["online"] == 0
+    assert data["overall"] == "error"
+
+
+def _active_task(name, minutes_ago):
+    return {"name": name, "time_start": (timezone.now() - timedelta(minutes=minutes_ago)).timestamp()}
+
+
+@pytest.mark.django_db
+def test_busy_workers_report_longest_task(admin_client, celery_inspect):
+    celery_inspect.stats.return_value = {
+        "celery@w1": {"pool": {"max-concurrency": 4}},
+        "celery@w2": {"pool": {"max-concurrency": 2}},
+    }
+    celery_inspect.active.return_value = {
+        "celery@w1": [_active_task("core.tasks.short", 1), _active_task("core.tasks.long", 10)],
+        "celery@w2": [_active_task("core.tasks.medium", 5)],
+    }
+    queue = admin_client.get(URL).json()["queue"]
+    assert queue["status"] == "ok"
+    workers = queue["workers"]
+    assert (workers["online"], workers["busy"], workers["concurrency"]) == (2, 3, 6)
+    assert workers["longest_task"]["name"] == "core.tasks.long"
+    assert 10 * 60 - 5 <= workers["longest_task"]["running_s"] <= 10 * 60 + 5
+
+
+@pytest.mark.django_db
+def test_task_running_too_long_warns(admin_client, celery_inspect):
+    minutes = views.LONG_TASK_WARN.total_seconds() / 60 + 5
+    celery_inspect.active.return_value = {"celery@w1": [_active_task("core.tasks.stuck", minutes)]}
+    queue = admin_client.get(URL).json()["queue"]
+    assert queue["status"] == "warn"
+    assert queue["workers"]["longest_task"]["name"] == "core.tasks.stuck"
+
+
+@pytest.mark.django_db
+def test_worker_inspection_uses_short_timeout(admin_client):
+    admin_client.get(URL)
+    views.celery_app.control.inspect.assert_called_with(timeout=views.WORKER_REPLY_TIMEOUT_S)
 
 
 def _fitbit_token(username, **fields):
