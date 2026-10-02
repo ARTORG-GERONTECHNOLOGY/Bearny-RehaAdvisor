@@ -12,9 +12,9 @@ Devices
 Active users
   * Counts distinct users per role with a log entry in the last 15 minutes.
   * Ignores entries older than the window.
-  * Excludes users whose latest action in the window was a logout.
+  * Still counts users who logged out within the window.
   * Ignores entries logged on someone else's behalf (actor role differs from the user's role).
-  * Excludes patients force-logged out by a therapist.
+  * A therapist force-logging out a patient doesn't count as patient activity.
   * Always returns all three roles, with zeros.
   * Admin-only: 403 for non-admin users.
 """
@@ -128,12 +128,10 @@ def test_active_users_ignores_old_entries(admin_client):
     assert data["by_role"] == {"Patient": 0, "Therapist": 0, "Admin": 0}
 
 
-def test_active_users_excludes_users_who_logged_out(admin_client):
-    left, returned = _user("left"), _user("returned")
+def test_active_users_counts_users_who_logged_out(admin_client):
+    left = _user("left")
     _log(left, action="OPEN_PATIENT", minutes_ago=5)
     _log(left, action="LOGOUT", minutes_ago=2)
-    _log(returned, action="LOGOUT", minutes_ago=5)
-    _log(returned, action="LOGIN", minutes_ago=2)
 
     data = admin_client.get(ACTIVE_URL).json()
     assert data["by_role"]["Patient"] == 1
@@ -148,10 +146,8 @@ def test_active_users_ignores_entries_logged_on_behalf_of_others(admin_client):
     assert data["total"] == 0
 
 
-def test_active_users_excludes_force_logged_out_patients(admin_client):
-    patient = _user("p1")
-    _log(patient, action="INTERVENTION_VIEW", minutes_ago=5)
-    _log(patient, action="FORCE_LOGOUT", minutes_ago=2, role="Therapist")
+def test_active_users_ignores_force_logout_by_therapist(admin_client):
+    _log(_user("p1"), action="FORCE_LOGOUT", minutes_ago=2, role="Therapist")
 
     data = admin_client.get(ACTIVE_URL).json()
     assert data["total"] == 0
