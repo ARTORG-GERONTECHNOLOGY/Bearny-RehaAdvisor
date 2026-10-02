@@ -7,7 +7,7 @@ Coverage
   * Admin-only: 403 for non-admin users.
   * Response shape and overall status (worst section wins).
   * Job status: on time, running, long run within its usual duration, killed every run, overdue, never run, never run while beat is stale, first run hung,
-    disabled, failed, recovered.
+    disabled, failed, recovered; new or re-enabled jobs aren't overdue before beat sends them.
   * Overdue check reads crontabs in their own timezone, as beat does.
   * Queue: Redis down is an error section; a long queue warns.
   * Workers: none online is an error; busy count, concurrency and longest running task; a task running too long warns.
@@ -118,9 +118,18 @@ def admin_client():
     return _client_for("Admin")
 
 
+def _changed_ago(pt, ago=timedelta(days=30)):
+    # date_changed is auto_now, so only a queryset update can backdate it.
+    PeriodicTask.objects.filter(pk=pt.pk).update(date_changed=timezone.now() - ago)
+    pt.refresh_from_db()
+    return pt
+
+
 def _hourly_task(name="Hourly job", enabled=True):
     cron = CrontabSchedule.objects.create(minute="0", hour="*")
-    return PeriodicTask.objects.create(name=name, task="core.tasks.some_job", crontab=cron, enabled=enabled)
+    return _changed_ago(
+        PeriodicTask.objects.create(name=name, task="core.tasks.some_job", crontab=cron, enabled=enabled)
+    )
 
 
 def _run(name="Hourly job", **ago):
@@ -205,7 +214,7 @@ def _daily_zurich_task_due_hours_ago(hours):
     due = (timezone.now().astimezone(zurich) - timedelta(hours=hours)).replace(minute=0, second=0, microsecond=0)
     cron = CrontabSchedule.objects.create(minute="0", hour=str(due.hour), timezone=zurich)
     pt = PeriodicTask.objects.create(name="Daily job", task="core.tasks.some_job", crontab=cron)
-    return pt, due
+    return _changed_ago(pt), due
 
 
 @pytest.mark.django_db
@@ -226,7 +235,7 @@ def test_daily_job_in_local_timezone_missed_run_is_overdue():
 def _every_hour_task(name="Hourly job"):
     # Interval schedules make "next due" independent of the wall-clock minute.
     every = IntervalSchedule.objects.create(every=1, period=IntervalSchedule.HOURS)
-    return PeriodicTask.objects.create(name=name, task="core.tasks.some_job", interval=every)
+    return _changed_ago(PeriodicTask.objects.create(name=name, task="core.tasks.some_job", interval=every))
 
 
 @pytest.mark.django_db
@@ -270,6 +279,28 @@ def test_job_never_run_with_stale_beat_dispatch_is_overdue():
 def test_job_never_run_long_after_start_is_overdue(monkeypatch):
     monkeypatch.setattr(views, "STARTED_AT", timezone.now() - timedelta(hours=3))
     assert views.job_status(_hourly_task(), None) == ("error", "overdue")
+
+
+@pytest.mark.django_db
+def test_new_job_before_first_dispatch_is_unknown():
+    pt = _changed_ago(_hourly_task(), timedelta(0))
+    assert views.job_status(pt, None) == ("unknown", "no_data")
+
+
+@pytest.mark.django_db
+def test_reenabled_job_before_first_dispatch_is_ok():
+    pt = _changed_ago(_every_hour_task(), timedelta(minutes=5))
+    run = _run(last_started_at=timedelta(days=20, minutes=1), last_success_at=timedelta(days=20))
+    assert views.job_status(pt, run) == ("ok", "ok")
+
+
+@pytest.mark.django_db
+def test_reenabled_job_dispatched_but_not_run_is_overdue():
+    # Beat's dispatch save bumps date_changed, so it must stop counting once last_run_at is set.
+    pt = _changed_ago(_every_hour_task(), timedelta(0))
+    pt.last_run_at = timezone.now() - timedelta(hours=2)
+    run = _run(last_started_at=timedelta(days=20, minutes=1), last_success_at=timedelta(days=20))
+    assert views.job_status(pt, run) == ("error", "overdue")
 
 
 @pytest.mark.django_db

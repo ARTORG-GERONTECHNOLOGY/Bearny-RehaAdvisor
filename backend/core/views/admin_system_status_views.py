@@ -76,16 +76,18 @@ def job_status(pt: PeriodicTask, run: TaskRun | None) -> tuple[str, str]:
     failure = _aware(run.last_failure_at)
     if failure and (success is None or failure > success):
         return "error", "failed"
+    # Unsent since created/re-enabled (beat clears last_run_at on disable); later, beat's saves bump date_changed.
+    pending_since = _aware(pt.date_changed) if pt.last_run_at is None else None
     if success is None and started is None:
         # No TaskRun yet: beat's own dispatch time (or worker start) still reveals a dead scheduler.
-        if _is_overdue(pt, _aware(pt.last_run_at) or STARTED_AT):
+        if _is_overdue(pt, _aware(pt.last_run_at) or max(STARTED_AT, pending_since)):
             return "error", "overdue"
         return "unknown", "no_data"
 
     running = _is_running(started, success)
     # Anchor on the last success: killed runs record no outcome, so each new start would otherwise reset the clock.
     slack = timedelta(seconds=run.last_duration_s or 0) if running else timedelta(0)
-    if _is_overdue(pt, success or started, slack):
+    if _is_overdue(pt, max(filter(None, [success or started, pending_since])), slack):
         return "error", "overdue"
     return ("ok", "running") if running else ("ok", "ok")
 
