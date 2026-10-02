@@ -16,6 +16,7 @@ const job = (overrides: Partial<JobItem>): JobItem => ({
   name: 'Job',
   task: 'core.tasks.job',
   schedule: '0 * * * *',
+  timezone: null,
   enabled: true,
   status: 'ok',
   reason: 'ok',
@@ -230,5 +231,30 @@ describe('SystemStatusTab', () => {
       '15 8 1 * *',
     ]);
     expect(within(cells[0]).getByTitle('30 2 * * *')).toBeInTheDocument();
+  });
+
+  it('shows the job timezone next to clock times and in the tooltip', async () => {
+    mockStatus(
+      status({
+        jobs: {
+          status: 'ok',
+          items: [
+            job({ name: 'a', schedule: '30 2 * * *', timezone: 'UTC' }),
+            job({ name: 'b', schedule: '0 4 * * 0', timezone: 'Europe/Zurich' }),
+            job({ name: 'c', schedule: '0 * * * *', timezone: 'UTC' }),
+          ],
+        },
+      })
+    );
+    render(<SystemStatusTab />);
+
+    const rows = await screen.findAllByTestId('job-row');
+    const cells = rows.map((r) => within(r).getAllByRole('cell')[1]);
+    expect(cells.map((c) => c.textContent)).toEqual([
+      'Daily at 02:30 UTC',
+      'Weekly on Sunday at 04:00 Europe/Zurich',
+      'Every hour',
+    ]);
+    expect(within(cells[0]).getByTitle('30 2 * * * (UTC)')).toBeInTheDocument();
   });
 });

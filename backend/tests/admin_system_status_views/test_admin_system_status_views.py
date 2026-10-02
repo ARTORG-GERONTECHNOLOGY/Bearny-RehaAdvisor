@@ -287,8 +287,16 @@ def test_jobs_section_lists_tasks_with_error(admin_client):
     [item] = jobs["items"]
     assert item["name"] == "Hourly job"
     assert item["schedule"] == "0 * * * *"
+    assert item["timezone"] == "UTC"
     assert item["reason"] == "failed"
     assert item["last_error"] == "ValueError: boom"
+
+
+@pytest.mark.django_db
+def test_jobs_section_reports_crontab_timezone(admin_client):
+    _daily_zurich_task_due_hours_ago(1)
+    [item] = admin_client.get(URL).json()["jobs"]["items"]
+    assert item["timezone"] == "Europe/Zurich"
 
 
 # ---------------------------------------------------------------------------

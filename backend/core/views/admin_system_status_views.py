@@ -107,6 +107,7 @@ def _jobs_section():
                 "name": pt.name,
                 "task": pt.task,
                 "schedule": _schedule_label(pt),
+                "timezone": str(pt.crontab.timezone) if pt.crontab_id else None,
                 "enabled": pt.enabled,
                 "status": status,
                 "reason": reason,

@@ -24,6 +24,7 @@ export type JobItem = {
   name: string;
   task: string;
   schedule: string;
+  timezone: string | null;
   enabled: boolean;
   status: Status;
   reason: 'ok' | 'running' | 'overdue' | 'failed' | 'disabled' | 'no_data';
@@ -80,12 +81,13 @@ const pad = (v: string) => v.padStart(2, '0');
 // Plain-language label for the cron patterns our jobs use; anything else falls back to the raw text.
 const describeSchedule = (
   cron: string,
+  timezone: string | null,
   t: (key: string, options?: Record<string, unknown>) => string,
   language: string
 ): string => {
   const [minute, hour, dayOfMonth, month, weekday] = cron.split(' ');
   if (dayOfMonth !== '*' || month !== '*' || !NUM.test(minute ?? '')) return cron;
-  const time = `${pad(hour)}:${pad(minute)}`;
+  const time = `${pad(hour)}:${pad(minute)}${timezone ? ` ${timezone}` : ''}`;
   if (NUM.test(hour) && weekday === '*') return t('Daily at {{time}}', { time });
   if (NUM.test(hour) && NUM.test(weekday)) {
     // 2023-01-01 was a Sunday, so cron weekday 0..6 maps onto Jan 1..7.
@@ -271,8 +273,10 @@ const SystemStatusTab: React.FC = () => {
                 <TableRow key={job.name} data-testid="job-row">
                   <TableCell>{job.name}</TableCell>
                   <TableCell>
-                    <span title={job.schedule}>
-                      {describeSchedule(job.schedule, t, i18n.language)}
+                    <span
+                      title={job.timezone ? `${job.schedule} (${job.timezone})` : job.schedule}
+                    >
+                      {describeSchedule(job.schedule, job.timezone, t, i18n.language)}
                     </span>
                   </TableCell>
                   <TableCell>{formatTime(job.last_success_at, t('Never'))}</TableCell>
