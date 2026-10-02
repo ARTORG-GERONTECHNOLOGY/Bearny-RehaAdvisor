@@ -127,23 +127,24 @@ export default function Navigation() {
           fixed top-0 left-0 right-0
           py-6
           z-50
+          pointer-events-none
         "
       >
         <div className="w-full relative flex justify-center gap-2">
           {/* Home button — left-aligned within container bounds */}
           <div className="absolute inset-0 flex pointer-events-none">
-            <div className="container mx-auto max-w-[90%] xl:max-w-screen-xl self-stretch flex items-center justify-start pointer-events-auto">
+            <div className="container mx-auto max-w-[90%] xl:max-w-screen-xl self-stretch flex items-center justify-start">
               <button
                 aria-label="Home"
                 onClick={() => navigate('/')}
-                className="bg-white/80 backdrop-blur-2xl border border-accent aspect-square rounded-full transition flex items-center justify-center p-1.5"
+                className="pointer-events-auto bg-white/80 backdrop-blur-2xl border border-accent aspect-square rounded-full transition flex items-center justify-center p-1.5"
               >
                 <AppIcon className="w-11 h-11" />
               </button>
             </div>
           </div>
           {/* Centered nav links pill */}
-          <div className="bg-white/80 backdrop-blur-2xl border border-accent rounded-full p-2 flex">
+          <div className="pointer-events-auto bg-white/80 backdrop-blur-2xl border border-accent rounded-full p-2 flex">
             {navLinks
               .filter((link) => link.path !== '/patient-profile' && link.path !== '/userprofile')
               .map((link) => (
@@ -170,7 +171,7 @@ export default function Navigation() {
                 aria-label="Profile"
                 data-testid="avatar-button"
                 onClick={() => navigate(profileLink.path)}
-                className={`bg-white/80 backdrop-blur-2xl border border-accent aspect-square rounded-full transition flex items-center justify-center ${isActive ? 'text-brand' : 'text-zinc-500 hover:text-black'}`}
+                className={`pointer-events-auto bg-white/80 backdrop-blur-2xl border border-accent aspect-square rounded-full transition flex items-center justify-center ${isActive ? 'text-brand' : 'text-zinc-500 hover:text-black'}`}
               >
                 <span className={`flex p-2 rounded-full ${isActive ? 'bg-brand/5' : ''}`}>
                   {isActive ? (
