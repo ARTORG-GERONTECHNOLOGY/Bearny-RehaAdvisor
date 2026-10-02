@@ -168,7 +168,10 @@ const SystemStatusTab: React.FC = () => {
   const card = (title: string, section: Section, body: React.ReactNode) => (
     <div className="rounded-xl border bg-zinc-50 p-4" data-testid="status-card">
       <div className="flex items-center gap-2 mb-2">
-        <span className={`h-2.5 w-2.5 rounded-full ${DOT_CLASS[section.status]}`} aria-hidden />
+        <span
+          className={`h-2.5 w-2.5 shrink-0 rounded-full ${DOT_CLASS[section.status]}`}
+          aria-hidden
+        />
         <h6 className="text-sm font-semibold">{title}</h6>
       </div>
       {section.error ? (
@@ -222,7 +225,10 @@ const SystemStatusTab: React.FC = () => {
         data-testid="overall-status"
       >
         <div className="flex items-center gap-3">
-          <span className={`h-4 w-4 rounded-full ${DOT_CLASS[data.overall]}`} aria-hidden />
+          <span
+            className={`h-4 w-4 shrink-0 rounded-full ${DOT_CLASS[data.overall]}`}
+            aria-hidden
+          />
           <div>
             <div className="text-lg font-semibold">{overallLabel[data.overall]}</div>
             {affected.length > 0 && (

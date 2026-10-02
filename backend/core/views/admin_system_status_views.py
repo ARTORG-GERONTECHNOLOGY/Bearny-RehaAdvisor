@@ -25,7 +25,7 @@ TRANSLATION_TIMEOUT_S = 3
 
 OVERDUE_GRACE = timedelta(minutes=30)
 QUEUE_WARN_LENGTH = 50
-WORKER_REPLY_TIMEOUT_S = 1  # each inspect call waits this long for replies, even when all workers answered
+WORKER_REPLY_TIMEOUT_S = 1  # stats always waits this long; active returns once the known workers reply
 LONG_TASK_WARN = timedelta(hours=1)
 STALE_SYNC_AFTER = timedelta(hours=24)
 STALE_SYNC_WARN = 3
@@ -158,9 +158,10 @@ def _queue_section():
 
 
 def _workers(now):
-    inspect = celery_app.control.inspect(timeout=WORKER_REPLY_TIMEOUT_S)
-    stats = inspect.stats() or {}
-    tasks = [task for worker_tasks in (inspect.active() or {}).values() for task in worker_tasks]
+    stats = celery_app.control.inspect(timeout=WORKER_REPLY_TIMEOUT_S).stats() or {}
+    # Stop waiting once every worker that answered stats has answered again.
+    active = celery_app.control.inspect(timeout=WORKER_REPLY_TIMEOUT_S, limit=len(stats)).active() if stats else {}
+    tasks = [task for worker_tasks in (active or {}).values() for task in worker_tasks]
     # time_start is the worker's Unix timestamp for when it accepted the task.
     longest = min((t for t in tasks if t.get("time_start")), key=lambda t: t["time_start"], default=None)
     return {

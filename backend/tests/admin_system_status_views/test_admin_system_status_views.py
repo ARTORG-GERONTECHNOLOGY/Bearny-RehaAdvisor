@@ -426,7 +426,20 @@ def test_task_running_too_long_warns(admin_client, celery_inspect):
 @pytest.mark.django_db
 def test_worker_inspection_uses_short_timeout(admin_client):
     admin_client.get(URL)
-    views.celery_app.control.inspect.assert_called_with(timeout=views.WORKER_REPLY_TIMEOUT_S)
+    views.celery_app.control.inspect.assert_any_call(timeout=views.WORKER_REPLY_TIMEOUT_S)
+
+
+@pytest.mark.django_db
+def test_active_inspection_stops_after_known_workers_reply(admin_client, celery_inspect):
+    admin_client.get(URL)
+    views.celery_app.control.inspect.assert_called_with(timeout=views.WORKER_REPLY_TIMEOUT_S, limit=1)
+
+
+@pytest.mark.django_db
+def test_active_inspection_skipped_when_no_worker_online(admin_client, celery_inspect):
+    celery_inspect.stats.return_value = None
+    admin_client.get(URL)
+    celery_inspect.active.assert_not_called()
 
 
 def _fitbit_token(username, **fields):
