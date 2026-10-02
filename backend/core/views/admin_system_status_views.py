@@ -1,6 +1,7 @@
 """Admin-only snapshot of background jobs and services, so prod can be checked without shell access."""
 
 import datetime
+import os
 from datetime import timedelta
 
 import redis
@@ -35,8 +36,19 @@ RECENT_START = timedelta(minutes=30)
 RUNNING_SLACK_FACTOR = 2  # run lengths vary (e.g. wearable syncs scale with patients), so allow twice the last one
 EXPECTED_LANGUAGES = 6  # LT_LOAD_ONLY in the prod compose file
 
-# Close to gunicorn start; deploys restart beat too, so it also stands in for beat's start on never-run jobs.
-STARTED_AT = timezone.now()
+STARTED_AT_ENV = "GUNICORN_STARTED_AT"  # set by on_starting in gunicorn.conf.py
+
+
+def _process_start():
+    """The gunicorn master's start, so watchdog worker restarts don't reset it; import time without gunicorn."""
+    try:
+        return datetime.datetime.fromtimestamp(float(os.environ[STARTED_AT_ENV]), tz=datetime.timezone.utc)
+    except (KeyError, ValueError):
+        return timezone.now()
+
+
+# Deploys restart beat too, so this also stands in for beat's start on never-run jobs.
+STARTED_AT = _process_start()
 
 _RANK = {"error": 3, "warn": 2, "ok": 1}
 

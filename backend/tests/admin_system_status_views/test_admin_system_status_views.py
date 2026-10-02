@@ -9,6 +9,7 @@ Coverage
   * Job status: on time, running, long run within its usual duration, killed every run, overdue, never run, never run while beat is stale, first run hung,
     disabled, failed, recovered; new or re-enabled jobs aren't overdue before beat sends them.
   * Overdue check reads crontabs in their own timezone, as beat does.
+  * Start time comes from the gunicorn master, so worker restarts keep it; import time without gunicorn.
   * Queue: Redis down is an error section; a long queue warns.
   * Workers: none online is an error; busy count, concurrency and longest running task; a task running too long warns.
   * Wearable sync: stale and recently revoked token counts and thresholds.
@@ -297,6 +298,20 @@ def test_job_never_run_with_stale_beat_dispatch_is_overdue():
 def test_job_never_run_long_after_start_is_overdue(monkeypatch):
     monkeypatch.setattr(views, "STARTED_AT", timezone.now() - timedelta(hours=3))
     assert views.job_status(_hourly_task(), None) == ("error", "overdue")
+
+
+def test_process_start_comes_from_gunicorn_master(monkeypatch):
+    monkeypatch.setenv(views.STARTED_AT_ENV, "1700000000.5")
+    assert views._process_start() == datetime(2023, 11, 14, 22, 13, 20, 500000, tzinfo=dt_timezone.utc)
+
+
+@pytest.mark.parametrize("value", [None, "not-a-number"])
+def test_process_start_without_gunicorn_is_now(monkeypatch, value):
+    if value is None:
+        monkeypatch.delenv(views.STARTED_AT_ENV, raising=False)
+    else:
+        monkeypatch.setenv(views.STARTED_AT_ENV, value)
+    assert timezone.now() - views._process_start() < timedelta(seconds=5)
 
 
 @pytest.mark.django_db
