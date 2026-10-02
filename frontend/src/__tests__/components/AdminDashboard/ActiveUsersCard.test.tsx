@@ -38,6 +38,12 @@ describe('ActiveUsersCard', () => {
     expect(countFor('Admins')).toBe('0');
   });
 
+  it('renders nothing until the first response arrives', async () => {
+    (apiClient.get as jest.Mock).mockReturnValue(new Promise(() => {}));
+    render(<ActiveUsersCard />);
+    expect(screen.queryByTestId('active-users')).not.toBeInTheDocument();
+  });
+
   it('shows when the count was taken and what it counts', async () => {
     mockActive(active());
     render(<ActiveUsersCard />);

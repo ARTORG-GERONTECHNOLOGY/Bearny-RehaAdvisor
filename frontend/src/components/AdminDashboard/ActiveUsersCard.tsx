@@ -41,45 +41,45 @@ const ActiveUsersCard: React.FC = () => {
     ['Admin', t('Admins')],
   ];
 
+  if (!data && !error) return null;
+
   return (
     <div className="mt-6 mb-4 max-w-[480px]" data-testid="active-users">
       <h5 className="text-base font-semibold mb-3">
         {t('Active in the last {{minutes}} min', { minutes: data?.window_minutes ?? 15 })}
       </h5>
 
-      {(error || data) && (
-        <div className="flex flex-wrap items-end gap-6 rounded-xl border bg-zinc-50 p-4">
-          {error ? (
-            <div className="self-center text-sm text-nok">{error}</div>
-          ) : (
-            data && (
-              <>
-                <div className="pr-6 border-r">
-                  <div className="text-lg font-semibold tabular-nums">{data.total}</div>
-                  <div className="text-sm text-muted-foreground">{t('Total')}</div>
-                </div>
-                {roles.map(([role, label]) => (
-                  <div key={role}>
-                    <div className="text-lg font-semibold tabular-nums">
-                      {data.by_role?.[role] ?? 0}
-                    </div>
-                    <div className="text-sm text-muted-foreground">{label}</div>
+      <div className="flex flex-wrap items-end gap-6 rounded-xl border bg-zinc-50 p-4">
+        {error ? (
+          <div className="self-center text-sm text-nok">{error}</div>
+        ) : (
+          data && (
+            <>
+              <div className="pr-6 border-r">
+                <div className="text-lg font-semibold tabular-nums">{data.total}</div>
+                <div className="text-sm text-muted-foreground">{t('Total')}</div>
+              </div>
+              {roles.map(([role, label]) => (
+                <div key={role}>
+                  <div className="text-lg font-semibold tabular-nums">
+                    {data.by_role?.[role] ?? 0}
                   </div>
-                ))}
-              </>
-            )
-          )}
-          <Button
-            size="dashboard"
-            variant="secondary"
-            className="ml-auto self-center"
-            onClick={load}
-            disabled={loading}
-          >
-            {t('Refresh')}
-          </Button>
-        </div>
-      )}
+                  <div className="text-sm text-muted-foreground">{label}</div>
+                </div>
+              ))}
+            </>
+          )
+        )}
+        <Button
+          size="dashboard"
+          variant="secondary"
+          className="ml-auto self-center"
+          onClick={load}
+          disabled={loading}
+        >
+          {t('Refresh')}
+        </Button>
+      </div>
 
       <p className="mt-2 text-sm text-muted-foreground">
         {data && <span>{t('As of {{time}}', { time: formatLocaleDateTime(data.as_of) })} · </span>}

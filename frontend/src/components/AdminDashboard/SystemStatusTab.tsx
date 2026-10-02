@@ -195,7 +195,6 @@ const SystemStatusTab: React.FC = () => {
     return loading ? (
       <div className="text-center my-5">
         <Spinner />
-        <div>{t('Loading')}...</div>
       </div>
     ) : (
       <>{error && <ErrorAlert message={error} onClose={() => setError(null)} />}</>

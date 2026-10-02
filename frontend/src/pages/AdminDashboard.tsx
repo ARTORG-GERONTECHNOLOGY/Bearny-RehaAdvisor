@@ -1107,7 +1107,7 @@ const AdminDashboard: React.FC = observer(() => {
               {t('Click the Analytics tab to load data.')}
             </p>
           )}
-          <ActiveUsersCard />
+          {!analyticsLoading && <ActiveUsersCard />}
         </TabsContent>
 
         {/* ── Tab 7: system status ── */}
