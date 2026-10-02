@@ -73,6 +73,7 @@ services:
       - DJANGO_SETTINGS_MODULE=api.settings.prod
       - PYTHONUNBUFFERED=1
       - LOG_DIR=/app/logs
+      - APP_VERSION=${IMAGE_TAG:-latest}
     volumes:
       - static-prod:/srv/app/static
       - media-prod:/srv/app/media

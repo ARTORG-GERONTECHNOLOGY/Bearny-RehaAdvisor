@@ -278,6 +278,13 @@ if _sentry_dsn:
         profile_lifecycle="trace",
     )
 
+# Admin system status page
+APP_VERSION = os.environ.get("APP_VERSION", "")
+SENTRY_DASHBOARD_URL = os.environ.get(
+    "SENTRY_DASHBOARD_URL", "https://artorg-ger.sentry.io/dashboards/" if _sentry_dsn else ""
+)
+LIBRETRANSLATE_URL = os.environ.get("LIBRETRANSLATE_URL", "http://libretranslate:5000")
+
 # E2E CI: allow the Playwright preview server to reach the Django dev server
 # without a CORS block. Expands the allowed-origin list rather than opening
 # to all origins, so this is safe to set in the E2E environment.
