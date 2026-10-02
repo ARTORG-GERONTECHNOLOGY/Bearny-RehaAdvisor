@@ -378,6 +378,20 @@ def _aggregate_sleep(points: list) -> dict | None:
     if not total_duration_ms or earliest_start is None:
         return None
 
+    # Reject sessions whose total span exceeds 14 hours — these are multi-day merged
+    # sessions caused by the device never ending a sleep tracking session between two
+    # nights. Storing them inflates the daily average and skews REDCap exports.
+    _MAX_SLEEP_MS = 14 * 60 * 60 * 1000  # 14 h in ms
+    if total_duration_ms > _MAX_SLEEP_MS:
+        logger.warning(
+            "_aggregate_sleep: rejecting session spanning %.1fh (start=%s end=%s) — "
+            "exceeds 14h cap; likely a multi-day merged session",
+            total_duration_ms / 3_600_000,
+            earliest_start.isoformat(),
+            latest_end.isoformat(),
+        )
+        return None
+
     return {
         "sleep_duration": total_duration_ms,
         "minutes_asleep": total_minutes_asleep,

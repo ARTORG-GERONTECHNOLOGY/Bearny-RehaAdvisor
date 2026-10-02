@@ -982,6 +982,43 @@ def test_summary_today_uses_local_not_utc_calendar_day(mock_fetch, mock_now):
     assert body["today"]["steps"] == 4242
 
 
+def test_aggregate_sleep_rejects_multiday_session():
+    """Sessions spanning more than 14 hours are rejected to prevent multi-day
+    merged sessions (caused by device never ending sleep tracking) from inflating
+    the daily sleep average."""
+    from core.views.google_health_sync import _aggregate_sleep
+
+    # 15-hour session — over the 14h cap
+    point = {
+        "sleep": {
+            "interval": {
+                "startTime": "2026-09-08T02:50:00Z",
+                "endTime": "2026-09-09T17:50:00Z",  # 39h later
+            },
+            "summary": {"minutesAsleep": "900"},
+        }
+    }
+    assert _aggregate_sleep([point]) is None
+
+
+def test_aggregate_sleep_accepts_normal_session():
+    """Sessions at or under 14 hours are accepted normally."""
+    from core.views.google_health_sync import _aggregate_sleep
+
+    point = {
+        "sleep": {
+            "interval": {
+                "startTime": "2026-09-09T23:00:00Z",
+                "endTime": "2026-09-10T07:00:00Z",  # 8h
+            },
+            "summary": {"minutesAsleep": "450"},
+        }
+    }
+    result = _aggregate_sleep([point])
+    assert result is not None
+    assert result["minutes_asleep"] == 450
+
+
 @patch("core.views.google_health_view.queue_google_health_today_sync")
 def test_summary_period_daily_includes_vitals_only_day(mock_fetch):
     """A day with only manually-logged BP/weight (no GoogleHealthData row at
