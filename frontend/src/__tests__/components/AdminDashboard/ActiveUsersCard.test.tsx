@@ -51,6 +51,12 @@ describe('ActiveUsersCard', () => {
     ).toBeInTheDocument();
   });
 
+  it('takes the window length in the heading from the response', async () => {
+    mockActive(active({ window_minutes: 30 }));
+    render(<ActiveUsersCard />);
+    expect(await screen.findByText('Active in the last 30 min')).toBeInTheDocument();
+  });
+
   it('treats a missing role as zero', async () => {
     mockActive(active({ total: 1, by_role: { Patient: 1 } }));
     render(<ActiveUsersCard />);

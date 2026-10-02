@@ -43,7 +43,9 @@ const ActiveUsersCard: React.FC = () => {
 
   return (
     <div className="mt-6 mb-4 max-w-[480px]" data-testid="active-users">
-      <h5 className="text-base font-semibold mb-3">{t('Active in the last 15 min')}</h5>
+      <h5 className="text-base font-semibold mb-3">
+        {t('Active in the last {{minutes}} min', { minutes: data?.window_minutes ?? 15 })}
+      </h5>
 
       {(error || data) && (
         <div className="flex flex-wrap items-end gap-6 rounded-xl border bg-zinc-50 p-4">

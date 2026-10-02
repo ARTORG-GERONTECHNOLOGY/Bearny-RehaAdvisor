@@ -32,9 +32,10 @@ STALE_SYNC_WARN = 3
 REVOKED_WINDOW = timedelta(days=7)
 REVOKED_WARN = 3
 RECENT_START = timedelta(minutes=30)
+RUNNING_SLACK_FACTOR = 2  # run lengths vary (e.g. wearable syncs scale with patients), so allow twice the last one
 EXPECTED_LANGUAGES = 6  # LT_LOAD_ONLY in the prod compose file
 
-# Set when this worker first imports the view, i.e. close to the gunicorn worker start.
+# Close to gunicorn start; deploys restart beat too, so it also stands in for beat's start on never-run jobs.
 STARTED_AT = timezone.now()
 
 _RANK = {"error": 3, "warn": 2, "ok": 1}
@@ -86,7 +87,7 @@ def job_status(pt: PeriodicTask, run: TaskRun | None) -> tuple[str, str]:
 
     running = _is_running(started, success)
     # Anchor on the last success: killed runs record no outcome, so each new start would otherwise reset the clock.
-    slack = timedelta(seconds=run.last_duration_s or 0) if running else timedelta(0)
+    slack = timedelta(seconds=(run.last_duration_s or 0) * RUNNING_SLACK_FACTOR) if running else timedelta(0)
     if _is_overdue(pt, max(filter(None, [success or started, pending_since])), slack):
         return "error", "overdue"
     return ("ok", "running") if running else ("ok", "ok")
@@ -250,7 +251,7 @@ def build_system_status():
 @permission_classes([IsAdmin])
 def admin_system_status(request):
     # The Refresh button passes ?refresh=1 to bypass the cache.
-    data = None if request.query_params.get("refresh") else cache.get(CACHE_KEY)
+    data = None if request.query_params.get("refresh") == "1" else cache.get(CACHE_KEY)
     if data is None:
         data = build_system_status()
         cache.set(CACHE_KEY, data, CACHE_SECONDS)

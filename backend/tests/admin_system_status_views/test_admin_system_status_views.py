@@ -254,6 +254,24 @@ def test_job_running_within_usual_duration_is_ok():
 
 
 @pytest.mark.django_db
+def test_job_running_longer_than_last_run_is_ok():
+    # Due 80 min ago; past one last run (30 min) of slack but within two.
+    pt = _every_hour_task()
+    run = _run(last_success_at=timedelta(minutes=140), last_started_at=timedelta(minutes=75))
+    run.last_duration_s = 30 * 60
+    assert views.job_status(pt, run.save()) == ("ok", "running")
+
+
+@pytest.mark.django_db
+def test_job_running_past_twice_last_run_is_overdue():
+    # Due 110 min ago; beyond grace plus twice the last run (30 + 60 min).
+    pt = _every_hour_task()
+    run = _run(last_success_at=timedelta(minutes=170), last_started_at=timedelta(minutes=105))
+    run.last_duration_s = 30 * 60
+    assert views.job_status(pt, run.save()) == ("error", "overdue")
+
+
+@pytest.mark.django_db
 def test_job_killed_every_run_is_overdue():
     # Each killed run leaves a fresh start but no outcome; the stale success must still surface.
     pt = _every_hour_task()
@@ -533,3 +551,11 @@ def test_refresh_bypasses_and_repopulates_cache(admin_client):
         cached = admin_client.get(URL).json()
     assert build.call_count == 2
     assert cached["generated_at"] == refreshed["generated_at"]
+
+
+@pytest.mark.django_db
+def test_refresh_other_than_1_uses_cache(admin_client):
+    with patch.object(views, "build_system_status", wraps=views.build_system_status) as build:
+        admin_client.get(URL)
+        admin_client.get(URL, {"refresh": "0"})
+    assert build.call_count == 1

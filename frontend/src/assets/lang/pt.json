@@ -1750,7 +1750,7 @@
   "Therapists": "Terapeutas",
   "Admins": "Administradores",
   "Total": "Total",
-  "Active in the last 15 min": "Ativos nos últimos 15 min",
+  "Active in the last {{minutes}} min": "Ativos nos últimos {{minutes}} min",
   "As of {{time}}": "Em {{time}}",
   "Failed to load active users.": "Não foi possível carregar os utilizadores ativos.",
   "Counts only users who did something that is logged, such as opening a patient or completing an exercise.": "Conta apenas utilizadores que realizaram uma ação registada, como abrir um paciente ou concluir um exercício.",

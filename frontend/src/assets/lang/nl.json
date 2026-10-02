@@ -1750,7 +1750,7 @@
   "Therapists": "Therapeuten",
   "Admins": "Beheerders",
   "Total": "Totaal",
-  "Active in the last 15 min": "Actief in de laatste 15 min",
+  "Active in the last {{minutes}} min": "Actief in de laatste {{minutes}} min",
   "As of {{time}}": "Per {{time}}",
   "Failed to load active users.": "Actieve gebruikers konden niet worden geladen.",
   "Counts only users who did something that is logged, such as opening a patient or completing an exercise.": "Telt alleen gebruikers met een gelogde actie, zoals een patiënt openen of een oefening afronden.",

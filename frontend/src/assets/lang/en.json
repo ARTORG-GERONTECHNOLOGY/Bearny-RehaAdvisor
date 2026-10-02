@@ -1750,7 +1750,7 @@
   "Therapists": "Therapists",
   "Admins": "Admins",
   "Total": "Total",
-  "Active in the last 15 min": "Active in the last 15 min",
+  "Active in the last {{minutes}} min": "Active in the last {{minutes}} min",
   "As of {{time}}": "As of {{time}}",
   "Failed to load active users.": "Failed to load active users.",
   "Counts only users who did something that is logged, such as opening a patient or completing an exercise.": "Counts only users who did something that is logged, such as opening a patient or completing an exercise.",
