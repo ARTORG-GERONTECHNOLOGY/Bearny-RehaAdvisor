@@ -6,7 +6,7 @@ Coverage
 --------
   * Admin-only: 403 for non-admin users.
   * Response shape and overall status (worst section wins).
-  * Job status: on time, running, overdue, never run, disabled, failed, recovered.
+  * Job status: on time, running, overdue, never run, first run hung, disabled, failed, recovered.
   * Overdue check reads crontabs in their own timezone, as beat does.
   * Queue: Redis down is an error section; a long queue warns.
   * Wearable sync: stale and recently revoked token counts and thresholds.
@@ -226,10 +226,24 @@ def test_job_never_run_is_unknown():
 
 
 @pytest.mark.django_db
-def test_job_disabled():
+def test_job_first_run_in_progress_is_running():
+    pt = _hourly_task()
+    run = _run(last_started_at=timedelta(minutes=5))
+    assert views.job_status(pt, run) == ("ok", "running")
+
+
+@pytest.mark.django_db
+def test_job_first_run_hung_is_overdue():
+    pt = _hourly_task()
+    run = _run(last_started_at=timedelta(hours=3))
+    assert views.job_status(pt, run) == ("error", "overdue")
+
+
+@pytest.mark.django_db
+def test_job_disabled_is_info():
     pt = _hourly_task(enabled=False)
     run = _run(last_success_at=timedelta(minutes=10))
-    assert views.job_status(pt, run) == ("error", "disabled")
+    assert views.job_status(pt, run) == ("info", "disabled")
 
 
 @pytest.mark.django_db

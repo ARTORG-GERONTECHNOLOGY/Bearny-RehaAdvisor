@@ -45,6 +45,10 @@ def admin_active_users(request):
     now = timezone.now()
     pipeline = [
         {"$match": {"timestamp": {"$gte": now - ACTIVE_WINDOW}}},
+        # Skip entries written on someone else's behalf (e.g. an admin editing a therapist), whose userId didn't act.
+        {"$lookup": {"from": "users", "localField": "userId", "foreignField": "_id", "as": "user"}},
+        {"$unwind": "$user"},
+        {"$match": {"$expr": {"$eq": ["$userAgent", "$user.role"]}}},
         {"$sort": {"timestamp": -1}},
         {"$group": {"_id": "$userId", "role": {"$first": "$userAgent"}, "last_action": {"$first": "$action"}}},
         # Someone whose latest action was logging out has left.

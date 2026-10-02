@@ -66,16 +66,16 @@ def _schedule_label(pt: PeriodicTask) -> str:
 def job_status(pt: PeriodicTask, run: TaskRun | None) -> tuple[str, str]:
     """Return (status, reason); reason is a stable code the frontend translates."""
     if not pt.enabled:
-        return "error", "disabled"
+        return "info", "disabled"
     started = _aware(run.last_started_at) if run else None
     success = _aware(run.last_success_at) if run else None
     failure = _aware(run.last_failure_at) if run else None
-    if success is None and failure is None:
-        return ("ok", "running") if started else ("unknown", "no_data")
     if failure and (success is None or failure > success):
         return "error", "failed"
+    if success is None and started is None:
+        return "unknown", "no_data"
 
-    running = started is not None and started > success
+    running = started is not None and (success is None or started > success)
     if _is_overdue(pt, started if running else success):
         return "error", "overdue"
     return ("ok", "running") if running else ("ok", "ok")

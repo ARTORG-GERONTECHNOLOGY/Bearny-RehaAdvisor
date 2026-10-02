@@ -13,6 +13,7 @@ Active users
   * Counts distinct users per role with a log entry in the last 15 minutes.
   * Ignores entries older than the window.
   * Excludes users whose latest action in the window was a logout.
+  * Ignores entries logged on someone else's behalf (actor role differs from the user's role).
   * Always returns all three roles, with zeros.
   * Admin-only: 403 for non-admin users.
 """
@@ -135,6 +136,15 @@ def test_active_users_excludes_users_who_logged_out(admin_client):
 
     data = admin_client.get(ACTIVE_URL).json()
     assert data["by_role"]["Patient"] == 1
+
+
+def test_active_users_ignores_entries_logged_on_behalf_of_others(admin_client):
+    # e.g. an admin editing a therapist's access logs the therapist with actor_role "Admin".
+    _log(_user("t1", role="Therapist"), action="UPDATE_PROFILE", role="Admin")
+    _log(_user("p1"), action="UPDATE_PROFILE", role="Therapist")
+
+    data = admin_client.get(ACTIVE_URL).json()
+    assert data["total"] == 0
 
 
 def test_active_users_returns_counts_only(admin_client):
