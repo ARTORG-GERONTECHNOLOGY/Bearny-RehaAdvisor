@@ -230,11 +230,12 @@ describe('Navigation - clicking links navigates', () => {
 // ── Desktop bar must not block clicks on the page underneath ─────────────────
 
 describe('Navigation - desktop bar lets clicks through', () => {
-  // jsdom has no hit testing, so check the classes that decide it: the full-width bar is
-  // pointer-events-none, and every button in it sits inside (or is) a pointer-events-auto element.
+  // jsdom has no hit testing, so check the classes that decide it: the nearest ancestor setting
+  // pointer-events wins, and only the buttons and the links pill may be auto.
   const takesClicks = (el: Element, stopAt: Element) => {
     for (let node: Element | null = el; node && node !== stopAt; node = node.parentElement) {
       if (node.classList.contains('pointer-events-auto')) return true;
+      if (node.classList.contains('pointer-events-none')) return false;
     }
     return false;
   };
@@ -250,6 +251,14 @@ describe('Navigation - desktop bar lets clicks through', () => {
       const buttons = Array.from(desktopNav.querySelectorAll('button'));
       expect(buttons.length).toBeGreaterThan(1);
       buttons.forEach((button) => expect(takesClicks(button, desktopNav)).toBe(true));
+      const pills = buttons
+        .filter((b) => !['Home', 'Profile'].includes(b.getAttribute('aria-label') ?? ''))
+        .map((b) => b.parentElement);
+      desktopNav
+        .querySelectorAll('.pointer-events-auto')
+        .forEach((el) =>
+          expect(buttons.includes(el as HTMLButtonElement) || pills.includes(el)).toBe(true)
+        );
     }
   );
 });
