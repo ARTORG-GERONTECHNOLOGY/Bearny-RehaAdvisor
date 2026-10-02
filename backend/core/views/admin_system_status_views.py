@@ -246,7 +246,8 @@ def build_system_status():
 @api_view(["GET"])
 @permission_classes([IsAdmin])
 def admin_system_status(request):
-    data = cache.get(CACHE_KEY)
+    # The Refresh button passes ?refresh=1 to bypass the cache.
+    data = None if request.query_params.get("refresh") else cache.get(CACHE_KEY)
     if data is None:
         data = build_system_status()
         cache.set(CACHE_KEY, data, CACHE_SECONDS)

@@ -204,7 +204,7 @@ describe('SystemStatusTab', () => {
     expect(within(cards[0]).getByText(/ConnectionError: Connection refused/)).toBeInTheDocument();
   });
 
-  it('refetches when Refresh is clicked', async () => {
+  it('refetches past the server cache when Refresh is clicked', async () => {
     mockStatus(status());
     render(<SystemStatusTab />);
     expect(await screen.findByText('All systems normal')).toBeInTheDocument();
@@ -214,6 +214,9 @@ describe('SystemStatusTab', () => {
 
     expect(await screen.findByText('Needs attention')).toBeInTheDocument();
     expect(apiClient.get).toHaveBeenCalledTimes(2);
+    expect(apiClient.get).toHaveBeenLastCalledWith('/admin/system-status/', {
+      params: { refresh: 1 },
+    });
   });
 
   it('shows an error when loading fails', async () => {

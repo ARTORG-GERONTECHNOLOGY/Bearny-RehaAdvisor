@@ -120,18 +120,24 @@ const SystemStatusTab: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await apiClient.get<SystemStatus>('/admin/system-status/');
-      setData(res.data);
-    } catch {
-      setError(t('Failed to load system status.'));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const load = useCallback(
+    async (refresh = false) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const url = '/admin/system-status/';
+        const res = refresh
+          ? await apiClient.get<SystemStatus>(url, { params: { refresh: 1 } })
+          : await apiClient.get<SystemStatus>(url);
+        setData(res.data);
+      } catch {
+        setError(t('Failed to load system status.'));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [t]
+  );
 
   useEffect(() => {
     void load();
@@ -252,7 +258,12 @@ const SystemStatusTab: React.FC = () => {
               </a>
             </Button>
           )}
-          <Button size="dashboard" variant="secondary" onClick={load} disabled={loading}>
+          <Button
+            size="dashboard"
+            variant="secondary"
+            onClick={() => load(true)}
+            disabled={loading}
+          >
             {t('Refresh')}
           </Button>
         </div>

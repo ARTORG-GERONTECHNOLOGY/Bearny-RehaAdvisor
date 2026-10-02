@@ -14,7 +14,7 @@ Coverage
   * Wearable sync: stale and recently revoked token counts and thresholds.
   * Push: 24h send count is information only.
   * Translation: unreachable is an error; too few languages warns.
-  * Response is cached for CACHE_SECONDS.
+  * Response is cached for CACHE_SECONDS; ?refresh=1 bypasses and repopulates the cache.
 
 Redis, Celery's worker inspection and LibreTranslate are patched in every test, so nothing leaves the process.
 """
@@ -479,3 +479,13 @@ def test_response_is_cached(admin_client):
         second = admin_client.get(URL).json()
     assert build.call_count == 1
     assert first["generated_at"] == second["generated_at"]
+
+
+@pytest.mark.django_db
+def test_refresh_bypasses_and_repopulates_cache(admin_client):
+    with patch.object(views, "build_system_status", wraps=views.build_system_status) as build:
+        admin_client.get(URL)
+        refreshed = admin_client.get(URL, {"refresh": "1"}).json()
+        cached = admin_client.get(URL).json()
+    assert build.call_count == 2
+    assert cached["generated_at"] == refreshed["generated_at"]
