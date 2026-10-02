@@ -205,7 +205,7 @@ const SystemStatusTab: React.FC = () => {
       {error && <ErrorAlert message={error} onClose={() => setError(null)} />}
 
       <div
-        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-zinc-50 p-4"
         data-testid="overall-status"
       >
         <div className="flex items-center gap-3">
@@ -273,9 +273,7 @@ const SystemStatusTab: React.FC = () => {
                 <TableRow key={job.name} data-testid="job-row">
                   <TableCell>{job.name}</TableCell>
                   <TableCell>
-                    <span
-                      title={job.timezone ? `${job.schedule} (${job.timezone})` : job.schedule}
-                    >
+                    <span title={job.timezone ? `${job.schedule} (${job.timezone})` : job.schedule}>
                       {describeSchedule(job.schedule, job.timezone, t, i18n.language)}
                     </span>
                   </TableCell>
