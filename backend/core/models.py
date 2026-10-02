@@ -911,3 +911,17 @@ class HealthSliderEntry(Document):
             ("answered_at",),
         ]
     }
+
+
+class TaskRun(Document):
+    """Last outcome of one scheduled job, keyed by its PeriodicTask name; written by core.signals."""
+
+    meta = {"collection": "TaskRuns"}
+
+    name = StringField(required=True, unique=True)
+    task = StringField()
+    last_started_at = DateTimeField()
+    last_success_at = DateTimeField()
+    last_failure_at = DateTimeField()
+    last_duration_s = FloatField()
+    last_error = StringField()
