@@ -6,7 +6,7 @@ Coverage
 --------
   * Admin-only: 403 for non-admin users.
   * Response shape and overall status (worst section wins).
-  * Job status: on time, running, overdue, never run, never run while beat is stale, first run hung,
+  * Job status: on time, running, long run within its usual duration, killed every run, overdue, never run, never run while beat is stale, first run hung,
     disabled, failed, recovered.
   * Overdue check reads crontabs in their own timezone, as beat does.
   * Queue: Redis down is an error section; a long queue warns.
@@ -30,7 +30,7 @@ import redis
 import requests
 from django.core.cache import cache
 from django.utils import timezone
-from django_celery_beat.models import CrontabSchedule, PeriodicTask
+from django_celery_beat.models import CrontabSchedule, IntervalSchedule, PeriodicTask
 from mongoengine import connect, disconnect
 from rest_framework.test import APIClient
 
@@ -213,11 +213,33 @@ def test_daily_job_in_local_timezone_missed_run_is_overdue():
     assert views.job_status(pt, run.save()) == ("error", "overdue")
 
 
+def _every_hour_task(name="Hourly job"):
+    # Interval schedules make "next due" independent of the wall-clock minute.
+    every = IntervalSchedule.objects.create(every=1, period=IntervalSchedule.HOURS)
+    return PeriodicTask.objects.create(name=name, task="core.tasks.some_job", interval=every)
+
+
 @pytest.mark.django_db
 def test_job_running_is_ok():
-    pt = _hourly_task()
+    pt = _every_hour_task()
     run = _run(last_success_at=timedelta(minutes=70), last_started_at=timedelta(minutes=5))
     assert views.job_status(pt, run) == ("ok", "running")
+
+
+@pytest.mark.django_db
+def test_job_running_within_usual_duration_is_ok():
+    pt = _every_hour_task()
+    run = _run(last_success_at=timedelta(minutes=110), last_started_at=timedelta(minutes=45))
+    run.last_duration_s = 50 * 60
+    assert views.job_status(pt, run.save()) == ("ok", "running")
+
+
+@pytest.mark.django_db
+def test_job_killed_every_run_is_overdue():
+    # Each killed run leaves a fresh start but no outcome; the stale success must still surface.
+    pt = _every_hour_task()
+    run = _run(last_success_at=timedelta(hours=5), last_started_at=timedelta(minutes=5))
+    assert views.job_status(pt, run) == ("error", "overdue")
 
 
 @pytest.mark.django_db

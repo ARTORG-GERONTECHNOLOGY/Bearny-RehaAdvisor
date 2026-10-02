@@ -67,9 +67,10 @@ def job_status(pt: PeriodicTask, run: TaskRun | None) -> tuple[str, str]:
     """Return (status, reason); reason is a stable code the frontend translates."""
     if not pt.enabled:
         return "info", "disabled"
-    started = _aware(run.last_started_at) if run else None
-    success = _aware(run.last_success_at) if run else None
-    failure = _aware(run.last_failure_at) if run else None
+    run = run or TaskRun()
+    started = _aware(run.last_started_at)
+    success = _aware(run.last_success_at)
+    failure = _aware(run.last_failure_at)
     if failure and (success is None or failure > success):
         return "error", "failed"
     if success is None and started is None:
@@ -78,13 +79,19 @@ def job_status(pt: PeriodicTask, run: TaskRun | None) -> tuple[str, str]:
             return "error", "overdue"
         return "unknown", "no_data"
 
-    running = started is not None and (success is None or started > success)
-    if _is_overdue(pt, started if running else success):
+    running = _is_running(started, success)
+    # Anchor on the last success: killed runs record no outcome, so each new start would otherwise reset the clock.
+    slack = timedelta(seconds=run.last_duration_s or 0) if running else timedelta(0)
+    if _is_overdue(pt, success or started, slack):
         return "error", "overdue"
     return ("ok", "running") if running else ("ok", "ok")
 
 
-def _is_overdue(pt: PeriodicTask, reference) -> bool:
+def _is_running(started, success) -> bool:
+    return started is not None and (success is None or started > success)
+
+
+def _is_overdue(pt: PeriodicTask, reference, slack=timedelta(0)) -> bool:
     if not (pt.crontab_id or pt.interval_id) or pt.one_off:
         return False
     schedule = pt.schedule
@@ -93,7 +100,7 @@ def _is_overdue(pt: PeriodicTask, reference) -> bool:
         # Crontab fields are read in the datetime's own zone; beat converts the same way in is_due.
         reference = reference.astimezone(tz)
     # remaining_estimate is the time from now until the next run due after `reference`; negative means missed.
-    return schedule.remaining_estimate(reference) < -OVERDUE_GRACE
+    return schedule.remaining_estimate(reference) < -(OVERDUE_GRACE + slack)
 
 
 def _jobs_section():
