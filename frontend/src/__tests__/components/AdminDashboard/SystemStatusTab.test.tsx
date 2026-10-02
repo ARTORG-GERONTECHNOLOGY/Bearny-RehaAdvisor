@@ -36,7 +36,11 @@ const status = (overrides: Partial<SystemStatus> = {}): SystemStatus => ({
     sentry_url: 'https://sentry.example/issues',
   },
   jobs: { status: 'ok', items: [job({ name: 'Hourly push' })] },
-  queue: { status: 'ok', length: 3 },
+  queue: {
+    status: 'ok',
+    length: 3,
+    workers: { online: 1, busy: 0, concurrency: 4, longest_task: null },
+  },
   wearables: {
     status: 'ok',
     providers: {
@@ -153,6 +157,41 @@ describe('SystemStatusTab', () => {
     expect(within(cards[1]).getByText('12')).toBeInTheDocument();
     expect(within(cards[2]).getByText('87')).toBeInTheDocument();
     expect(within(cards[3]).getByText('de, en, fr, it, nl, pt')).toBeInTheDocument();
+  });
+
+  it('shows worker counts and the longest running task in the queue card', async () => {
+    mockStatus(
+      status({
+        queue: {
+          status: 'warn',
+          length: 0,
+          workers: {
+            online: 2,
+            busy: 3,
+            concurrency: 6,
+            longest_task: { name: 'core.tasks.fetch_fitbit_data', running_s: 75 * 60 },
+          },
+        },
+      })
+    );
+    render(<SystemStatusTab />);
+
+    const queueCard = (await screen.findAllByTestId('status-card'))[0];
+    const valueFor = (label: string) =>
+      within(queueCard).getByText(label).nextElementSibling?.textContent;
+    expect(valueFor('Workers online')).toBe('2');
+    expect(valueFor('Busy')).toBe('3 of 6');
+    expect(valueFor('Longest running task')).toBe('1h 15m');
+    expect(within(queueCard).getByText('core.tasks.fetch_fitbit_data')).toBeInTheDocument();
+  });
+
+  it('leaves out the longest task row when no task is running', async () => {
+    mockStatus(status());
+    render(<SystemStatusTab />);
+
+    const queueCard = (await screen.findAllByTestId('status-card'))[0];
+    expect(within(queueCard).getByText('Workers online')).toBeInTheDocument();
+    expect(within(queueCard).queryByText('Longest running task')).not.toBeInTheDocument();
   });
 
   it('shows a section error instead of its values', async () => {

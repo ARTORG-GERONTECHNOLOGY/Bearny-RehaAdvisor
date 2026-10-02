@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import ErrorAlert from '@/components/common/ErrorAlert';
-import { formatLocaleDateTime } from '@/utils/dateFormat';
+import { formatDurationMinutes, formatLocaleDateTime } from '@/utils/dateFormat';
 
 export type Status = 'ok' | 'warn' | 'error' | 'unknown' | 'info';
 
@@ -33,6 +33,13 @@ export type JobItem = {
   last_error: string | null;
 };
 
+type Workers = {
+  online: number;
+  busy: number;
+  concurrency: number;
+  longest_task: { name: string; running_s: number } | null;
+};
+
 type ProviderCounts = { connected: number; stale_sync: number; revoked_recent: number };
 
 export type SystemStatus = {
@@ -40,7 +47,7 @@ export type SystemStatus = {
   overall: Status;
   app: Section & { version?: string | null; started_at?: string; sentry_url?: string | null };
   jobs: Section & { items?: JobItem[] };
-  queue: Section & { length?: number };
+  queue: Section & { length?: number; workers?: Workers };
   wearables: Section & { providers?: Record<'fitbit' | 'google_health', ProviderCounts> };
   push: Section & { sent_24h?: number };
   translation: Section & { languages?: string[] };
@@ -299,7 +306,36 @@ const SystemStatusTab: React.FC = () => {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {card(t('Task queue'), queue, row(t('Waiting tasks'), queue.length ?? '—'))}
+        {card(
+          t('Task queue'),
+          queue,
+          <div className="flex flex-col gap-1">
+            {row(t('Waiting tasks'), queue.length ?? '—')}
+            {queue.workers && (
+              <>
+                {row(t('Workers online'), queue.workers.online)}
+                {row(
+                  t('Busy'),
+                  t('{{busy}} of {{total}}', {
+                    busy: queue.workers.busy,
+                    total: queue.workers.concurrency,
+                  })
+                )}
+                {queue.workers.longest_task && (
+                  <>
+                    {row(
+                      t('Longest running task'),
+                      formatDurationMinutes(queue.workers.longest_task.running_s / 60)
+                    )}
+                    <div className="text-xs text-muted-foreground break-all">
+                      {queue.workers.longest_task.name}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
         {card(
           t('Wearable sync'),
           wearables,
