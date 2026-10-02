@@ -226,3 +226,39 @@ describe('Navigation - clicking links navigates', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/patient-profile');
   });
 });
+
+// ── Desktop bar must not block clicks on the page underneath ─────────────────
+
+describe('Navigation - desktop bar lets clicks through', () => {
+  // jsdom has no hit testing, so check the classes that decide it: the nearest ancestor setting
+  // pointer-events wins, and only the buttons and the links pill may be auto.
+  const takesClicks = (el: Element, stopAt: Element) => {
+    for (let node: Element | null = el; node && node !== stopAt; node = node.parentElement) {
+      if (node.classList.contains('pointer-events-auto')) return true;
+      if (node.classList.contains('pointer-events-none')) return false;
+    }
+    return false;
+  };
+
+  it.each(['Patient', 'Therapist', 'Admin'])(
+    'only the visible controls take clicks (%s)',
+    (userType) => {
+      mockAuthStore.userType = userType;
+      renderNav(userType === 'Patient' ? '/patient' : `/${userType.toLowerCase()}`);
+      const desktopNav = screen.getByLabelText('Home', { selector: 'button' }).closest('nav')!;
+
+      expect(desktopNav).toHaveClass('pointer-events-none');
+      const buttons = Array.from(desktopNav.querySelectorAll('button'));
+      expect(buttons.length).toBeGreaterThan(1);
+      buttons.forEach((button) => expect(takesClicks(button, desktopNav)).toBe(true));
+      const pills = buttons
+        .filter((b) => !['Home', 'Profile'].includes(b.getAttribute('aria-label') ?? ''))
+        .map((b) => b.parentElement);
+      desktopNav
+        .querySelectorAll('.pointer-events-auto')
+        .forEach((el) =>
+          expect(buttons.includes(el as HTMLButtonElement) || pills.includes(el)).toBe(true)
+        );
+    }
+  );
+});
