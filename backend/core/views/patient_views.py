@@ -2113,12 +2113,13 @@ def add_intervention_to_patient(request):
     if not msg:
         return JsonResponse(
             {
-                "success": True,
-                "message": "No new sessions to add for the selected intervention(s).",
+                "success": False,
+                "message": "No sessions could be scheduled for the selected date range. "
+                "Check that the start date and repeat settings fall within the plan period.",
                 "field_errors": field_errors,
                 "non_field_errors": non_field_errors,
             },
-            status=200,
+            status=400,
         )
 
     return JsonResponse(
@@ -2617,6 +2618,18 @@ def modify_intervention_from_date(request):
                 "success": False,
                 "message": "Failed to generate new schedule.",
                 "field_errors": {"schedule": ["Schedule generation failed."]},
+                "non_field_errors": [],
+            },
+            status=400,
+        )
+
+    if not new_utc:
+        return JsonResponse(
+            {
+                "success": False,
+                "message": "No sessions could be scheduled for the selected date range. "
+                "Check that the start date and repeat settings fall within the plan period.",
+                "field_errors": {"schedule": ["No sessions could be generated for this date range."]},
                 "non_field_errors": [],
             },
             status=400,
