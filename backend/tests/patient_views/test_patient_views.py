@@ -2538,6 +2538,45 @@ def test_add_intervention_to_patient_missing_required_fields(mongo_mock):
     assert len(errors) >= 1
 
 
+def test_add_intervention_to_patient_returns_400_when_no_dates_generated(mongo_mock):
+    """
+    When the submitted schedule generates no dates (startDate beyond the
+    auto-extended plan window), the endpoint must return 400 with success=False
+    instead of silently returning 200 with 'No new sessions to add'.
+    """
+    patient, therapist, intervention, _ = setup_patient_with_plan()
+    # startDate 200 days from now — beyond the 90-day auto-extension of plan_end,
+    # so _generate_dates_from returns [] and no sessions can be added.
+    far_future = (datetime.now() + timedelta(days=200)).isoformat() + "Z"
+    resp = client.post(
+        "/api/interventions/add-to-patient/",
+        data=json.dumps(
+            {
+                "therapistId": str(therapist.userId.id),
+                "patientId": str(patient.id),
+                "interventions": [
+                    {
+                        "interval": 1,
+                        "interventionId": str(intervention.id),
+                        "unit": "day",
+                        "startDate": far_future,
+                        "selectedDays": [],
+                        "end": {"type": "never", "date": None, "count": None},
+                        "require_video_feedback": False,
+                        "notes": "",
+                    }
+                ],
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    body = resp.json()
+    assert body.get("success") is False
+    assert "message" in body
+
+
 # ===========================================================================
 # Additional coverage — get_patient_plan
 # ===========================================================================

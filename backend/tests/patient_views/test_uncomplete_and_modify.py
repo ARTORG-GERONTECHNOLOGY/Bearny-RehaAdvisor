@@ -682,6 +682,43 @@ def test_modify_intervention_from_date_invalid_effective_from(mongo_mock):
     assert "effectiveFrom" in resp.json().get("field_errors", {})
 
 
+def test_modify_intervention_from_date_empty_schedule_returns_400(mongo_mock):
+    """
+    When effectiveFrom is after the plan endDate, _generate_dates_from returns
+    an empty list.  The endpoint must return 400 with a user-visible message
+    instead of silently wiping future sessions and returning 200.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    # Set effectiveFrom well past the plan's endDate so no dates can be generated.
+    far_future = (plan.endDate + timedelta(days=365)).isoformat()
+    resp = client.post(
+        MODIFY_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "effectiveFrom": far_future,
+                "schedule": {
+                    "unit": "day",
+                    "interval": 1,
+                    "startDate": far_future,
+                    "selectedDays": [],
+                    "end": {"type": "never", "date": None, "count": None},
+                },
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    body = resp.json()
+    assert body.get("success") is False
+    assert "message" in body
+    # Future sessions must not have been wiped
+    plan.reload()
+    assert plan.interventions[0].dates, "Future sessions were unexpectedly cleared"
+
+
 def test_modify_intervention_from_date_get_method_not_allowed(mongo_mock):
     """
     GET to the modify endpoint returns 405.  Only POST is accepted.
