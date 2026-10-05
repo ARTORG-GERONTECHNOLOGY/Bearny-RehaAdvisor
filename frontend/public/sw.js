@@ -25,7 +25,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || '',
     icon: '/icons/pwa-192x192.png',
-    badge: '/icons/pwa-96x96.png',
+    badge: '/icons/badge-96x96.png',
     tag: data.tag || 'bearny-notification',
     vibrate: [200, 100, 200],
     requireInteraction: false,
