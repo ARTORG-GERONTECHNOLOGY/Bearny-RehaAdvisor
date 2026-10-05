@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import zlib from 'zlib';
 
 const requiredIconSizes = [
   '48x48',
@@ -38,6 +39,23 @@ describe('PWA Configuration', () => {
     it('should have mask-icon.svg', () => {
       const maskIconPath = path.join(publicIconsPath, 'mask-icon.svg');
       expect(fs.existsSync(maskIconPath)).toBe(true);
+    });
+
+    it('should have a transparent notification badge referenced by sw.js', () => {
+      const png = fs.readFileSync(path.join(publicIconsPath, 'badge-96x96.png'));
+      // IHDR color type 6 = RGBA
+      expect(png[25]).toBe(6);
+      const idat: Buffer[] = [];
+      for (let i = 8; i < png.length; ) {
+        const len = png.readUInt32BE(i);
+        if (png.toString('ascii', i + 4, i + 8) === 'IDAT')
+          idat.push(png.subarray(i + 8, i + 8 + len));
+        i += len + 12;
+      }
+      // Top-left pixel's alpha is unaffected by any PNG filter; byte 0 is the filter type.
+      expect(zlib.inflateSync(Buffer.concat(idat))[4]).toBe(0);
+      const sw = fs.readFileSync(path.resolve(__dirname, '../../public/sw.js'), 'utf-8');
+      expect(sw).toContain("badge: '/icons/badge-96x96.png'");
     });
   });
 
