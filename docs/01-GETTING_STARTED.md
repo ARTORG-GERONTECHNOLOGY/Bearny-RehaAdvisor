@@ -121,7 +121,7 @@ make dev_logs
 # Or check specific service
 docker compose -f docker-compose.dev.yml logs django
 docker compose -f docker-compose.dev.yml logs react
-docker compose -f docker-compose.dev.yml logs db
+docker compose -f docker-compose.dev.yml logs db-dev
 ```
 
 ## Accessing Services
@@ -154,40 +154,39 @@ docker compose -f docker-compose.dev.yml logs db
 make dev_logs
 
 # Specific service
-docker compose -f docker-compose.dev.yml logs -f django
-docker compose -f docker-compose.dev.yml logs -f react
-docker compose -f docker-compose.dev.yml logs -f db
+docker compose -f docker-compose.dev.yml logs -f django-dev
+docker compose -f docker-compose.dev.yml logs -f react-dev
+docker compose -f docker-compose.dev.yml logs -f db-dev
 ```
 
 ### Execute Commands in Containers
 
 ```bash
 # Access Django shell
-docker exec -it django python manage.py shell
+docker exec -it django-dev python manage.py shell
 
 # Run Django migrations
-docker exec -it django python manage.py migrate
+docker exec -it django-dev python manage.py migrate
 
 # Access frontend container
-docker exec -it react sh
+docker exec -it react-dev sh
 
 # Access MongoDB
-docker exec -it db mongosh
+docker exec -it db-dev mongosh
 ```
 
 ### Run Tests
 
 ```bash
-# Frontend tests
-cd frontend
-npm test
+# Frontend tests (run inside the container, or locally if Node is installed)
+docker exec -it react-dev npm test
+# or: cd frontend && npm test
 
-# Backend tests
-cd backend
-pytest
+# Backend tests (Python env is inside the container — run from there)
+docker exec django-dev python -m pytest tests/ -v
 
 # With coverage
-pytest --cov
+docker exec django-dev python -m pytest tests/ --cov -v
 ```
 
 ### Restart Services
@@ -197,8 +196,8 @@ pytest --cov
 make dev_restart
 
 # Or restart specific service
-docker compose -f docker-compose.dev.yml restart django
-docker compose -f docker-compose.dev.yml restart react
+docker compose -f docker-compose.dev.yml restart django-dev
+docker compose -f docker-compose.dev.yml restart react-dev
 ```
 
 ### Clean Up
@@ -248,7 +247,7 @@ make build_dev --no-cache
 **Solution**: Ensure MongoDB is running and volumes are properly mounted:
 ```bash
 # Check database logs
-docker compose -f docker-compose.dev.yml logs db
+docker compose -f docker-compose.dev.yml logs db-dev
 
 # Remove and recreate volumes
 docker compose -f docker-compose.dev.yml down --volumes

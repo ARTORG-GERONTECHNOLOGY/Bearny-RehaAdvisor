@@ -116,11 +116,12 @@ RehaAdvisor includes comprehensive test suites for both frontend and backend wit
 # Run all tests
 make dev_test
 
-# Frontend tests (Jest)
-cd frontend && npm test
+# Frontend tests (Jest) — run inside the container, or locally if Node is installed
+docker exec react-dev npm test
+# or: cd frontend && npm test
 
-# Backend tests (Pytest)
-cd backend && pytest
+# Backend tests (Pytest) — Python env is inside the container
+docker exec django-dev python -m pytest tests/ -v
 ```
 
 ### Test Documentation
@@ -145,33 +146,32 @@ Complete testing documentation is available in these guides:
 
 **Frontend**
 ```bash
-cd frontend
+# Inside the container (recommended):
+docker exec react-dev npm test -- --watchAll=false
 
 # All tests with coverage
-npm test -- --coverage --watchAll=false
+docker exec react-dev npm test -- --coverage --watchAll=false
 
-# Watch mode (during development)
-npm test
-
-# Specific test file
-npm test -- LoginForm.test.tsx
+# Or locally if Node.js is installed on the host:
+cd frontend && npm test -- --watchAll=false
 ```
 
 **Backend**
-```bash
-cd backend
 
+The Python environment lives inside the `django-dev` container (Miniconda). Always run backend tests through Docker:
+
+```bash
 # All tests
-pytest
+docker exec django-dev python -m pytest tests/ -v
 
 # With coverage report
-pytest --cov=. --cov-report=html
+docker exec django-dev python -m pytest tests/ --cov=. --cov-report=html -v
 
 # Specific test file
-pytest tests/models/test_patient.py
+docker exec django-dev python -m pytest tests/patient_views/test_patient_views.py -v
 
 # Verbose output
-pytest -vv
+docker exec django-dev python -m pytest tests/ -vv
 ```
 
 ### CI/CD Pipeline
