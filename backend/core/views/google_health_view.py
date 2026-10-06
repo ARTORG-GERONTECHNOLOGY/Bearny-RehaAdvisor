@@ -17,6 +17,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import (
+    FitbitData,
     GoogleHealthData,
     GoogleHealthUserToken,
     Patient,
@@ -226,6 +227,14 @@ def google_health_callback(request):
         return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=error")
 
 
+def _first_data_date(user) -> str | None:
+    """Return the earliest date (YYYY-MM-DD) across both FitbitData and GoogleHealthData."""
+    gh = GoogleHealthData.objects(user=user).order_by("date").first()
+    fb = FitbitData.objects(user=user).order_by("date").first()
+    dates = [r.date.date() if hasattr(r.date, "date") else r.date for r in [gh, fb] if r]
+    return str(min(dates)) if dates else None
+
+
 @csrf_exempt
 @permission_classes([IsAuthenticated])
 def google_health_status(request, patient_id):
@@ -274,6 +283,7 @@ def google_health_status(request, patient_id):
             "days_until_expiry": days_until_expiry,
             "wearable_device": getattr(patient, "wearable_device", "fitbit") or "fitbit",
             "hr_scope_ok": hr_scope_ok,
+            "first_data_date": _first_data_date(user),
         }
     )
 
