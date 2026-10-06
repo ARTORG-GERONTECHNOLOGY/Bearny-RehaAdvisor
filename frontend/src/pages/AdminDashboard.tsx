@@ -1078,7 +1078,7 @@ const AdminDashboard: React.FC = observer(() => {
               </div>
               {Object.keys(deviceAnalytics.by_role).length > 0 && (
                 <div className="max-w-[480px]">
-                  <h6 className="text-sm font-semibold mb-2">{t('By user role')}</h6>
+                  <h6 className="text-base font-semibold mb-3">{t('By user role')}</h6>
                   <Table>
                     <TableHeader>
                       <TableRow>
