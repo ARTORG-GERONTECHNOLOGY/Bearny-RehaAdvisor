@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Alert } from '@/components/ui/alert';
 import DatePicker from 'react-datepicker';
@@ -73,6 +73,13 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
     store.reset(show, mode, defaults);
   }, [show, mode, defaults]);
 
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (store.error) {
+      errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [store.error]);
+
   // Close on success; run refresh in the background so a slow translation call can't block it.
   useEffect(() => {
     if (!show) return;
@@ -94,14 +101,16 @@ const InterventionRepeatModal: React.FC<Props> = observer((props) => {
         </DialogHeader>
 
         {store.error && (
-          <Alert
-            variant="destructive"
-            onClose={() => (store.error = '')}
-            closeLabel={t('Close alert')}
-            style={{ whiteSpace: 'pre-wrap' }}
-          >
-            {store.error}
-          </Alert>
+          <div ref={errorRef}>
+            <Alert
+              variant="destructive"
+              onClose={() => (store.error = '')}
+              closeLabel={t('Close alert')}
+              style={{ whiteSpace: 'pre-wrap' }}
+            >
+              {store.error}
+            </Alert>
+          </div>
         )}
 
         {Object.keys(store.fieldErrors).length > 0 && (
