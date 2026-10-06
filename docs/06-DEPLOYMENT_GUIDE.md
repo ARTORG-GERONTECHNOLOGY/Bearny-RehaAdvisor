@@ -188,7 +188,7 @@ docker exec -it django python manage.py createsuperuser
 docker exec django python manage.py collectstatic --noinput
 
 # Test health endpoints
-curl https://yourdomain.com/api/health/
+curl https://yourdomain.com/api/
 ```
 
 ### Option 2: Kubernetes Deployment
@@ -561,7 +561,7 @@ This block must remain in the HTTP server blocks for all domains. Do not add an 
 
 ```bash
 # Health check endpoint
-curl https://yourdomain.com/api/health/
+curl https://yourdomain.com/api/
 
 # Setup monitoring with Prometheus + Grafana
 docker run -d -p 9090:9090 prom/prometheus

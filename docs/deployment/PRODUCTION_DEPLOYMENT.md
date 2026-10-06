@@ -355,7 +355,7 @@ cat > /opt/reha-advisor/scripts/health-check.sh << 'EOF'
 curl -f https://reha-advisor.ch/health || echo "Health check failed"
 
 # Check API
-curl -f https://reha-advisor.ch/api/health/ || echo "API health check failed"
+curl -f https://reha-advisor.ch/api/ || echo "API health check failed"
 
 # Check container status
 docker compose -f /opt/reha-advisor/docker-compose.prod.reha-advisor.yml ps
