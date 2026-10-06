@@ -9,18 +9,18 @@ This document describes how to configure RehaAdvisor for different environments 
 ### File Locations
 
 ```
-rehaadvisor/
-├── .env                      # Development (local) - DO NOT COMMIT
-├── .env.example              # Template
-├── .env.staging              # Staging environment
-├── .env.production           # Production environment (secure storage)
-├── backend/.env              # Backend specific (optional)
-└── frontend/.env             # Frontend specific (optional)
+telerehabapp/
+├── .env.dev                  # Development stack — loaded by docker-compose.dev.yml (DO NOT COMMIT)
+├── .env.local-prod           # Local-prod stack — loaded by docker-compose.local-prod.yml (DO NOT COMMIT)
+└── telerehabapp-prod/
+    └── .env.prod             # Production stack — loaded by docker-compose.prod.reha-advisor.yml (DO NOT COMMIT)
 ```
+
+There is no `.env.example` file in the repo. Use `docs/07-ENVIRONMENT_CONFIG.md` (this file) as the reference for required variables when creating a new env file.
 
 ### Example Environment Files
 
-#### .env.example
+#### .env.dev (development)
 
 ```bash
 # Django Settings
@@ -66,7 +66,7 @@ ENVIRONMENT=development
 LOG_LEVEL=DEBUG
 ```
 
-#### Development Environment (.env)
+#### .env.dev (minimal working example)
 
 ```bash
 DEBUG=True
@@ -93,7 +93,7 @@ ENVIRONMENT=development
 LOG_LEVEL=DEBUG
 ```
 
-#### Staging Environment (.env.staging)
+#### .env.local-prod (local-prod stack example)
 
 ```bash
 DEBUG=False
@@ -126,7 +126,7 @@ LOG_LEVEL=INFO
 SENTRY_DSN=https://your-staging-sentry-dsn
 ```
 
-#### Production Environment (.env.production)
+#### .env.prod (production stack, lives in telerehabapp-prod/)
 
 ```bash
 DEBUG=False
