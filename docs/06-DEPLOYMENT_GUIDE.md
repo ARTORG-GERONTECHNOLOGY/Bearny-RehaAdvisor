@@ -42,321 +42,59 @@ Best for small deployments and staging environments.
 
 #### Steps
 
+> **For the full step-by-step production deploy, follow [PRODUCTION_DEPLOY_RUNBOOK.md](./PRODUCTION_DEPLOY_RUNBOOK.md).** The outline below is a summary; the runbook is authoritative.
+
 1. **Prepare Server**
 
 ```bash
-# Update system
 sudo apt-get update && sudo apt-get upgrade -y
-
-# Install Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# Install Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
+curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh
 ```
 
 2. **Clone Repository**
 
 ```bash
-cd /opt
-sudo git clone https://github.com/ARTORG-GERONTECHNOLOGY/RehaAdvisor.git
-cd RehaAdvisor
+# Production stack lives in a separate clone
+git clone https://github.com/ARTORG-GERONTECHNOLOGY/Bearny-RehaAdvisor.git \
+  /home/ubuntu/repos/telerehabapp-prod
+cd /home/ubuntu/repos/telerehabapp-prod
 ```
 
 3. **Configure Environment**
 
 ```bash
-# Create production environment file
-sudo cat > .env.prod << EOF
-DEBUG=False
-SECRET_KEY=$(python -c 'import secrets; print(secrets.token_urlsafe(50))')
-ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
-DJANGO_SUPERUSER_USERNAME=admin
-DJANGO_SUPERUSER_EMAIL=admin@yourdomain.com
-DJANGO_SUPERUSER_PASSWORD=secure_password_here
-MONGODB_URI=mongodb://mongo:27017/
-MONGODB_DB_NAME=rehaadvisor
-EOF
-
-sudo chmod 600 .env.prod
+# Production env file (see docs/07-ENVIRONMENT_CONFIG.md for required variables)
+cp /dev/null .env.prod
+chmod 600 .env.prod
+# Edit .env.prod and fill in all required values
 ```
 
-4. **Configure NGINX**
+4. **Pull GHCR Images and Start**
+
+Production images are pre-built by the GitHub Actions release workflow and pushed to GHCR. Do **not** build from source on the production server.
 
 ```bash
-# Edit nginx configuration
-sudo vim nginx/conf/nginx.conf
+# Authenticate to GHCR (one-time)
+docker login ghcr.io
 
-# Add SSL configuration
-sudo cp nginx/conf/nginx.prod.conf nginx/conf/nginx.conf
+# Pull and start
+docker compose -f docker-compose.prod.reha-advisor.yml pull
+docker compose -f docker-compose.prod.reha-advisor.yml up -d
+
+# Verify services
+docker compose -f docker-compose.prod.reha-advisor.yml ps
+docker compose -f docker-compose.prod.reha-advisor.yml logs -f
 ```
 
-Example NGINX production config:
-
-```nginx
-upstream backend {
-    server django:8000;
-}
-
-upstream frontend {
-    server react:3000;
-}
-
-server {
-    listen 80;
-    server_name yourdomain.com www.yourdomain.com;
-    
-    # Redirect HTTP to HTTPS
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name yourdomain.com www.yourdomain.com;
-    
-    # SSL certificates
-    ssl_certificate /etc/nginx/ssl/cert.pem;
-    ssl_certificate_key /etc/nginx/ssl/key.pem;
-    
-    # Security headers
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    
-    # API proxy
-    location /api/ {
-        proxy_pass http://backend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-    
-    # Frontend
-    location / {
-        proxy_pass http://frontend;
-        proxy_set_header Host $host;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-}
-```
-
-5. **Set Up SSL with Certbot**
+5. **Post-Deployment**
 
 ```bash
-# Install Certbot
-sudo apt-get install certbot python3-certbot-nginx -y
+# Seed admin user and periodic tasks
+docker exec django-prod python manage.py seed_admin
+docker exec django-prod python manage.py seed_periodic_tasks
 
-# Obtain certificate
-sudo certbot certonly --standalone -d yourdomain.com -d www.yourdomain.com
-
-# Renew certificates automatically
-sudo systemctl enable certbot.timer
-sudo systemctl start certbot.timer
-```
-
-6. **Build and Deploy**
-
-```bash
-# Build production images
-make build
-
-# Start services
-make up
-
-# Verify services running
-docker compose -f docker-compose.prod.yml ps
-
-# Check logs
-docker compose logs -f
-```
-
-7. **Post-Deployment**
-
-```bash
-# Run migrations
-docker exec django python manage.py migrate
-
-# Create superuser
-docker exec -it django python manage.py createsuperuser
-
-# Collect static files
-docker exec django python manage.py collectstatic --noinput
-
-# Test health endpoints
-curl https://yourdomain.com/api/
-```
-
-### Option 2: Kubernetes Deployment
-
-For larger, scalable deployments.
-
-#### Prerequisites
-
-- Kubernetes cluster (AWS EKS, Google GKE, or self-managed)
-- kubectl configured
-- Docker images pushed to registry
-
-#### Kubernetes Manifests
-
-```yaml
-# k8s/namespace.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: rehaadvisor
----
-# k8s/configmap.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: app-config
-  namespace: rehaadvisor
-data:
-  DEBUG: "False"
-  ALLOWED_HOSTS: "yourdomain.com,www.yourdomain.com"
----
-# k8s/secret.yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: app-secrets
-  namespace: rehaadvisor
-type: Opaque
-stringData:
-  SECRET_KEY: "your-secret-key"
-  DATABASE_PASSWORD: "your-db-password"
----
-# k8s/deployment-django.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: django-deployment
-  namespace: rehaadvisor
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: django
-  template:
-    metadata:
-      labels:
-        app: django
-    spec:
-      containers:
-      - name: django
-        image: yourdocker/rehaadvisor-backend:latest
-        ports:
-        - containerPort: 8000
-        env:
-        - name: DEBUG
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: DEBUG
-        - name: SECRET_KEY
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: SECRET_KEY
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /api/health/
-            port: 8000
-          initialDelaySeconds: 30
-          periodSeconds: 10
----
-# k8s/service-django.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: django-service
-  namespace: rehaadvisor
-spec:
-  selector:
-    app: django
-  ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 8000
-  type: LoadBalancer
-```
-
-#### Deploy to Kubernetes
-
-```bash
-# Apply manifests
-kubectl apply -f k8s/
-
-# Check deployment status
-kubectl get deployments -n rehaadvisor
-
-# Check pods
-kubectl get pods -n rehaadvisor
-
-# View logs
-kubectl logs -n rehaadvisor deployment/django-deployment
-
-# Scale deployment
-kubectl scale deployment django-deployment --replicas=3 -n rehaadvisor
-```
-
-### Option 3: Cloud Platform (Heroku, AWS, Google Cloud)
-
-#### Heroku Deployment
-
-```bash
-# Login to Heroku
-heroku login
-
-# Create app
-heroku create rehaadvisor-app
-
-# Set environment variables
-heroku config:set DEBUG=False
-heroku config:set SECRET_KEY=your-secret-key
-
-# Deploy
-git push heroku main
-
-# View logs
-heroku logs --tail
-
-# Open app
-heroku open
-```
-
-#### AWS Deployment (Elastic Beanstalk)
-
-```bash
-# Install EB CLI
-pip install awsebcli
-
-# Initialize
-eb init -p docker rehaadvisor-app --region us-east-1
-
-# Create environment
-eb create production
-
-# Deploy
-eb deploy
-
-# View logs
-eb logs
-
-# Open app
-eb open
+# Verify API is reachable
+curl https://reha-advisor.ch/api/
 ```
 
 ## Environment Configuration
@@ -610,16 +348,16 @@ Schedule with cron:
 docker images | grep rehaadvisor
 
 # Stop current services
-docker compose down
+docker compose -f docker-compose.prod.reha-advisor.yml down
 
-# Start with previous version
-docker compose -f docker-compose.prod.yml up -d
+# Pull and start the previous image tag
+IMAGE_TAG=<previous-tag> docker compose -f docker-compose.prod.reha-advisor.yml up -d
 
 # Verify services
-docker compose ps
+docker compose -f docker-compose.prod.reha-advisor.yml ps
 
 # Check logs for errors
-docker compose logs
+docker compose -f docker-compose.prod.reha-advisor.yml logs
 ```
 
 ## Performance Optimization
@@ -640,24 +378,11 @@ location ~* .(jpg|jpeg|png|gif|ico|css|js)$ {
 
 ### Backend Optimization
 
-```python
-# Django settings
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',
-    }
-}
+The database is MongoDB accessed via MongoEngine — there is no Django `DATABASES` block for the primary store. Optimization levers:
 
-# Database connection pooling
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mongodb',
-        'NAME': 'rehaadvisor',
-        'CONN_MAX_AGE': 600,
-    }
-}
-```
+- **MongoEngine connection pool**: set `maxPoolSize` in `connect()` inside `api/settings/*.py` (default is 100).
+- **Redis caching**: the Celery broker is already on Redis (`rediss://`). Add `django-redis` to `requirements.txt` and configure `CACHES` if view-level caching is needed.
+- **Indexes**: add MongoEngine `meta = {"indexes": [...]}` to hot query paths in `core/models.py`.
 
 ## Troubleshooting Deployment
 
@@ -672,7 +397,7 @@ sudo lsof -i :8001
 sudo kill -9 <PID>
 
 # Database connection errors
-docker exec django python manage.py dbshell
+docker exec django-prod python manage.py shell  # MongoDB — no dbshell
 
 # Memory issues
 docker stats
@@ -683,10 +408,14 @@ docker update --memory 2g container-name
 
 ## Management Commands Reference
 
-All commands run inside the `django` (dev) or `django-prod` (production) container.
+All commands run inside the `django-dev` (dev) or `django-prod` (production) container.
 
 ```bash
-docker exec django python manage.py <command>
+# Dev
+docker exec django-dev python manage.py <command>
+
+# Production
+docker exec django-prod python manage.py <command>
 ```
 
 | Command | What it does | Notes |
