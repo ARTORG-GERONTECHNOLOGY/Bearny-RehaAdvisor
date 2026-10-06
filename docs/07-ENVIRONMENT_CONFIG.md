@@ -237,7 +237,7 @@ services:
       - DEBUG=False
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
       interval: 30s
       timeout: 10s
       retries: 3
