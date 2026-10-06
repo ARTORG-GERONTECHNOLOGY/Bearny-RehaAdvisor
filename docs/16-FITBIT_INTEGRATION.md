@@ -512,16 +512,18 @@ Not all patients use a Fitbit. The `wearable_device` field on the `Patient` mode
 
 | Value | Meaning |
 |---|---|
-| `"fitbit"` | Patient uses a Fitbit (default for all existing patients) |
+| `"google_health"` | Patient uses a Google Health-connected device (current default for new patients) |
 | `"omron"` | Patient uses an Omron device; steps entered manually |
 | `"none"` | No wearable configured |
+| `"fitbit"` | Legacy: patient connected via the old Fitbit Web API. **The Fitbit Web API shuts down October 30, 2026.** New patients should not be registered with this value. |
 
 ### Effect on the UI
 
-| Location | Fitbit | Omron | None |
-|---|---|---|---|
-| Patient page — Fitbit connect card | Shown when not connected | Hidden | Hidden |
-| Therapist list — `WearBadge` | Wear time / Disconnected | Grey "Omron" chip | Grey "No device" chip |
+| Location | Google Health | Fitbit (legacy) | Omron | None |
+|---|---|---|---|---|
+| Patient page — GH connect card | Shown when not connected | Hidden | Hidden | Hidden |
+| Patient page — Fitbit connect card | Hidden | Shown when not connected | Hidden | Hidden |
+| Therapist list — `WearBadge` | Wear time / Disconnected | Wear time / Disconnected | Grey "Omron" chip | Grey "No device" chip |
 
 ### Where to set it
 
@@ -531,10 +533,13 @@ Not all patients use a Fitbit. The `wearable_device` field on the `Patient` mode
 
 ### Configuration
 
-The device options are defined in two places:
+The allowed values are driven by `WEARABLE_DEVICE_CHOICES` in `backend/utils/config.py`, which is loaded from `backend/config.json`:
 
-1. **`backend/config.json`** — `PatientForm[0].fields` → `wearableDevice` entry with `"options": ["fitbit", "omron", "none"]`. Adding or removing values here changes the registration form dropdown.
-2. **Backend validation** — `user_views.py` checks `raw["wearable_device"] in ("fitbit", "omron", "none")` before persisting. Any value not in this tuple is silently ignored. Update both the config and this tuple when adding a new device type.
+1. **`backend/config.json`** — `PatientForm[0].fields` → `wearableDevice` entry with `"options": [...]`. Adding or removing values here changes both the registration form dropdown and the allowed set.
+2. **Backend validation** — `user_views.py` checks `raw["wearable_device"] in WEARABLE_DEVICE_CHOICES` (the config-driven constant) before persisting. Any value not in the list is silently ignored.
+3. **`"fitbit"` is always a valid model value** (appended by `_load_wearable_choices()` even if removed from the UI options) so that existing patients with `wearable_device="fitbit"` continue to pass model validation. It should not appear in the registration dropdown for new patients.
+
+To add a new device type, update `config.json` only — no code change needed.
 
 ### Tests
 
