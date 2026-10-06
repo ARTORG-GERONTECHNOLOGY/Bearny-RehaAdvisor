@@ -123,7 +123,7 @@ Expected: No SSL certificate errors, HTTP 200 response
 
 ### 3. Test API
 ```bash
-curl https://reha-advisor.ch/api/health/
+curl https://reha-advisor.ch/api/
 ```
 
 Expected: `{"status": "ok"}` response
