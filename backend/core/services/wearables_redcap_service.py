@@ -428,6 +428,7 @@ def export_wearables_to_redcap(
     event_followup: Optional[str] = None,
     return_payloads: bool = False,
     skip_if_populated: bool = True,
+    skip_incomplete_windows: bool = True,
     precomputed_summary: Optional[Dict[str, Any]] = None,
 ) -> "Dict[str, str] | Tuple[Dict[str, str], Dict[str, Dict[str, Any]]]":
     """
@@ -437,6 +438,11 @@ def export_wearables_to_redcap(
         If monitoring_start is already set for a given event in REDCap, that
         period is skipped to avoid overwriting previously validated data.
         Pass False to force recalculation.
+
+    skip_incomplete_windows (default True):
+        If the observation window has not yet fully elapsed (window end >= today),
+        the period is skipped. This prevents partial data from being pushed to
+        REDCap mid-observation. Pass False only when explicitly debugging.
 
     precomputed_summary: pass the result of compute_wearables_summary() to
         avoid calling it twice when the caller already has it.
@@ -505,6 +511,28 @@ def export_wearables_to_redcap(
                 diag.get("window_end", "?"),
             )
             continue
+
+        # Skip if the observation window has not yet fully elapsed
+        if skip_incomplete_windows:
+            window = meta.get(f"{period}_window", {})
+            try:
+                w_end = date_type.fromisoformat(window["end"])
+                if w_end >= date_type.today():
+                    results[period] = "skipped"
+                    payloads[period] = {
+                        "status": "skipped",
+                        "skip_reason": "window_not_elapsed",
+                        "window_end": str(w_end),
+                    }
+                    logger.info(
+                        "Wearables [%s] for %s: window ends %s — not yet elapsed, skipping",
+                        period,
+                        patient.patient_code,
+                        w_end,
+                    )
+                    continue
+            except (KeyError, ValueError):
+                pass
 
         # Skip if already populated in REDCap (duplicate-protection)
         if skip_if_populated and ev_name:
