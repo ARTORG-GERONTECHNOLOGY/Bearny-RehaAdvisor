@@ -426,12 +426,16 @@ describe('InterventionRepeatModalStore', () => {
       expect(payload.schedule.unit).toBe('day');
     });
 
-    it('sets an error message when the modify response status is unexpected', async () => {
-      (apiClient.post as jest.Mock).mockResolvedValueOnce({ status: 400 });
+    it('sets an error message when the modify request is rejected by the server', async () => {
+      (apiClient.post as jest.Mock).mockRejectedValueOnce({
+        response: {
+          data: { message: 'No sessions could be scheduled for the selected date range.' },
+        },
+      });
 
       await store.submit({ patient: 'p1', intervention: 'i1', isDiagnosis: false });
 
-      expect(store.error).toBe('Failed to modify intervention.');
+      expect(store.error).toBe('No sessions could be scheduled for the selected date range.');
     });
   });
 
