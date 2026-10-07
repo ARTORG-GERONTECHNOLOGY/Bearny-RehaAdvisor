@@ -306,7 +306,10 @@ const SystemStatusTab: React.FC = () => {
                   <TableCell>
                     {formatTime(job.last_failure_at, '—')}
                     {job.last_error && (
-                      <div className="text-xs text-muted-foreground break-all">
+                      <div
+                        className="text-xs text-muted-foreground break-all line-clamp-2"
+                        title={job.last_error}
+                      >
                         {job.last_error}
                       </div>
                     )}
