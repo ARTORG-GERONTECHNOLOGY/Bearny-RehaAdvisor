@@ -14,7 +14,7 @@ Covers:
   - fitbit_auth_init nonce endpoint
   - fitbit_callback nonce validation
   - IDOR checks on get_patient_plan, mark_intervention_completed, get_fitbit_health_data
-  - nginx /admin/ restriction
+  - Django admin not mounted
   - nginx ssl_ciphers
 """
 
@@ -808,7 +808,7 @@ def test_get_fitbit_health_data_allows_same_clinic_therapist():
 
 
 # ===========================================================================
-# nginx configuration checks — /admin/ restriction + TLS ciphers
+# Django admin not mounted + nginx TLS ciphers
 # ===========================================================================
 
 
@@ -824,18 +824,12 @@ def _nginx_conf(path: str) -> Path:
     return f.parents[3] / "nginx" / path  # fallback (skip if missing)
 
 
-def test_prod_nginx_admin_location_deny_all():
-    """
-    prod.reha-advisor.nginx.conf must contain a /admin/ location block that
-    denies all external access — Django admin must not be publicly reachable.
-    """
-    conf_path = _nginx_conf("conf/prod.reha-advisor.nginx.conf")
-    if not conf_path.exists():
-        pytest.skip("nginx conf not available in this environment")
+def test_django_admin_not_mounted():
+    """Django admin must not be publicly reachable — it is removed from the URL conf."""
+    from django.urls import Resolver404, resolve
 
-    content = conf_path.read_text()
-    assert "location /admin/" in content, "/admin/ location block must be present"
-    assert "deny all" in content, "deny all must be present in nginx config to block public admin access"
+    with pytest.raises(Resolver404):
+        resolve("/admin/")
 
 
 def test_gateway_nginx_has_ssl_ciphers():
