@@ -45,17 +45,28 @@ const ActiveUsersCard: React.FC = () => {
 
   return (
     <div className="mt-6 mb-4 max-w-[480px]" data-testid="active-users">
-      <h5 className="text-base font-semibold mb-3">
-        {t('Active in the last {{minutes}} min', { minutes: data?.window_minutes ?? 15 })}
-      </h5>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h5 className="text-base font-semibold">
+          {t('Active in the last {{minutes}} min', { minutes: data?.window_minutes ?? 15 })}
+        </h5>
+        <Button
+          size="dashboard"
+          variant="secondary"
+          className="-my-1.5"
+          onClick={load}
+          disabled={loading}
+        >
+          {t('Refresh')}
+        </Button>
+      </div>
 
-      <div className="flex flex-wrap items-end gap-6 rounded-xl border bg-zinc-50 p-4">
+      <div className="grid grid-cols-2 gap-4 rounded-xl border bg-zinc-50 p-4 sm:grid-cols-[repeat(4,auto)] sm:justify-between">
         {error ? (
-          <div className="self-center text-sm text-nok">{error}</div>
+          <div className="col-span-full text-sm text-nok">{error}</div>
         ) : (
           data && (
             <>
-              <div className="pr-6 border-r">
+              <div className="sm:border-r sm:pr-4">
                 <div className="text-lg font-semibold tabular-nums">{data.total}</div>
                 <div className="text-sm text-muted-foreground">{t('Total')}</div>
               </div>
@@ -70,15 +81,6 @@ const ActiveUsersCard: React.FC = () => {
             </>
           )
         )}
-        <Button
-          size="dashboard"
-          variant="secondary"
-          className="ml-auto self-center"
-          onClick={load}
-          disabled={loading}
-        >
-          {t('Refresh')}
-        </Button>
       </div>
 
       <p className="mt-2 text-sm text-muted-foreground">

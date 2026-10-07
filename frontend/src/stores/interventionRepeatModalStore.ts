@@ -188,13 +188,9 @@ export class InterventionRepeatModalStore {
           };
         }
 
-        const res = await apiClient.post('/interventions/modify-patient/', payload);
-        if (res.status === 200) {
-          this.success = true;
-          params.onSuccess?.();
-        } else {
-          this.error = i18nT('Failed to modify intervention.');
-        }
+        await apiClient.post('/interventions/modify-patient/', payload);
+        this.success = true;
+        params.onSuccess?.();
         return;
       }
 
