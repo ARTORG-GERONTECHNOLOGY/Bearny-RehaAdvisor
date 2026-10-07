@@ -35,6 +35,7 @@ const status = (overrides: Partial<SystemStatus> = {}): SystemStatus => ({
     started_at: '2026-09-30T08:00:00Z',
     sentry_url: 'https://sentry.example/issues',
   },
+  server: { status: 'ok', threads: 8, restarts_24h: 0, last_restart: null },
   jobs: { status: 'ok', items: [job({ name: 'Hourly push' })] },
   queue: {
     status: 'ok',
@@ -146,17 +147,58 @@ describe('SystemStatusTab', () => {
     expect(within(rows[1]).getByText('Never')).toBeInTheDocument();
   });
 
-  it('renders the queue, wearable, push and translation cards', async () => {
+  it('renders the queue, wearable, push, translation and web server cards', async () => {
     mockStatus(status());
     render(<SystemStatusTab />);
 
     const cards = await screen.findAllByTestId('status-card');
-    expect(cards).toHaveLength(4);
+    expect(cards).toHaveLength(5);
     expect(within(cards[0]).getByText('3')).toBeInTheDocument();
     expect(within(cards[1]).getByText('Fitbit')).toBeInTheDocument();
     expect(within(cards[1]).getByText('12')).toBeInTheDocument();
     expect(within(cards[2]).getByText('87')).toBeInTheDocument();
     expect(within(cards[3]).getByText('de, en, fr, it, nl, pt')).toBeInTheDocument();
+  });
+
+  it('shows request threads and no last restart in the web server card when none happened', async () => {
+    mockStatus(status());
+    render(<SystemStatusTab />);
+
+    const serverCard = (await screen.findAllByTestId('status-card'))[4];
+    const valueFor = (label: string) =>
+      within(serverCard).getByText(label).nextElementSibling?.textContent;
+    expect(valueFor('Request threads')).toBe('8');
+    expect(valueFor('Restarts for stuck requests (24h)')).toBe('0');
+    expect(within(serverCard).queryByText('Last restart')).not.toBeInTheDocument();
+  });
+
+  it('shows the last watchdog restart and lists the web server as affected', async () => {
+    mockStatus(
+      status({
+        overall: 'warn',
+        server: {
+          status: 'warn',
+          threads: 8,
+          restarts_24h: 2,
+          last_restart: {
+            at: '2026-10-01T09:00:00Z',
+            requests: ['GET /api/fitbit/summary/1/', 'POST /api/x/'],
+          },
+        },
+      })
+    );
+    render(<SystemStatusTab />);
+
+    const serverCard = (await screen.findAllByTestId('status-card'))[4];
+    expect(
+      within(serverCard).getByText('Restarts for stuck requests (24h)').nextElementSibling
+        ?.textContent
+    ).toBe('2');
+    expect(within(serverCard).getByText('Last restart')).toBeInTheDocument();
+    expect(
+      within(serverCard).getByText('GET /api/fitbit/summary/1/, POST /api/x/')
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('affected-sections')).toHaveTextContent('Affected: Web server');
   });
 
   it('shows worker counts and the longest running task in the queue card', async () => {

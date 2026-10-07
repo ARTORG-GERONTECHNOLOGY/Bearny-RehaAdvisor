@@ -1,8 +1,11 @@
 """Admin-only snapshot of background jobs and services, so prod can be checked without shell access."""
 
 import datetime
+import json
 import os
+import tempfile
 from datetime import timedelta
+from pathlib import Path
 
 import redis
 import requests
@@ -35,8 +38,12 @@ REVOKED_WARN = 3
 RECENT_START = timedelta(minutes=30)
 RUNNING_SLACK_FACTOR = 2  # run lengths vary (e.g. wearable syncs scale with patients), so allow twice the last one
 EXPECTED_LANGUAGES = 6  # LT_LOAD_ONLY in the prod compose file
+RESTART_WINDOW = timedelta(hours=24)
 
-STARTED_AT_ENV = "GUNICORN_STARTED_AT"  # set by on_starting in gunicorn.conf.py
+# Written by gunicorn.conf.py.
+STARTED_AT_ENV = "GUNICORN_STARTED_AT"
+THREADS_ENV = "GUNICORN_THREADS"
+RESTART_LOG = Path(tempfile.gettempdir()) / "gunicorn-watchdog-restarts.jsonl"
 
 
 def _process_start():
@@ -233,6 +240,40 @@ def _app_section(now):
     }
 
 
+def _parse_restart(line):
+    # A broken line must not turn the card red and hide the readable ones.
+    try:
+        record = json.loads(line)
+        return {"at": float(record["at"]), "requests": [str(r) for r in record["requests"]]}
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
+def _server_section(now):
+    """Request threads, and worker restarts by the watchdog because requests got stuck."""
+    cutoff = (now - RESTART_WINDOW).timestamp()
+    try:
+        with RESTART_LOG.open() as f:
+            restarts = [r for r in map(_parse_restart, f) if r and r["at"] >= cutoff]
+    except FileNotFoundError:  # no restart since the container was created, or not running under gunicorn
+        restarts = []
+    last = restarts[-1] if restarts else None
+    threads = os.environ.get(THREADS_ENV)
+    return {
+        "status": "warn" if restarts else "ok",
+        "threads": int(threads) if threads else None,
+        "restarts_24h": len(restarts),
+        "last_restart": (
+            {
+                "at": _iso(datetime.datetime.fromtimestamp(last["at"], tz=datetime.timezone.utc)),
+                "requests": last["requests"],
+            }
+            if last
+            else None
+        ),
+    }
+
+
 def _safe(build):
     # One broken check shows as a red section instead of failing the whole page.
     try:
@@ -245,6 +286,7 @@ def build_system_status():
     now = timezone.now()
     sections = {
         "app": _safe(lambda: _app_section(now)),
+        "server": _safe(lambda: _server_section(now)),
         "jobs": _safe(_jobs_section),
         "queue": _safe(_queue_section),
         "wearables": _safe(lambda: _wearables_section(now)),

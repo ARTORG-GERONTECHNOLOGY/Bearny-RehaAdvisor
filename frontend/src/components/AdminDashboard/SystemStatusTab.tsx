@@ -46,6 +46,11 @@ export type SystemStatus = {
   generated_at: string;
   overall: Status;
   app: Section & { version?: string | null; started_at?: string; sentry_url?: string | null };
+  server: Section & {
+    threads?: number | null;
+    restarts_24h?: number;
+    last_restart?: { at: string; requests: string[] } | null;
+  };
   jobs: Section & { items?: JobItem[] };
   queue: Section & { length?: number; workers?: Workers };
   wearables: Section & { providers?: Record<'fitbit' | 'google_health', ProviderCounts> };
@@ -201,7 +206,7 @@ const SystemStatusTab: React.FC = () => {
     );
   }
 
-  const { app, jobs, queue, wearables, push, translation } = data;
+  const { app, server, jobs, queue, wearables, push, translation } = data;
 
   // The app's own amber already has the "restarted recently" badge; push is information only.
   const affected = (
@@ -210,6 +215,7 @@ const SystemStatusTab: React.FC = () => {
       [queue, t('Task queue')],
       [wearables, t('Wearable sync')],
       [translation, t('Translation')],
+      [server, t('Web server')],
     ] as [Section, string][]
   )
     .filter(([section]) => section.status === 'error' || section.status === 'warn')
@@ -375,6 +381,22 @@ const SystemStatusTab: React.FC = () => {
           t('Translation'),
           translation,
           row(t('Languages loaded'), (translation.languages ?? []).join(', ') || '—')
+        )}
+        {card(
+          t('Web server'),
+          server,
+          <div className="flex flex-col gap-1">
+            {row(t('Request threads'), server.threads ?? '—')}
+            {row(t('Restarts for stuck requests (24h)'), server.restarts_24h ?? '—')}
+            {server.last_restart && (
+              <>
+                {row(t('Last restart'), formatLocaleDateTime(server.last_restart.at))}
+                <div className="text-xs text-muted-foreground break-all">
+                  {server.last_restart.requests.join(', ')}
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>

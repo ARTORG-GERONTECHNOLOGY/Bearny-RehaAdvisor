@@ -8,14 +8,20 @@ then exits and the master starts a fresh one. New connections wait in the listen
 a connection the old worker accepted but had not yet read a request from is dropped (about one per restart).
 """
 
+import json
 import os
+import tempfile
 import threading
 import time
+from pathlib import Path
 
 WATCHDOG_INTERVAL_SECONDS = 10
 DRAIN_SECONDS = 10  # short: with one worker, nothing new is served while it drains
 
-STARTED_AT_ENV = "GUNICORN_STARTED_AT"  # read by the admin system status view
+# Read by the admin system status view.
+STARTED_AT_ENV = "GUNICORN_STARTED_AT"
+THREADS_ENV = "GUNICORN_THREADS"
+RESTART_LOG = Path(tempfile.gettempdir()) / "gunicorn-watchdog-restarts.jsonl"  # a file, so it outlives the worker
 
 _requests = {}  # thread id -> (monotonic start, "METHOD /path") of the request it is serving
 _lock = threading.Lock()
@@ -24,6 +30,7 @@ _lock = threading.Lock()
 def on_starting(server):
     # Set once in the master, so a worker restarted by the watchdog still reports the deploy's start time.
     os.environ[STARTED_AT_ENV] = str(time.time())
+    os.environ[THREADS_ENV] = str(server.cfg.workers * server.cfg.threads)
 
 
 def pre_request(worker, req):
@@ -55,6 +62,14 @@ def _others_pending(worker, stuck):
     return running > still_stuck
 
 
+def _record_restart(requests):
+    try:
+        with RESTART_LOG.open("a") as f:
+            f.write(json.dumps({"at": time.time(), "requests": requests}) + "\n")
+    except OSError:
+        pass  # never block the restart
+
+
 def _flush_sentry():
     """os._exit skips Sentry's exit hook, which would drop the critical log event."""
     try:
@@ -77,11 +92,10 @@ def post_worker_init(worker):
             stuck = _stuck_requests(limit)
 
         try:
+            requests = sorted(what for _, what in stuck.values())
+            _record_restart(requests)
             worker.log.critical(
-                "Restarting worker %s: request(s) running for over %ss: %s",
-                worker.pid,
-                limit,
-                sorted(what for _, what in stuck.values()),
+                "Restarting worker %s: request(s) running for over %ss: %s", worker.pid, limit, requests
             )
             worker.alive = False  # stop accepting; the master's socket queues new connections for the next worker
             deadline = time.monotonic() + min(DRAIN_SECONDS, worker.cfg.graceful_timeout)

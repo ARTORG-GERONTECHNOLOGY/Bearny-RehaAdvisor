@@ -10,6 +10,8 @@ Coverage
     disabled, failed, recovered; new or re-enabled jobs aren't overdue before beat sends them.
   * Overdue check reads crontabs in their own timezone, as beat does.
   * Start time comes from the gunicorn master, so worker restarts keep it; import time without gunicorn.
+  * Web server: request thread count; a watchdog restart for stuck requests in the last 24h warns, older ones don't.
+    Unreadable lines in the restart log are skipped.
   * Queue: Redis down is an error section; a long queue warns.
   * Workers: none online is an error; busy count, concurrency and longest running task; a task running too long warns.
   * Wearable sync: stale and recently revoked token counts and thresholds.
@@ -25,6 +27,8 @@ from datetime import timezone as dt_timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
+
+import json
 
 import mongomock
 import pytest
@@ -99,6 +103,13 @@ def _settled_start(monkeypatch):
     monkeypatch.setattr(views, "STARTED_AT", timezone.now() - timedelta(days=1))
 
 
+@pytest.fixture(autouse=True)
+def restart_log(tmp_path, monkeypatch):
+    path = tmp_path / "restarts.jsonl"
+    monkeypatch.setattr(views, "RESTART_LOG", path)
+    return path
+
+
 def _client_for(role):
     user = User(
         username=f"{role.lower()}_status",
@@ -154,7 +165,7 @@ def test_shape_and_all_ok(admin_client):
     resp = admin_client.get(URL)
     assert resp.status_code == 200
     data = resp.json()
-    for section in ("app", "jobs", "queue", "wearables", "push", "translation"):
+    for section in ("app", "server", "jobs", "queue", "wearables", "push", "translation"):
         assert "status" in data[section]
     assert data["overall"] == "ok"
     assert data["generated_at"]
@@ -312,6 +323,48 @@ def test_process_start_without_gunicorn_is_now(monkeypatch, value):
     else:
         monkeypatch.setenv(views.STARTED_AT_ENV, value)
     assert timezone.now() - views._process_start() < timedelta(seconds=5)
+
+
+@pytest.mark.django_db
+def test_server_without_restarts_is_ok(admin_client, monkeypatch):
+    monkeypatch.setenv(views.THREADS_ENV, "8")
+    server = admin_client.get(URL).json()["server"]
+    assert server == {"status": "ok", "threads": 8, "restarts_24h": 0, "last_restart": None}
+
+
+@pytest.mark.django_db
+def test_server_without_gunicorn_has_no_thread_count(admin_client, monkeypatch):
+    monkeypatch.delenv(views.THREADS_ENV, raising=False)
+    assert admin_client.get(URL).json()["server"]["threads"] is None
+
+
+@pytest.mark.django_db
+def test_server_watchdog_restart_in_last_24h_warns(admin_client, restart_log):
+    now = timezone.now().timestamp()
+    lines = [
+        {"at": now - timedelta(hours=30).total_seconds(), "requests": ["GET /old"]},  # outside the window
+        {"at": now - 7200, "requests": ["GET /a"]},
+        {"at": now - 60, "requests": ["GET /api/fitbit/summary/1/", "POST /b"]},
+    ]
+    restart_log.write_text("".join(json.dumps(line) + "\n" for line in lines))
+    data = admin_client.get(URL).json()
+    assert data["server"]["status"] == "warn"
+    assert data["server"]["restarts_24h"] == 2
+    last = data["server"]["last_restart"]
+    assert last["requests"] == ["GET /api/fitbit/summary/1/", "POST /b"]
+    assert abs(datetime.fromisoformat(last["at"]).timestamp() - (now - 60)) < 1
+    assert data["overall"] == "warn"
+
+
+@pytest.mark.django_db
+def test_server_skips_unreadable_restart_lines(admin_client, restart_log):
+    now = timezone.now().timestamp()
+    good = json.dumps({"at": now - 60, "requests": ["GET /a"]})
+    restart_log.write_text(f'{good}\n{{"at": \n{{"requests": []}}\n[1, 2]\n')
+    server = admin_client.get(URL).json()["server"]
+    assert server["status"] == "warn"
+    assert server["restarts_24h"] == 1
+    assert server["last_restart"]["requests"] == ["GET /a"]
 
 
 @pytest.mark.django_db

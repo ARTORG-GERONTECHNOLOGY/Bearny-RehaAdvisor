@@ -1,6 +1,8 @@
-"""gunicorn.conf.py: the per-request watchdog (gthread's --timeout misses stuck requests), the master's start time."""
+"""gunicorn.conf.py: the per-request watchdog (gthread's --timeout misses stuck requests) and the restarts it records,
+the master's start time and thread count."""
 
 import importlib.util
+import json
 import os
 import threading
 import time
@@ -18,11 +20,12 @@ def _watchdogs():
 
 
 @pytest.fixture
-def conf():
+def conf(tmp_path):
     # A fresh copy of the module per test, so patching it never touches the real os._exit.
     spec = importlib.util.spec_from_file_location("gunicorn_conf_under_test", CONF_PATH)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    module.RESTART_LOG = tmp_path / "restarts.jsonl"
     module.WATCHDOG_INTERVAL_SECONDS = 0.01
     module.calls = []
     module.exited = threading.Event()
@@ -76,6 +79,17 @@ def test_watchdog_restarts_worker_when_a_request_outlives_timeout(conf):
     assert worker.alive is False  # stopped taking new requests first
     logged = worker.log.critical.call_args.args
     assert ["GET /api/fitbit/summary/1/"] in logged  # names the stuck request
+    [record] = map(json.loads, conf.RESTART_LOG.read_text().splitlines())  # for the admin system status view
+    assert record["requests"] == ["GET /api/fitbit/summary/1/"]
+    assert abs(record["at"] - time.time()) < 5
+
+
+def test_watchdog_restarts_even_if_the_restart_cannot_be_recorded(conf, tmp_path):
+    conf.RESTART_LOG = tmp_path / "missing-dir" / "restarts.jsonl"
+    _in_flight(conf, 1, age_seconds=10, what="GET /stuck")
+    conf.post_worker_init(_worker(timeout=0.05))
+
+    assert conf.exited.wait(2)
 
 
 def test_watchdog_lets_other_requests_finish_before_restarting(conf):
@@ -180,8 +194,10 @@ def test_watchdog_off_when_timeout_disabled(conf):
     assert not _watchdogs()
 
 
-def test_on_starting_records_master_start_for_workers(conf, monkeypatch):
+def test_on_starting_records_master_start_and_threads_for_workers(conf, monkeypatch):
     monkeypatch.setenv(conf.STARTED_AT_ENV, "0")  # restored after the test
+    monkeypatch.setenv(conf.THREADS_ENV, "0")
     conf.os = os
-    conf.on_starting(None)
+    conf.on_starting(SimpleNamespace(cfg=SimpleNamespace(workers=1, threads=8)))
     assert abs(float(os.environ[conf.STARTED_AT_ENV]) - time.time()) < 5
+    assert os.environ[conf.THREADS_ENV] == "8"
