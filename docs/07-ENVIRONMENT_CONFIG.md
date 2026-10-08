@@ -557,30 +557,24 @@ See [Study Integration Guide](./15-STUDY_INTEGRATION.md) for the full feature ma
 
 ## Certificate Renewal
 
-Automatic Let's Encrypt renewal is handled by the Celery beat task `core.tasks.renew_certificates`, which runs daily at 03:00 UTC. It is opt-in: set `CERTBOT_ENABLED=true` to activate.
+Automatic Let's Encrypt renewal is handled by the Celery beat task `core.tasks.renew_certificates`, which runs daily at 03:00 UTC. It is opt-in: set `CERTBOT_ENABLED=true` to activate, in `.env.prod` only. Dev and prod share one cert folder, so only one environment should renew.
 
-### Variables (add to `.env.dev` and `.env.prod`)
+### Variables
 
 | Variable | Required | Description |
 |---|---|---|
 | `CERTBOT_ENABLED` | Yes (to activate) | Set to `true` to enable automatic renewal. Task silently skips if absent or false. |
-| `CERTBOT_CONF_PATH` | Yes | **Host-absolute** path to `nginx/certbot/conf` — e.g. `/home/ubuntu/repos/telerehabapp/nginx/certbot/conf`. Must be the host path, not the container path, because certbot is launched via `docker run`. |
-| `CERTBOT_WWW_PATH` | Yes | **Host-absolute** path to `nginx/certbot/www` — the webroot used by certbot for ACME challenges. |
+| `CERTBOT_CONF_PATH` | No (compose default) | **Host-absolute** path to `nginx/certbot/conf` — e.g. `/home/ubuntu/repos/telerehabapp/nginx/certbot/conf`. Must be the host path, not the container path, because certbot is launched via `docker run`. |
+| `CERTBOT_WWW_PATH` | No (compose default) | **Host-absolute** path to `nginx/certbot/www` — the webroot used by certbot for ACME challenges. |
 | `CERTBOT_NGINX_CONTAINER` | No | Name of the gateway nginx container to reload after renewal. Defaults to `gateway`. |
 
-### Dev example (`.env.dev`)
-
-```env
-CERTBOT_ENABLED=true
-CERTBOT_CONF_PATH=/home/ubuntu/repos/telerehabapp/nginx/certbot/conf
-CERTBOT_WWW_PATH=/home/ubuntu/repos/telerehabapp/nginx/certbot/www
-CERTBOT_NGINX_CONTAINER=gateway
-```
+The path variables default to the gateway's cert folder in both compose files. In prod, values in `.env.prod` override the defaults, because the deploy runs compose with `--env-file .env.prod`. In dev, `make dev_up` doesn't pass `--env-file`, so values in `.env.dev` don't.
 
 ### Prod example (`.env.prod`)
 
 ```env
 CERTBOT_ENABLED=true
+# Optional, these match the compose defaults
 CERTBOT_CONF_PATH=/home/ubuntu/repos/telerehabapp/nginx/certbot/conf
 CERTBOT_WWW_PATH=/home/ubuntu/repos/telerehabapp/nginx/certbot/www
 CERTBOT_NGINX_CONTAINER=gateway

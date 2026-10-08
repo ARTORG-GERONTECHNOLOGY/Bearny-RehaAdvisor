@@ -13,6 +13,7 @@ Sections
                            keeps ADMIN_EXPORT entries for the compliance window
 3. Content-Security-Policy — nginx config contains the CSP header directive
 4. Beat schedule         — prune_old_logs is registered in CELERY_BEAT_SCHEDULE
+5. Certificate renewal   — certbot runs without its random delay, which exceeds the task timeout
 """
 
 import json
@@ -417,3 +418,29 @@ def test_prune_old_logs_in_beat_schedule(mongo_mock):
     assert "core.tasks.prune_old_logs" in task_names, (
         "prune_old_logs not found in CELERY_BEAT_SCHEDULE — " "log retention will never run automatically."
     )
+
+
+# ===========================================================================
+# 5. Certificate renewal — certbot must not wait past the task timeout
+# ===========================================================================
+
+
+def test_renew_certificates_skips_certbot_random_sleep(monkeypatch):
+    """Without a TTY certbot sleeps up to 8 min, past the 300s subprocess timeout."""
+    import subprocess
+
+    from core.tasks import renew_certificates
+
+    monkeypatch.setenv("CERTBOT_ENABLED", "true")
+    monkeypatch.setenv("CERTBOT_CONF_PATH", "/conf")
+    monkeypatch.setenv("CERTBOT_WWW_PATH", "/www")
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr("core.tasks.subprocess.run", fake_run)
+
+    assert renew_certificates() == "renewed"
+    assert "--no-random-sleep-on-renew" in calls[0]
