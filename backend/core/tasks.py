@@ -367,7 +367,7 @@ def sync_wearables_to_redcap_all():
     return {"synced": synced, "errors": errors}
 
 
-_CERT_ALERT_EMAIL = "noora.angelva@unibe.ch"
+_CERT_ALERT_EMAILS = ["noora.angelva@unibe.ch", "nooraangelva@gmail.com"]
 
 
 def _send_cert_alert(subject, body):
@@ -376,7 +376,7 @@ def _send_cert_alert(subject, body):
             subject,
             body,
             settings.DEFAULT_FROM_EMAIL,
-            [_CERT_ALERT_EMAIL],
+            _CERT_ALERT_EMAILS,
             fail_silently=True,
         )
     except Exception as exc:
