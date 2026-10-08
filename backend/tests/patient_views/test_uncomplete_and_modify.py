@@ -719,6 +719,41 @@ def test_modify_intervention_from_date_empty_schedule_returns_400(mongo_mock):
     assert plan.interventions[0].dates, "Future sessions were unexpectedly cleared"
 
 
+def test_modify_intervention_one_day_past_plan_end_returns_400(mongo_mock):
+    """
+    Regression for patient 905-43: plan ending in ~30 days, effectiveFrom set
+    to one day after plan.endDate.  This is the minimum out-of-range offset that
+    triggers an empty schedule — the most common real-world mistake.
+    """
+    patient, _, intervention, plan = setup_patient_with_plan()
+    one_day_past = (plan.endDate + timedelta(days=1)).isoformat()
+    resp = client.post(
+        MODIFY_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "effectiveFrom": one_day_past,
+                "schedule": {
+                    "unit": "day",
+                    "interval": 1,
+                    "startDate": one_day_past,
+                    "selectedDays": [],
+                    "end": {"type": "never", "date": None, "count": None},
+                },
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    body = resp.json()
+    assert body.get("success") is False
+    assert "message" in body
+    plan.reload()
+    assert plan.interventions[0].dates, "Future sessions were unexpectedly cleared"
+
+
 def test_modify_intervention_from_date_get_method_not_allowed(mongo_mock):
     """
     GET to the modify endpoint returns 405.  Only POST is accepted.
