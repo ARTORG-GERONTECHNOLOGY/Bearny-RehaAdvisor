@@ -222,8 +222,8 @@ describe('InterventionRepeatModal', () => {
         response: {
           data: {
             message:
-              'No sessions could be scheduled for the selected date range. ' +
-              'Check that the start date and repeat settings fall within the plan period.',
+              'No sessions could be scheduled: the plan ends on 2026-10-13. ' +
+              "Choose an earlier effective date, or extend the patient's end date in the Information tab.",
           },
         },
       });
