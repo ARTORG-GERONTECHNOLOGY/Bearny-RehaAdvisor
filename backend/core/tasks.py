@@ -441,7 +441,8 @@ def renew_certificates():
             result.returncode,
             elapsed,
         )
-        raise RuntimeError(f"certbot renew failed (exit {result.returncode})")
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(f"certbot renew failed (exit {result.returncode})" + (f": {detail}" if detail else ""))
 
     logger.info("[renew_certificates] certbot finished in %.1fs — reloading %s", elapsed, nginx_container)
 
@@ -453,11 +454,9 @@ def renew_certificates():
     )
 
     if reload.returncode != 0:
-        logger.error(
-            "[renew_certificates] nginx reload failed: %s",
-            reload.stderr.strip() or reload.stdout.strip(),
-        )
-        raise RuntimeError(f"nginx reload failed (exit {reload.returncode})")
+        detail = reload.stderr.strip() or reload.stdout.strip()
+        logger.error("[renew_certificates] nginx reload failed: %s", detail)
+        raise RuntimeError(f"nginx reload failed (exit {reload.returncode})" + (f": {detail}" if detail else ""))
 
     logger.info("[renew_certificates] ✅ certificates renewed and nginx reloaded")
     return "renewed"

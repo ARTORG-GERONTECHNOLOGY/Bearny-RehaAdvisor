@@ -141,7 +141,10 @@ describe('SystemStatusTab', () => {
       'A healthy job',
     ]);
     expect(within(rows[0]).getByText('Failed')).toBeInTheDocument();
-    expect(within(rows[0]).getByText('ValueError: boom')).toBeInTheDocument();
+    expect(within(rows[0]).getByText('ValueError: boom')).toHaveAttribute(
+      'title',
+      'ValueError: boom'
+    );
     expect(within(rows[1]).getByText('No data since deploy')).toBeInTheDocument();
     expect(within(rows[1]).getByText('Never')).toBeInTheDocument();
   });
