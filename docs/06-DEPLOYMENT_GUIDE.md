@@ -236,9 +236,11 @@ Add these to `.env.dev` and `.env.prod`:
 | Variable | Dev value | Prod value |
 |---|---|---|
 | `CERTBOT_ENABLED` | `true` | `true` |
-| `CERTBOT_CONF_PATH` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/conf` | `/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/conf` |
-| `CERTBOT_WWW_PATH` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/www` | `/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/www` |
+| `CERTBOT_CONF_PATH` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/conf` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/conf` |
+| `CERTBOT_WWW_PATH` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/www` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/www` |
 | `CERTBOT_NGINX_CONTAINER` | `gateway` | `gateway` |
+
+Dev and prod use the same paths because there is one gateway, started from the `telerehabapp` checkout, and it serves both domains from that checkout's `nginx/certbot/` folder. Renewing into any other folder leaves the gateway with old or missing certificates.
 
 > **Important:** `CERTBOT_CONF_PATH` and `CERTBOT_WWW_PATH` must be **host-absolute paths**, not container paths. When the Celery task calls `docker run -v <path>:...`, Docker resolves the paths on the host, not inside the Celery container.
 

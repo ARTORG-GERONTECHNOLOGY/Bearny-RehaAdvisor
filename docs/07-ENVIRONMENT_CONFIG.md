@@ -581,8 +581,8 @@ CERTBOT_NGINX_CONTAINER=gateway
 
 ```env
 CERTBOT_ENABLED=true
-CERTBOT_CONF_PATH=/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/conf
-CERTBOT_WWW_PATH=/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/www
+CERTBOT_CONF_PATH=/home/ubuntu/repos/telerehabapp/nginx/certbot/conf
+CERTBOT_WWW_PATH=/home/ubuntu/repos/telerehabapp/nginx/certbot/www
 CERTBOT_NGINX_CONTAINER=gateway
 ```
 
