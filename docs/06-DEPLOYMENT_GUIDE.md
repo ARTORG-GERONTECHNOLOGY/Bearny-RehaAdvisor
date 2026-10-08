@@ -225,33 +225,40 @@ Certificates for `dev.reha-advisor.ch` and `reha-advisor.ch` are issued by Let's
 
 The task runs inside the `celery` / `celery-prod` container and calls certbot via the Docker socket — no certbot installation is required in the backend image:
 
-1. `docker run certbot/certbot renew --non-interactive --quiet` — attempts renewal for all configured domains; certbot skips certs that still have more than 30 days left.
+1. `docker run certbot/certbot renew --non-interactive --quiet --no-random-sleep-on-renew` — attempts renewal for all configured domains; certbot skips certs that still have more than 30 days left.
 2. `docker exec gateway nginx -s reload` — reloads the gateway nginx to serve the new certificate.
 3. On failure the task retries up to 3 times with a 5-minute backoff, then raises so Celery logs a failure and Sentry captures it.
 
 ### Required environment variables
 
-Add these to `.env.dev` and `.env.prod`:
+Renewal runs in prod only. Dev and prod share one cert folder, so the dev compose file sets `CERTBOT_ENABLED=false`. A `true` in `.env.dev` has no effect.
 
 | Variable | Dev value | Prod value |
 |---|---|---|
-| `CERTBOT_ENABLED` | `true` | `true` |
-| `CERTBOT_CONF_PATH` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/conf` | `/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/conf` |
-| `CERTBOT_WWW_PATH` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/www` | `/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/www` |
+| `CERTBOT_ENABLED` | `false` (set in compose) | `true` |
+| `CERTBOT_CONF_PATH` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/conf` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/conf` |
+| `CERTBOT_WWW_PATH` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/www` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/www` |
 | `CERTBOT_NGINX_CONTAINER` | `gateway` | `gateway` |
+
+Dev and prod use the same paths because there is one gateway, started from the `telerehabapp` checkout, and it serves both domains from that checkout's `nginx/certbot/` folder. Renewing into any other folder leaves the gateway with old or missing certificates.
+
+Where each value comes from:
+
+- `CERTBOT_ENABLED` is read from `.env.prod` in prod. In dev it's fixed to `false` by the compose file unless set in the shell or a project-root `.env`.
+- The two path variables and `CERTBOT_NGINX_CONTAINER` already have defaults in both compose files, so you normally don't set them. In prod, values in `.env.prod` override those defaults, because the deploy workflow runs compose with `--env-file .env.prod`. Dev is started with `make dev_up`, which doesn't pass `--env-file`, so values in `.env.dev` have no effect on them. In both environments, the shell environment or a project-root `.env` file can still override the defaults.
 
 > **Important:** `CERTBOT_CONF_PATH` and `CERTBOT_WWW_PATH` must be **host-absolute paths**, not container paths. When the Celery task calls `docker run -v <path>:...`, Docker resolves the paths on the host, not inside the Celery container.
 
 ### Required compose volumes
 
-The celery services in both `docker-compose.dev.yml` and `docker-compose.prod.reha-advisor.yml` already declare:
+The task only needs the Docker socket, which the celery services in both `docker-compose.dev.yml` and `docker-compose.prod.reha-advisor.yml` already mount:
 
 ```yaml
 volumes:
   - /var/run/docker.sock:/var/run/docker.sock   # allows calling docker run / exec
-  - ./nginx/certbot/conf:/etc/letsencrypt        # certbot reads/writes cert storage
-  - ./nginx/certbot/www:/var/www/certbot         # certbot writes ACME challenges
 ```
+
+Certbot runs in its own container and mounts `CERTBOT_CONF_PATH` and `CERTBOT_WWW_PATH` from the host. The `./nginx/certbot/*` mounts on the celery services aren't used by the task.
 
 ### Triggering renewal manually
 

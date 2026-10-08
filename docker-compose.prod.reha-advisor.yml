@@ -118,8 +118,9 @@ services:
       - CELERY_WORKER_PREFETCH_MULTIPLIER=4
       - LOG_DIR=/app/logs
       # Certificate renewal — set CERTBOT_ENABLED=true in .env.prod to activate
-      - CERTBOT_CONF_PATH=${CERTBOT_CONF_PATH:-/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/conf}
-      - CERTBOT_WWW_PATH=${CERTBOT_WWW_PATH:-/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/www}
+      # Paths point at the telerehabapp checkout because that's where the gateway mounts its certs from
+      - CERTBOT_CONF_PATH=${CERTBOT_CONF_PATH:-/home/ubuntu/repos/telerehabapp/nginx/certbot/conf}
+      - CERTBOT_WWW_PATH=${CERTBOT_WWW_PATH:-/home/ubuntu/repos/telerehabapp/nginx/certbot/www}
       - CERTBOT_NGINX_CONTAINER=${CERTBOT_NGINX_CONTAINER:-gateway}
     working_dir: /app
     depends_on:
@@ -148,8 +149,9 @@ services:
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-changeme}@redis-prod:6379/0
       - DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE=True
       # Certificate renewal — set CERTBOT_ENABLED=true in .env.prod to activate
-      - CERTBOT_CONF_PATH=${CERTBOT_CONF_PATH:-/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/conf}
-      - CERTBOT_WWW_PATH=${CERTBOT_WWW_PATH:-/home/ubuntu/repos/telerehabapp-prod/nginx/certbot/www}
+      # Paths point at the telerehabapp checkout because that's where the gateway mounts its certs from
+      - CERTBOT_CONF_PATH=${CERTBOT_CONF_PATH:-/home/ubuntu/repos/telerehabapp/nginx/certbot/conf}
+      - CERTBOT_WWW_PATH=${CERTBOT_WWW_PATH:-/home/ubuntu/repos/telerehabapp/nginx/certbot/www}
       - CERTBOT_NGINX_CONTAINER=${CERTBOT_NGINX_CONTAINER:-gateway}
       - LOG_DIR=/app/logs
     volumes:

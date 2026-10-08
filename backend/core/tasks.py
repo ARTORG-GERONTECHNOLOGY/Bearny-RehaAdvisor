@@ -377,8 +377,8 @@ def renew_certificates():
 
     Requires the following environment variables:
       CERTBOT_ENABLED=true           — set to enable; skipped if absent/false
-      CERTBOT_CONF_PATH              — host path to ./nginx/certbot/conf (default: /etc/letsencrypt inside container)
-      CERTBOT_WWW_PATH               — host path to ./nginx/certbot/www
+      CERTBOT_CONF_PATH              — host path of the gateway's certbot/conf folder; required
+      CERTBOT_WWW_PATH               — host path of the gateway's certbot/www folder; required
       CERTBOT_NGINX_CONTAINER        — name of the container running gateway nginx (default: gateway)
 
     The task runs certbot via `docker run certbot/certbot renew` using the
@@ -386,16 +386,7 @@ def renew_certificates():
     certbot inside the backend image and lets the dedicated certbot image
     handle OS-level certificate operations.
 
-    Add the following to celery services in docker-compose:
-      volumes:
-        - /var/run/docker.sock:/var/run/docker.sock
-        - ./nginx/certbot/conf:/etc/letsencrypt
-        - ./nginx/certbot/www:/var/www/certbot
-      environment:
-        - CERTBOT_ENABLED=true
-        - CERTBOT_CONF_PATH=<host-absolute-path>/nginx/certbot/conf
-        - CERTBOT_WWW_PATH=<host-absolute-path>/nginx/certbot/www
-        - CERTBOT_NGINX_CONTAINER=gateway
+    Enable it in prod only; the dev compose file forces it off since dev shares the cert folder.
     """
     enabled = os.environ.get("CERTBOT_ENABLED", "").strip().lower()
     if enabled not in ("true", "1", "yes"):
@@ -425,6 +416,7 @@ def renew_certificates():
         "renew",
         "--non-interactive",
         "--quiet",
+        "--no-random-sleep-on-renew",
     ]
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
