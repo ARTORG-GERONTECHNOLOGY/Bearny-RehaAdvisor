@@ -25,10 +25,13 @@ PUT    /api/users/<user_id>/profile/
     Patient allowed fields
         User:    username, email, phone
         Patient: first_name, name, gender, birthdate, height, weight, function,
-                 diagnosis, clinic, reha_end_date, last_clinic_visit,
+                 diagnosis, clinic, reha_end_date, study_end_date, last_clinic_visit,
                  level_of_education, professional_status, marital_status,
                  restrictions, lifestyle, personal_goals, social_support,
                  initial_questionnaire_enabled
+
+    Changing ``reha_end_date`` or ``study_end_date`` also moves the patient's
+    ``RehabilitationPlan.endDate`` (study end wins, as at plan creation).
 
     Every successful PUT writes a ``Logs`` entry with action ``UPDATE_PROFILE``
     recording the old and new values of changed fields.
@@ -85,6 +88,7 @@ from core.models import (
     Logs,
     PasswordAttempt,
     Patient,
+    RehabilitationPlan,
     Therapist,
     User,
 )
@@ -608,6 +612,15 @@ def user_profile_view(request, user_id):
 
                 user.save()
                 patient.save()
+
+                # plan.endDate is copied once at plan creation; keep it in step so scheduling can extend.
+                if "reha_end_date" in updated or "study_end_date" in updated:
+                    new_end = patient.study_end_date or patient.reha_end_date
+                    if new_end:
+                        RehabilitationPlan.objects(patientId=patient).update(
+                            set__endDate=new_end.replace(hour=23, minute=59, second=59, microsecond=0),
+                            set__updatedAt=timezone.now(),
+                        )
 
             Logs.objects.create(
                 userId=user,
