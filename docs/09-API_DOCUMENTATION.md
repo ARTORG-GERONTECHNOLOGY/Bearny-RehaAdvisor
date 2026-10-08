@@ -755,7 +755,7 @@ Schedule object fields:
 | `selectedDays` | array[string] | For weekly: `["Mon","Wed"]`                    |
 | `time`         | string        | `"HH:MM"` optional                             |
 
-If `patient.reha_end_date` is in the past, the plan end is automatically extended to 90 days from today.
+Sessions are generated up to the plan's `endDate`. If that date has passed, sessions can be booked up to 90 days from today for this request; the stored `endDate` stays unchanged. When no sessions can be generated, the endpoint returns 400 with a `message` naming the cause.
 
 **Response 200:**
 
@@ -780,9 +780,11 @@ JWT required.
 | `fromDate`       | string | yes      | `YYYY-MM-DD` — only sessions on/after this date are modified |
 | `schedule`       | object | yes      | Same structure as add-to-patient |
 
+Sessions are generated up to the plan's `endDate`, with the same 90-day window as add-to-patient once that date has passed.
+
 **Response 200:** `{ "success": true, "message": "..." }`
 
-**Errors:** 404 · 500
+**Errors:** 400 (no sessions could be generated; `message` names the cause) · 404 · 500
 
 ---
 

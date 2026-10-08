@@ -2544,7 +2544,7 @@ def test_add_intervention_to_patient_returns_400_when_no_dates_generated(mongo_m
     auto-extended plan window), the endpoint must return 400 with success=False
     instead of silently returning 200 with 'No new sessions to add'.
     """
-    patient, therapist, intervention, _ = setup_patient_with_plan()
+    patient, therapist, intervention, plan = setup_patient_with_plan()
     # startDate 200 days from now — beyond the 90-day auto-extension of plan_end,
     # so _generate_dates_from returns [] and no sessions can be added.
     far_future = (datetime.now() + timedelta(days=200)).isoformat() + "Z"
@@ -2574,7 +2574,78 @@ def test_add_intervention_to_patient_returns_400_when_no_dates_generated(mongo_m
     assert resp.status_code == 400, resp.content.decode()
     body = resp.json()
     assert body.get("success") is False
-    assert "message" in body
+    assert f"the plan ends on {plan.endDate.date().isoformat()}" in body["message"]
+
+
+def _post_add_schedule(patient, therapist, intervention, **schedule):
+    item = {
+        "interval": 1,
+        "interventionId": str(intervention.id),
+        "unit": "day",
+        "selectedDays": [],
+        "end": {"type": "never", "date": None, "count": None},
+        "require_video_feedback": False,
+        "notes": "",
+        **schedule,
+    }
+    return client.post(
+        "/api/interventions/add-to-patient/",
+        data=json.dumps(
+            {"therapistId": str(therapist.userId.id), "patientId": str(patient.id), "interventions": [item]}
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+
+def test_add_intervention_to_patient_end_date_before_start_does_not_blame_plan_end(mongo_mock):
+    patient, therapist, intervention, _ = setup_patient_with_plan()
+    start = datetime.now() + timedelta(days=5)
+    resp = _post_add_schedule(
+        patient,
+        therapist,
+        intervention,
+        startDate=start.isoformat() + "Z",
+        end={"type": "date", "date": (start - timedelta(days=2)).isoformat() + "Z", "count": None},
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    message = resp.json()["message"]
+    assert "with these repeat settings" in message
+    assert "plan ends" not in message
+
+
+def test_add_intervention_to_patient_no_matching_weekday_does_not_blame_plan_end(mongo_mock):
+    """A schedule that yields nothing even without the plan cap gets the generic message."""
+    patient, therapist, intervention, _ = setup_patient_with_plan()
+    resp = _post_add_schedule(
+        patient,
+        therapist,
+        intervention,
+        unit="week",
+        selectedDays=["Xyz"],
+        startDate=(datetime.now() + timedelta(days=1)).isoformat() + "Z",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    message = resp.json()["message"]
+    assert "with these repeat settings" in message
+    assert "plan ends" not in message
+
+
+def test_add_intervention_to_patient_past_plan_end_names_stand_in_limit(mongo_mock):
+    """With the plan end passed, the 90-day stand-in window is named as a booking limit, not as the plan end."""
+    patient, therapist, intervention, plan = setup_patient_with_plan()
+    plan.endDate = datetime.now() - timedelta(days=5)
+    plan.save()
+    resp = _post_add_schedule(
+        patient,
+        therapist,
+        intervention,
+        startDate=(datetime.now() + timedelta(days=200)).isoformat() + "Z",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    message = resp.json()["message"]
+    assert "can only be booked up to" in message
+    assert "plan ends" not in message
 
 
 # ===========================================================================
