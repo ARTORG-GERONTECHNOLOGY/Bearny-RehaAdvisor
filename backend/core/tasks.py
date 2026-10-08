@@ -386,7 +386,7 @@ def renew_certificates():
     certbot inside the backend image and lets the dedicated certbot image
     handle OS-level certificate operations.
 
-    Enable it in prod only; dev shares the cert folder, so running both just causes lock retries.
+    Enable it in prod only; the dev compose file forces it off since dev shares the cert folder.
     """
     enabled = os.environ.get("CERTBOT_ENABLED", "").strip().lower()
     if enabled not in ("true", "1", "yes"):
