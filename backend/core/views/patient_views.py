@@ -69,33 +69,12 @@ EXPIRED_PLAN_BOOKING_WINDOW = timedelta(days=90)
 
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
-    "mov": "videos",
-    "avi": "videos",
-    "mkv": "videos",
-    "webm": "videos",
-    "mp3": "audios",
-    "wav": "audios",
-    "m4a": "audios",
-    "ogg": "audios",
-    "pdf": "pdfs",
-    "png": "images",
-    "jpg": "images",
-    "jpeg": "images",
-    "gif": "images",
-    "webp": "images",
-}
-
-
-FILE_TYPE_FOLDERS = {
-    "mp4": "videos",
     "mp3": "audio",
     "jpg": "images",
     "png": "images",
     "pdf": "documents",
 }
 FFMPEG_OK = bool(pd_which("ffmpeg") and pd_which("ffprobe"))
-
-logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
 _VIDEO_UPLOAD_NOTE_PREFIX = "Video uploaded at "
 
