@@ -757,13 +757,20 @@ Schedule object fields:
 
 Sessions are generated up to the plan's `endDate`. If that date has passed, sessions can be booked up to 90 days from today for this request; the stored `endDate` stays unchanged. When no sessions can be generated, the endpoint returns 400 with a `message` naming the cause.
 
-**Response 200:**
+**Response 201:**
 
 ```json
-{ "success": true, "message": "Sessions added successfully", "plan_id": "..." }
+{
+  "success": true,
+  "message": "Successfully created 1 assignment(s) and added 10 session(s).",
+  "field_errors": {},
+  "non_field_errors": []
+}
 ```
 
-**Errors:** 400 no sessions generated · 404 patient/therapist not found · 500
+The `message` lists what was done. `field_errors` can be non-empty on success: it names entries that were skipped, for example an unknown `interventionId`.
+
+**Errors:** 400 invalid JSON, missing fields, or no sessions generated · 404 patient/therapist not found · 500
 
 ---
 
