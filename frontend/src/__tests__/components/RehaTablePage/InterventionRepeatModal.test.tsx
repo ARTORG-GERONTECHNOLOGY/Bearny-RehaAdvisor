@@ -213,6 +213,33 @@ describe('InterventionRepeatModal', () => {
       consoleErrorSpy.mockRestore();
     });
 
+    it('scrolls the error alert into view after a failed submit (905-43 regression)', async () => {
+      const scrollSpy = jest
+        .spyOn(Element.prototype, 'scrollIntoView')
+        .mockImplementation(() => {});
+
+      (apiClient.post as jest.Mock).mockRejectedValueOnce({
+        response: {
+          data: {
+            message:
+              'No sessions could be scheduled for the selected date range. ' +
+              'Check that the start date and repeat settings fall within the plan period.',
+          },
+        },
+      });
+
+      render(<InterventionRepeatModal {...defaultProps} mode="modify" />);
+      fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+
+      await screen.findByText(/No sessions could be scheduled/);
+
+      await waitFor(() => {
+        expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      });
+
+      scrollSpy.mockRestore();
+    });
+
     it('shows an error alert when submission fails, dismissible via its close button', async () => {
       (apiClient.post as jest.Mock).mockRejectedValueOnce({
         response: { data: { message: 'Save failed' } },

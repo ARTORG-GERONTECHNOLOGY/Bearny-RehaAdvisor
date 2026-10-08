@@ -127,4 +127,54 @@ test.describe('Rehab plan — modify schedule produces no sessions', () => {
     // The modal must NOT close on error (user needs to see the message).
     await expect(modal).toBeVisible();
   });
+
+  test('error alert is visible in the viewport after save from scrolled position (scroll regression)', async ({
+    page,
+  }) => {
+    skipUnlessSeeded();
+    await loginAsTherapist(page);
+
+    await page.route('**/api/patients/rehabilitation-plan/therapist/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(makeMockPlan()),
+      });
+    });
+    await page.route('**/api/interventions/all/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ interventions: [] }),
+      });
+    });
+    await page.route('**/api/interventions/modify-patient/', async (route) => {
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify(EMPTY_SCHEDULE_ERROR),
+      });
+    });
+
+    await page.goto(`/therapist-patient-detail/${MOCK_PATIENT_ID}?tab=rehabilitationplan`);
+
+    const modifyBtn = page.locator('[aria-label="Modify"]').first();
+    await expect(modifyBtn).toBeVisible({ timeout: 10_000 });
+    await modifyBtn.click();
+
+    const modal = page.locator('[role="dialog"]');
+    await expect(modal).toBeVisible();
+
+    // Scroll to the Save button at the bottom before clicking — this is the
+    // exact user action that previously hid the error alert off-screen.
+    const saveBtn = modal.getByRole('button', { name: /save changes/i });
+    await saveBtn.scrollIntoViewIfNeeded();
+    await saveBtn.click();
+
+    // After the 400 the modal must scroll back up so the alert is in the viewport.
+    const alert = modal.locator('[role="alert"]');
+    await expect(alert).toBeVisible({ timeout: 5_000 });
+    await expect(alert).toBeInViewport({ ratio: 0.5 });
+    await expect(alert).toContainText('No sessions could be scheduled');
+  });
 });
