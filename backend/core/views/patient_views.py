@@ -64,24 +64,8 @@ from utils.utils import (
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
-FILE_TYPE_FOLDERS = {
-    "mp4": "videos",
-    "mov": "videos",
-    "avi": "videos",
-    "mkv": "videos",
-    "webm": "videos",
-    "mp3": "audios",
-    "wav": "audios",
-    "m4a": "audios",
-    "ogg": "audios",
-    "pdf": "pdfs",
-    "png": "images",
-    "jpg": "images",
-    "jpeg": "images",
-    "gif": "images",
-    "webp": "images",
-}
-
+# How far ahead add and modify may book once a plan's end date has passed (or is missing).
+EXPIRED_PLAN_BOOKING_WINDOW = timedelta(days=90)
 
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
@@ -91,8 +75,6 @@ FILE_TYPE_FOLDERS = {
     "pdf": "documents",
 }
 FFMPEG_OK = bool(pd_which("ffmpeg") and pd_which("ffprobe"))
-
-logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
 _VIDEO_UPLOAD_NOTE_PREFIX = "Video uploaded at "
 
@@ -1990,13 +1972,18 @@ def add_intervention_to_patient(request):
         )
 
     # Use plan end as authoritative fallback (also non-null)
-    plan_end = plan.endDate or (timezone.now() + timedelta(days=90))
+    plan_end_extended = plan.endDate is None
+    plan_end = plan.endDate or (timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW)
     if timezone.is_naive(plan_end):
         plan_end = timezone.make_aware(plan_end, timezone.get_current_timezone())
-    # If the plan end is in the past, extend to 90 days from now so future
+    # If the plan end is in the past, open a booking window from now so future
     # sessions can always be scheduled regardless of an outdated reha_end_date.
     if plan_end < timezone.now():
-        plan_end = timezone.now() + timedelta(days=90)
+        plan_end = timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW
+        plan_end_extended = True
+
+    plan_end_blocks = False
+    already_scheduled = False
 
     total_added = 0
     created_assignments = 0
@@ -2063,6 +2050,13 @@ def add_intervention_to_patient(request):
                 "[add_intervention_to_patient] No valid dates generated for %s",
                 str(intervention.id),
             )
+            # Same schedule without the plan cap: if it yields a session, the plan end is what blocked it.
+            probe = schedule_input
+            if schedule_input["end_type"] != "date":
+                probe = {**schedule_input, "end_type": "count", "count_limit": 1}
+            far_end = (schedule_input["start_date"] or timezone.now()) + timedelta(days=3650)
+            if generate_repeat_dates(far_end, probe):
+                plan_end_blocks = True
             continue
 
         require_video = bool(item.get("require_video_feedback"))
@@ -2080,6 +2074,7 @@ def add_intervention_to_patient(request):
                 variant_switches += 1
 
             merged, added_cnt = _merge_dates(existing.dates, dates)
+            already_scheduled = already_scheduled or added_cnt == 0
             if added_cnt > 0:
                 existing.dates = merged
                 existing.require_video_feedback = require_video
@@ -2114,8 +2109,17 @@ def add_intervention_to_patient(request):
         return JsonResponse(
             {
                 "success": False,
-                "message": "No sessions could be scheduled for the selected date range. "
-                "Check that the start date and repeat settings fall within the plan period.",
+                "message": (
+                    "These sessions are already scheduled."
+                    if already_scheduled and not plan_end_blocks
+                    else _empty_schedule_message(
+                        plan_end_blocks=plan_end_blocks,
+                        limit=plan_end,
+                        limit_extended=plan_end_extended,
+                        date_label="start date",
+                        end_field=_plan_end_field(patient),
+                    )
+                ),
                 "field_errors": field_errors,
                 "non_field_errors": non_field_errors,
             },
@@ -2365,6 +2369,30 @@ def _generate_dates_from(
     return out
 
 
+def _plan_end_field(patient) -> str:
+    """Information-tab field the plan end follows: the study end date wins, as in the profile sync."""
+    return "Study / After-Rehab Plan End Date" if patient.study_end_date else "Rehabilitation End Date"
+
+
+def _empty_schedule_message(
+    *, plan_end_blocks: bool, limit: datetime.datetime, limit_extended: bool, date_label: str, end_field: str
+):
+    """User-facing reason a schedule produced no sessions; names the limit only when it is the cause."""
+    if not plan_end_blocks:
+        return (
+            "No sessions could be scheduled with these repeat settings. "
+            f"Check the {date_label}, the selected weekdays and the end settings."
+        )
+    limit_iso = _as_aware_local(limit).date().isoformat()
+    if limit_extended:
+        # The plan end has passed and a stand-in window applies; it is not the plan's real end date.
+        return f"No sessions could be scheduled: sessions can only be booked up to {limit_iso}. Choose an earlier {date_label}."
+    return (
+        f"No sessions could be scheduled: the plan ends on {limit_iso}. "
+        f"Choose an earlier {date_label}, or extend the patient's {end_field} in the Information tab."
+    )
+
+
 # -----------------------------
 # Modify endpoint
 # -----------------------------
@@ -2603,11 +2631,13 @@ def modify_intervention_from_date(request):
     # Generate NEW sessions
     # ----------------------
     try:
-        plan_end = plan.endDate or (timezone.now() + datetime.timedelta(days=365))
+        plan_end_extended = plan.endDate is None
+        plan_end = plan.endDate or (timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW)
         plan_end_local = _as_aware_local(plan_end)
-        # If the plan's end date has passed, allow rescheduling up to 1 year from now
+        # If the plan's end date has passed, allow rescheduling within the booking window from now
         if plan_end_local < _as_aware_local(timezone.now()):
-            plan_end_local = _as_aware_local(timezone.now() + datetime.timedelta(days=365))
+            plan_end_local = _as_aware_local(timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW)
+            plan_end_extended = True
 
         new_local = _generate_dates_from(schedule, eff_dt_local, plan_end_local)
         new_utc = [dt.astimezone(datetime.timezone.utc) for dt in new_local]
@@ -2624,12 +2654,22 @@ def modify_intervention_from_date(request):
         )
 
     if not new_utc:
+        # Same schedule without the plan cap: if it yields a session, the plan end is what blocked it.
+        end_type = (schedule.get("end") or {}).get("type")
+        probe = schedule if end_type == "date" else {**schedule, "end": {"type": "count", "count": 1}}
+        far_end = eff_dt_local + datetime.timedelta(days=3650)
+        plan_end_blocks = bool(_generate_dates_from(probe, eff_dt_local, far_end))
         return JsonResponse(
             {
                 "success": False,
-                "message": "No sessions could be scheduled for the selected date range. "
-                "Check that the start date and repeat settings fall within the plan period.",
-                "field_errors": {"schedule": ["No sessions could be generated for this date range."]},
+                "message": _empty_schedule_message(
+                    plan_end_blocks=plan_end_blocks,
+                    limit=plan_end_local,
+                    limit_extended=plan_end_extended,
+                    date_label="effective date",
+                    end_field=_plan_end_field(patient),
+                ),
+                "field_errors": {},
                 "non_field_errors": [],
             },
             status=400,

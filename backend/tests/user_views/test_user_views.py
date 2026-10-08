@@ -95,7 +95,7 @@ import pytest
 from bson import ObjectId
 from rest_framework.test import APIClient
 
-from core.models import Patient, Therapist, User
+from core.models import Patient, RehabilitationPlan, Therapist, User
 
 # ---------------------------------------------------------------------------
 # Fixtures / client
@@ -541,6 +541,64 @@ def test_user_profile_view_update_patient_reha_end_date():
     )
     assert resp.status_code == 200
     assert "reha_end_date" in resp.json().get("updated", {})
+
+
+def _create_plan(patient, end):
+    return RehabilitationPlan(
+        patientId=patient,
+        therapistId=patient.therapist,
+        startDate=datetime.now(),
+        endDate=end,
+        status="active",
+        interventions=[],
+    ).save()
+
+
+def test_user_profile_view_update_reha_end_date_extends_plan_end():
+    """
+    Moving ``reha_end_date`` moves the plan's ``endDate``, so the modify-schedule
+    endpoint can book sessions up to the new date (905-43).
+    """
+    user, patient = create_patient()
+    plan = _create_plan(patient, datetime(2026, 10, 13))
+
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps({"reha_end_date": "2027-03-31"}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    plan.reload()
+    assert plan.endDate == datetime(2027, 3, 31)
+
+
+def test_user_profile_view_update_study_end_date_wins_over_reha_end_date_for_plan():
+    """``study_end_date`` takes precedence for the plan end, as at plan creation."""
+    user, patient = create_patient()
+    plan = _create_plan(patient, datetime(2026, 10, 13))
+
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps({"reha_end_date": "2027-03-31", "study_end_date": "2027-06-30"}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    plan.reload()
+    assert plan.endDate == datetime(2027, 6, 30)
+
+
+def test_user_profile_view_update_unrelated_field_leaves_plan_end():
+    user, patient = create_patient()
+    plan = _create_plan(patient, datetime(2026, 10, 13))
+
+    resp = client.put(
+        f"/api/users/{user.id}/profile/",
+        data=json.dumps({"first_name": "Renamed"}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    plan.reload()
+    assert plan.endDate == datetime(2026, 10, 13)
 
 
 def test_user_profile_view_update_patient_preferred_language():

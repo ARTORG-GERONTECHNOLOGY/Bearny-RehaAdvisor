@@ -62,8 +62,8 @@ function makeMockPlan(): object {
 const EMPTY_SCHEDULE_ERROR = {
   success: false,
   message:
-    'No sessions could be scheduled for the selected date range. ' +
-    'Check that the start date and repeat settings fall within the plan period.',
+    'No sessions could be scheduled: the plan ends on 2026-10-13. ' +
+    "Choose an earlier effective date, or extend the patient's Rehabilitation End Date in the Information tab.",
   field_errors: {},
   non_field_errors: [],
 };
