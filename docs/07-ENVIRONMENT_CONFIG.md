@@ -557,7 +557,7 @@ See [Study Integration Guide](./15-STUDY_INTEGRATION.md) for the full feature ma
 
 ## Certificate Renewal
 
-Automatic Let's Encrypt renewal is handled by the Celery beat task `core.tasks.renew_certificates`, which runs daily at 03:00 UTC. It is opt-in: set `CERTBOT_ENABLED=true` in `.env.prod` to activate. Dev and prod share one cert folder; enabling it in dev too just causes harmless lock retries.
+Automatic Let's Encrypt renewal is handled by the Celery beat task `core.tasks.renew_certificates`, which runs daily at 03:00 UTC. It is opt-in: set `CERTBOT_ENABLED=true` in `.env.prod` to activate. Dev and prod share one cert folder, so the dev compose file keeps it off (`CERTBOT_ENABLED=false`).
 
 ### Variables
 
@@ -568,7 +568,7 @@ Automatic Let's Encrypt renewal is handled by the Celery beat task `core.tasks.r
 | `CERTBOT_WWW_PATH` | No (compose default) | **Host-absolute** path to `nginx/certbot/www` — the webroot used by certbot for ACME challenges. |
 | `CERTBOT_NGINX_CONTAINER` | No | Name of the gateway nginx container to reload after renewal. Defaults to `gateway`. |
 
-The path variables default to the gateway's cert folder in both compose files. In prod, values in `.env.prod` override the defaults, because the deploy runs compose with `--env-file .env.prod`. In dev, `make dev_up` doesn't pass `--env-file`, so values in `.env.dev` don't.
+The path variables default to the gateway's cert folder in both compose files. In prod, values in `.env.prod` override the defaults, because the deploy runs compose with `--env-file .env.prod`. In dev, `make dev_up` doesn't pass `--env-file`, so values in `.env.dev` don't. In both environments, the shell environment or a project-root `.env` file can still override the defaults.
 
 ### Prod example (`.env.prod`)
 

@@ -231,11 +231,11 @@ The task runs inside the `celery` / `celery-prod` container and calls certbot vi
 
 ### Required environment variables
 
-Enable renewal in prod only. Dev and prod share one cert folder; enabling it in dev too just causes harmless lock retries when both run at 03:00.
+Renewal runs in prod only. Dev and prod share one cert folder, so the dev compose file sets `CERTBOT_ENABLED=false`. A `true` in `.env.dev` has no effect.
 
 | Variable | Dev value | Prod value |
 |---|---|---|
-| `CERTBOT_ENABLED` | unset | `true` |
+| `CERTBOT_ENABLED` | `false` (set in compose) | `true` |
 | `CERTBOT_CONF_PATH` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/conf` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/conf` |
 | `CERTBOT_WWW_PATH` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/www` | `/home/ubuntu/repos/telerehabapp/nginx/certbot/www` |
 | `CERTBOT_NGINX_CONTAINER` | `gateway` | `gateway` |
@@ -244,8 +244,8 @@ Dev and prod use the same paths because there is one gateway, started from the `
 
 Where each value comes from:
 
-- `CERTBOT_ENABLED` is read from `.env.dev` / `.env.prod`.
-- The two path variables and `CERTBOT_NGINX_CONTAINER` already have defaults in both compose files, so you normally don't set them. In prod, values in `.env.prod` override those defaults, because the deploy workflow runs compose with `--env-file .env.prod`. Dev is started with `make dev_up`, which doesn't pass `--env-file`, so values in `.env.dev` have no effect on them.
+- `CERTBOT_ENABLED` is read from `.env.prod` in prod. In dev it's fixed to `false` by the compose file unless set in the shell or a project-root `.env`.
+- The two path variables and `CERTBOT_NGINX_CONTAINER` already have defaults in both compose files, so you normally don't set them. In prod, values in `.env.prod` override those defaults, because the deploy workflow runs compose with `--env-file .env.prod`. Dev is started with `make dev_up`, which doesn't pass `--env-file`, so values in `.env.dev` have no effect on them. In both environments, the shell environment or a project-root `.env` file can still override the defaults.
 
 > **Important:** `CERTBOT_CONF_PATH` and `CERTBOT_WWW_PATH` must be **host-absolute paths**, not container paths. When the Celery task calls `docker run -v <path>:...`, Docker resolves the paths on the host, not inside the Celery container.
 
