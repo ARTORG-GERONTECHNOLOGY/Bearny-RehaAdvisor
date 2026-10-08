@@ -832,6 +832,19 @@ def test_django_admin_not_mounted():
         resolve("/admin/")
 
 
+def test_gateway_nginx_rate_limits_admin_exports():
+    """Bulk admin exports must be rate-limited at the gateway, with no IP allowlist on /api/admin/."""
+    conf_path = _nginx_conf("gateway.nginx.conf")
+    if not conf_path.exists():
+        pytest.skip("nginx conf not available in this environment")
+
+    content = conf_path.read_text()
+    assert "zone=export_limit" in content, "export_limit zone must be defined"
+    assert "location ~ ^/api/admin/export/(patients|audit)/" in content
+    assert "limit_req zone=export_limit" in content, "export location must apply export_limit"
+    assert "location /api/admin/" not in content, "an IP allowlist on /api/admin/ 403s the admin dashboard"
+
+
 def test_gateway_nginx_has_ssl_ciphers():
     """
     gateway.nginx.conf must contain an explicit ssl_ciphers directive so only
