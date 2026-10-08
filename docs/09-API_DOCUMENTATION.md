@@ -769,22 +769,45 @@ Sessions are generated up to the plan's `endDate`. If that date has passed, sess
 
 #### `POST /api/interventions/modify-patient/`
 
-JWT required.
+JWT required. Caller must be an admin or a therapist of the patient's clinic.
+
+Replaces an assigned intervention's schedule from `effectiveFrom` onwards. Sessions before that date are kept.
 
 **Request body:**
 
-| Field            | Type   | Required |
-|------------------|--------|----------|
-| `patientId`      | string | yes      |
-| `interventionId` | string | yes      |
-| `fromDate`       | string | yes      | `YYYY-MM-DD` — only sessions on/after this date are modified |
-| `schedule`       | object | yes      | Same structure as add-to-patient |
+| Field                    | Type    | Required | Notes |
+|--------------------------|---------|----------|-------|
+| `patientId`              | string  | yes      | Patient id |
+| `interventionId`         | string  | yes      | Any language variant of the assigned intervention |
+| `effectiveFrom`          | string  | yes      | `YYYY-MM-DD` or ISO datetime |
+| `keep_current`           | boolean | no       | `true` keeps all dates and only updates `require_video_feedback` and `notes` |
+| `require_video_feedback` | boolean | no       | Always applied, so omitting it turns video feedback off |
+| `notes`                  | string  | no       | Personal instructions for the patient, max 1000 characters; omit to keep the current notes |
+| `schedule`               | object  | when `keep_current` is `false` | See below |
 
-Sessions are generated up to the plan's `endDate`, with the same 90-day window as add-to-patient once that date has passed.
+Schedule object fields:
 
-**Response 200:** `{ "success": true, "message": "..." }`
+| Field          | Type          | Notes |
+|----------------|---------------|-------|
+| `unit`         | string        | `"day"`, `"week"`, `"month"` |
+| `interval`     | integer       | Every N units |
+| `startDate`    | string        | ISO datetime; generation starts at the later of this and `effectiveFrom` |
+| `startTime`    | string        | `"HH:MM"`, defaults to `"08:00"` |
+| `selectedDays` | array[string] | For weekly: `["Mon","Thu"]` |
+| `end`          | object        | `{ "type": "never" \| "date" \| "count", "date": ISO \| null, "count": int \| null }` |
 
-**Errors:** 400 (no sessions could be generated; `message` names the cause) · 404 · 500
+Sessions are generated up to the plan's `endDate`. If that date has passed, sessions can be booked up to 90 days from today for this request; the stored `endDate` stays unchanged.
+
+**Response 200:** `{ "success": true, "message": "Updated schedule.", "updatedCount": 12, "field_errors": {}, "non_field_errors": [] }`
+
+With `keep_current: true` the message is `"Updated schedule flags."`. `updatedCount` is the number of sessions the intervention now has, past ones included.
+
+**Errors:**
+
+- 400 — invalid JSON, missing fields, invalid `effectiveFrom`, missing or invalid `schedule`, or no sessions could be generated (`message` names the cause: the plan end date, the 90-day window, or the repeat settings). Existing sessions are left unchanged.
+- 403 — caller is not allowed to access this patient
+- 404 — patient, plan or intervention assignment not found
+- 500 — internal date conversion error
 
 ---
 
