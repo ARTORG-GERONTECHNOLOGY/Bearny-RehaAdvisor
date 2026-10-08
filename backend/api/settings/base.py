@@ -43,6 +43,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.renew_certificates",
         "schedule": crontab(hour=3, minute=0),
     },
+    # Check certificate expiry daily at 07:00 UTC; sends an alert email
+    # to the ops address if any cert expires within 1 day.
+    "check_certificate_expiry": {
+        "task": "core.tasks.check_certificate_expiry",
+        "schedule": crontab(hour=7, minute=0),
+    },
     # Prune audit logs older than LOG_RETENTION_DAYS (default 365 days).
     # Runs weekly on Sunday at 04:00 UTC to avoid peak hours.
     "prune_old_logs": {

@@ -1,14 +1,16 @@
 # core/tasks.py
+import glob
 import json
 import logging
 import os
 import subprocess
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from datetime import timezone as datetime_timezone
 
 from celery import shared_task
 from django.conf import settings
+from django.core.mail import send_mail
 from django.core.management import call_command
 from django.utils import timezone
 from mongoengine.errors import DoesNotExist, NotUniqueError
@@ -365,13 +367,30 @@ def sync_wearables_to_redcap_all():
     return {"synced": synced, "errors": errors}
 
 
+_CERT_ALERT_EMAIL = "noora.angelva@unibe.ch"
+
+
+def _send_cert_alert(subject, body):
+    try:
+        send_mail(
+            subject,
+            body,
+            settings.DEFAULT_FROM_EMAIL,
+            [_CERT_ALERT_EMAIL],
+            fail_silently=True,
+        )
+    except Exception as exc:
+        logger.error("[cert_alert] failed to send alert email: %s", exc)
+
+
 @shared_task(
+    bind=True,
     name="core.tasks.renew_certificates",
     autoretry_for=(Exception,),
     retry_backoff=300,
     max_retries=3,
 )
-def renew_certificates():
+def renew_certificates(self):
     """
     Renew Let's Encrypt certificates via certbot and reload the nginx gateway.
 
@@ -442,7 +461,19 @@ def renew_certificates():
             elapsed,
         )
         detail = result.stderr.strip() or result.stdout.strip()
-        raise RuntimeError(f"certbot renew failed (exit {result.returncode})" + (f": {detail}" if detail else ""))
+        error_msg = f"certbot renew failed (exit {result.returncode})" + (f": {detail}" if detail else "")
+        if self.request.retries >= self.max_retries:
+            _send_cert_alert(
+                "⚠️ reha-advisor.ch certificate renewal failed",
+                f"Automatic Let's Encrypt renewal failed after {self.max_retries + 1} attempts.\n\n"
+                f"Error: {error_msg}\n\n"
+                "The certificate will expire soon. Please renew manually:\n"
+                "  docker run --rm -p 80:80 \\\n"
+                "    -v <CERTBOT_CONF_PATH>:/etc/letsencrypt \\\n"
+                "    certbot/certbot certonly --standalone -d reha-advisor.ch -d www.reha-advisor.ch -d dev.reha-advisor.ch\n\n"
+                "Then reload the gateway: docker exec gateway nginx -s reload",
+            )
+        raise RuntimeError(error_msg)
 
     logger.info("[renew_certificates] certbot finished in %.1fs — reloading %s", elapsed, nginx_container)
 
@@ -456,10 +487,85 @@ def renew_certificates():
     if reload.returncode != 0:
         detail = reload.stderr.strip() or reload.stdout.strip()
         logger.error("[renew_certificates] nginx reload failed: %s", detail)
-        raise RuntimeError(f"nginx reload failed (exit {reload.returncode})" + (f": {detail}" if detail else ""))
+        error_msg = f"nginx reload failed (exit {reload.returncode})" + (f": {detail}" if detail else "")
+        if self.request.retries >= self.max_retries:
+            _send_cert_alert(
+                "⚠️ reha-advisor.ch certificate renewal failed",
+                f"Certbot renewed the certificate but nginx reload failed after {self.max_retries + 1} attempts.\n\n"
+                f"Error: {error_msg}\n\n"
+                "The new certificate is on disk but the gateway is still serving the old one.\n"
+                "Reload manually: docker exec gateway nginx -s reload",
+            )
+        raise RuntimeError(error_msg)
 
     logger.info("[renew_certificates] ✅ certificates renewed and nginx reloaded")
     return "renewed"
+
+
+@shared_task(name="core.tasks.check_certificate_expiry")
+def check_certificate_expiry():
+    """
+    Check all managed Let's Encrypt certificates and send an email alert
+    if any expire within 1 day. Runs daily at 07:00 UTC via Celery beat.
+
+    Reads certs from CERTBOT_CONF_PATH/live/*/fullchain.pem (the same
+    directory certbot writes to). No-op if CERTBOT_ENABLED is not set.
+    """
+    enabled = os.environ.get("CERTBOT_ENABLED", "").strip().lower()
+    if enabled not in ("true", "1", "yes"):
+        logger.info("[check_certificate_expiry] skipped (CERTBOT_ENABLED not set)")
+        return "skipped"
+
+    conf_path = os.environ.get("CERTBOT_CONF_PATH", "").strip()
+    if not conf_path:
+        logger.warning("[check_certificate_expiry] CERTBOT_CONF_PATH not set, skipping")
+        return "skipped"
+
+    from cryptography import x509
+    from cryptography.hazmat.backends import default_backend
+
+    pattern = os.path.join(conf_path, "live", "*", "fullchain.pem")
+    cert_files = [p for p in glob.glob(pattern) if not os.path.islink(os.path.dirname(p))]
+
+    if not cert_files:
+        logger.warning("[check_certificate_expiry] no cert files found under %s", conf_path)
+        return "no_certs"
+
+    now = datetime.now(tz=datetime_timezone.utc)
+    expiring = []
+
+    for cert_path in cert_files:
+        try:
+            with open(cert_path, "rb") as f:
+                cert = x509.load_pem_x509_certificate(f.read(), default_backend())
+            expiry = cert.not_valid_after_utc
+            days_left = (expiry - now).days
+            domain = cert_path.split("/live/")[1].split("/")[0]
+            logger.info("[check_certificate_expiry] %s expires in %d day(s) (%s)", domain, days_left, expiry.date())
+            if days_left <= 1:
+                expiring.append((domain, expiry, days_left))
+        except Exception as exc:
+            logger.error("[check_certificate_expiry] could not read %s: %s", cert_path, exc)
+
+    if expiring:
+        lines = "\n".join(
+            f"  • {domain}: expires {expiry.strftime('%Y-%m-%d %H:%M UTC')} ({days} day(s) left)"
+            for domain, expiry, days in expiring
+        )
+        _send_cert_alert(
+            "⚠️ reha-advisor.ch certificate expires tomorrow",
+            f"The following certificate(s) expire within 1 day and automatic renewal has not yet succeeded:\n\n"
+            f"{lines}\n\n"
+            "To renew manually:\n"
+            "  docker run --rm -p 80:80 \\\n"
+            "    -v <CERTBOT_CONF_PATH>:/etc/letsencrypt \\\n"
+            "    certbot/certbot certonly --standalone -d reha-advisor.ch -d www.reha-advisor.ch -d dev.reha-advisor.ch\n\n"
+            "Then reload: docker exec gateway nginx -s reload",
+        )
+        logger.warning("[check_certificate_expiry] alert sent for: %s", [d for d, _, _ in expiring])
+        return f"alerted: {[d for d, _, _ in expiring]}"
+
+    return "ok"
 
 
 def _as_aware_utc(dt):
