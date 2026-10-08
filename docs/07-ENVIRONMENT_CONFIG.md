@@ -557,7 +557,7 @@ See [Study Integration Guide](./15-STUDY_INTEGRATION.md) for the full feature ma
 
 ## Certificate Renewal
 
-Automatic Let's Encrypt renewal is handled by the Celery beat task `core.tasks.renew_certificates`, which runs daily at 03:00 UTC. It is opt-in: set `CERTBOT_ENABLED=true` to activate, in `.env.prod` only. Dev and prod share one cert folder, so only one environment should renew.
+Automatic Let's Encrypt renewal is handled by the Celery beat task `core.tasks.renew_certificates`, which runs daily at 03:00 UTC. It is opt-in: set `CERTBOT_ENABLED=true` in `.env.prod` to activate. Dev and prod share one cert folder; enabling it in dev too just causes harmless lock retries.
 
 ### Variables
 

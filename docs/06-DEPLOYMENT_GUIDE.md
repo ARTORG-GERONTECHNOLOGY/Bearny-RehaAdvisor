@@ -231,7 +231,7 @@ The task runs inside the `celery` / `celery-prod` container and calls certbot vi
 
 ### Required environment variables
 
-Renewal is enabled in **prod only**. Dev and prod share one gateway and one cert folder, so enabling it in both runs two renewals on the same folder at the same time.
+Enable renewal in prod only. Dev and prod share one cert folder; enabling it in dev too just causes harmless lock retries when both run at 03:00.
 
 | Variable | Dev value | Prod value |
 |---|---|---|

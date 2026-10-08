@@ -90,7 +90,7 @@ services:
       - REDIS_CA_CERT=/etc/ssl/mongo/ca.crt
       - CELERY_WORKER_PREFETCH_MULTIPLIER=1
       - CELERY_WORKER_STATE_DB=/app/celery_worker.state
-      # Certificate renewal — leave CERTBOT_ENABLED unset here; prod renews the shared cert folder
+      # Certificate renewal — prod renews the shared cert folder; enabling it here too just causes lock retries
       - CERTBOT_CONF_PATH=${CERTBOT_CONF_PATH:-/home/ubuntu/repos/telerehabapp/nginx/certbot/conf}
       - CERTBOT_WWW_PATH=${CERTBOT_WWW_PATH:-/home/ubuntu/repos/telerehabapp/nginx/certbot/www}
       - CERTBOT_NGINX_CONTAINER=${CERTBOT_NGINX_CONTAINER:-gateway}
@@ -116,7 +116,7 @@ services:
       - CELERY_RESULT_BACKEND=rediss://:${REDIS_PASSWORD:-dev-redis-secret}@redis:6379/0
       - REDIS_CA_CERT=/etc/ssl/mongo/ca.crt
       - DJANGO_CELERY_BEAT_DISABLE_SOLAR_SCHEDULE=True
-      # Certificate renewal — leave CERTBOT_ENABLED unset here; prod renews the shared cert folder
+      # Certificate renewal — prod renews the shared cert folder; enabling it here too just causes lock retries
       - CERTBOT_CONF_PATH=${CERTBOT_CONF_PATH:-/home/ubuntu/repos/telerehabapp/nginx/certbot/conf}
       - CERTBOT_WWW_PATH=${CERTBOT_WWW_PATH:-/home/ubuntu/repos/telerehabapp/nginx/certbot/www}
       - CERTBOT_NGINX_CONTAINER=${CERTBOT_NGINX_CONTAINER:-gateway}
