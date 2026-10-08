@@ -749,7 +749,7 @@ def test_modify_intervention_one_day_past_plan_end_returns_400(mongo_mock):
     assert resp.status_code == 400, resp.content.decode()
     body = resp.json()
     assert body.get("success") is False
-    assert "message" in body
+    assert plan.endDate.date().isoformat() in body["message"]
     plan.reload()
     assert plan.interventions[0].dates, "Future sessions were unexpectedly cleared"
 

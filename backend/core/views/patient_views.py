@@ -2624,12 +2624,13 @@ def modify_intervention_from_date(request):
         )
 
     if not new_utc:
+        plan_end_iso = plan_end_local.date().isoformat()
         return JsonResponse(
             {
                 "success": False,
-                "message": "No sessions could be scheduled for the selected date range. "
-                "Check that the start date and repeat settings fall within the plan period.",
-                "field_errors": {"schedule": ["No sessions could be generated for this date range."]},
+                "message": f"No sessions could be scheduled: the plan ends on {plan_end_iso}. "
+                "Choose an earlier effective date, or extend the patient's end date in the Information tab.",
+                "field_errors": {},
                 "non_field_errors": [],
             },
             status=400,
