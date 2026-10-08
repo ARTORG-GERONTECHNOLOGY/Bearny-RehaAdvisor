@@ -425,6 +425,7 @@ def renew_certificates():
         "renew",
         "--non-interactive",
         "--quiet",
+        "--no-random-sleep-on-renew",
     ]
 
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
