@@ -2598,6 +2598,35 @@ def _post_add_schedule(patient, therapist, intervention, **schedule):
     )
 
 
+def test_add_intervention_to_patient_missing_plan_end_is_not_reported_as_plan_end(mongo_mock):
+    """A plan without endDate falls back to the booking window, which must not be presented as the plan's end."""
+    patient, therapist, intervention, plan = setup_patient_with_plan()
+    RehabilitationPlan.objects(id=plan.id).update(unset__endDate=True)
+    resp = _post_add_schedule(
+        patient,
+        therapist,
+        intervention,
+        startDate=(datetime.now() + timedelta(days=200)).isoformat() + "Z",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    message = resp.json()["message"]
+    assert "can only be booked up to" in message
+    assert "plan ends" not in message
+
+
+def test_add_intervention_to_patient_resubmitting_booked_sessions_says_already_scheduled(mongo_mock):
+    patient, therapist, intervention, _ = setup_patient_with_plan()
+    # Past the five daily sessions setup_patient_with_plan already books.
+    start = (datetime.now() + timedelta(days=20)).isoformat() + "Z"
+    end = {"type": "count", "date": None, "count": 3}
+    first = _post_add_schedule(patient, therapist, intervention, startDate=start, end=end)
+    assert first.status_code == 201, first.content.decode()
+
+    again = _post_add_schedule(patient, therapist, intervention, startDate=start, end=end)
+    assert again.status_code == 400, again.content.decode()
+    assert again.json()["message"] == "These sessions are already scheduled."
+
+
 def test_add_intervention_to_patient_end_date_before_start_does_not_blame_plan_end(mongo_mock):
     patient, therapist, intervention, _ = setup_patient_with_plan()
     start = datetime.now() + timedelta(days=5)

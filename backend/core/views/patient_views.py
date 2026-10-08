@@ -1972,7 +1972,7 @@ def add_intervention_to_patient(request):
         )
 
     # Use plan end as authoritative fallback (also non-null)
-    plan_end_extended = False
+    plan_end_extended = plan.endDate is None
     plan_end = plan.endDate or (timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW)
     if timezone.is_naive(plan_end):
         plan_end = timezone.make_aware(plan_end, timezone.get_current_timezone())
@@ -1983,6 +1983,7 @@ def add_intervention_to_patient(request):
         plan_end_extended = True
 
     plan_end_blocks = False
+    already_scheduled = False
 
     total_added = 0
     created_assignments = 0
@@ -2073,6 +2074,7 @@ def add_intervention_to_patient(request):
                 variant_switches += 1
 
             merged, added_cnt = _merge_dates(existing.dates, dates)
+            already_scheduled = already_scheduled or added_cnt == 0
             if added_cnt > 0:
                 existing.dates = merged
                 existing.require_video_feedback = require_video
@@ -2107,11 +2109,16 @@ def add_intervention_to_patient(request):
         return JsonResponse(
             {
                 "success": False,
-                "message": _empty_schedule_message(
-                    plan_end_blocks=plan_end_blocks,
-                    limit=plan_end,
-                    limit_extended=plan_end_extended,
-                    date_label="start date",
+                "message": (
+                    "These sessions are already scheduled."
+                    if already_scheduled and not plan_end_blocks
+                    else _empty_schedule_message(
+                        plan_end_blocks=plan_end_blocks,
+                        limit=plan_end,
+                        limit_extended=plan_end_extended,
+                        date_label="start date",
+                        end_field=_plan_end_field(patient),
+                    )
                 ),
                 "field_errors": field_errors,
                 "non_field_errors": non_field_errors,
@@ -2362,7 +2369,14 @@ def _generate_dates_from(
     return out
 
 
-def _empty_schedule_message(*, plan_end_blocks: bool, limit: datetime.datetime, limit_extended: bool, date_label: str):
+def _plan_end_field(patient) -> str:
+    """Information-tab field the plan end follows: the study end date wins, as in the profile sync."""
+    return "Study / After-Rehab Plan End Date" if patient.study_end_date else "Rehabilitation End Date"
+
+
+def _empty_schedule_message(
+    *, plan_end_blocks: bool, limit: datetime.datetime, limit_extended: bool, date_label: str, end_field: str
+):
     """User-facing reason a schedule produced no sessions; names the limit only when it is the cause."""
     if not plan_end_blocks:
         return (
@@ -2375,7 +2389,7 @@ def _empty_schedule_message(*, plan_end_blocks: bool, limit: datetime.datetime, 
         return f"No sessions could be scheduled: sessions can only be booked up to {limit_iso}. Choose an earlier {date_label}."
     return (
         f"No sessions could be scheduled: the plan ends on {limit_iso}. "
-        f"Choose an earlier {date_label}, or extend the patient's end date in the Information tab."
+        f"Choose an earlier {date_label}, or extend the patient's {end_field} in the Information tab."
     )
 
 
@@ -2617,7 +2631,7 @@ def modify_intervention_from_date(request):
     # Generate NEW sessions
     # ----------------------
     try:
-        plan_end_extended = False
+        plan_end_extended = plan.endDate is None
         plan_end = plan.endDate or (timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW)
         plan_end_local = _as_aware_local(plan_end)
         # If the plan's end date has passed, allow rescheduling within the booking window from now
@@ -2653,6 +2667,7 @@ def modify_intervention_from_date(request):
                     limit=plan_end_local,
                     limit_extended=plan_end_extended,
                     date_label="effective date",
+                    end_field=_plan_end_field(patient),
                 ),
                 "field_errors": {},
                 "non_field_errors": [],

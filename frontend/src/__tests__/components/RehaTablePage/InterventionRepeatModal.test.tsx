@@ -223,7 +223,7 @@ describe('InterventionRepeatModal', () => {
           data: {
             message:
               'No sessions could be scheduled: the plan ends on 2026-10-13. ' +
-              "Choose an earlier effective date, or extend the patient's end date in the Information tab.",
+              "Choose an earlier effective date, or extend the patient's Rehabilitation End Date in the Information tab.",
           },
         },
       });

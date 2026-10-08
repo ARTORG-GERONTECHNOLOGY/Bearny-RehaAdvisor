@@ -811,7 +811,7 @@ def test_modify_intervention_no_matching_weekday_does_not_blame_plan_end(mongo_m
 
 
 def test_modify_intervention_past_plan_end_names_stand_in_limit(mongo_mock):
-    """With the plan end passed, the one-year stand-in window is named as a booking limit, not as the plan end."""
+    """With the plan end passed, the 90-day stand-in window is named as a booking limit, not as the plan end."""
     patient, _, intervention, plan = setup_patient_with_plan()
     plan.endDate = datetime.now() - timedelta(days=5)
     plan.save()
@@ -835,6 +835,31 @@ def test_modify_intervention_expired_plan_books_up_to_shared_window(mongo_mock):
     last = max(plan.interventions[0].dates)
     assert last.date() <= (datetime.now() + EXPIRED_PLAN_BOOKING_WINDOW).date()
     assert last.date() >= (datetime.now() + EXPIRED_PLAN_BOOKING_WINDOW - timedelta(days=2)).date()
+
+
+@pytest.mark.parametrize(
+    "study_end, expected_field",
+    [(None, "Rehabilitation End Date"), (datetime(2030, 1, 1), "Study / After-Rehab Plan End Date")],
+)
+def test_modify_intervention_plan_end_message_names_the_field_the_plan_follows(mongo_mock, study_end, expected_field):
+    """The plan follows the study end date when one is set, so the message must point there."""
+    patient, _, intervention, plan = setup_patient_with_plan()
+    patient.study_end_date = study_end
+    patient.save()
+    resp = _post_modify_schedule(patient, intervention, (plan.endDate + timedelta(days=1)).isoformat())
+    assert resp.status_code == 400, resp.content.decode()
+    assert f"extend the patient's {expected_field}" in resp.json()["message"]
+
+
+def test_modify_intervention_missing_plan_end_is_not_reported_as_plan_end(mongo_mock):
+    """A plan without endDate falls back to the booking window, which must not be presented as the plan's end."""
+    patient, _, intervention, plan = setup_patient_with_plan()
+    RehabilitationPlan.objects(id=plan.id).update(unset__endDate=True)
+    resp = _post_modify_schedule(patient, intervention, (datetime.now() + timedelta(days=400)).isoformat())
+    assert resp.status_code == 400, resp.content.decode()
+    message = resp.json()["message"]
+    assert "can only be booked up to" in message
+    assert "plan ends" not in message
 
 
 def test_modify_intervention_from_date_get_method_not_allowed(mongo_mock):
@@ -965,8 +990,8 @@ def test_modify_intervention_from_date_expired_plan_still_generates_dates(mongo_
     """
     Bug #439: when plan.endDate is in the past, _generate_dates_from returns []
     because cursor > hard_stop, causing all future sessions to vanish ("deleted").
-    After the fix, modify_intervention_from_date extends plan_end to 1 year from
-    now when it has already passed, so new dates are always generated.
+    After the fix, modify_intervention_from_date opens a booking window from now
+    (EXPIRED_PLAN_BOOKING_WINDOW) when it has already passed, so new dates are always generated.
     """
     therapist_user = User(
         username="th_exp",
