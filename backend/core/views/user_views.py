@@ -618,7 +618,7 @@ def user_profile_view(request, user_id):
                     new_end = patient.study_end_date or patient.reha_end_date
                     if new_end:
                         RehabilitationPlan.objects(patientId=patient).update(
-                            set__endDate=new_end.replace(hour=23, minute=59, second=59, microsecond=0),
+                            set__endDate=new_end,
                             set__updatedAt=timezone.now(),
                         )
 

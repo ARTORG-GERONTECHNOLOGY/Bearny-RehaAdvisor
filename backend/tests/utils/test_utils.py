@@ -386,6 +386,29 @@ def test_generate_repeat_dates_end_date_as_datetime_object():
     )
 
 
+def test_generate_repeat_dates_week_never_books_before_start():
+    """A weekly schedule starting mid-week begins on the next selected weekday, not earlier that week."""
+    from django.utils.timezone import make_aware
+
+    wednesday = datetime(2030, 1, 2, 8, 0)  # a Wednesday
+    repeat_data = {
+        "interval": 1,
+        "unit": "week",
+        "selected_days": ["Mon", "Thu"],
+        "start_date": make_aware(wednesday),
+        "end_type": "count",
+        "count_limit": 4,
+    }
+    dates = generate_repeat_dates(make_aware(datetime(2030, 3, 1)), repeat_data)
+
+    assert [d.strftime("%a %Y-%m-%d") for d in dates] == [
+        "Thu 2030-01-03",
+        "Mon 2030-01-07",
+        "Thu 2030-01-10",
+        "Mon 2030-01-14",
+    ]
+
+
 def test_generate_repeat_dates_sessions_on_end_date_included():
     """
     Bug #439: the end_date from the frontend is midnight UTC of the chosen day,

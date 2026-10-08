@@ -755,7 +755,7 @@ Schedule object fields:
 | `selectedDays` | array[string] | For weekly: `["Mon","Wed"]`                    |
 | `time`         | string        | `"HH:MM"` optional                             |
 
-Sessions are generated up to and including the plan's `endDate`. If that date has passed, sessions can be booked up to 90 days from today for this request; the stored `endDate` stays unchanged. When no sessions can be generated, the endpoint returns 400 with a `message` naming the cause.
+Sessions are generated up to the plan's `endDate`. If that date has passed, sessions can be booked up to 90 days from today for this request; the stored `endDate` stays unchanged. When no sessions can be generated, the endpoint returns 400 with a `message` naming the cause.
 
 **Response 201:**
 
@@ -803,7 +803,7 @@ Schedule object fields:
 | `selectedDays` | array[string] | For weekly: `["Mon","Thu"]` |
 | `end`          | object        | `{ "type": "never" \| "date" \| "count", "date": ISO \| null, "count": int \| null }` |
 
-Sessions are generated up to and including the plan's `endDate`. If that date has passed, sessions can be booked up to 90 days from today for this request; the stored `endDate` stays unchanged.
+Sessions are generated up to the plan's `endDate`. If that date has passed, sessions can be booked up to 90 days from today for this request; the stored `endDate` stays unchanged.
 
 **Response 200:** `{ "success": true, "message": "Updated schedule.", "updatedCount": 12, "field_errors": {}, "non_field_errors": [] }`
 

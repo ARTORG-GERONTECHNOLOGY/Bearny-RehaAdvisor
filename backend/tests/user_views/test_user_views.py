@@ -556,8 +556,8 @@ def _create_plan(patient, end):
 
 def test_user_profile_view_update_reha_end_date_extends_plan_end():
     """
-    Moving ``reha_end_date`` moves the plan's ``endDate`` to the end of that day,
-    so the modify-schedule endpoint can book sessions up to the new date (905-43).
+    Moving ``reha_end_date`` moves the plan's ``endDate``, so the modify-schedule
+    endpoint can book sessions up to the new date (905-43).
     """
     user, patient = create_patient()
     plan = _create_plan(patient, datetime(2026, 10, 13))
@@ -569,7 +569,7 @@ def test_user_profile_view_update_reha_end_date_extends_plan_end():
     )
     assert resp.status_code == 200
     plan.reload()
-    assert plan.endDate == datetime(2027, 3, 31, 23, 59, 59)
+    assert plan.endDate == datetime(2027, 3, 31)
 
 
 def test_user_profile_view_update_study_end_date_wins_over_reha_end_date_for_plan():
@@ -584,7 +584,7 @@ def test_user_profile_view_update_study_end_date_wins_over_reha_end_date_for_pla
     )
     assert resp.status_code == 200
     plan.reload()
-    assert plan.endDate == datetime(2027, 6, 30, 23, 59, 59)
+    assert plan.endDate == datetime(2027, 6, 30)
 
 
 def test_user_profile_view_update_unrelated_field_leaves_plan_end():
