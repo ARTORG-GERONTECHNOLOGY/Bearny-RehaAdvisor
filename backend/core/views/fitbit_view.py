@@ -15,7 +15,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from core.models import FitbitData, FitbitUserToken, GoogleHealthData, GoogleHealthUserToken, Patient, User
-from core.services.redcap_access import get_therapist_for_user
+from core.permissions import can_access_patient, is_self_or_admin
 from core.views.wearable_utils import (
     _default_thresholds,
     _merge_thresholds,
@@ -70,6 +70,8 @@ def fitbit_summary(request, patient_id=None):
         patient = _resolve_patient(request, patient_id)
         if not patient:
             return JsonResponse({"error": "Cannot resolve patient"}, status=400)
+        if not can_access_patient(request, patient, allow_self=True):
+            return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
         # Retrieve the corresponding user object
         user = User.objects(id=patient.userId.id).first()
@@ -421,6 +423,14 @@ def fitbit_status(request, patient_id):
         logger.info("[fitbit_status] unresolved identifier connected=False has_data=False")
         return JsonResponse({"connected": False, "has_data": False, "last_data": None})
 
+    status_patient = Patient.objects(userId=user).first()
+    if not (
+        can_access_patient(request, status_patient, allow_self=True)
+        if status_patient
+        else is_self_or_admin(request, user.id)
+    ):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
+
     connected = FitbitUserToken.objects(user=user, is_revoked__ne=True).count() > 0
     needs_reconnect = not connected and FitbitUserToken.objects(user=user).count() > 0
     latest_row = FitbitData.objects(user=user).order_by("-date").first()
@@ -504,6 +514,9 @@ def fitbit_auth_init(request):
     patient_id = request.GET.get("patientId", "")
     if not patient_id:
         return JsonResponse({"error": "patientId required"}, status=400)
+    # The callback links the OAuth account to this user, so it must be the caller.
+    if not is_self_or_admin(request, patient_id):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     nonce = secrets.token_urlsafe(32)
     try:
@@ -685,14 +698,8 @@ def get_fitbit_health_data(request, patient_id):
     try:
         patient = Patient.objects.get(id=ObjectId(patient_id))
 
-        # IDOR guard: only a therapist in the patient's clinic may view health data.
-        # Skipped in TESTING mode (the test auth backend uses a synthetic user that
-        # has no therapist record); production always has TESTING unset.
-        if not getattr(settings, "TESTING", False) and getattr(request.user, "id", None) is not None:
-            caller_therapist = get_therapist_for_user(request.user)
-            patient_clinic = getattr(patient, "clinic", None)
-            if not caller_therapist or patient_clinic not in (caller_therapist.clinics or []):
-                return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
+        if not can_access_patient(request, patient):
+            return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
         # Convert to european DD.MM.YYYY
         def eu_date(d):
@@ -840,6 +847,8 @@ def manual_steps(request, patient_id):
 
     if not patient:
         return JsonResponse({"error": "Patient not found"}, status=404)
+    if not can_access_patient(request, patient, allow_self=True):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     FitbitData.objects(user=patient.userId, date=date).update_one(set__steps=steps, upsert=True)
 
@@ -902,6 +911,8 @@ def health_combined_history(request, patient_id):
             patient = Patient.objects.get(id=ObjectId(patient_id))
         except Patient.DoesNotExist:
             return JsonResponse({"error": "Patient not found"}, status=404)
+        if not can_access_patient(request, patient, allow_self=True):
+            return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
         # -------------------------
         # 2) Parse time range

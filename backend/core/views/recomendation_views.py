@@ -23,6 +23,7 @@ from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
 from django.utils.timezone import is_naive, make_aware
+from mongoengine.errors import DoesNotExist
 from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -38,6 +39,11 @@ from core.models import (
     PatientInterventionLogs,
     PatientType,
     Therapist,
+)
+from core.permissions import (
+    can_access_patient,
+    is_self_or_admin,
+    is_therapist_or_admin,
 )
 from utils.config import config
 from utils.interventions import (
@@ -77,6 +83,9 @@ from utils.utils import bad, sanitize_text
 
 logger = logging.getLogger(__name__)
 
+PATIENT_FORBIDDEN = "You are not authorised to access this patient's data."
+THERAPIST_FORBIDDEN = "You are not authorised to act for this therapist."
+
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
     "mov": "videos",
@@ -107,6 +116,15 @@ ALLOWED_CONTENT_TYPES = set(config["RecomendationInfo"]["types"])
 MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024  # 1GB
 MAX_LIST_ITEMS = 30
 MAX_ITEM_LEN = 80
+
+
+def _can_see_private(request, intervention, allow_self: bool = False) -> bool:
+    """Private interventions with no live patient are visible to nobody."""
+    try:
+        patient = intervention.private_patient_id
+    except DoesNotExist:
+        return False
+    return bool(patient) and can_access_patient(request, patient, allow_self=allow_self)
 
 
 # --------------------------------------------------------------------
@@ -162,6 +180,9 @@ def apply_template_to_patient(request, therapist_id):
 
         eff_dt = make_aware(eff_date) if is_naive(eff_date) else eff_date
 
+        if not is_self_or_admin(request, therapist_id):
+            return bad(THERAPIST_FORBIDDEN, {}, [], status=403)
+
         try:
             therapist = Therapist.objects.get(userId=ObjectId(therapist_id))
         except Exception:
@@ -179,6 +200,9 @@ def apply_template_to_patient(request, therapist_id):
                 [],
                 status=404,
             )
+
+        if not can_access_patient(request, patient):
+            return bad(PATIENT_FORBIDDEN, {}, [], status=403)
 
         # NOTE: you referenced RehabilitationPlan in your original code but it wasn't in your imports.
         # Keep as-is if it's available in core.models; if not, import it above.
@@ -288,6 +312,8 @@ def apply_template_to_patient(request, therapist_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def template_plan_preview(request, therapist_id):
+    if not is_self_or_admin(request, therapist_id):
+        return JsonResponse({"success": False, "message": THERAPIST_FORBIDDEN}, status=403)
     try:
         diag_filter = (request.GET.get("diagnosis") or "").strip() or None
         horizon = int(request.GET.get("horizon") or 84)
@@ -451,6 +477,9 @@ def add_new_intervention(request):
             status=status,
         )
 
+    if not is_therapist_or_admin(request):
+        return bad("Only therapists can add interventions.", status=403)
+
     try:
         # -------- base fields --------
         title = (request.POST.get("title") or "").strip()
@@ -613,6 +642,8 @@ def add_new_intervention(request):
                     patient_obj = Patient.objects.get(pk=ObjectId(patient_id))
                 except Exception:
                     field_errors.setdefault("patientId", []).append("Invalid patient id.")
+                if patient_obj and not can_access_patient(request, patient_obj):
+                    return bad(PATIENT_FORBIDDEN, status=403)
 
         # patientTypes validate (public) optional
         if not is_private and patient_types_raw:
@@ -857,6 +888,9 @@ def add_new_intervention(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_intervention_detail(request, intervention_id):
+    # Response aggregates every patient's feedback comments.
+    if not is_therapist_or_admin(request):
+        return JsonResponse({"error": "Only therapists can view intervention details."}, status=403)
     try:
         user_lang = (
             (request.GET.get("lang") or request.headers.get("Accept-Language") or "en").split(",")[0].strip().lower()
@@ -864,6 +898,8 @@ def get_intervention_detail(request, intervention_id):
         lang_chain = _lang_fallback_chain(user_lang)
 
         base_doc = Intervention.objects.get(pk=intervention_id)
+        if base_doc.is_private and not _can_see_private(request, base_doc):
+            return JsonResponse({"error": "Intervention not found"}, status=404)
         external_id = getattr(base_doc, "external_id", None)
 
         intervention = base_doc
@@ -1018,7 +1054,11 @@ def list_all_interventions(request, patient_id=None):
             }
 
         if q_external_id:
-            docs = list(Intervention.objects.filter(external_id=q_external_id))
+            docs = [
+                d
+                for d in Intervention.objects.filter(external_id=q_external_id)
+                if not d.is_private or _can_see_private(request, d, allow_self=True)
+            ]
             if not docs:
                 return JsonResponse([], safe=False, status=200)
             pick_lang = q_lang or preferred_lang
@@ -1053,14 +1093,16 @@ def list_all_interventions(request, patient_id=None):
 
         private = []
         if patient_id:
-            try:
+            private_patient = Patient.objects(pk=patient_id).first() if ObjectId.is_valid(patient_id) else None
+            if private_patient and not can_access_patient(request, private_patient, allow_self=True):
+                return JsonResponse({"error": PATIENT_FORBIDDEN}, status=403)
+            # A deleted or unknown patient gets the public list only.
+            if private_patient:
                 private = list(
-                    Intervention.objects.filter(is_private=True, private_patient_id=ObjectId(patient_id)).only(
+                    Intervention.objects.filter(is_private=True, private_patient_id=private_patient.id).only(
                         *_list_fields
                     )
                 )
-            except Exception as e:
-                logger.warning(f"Invalid patient ID or private fetch error: {e}")
 
         private_serialized = [serialize(i, []) for i in private]
 
@@ -1166,6 +1208,9 @@ def assign_intervention_to_types(request, therapist_id):
             },
             status=400,
         )
+
+    if not is_self_or_admin(request, therapist_id):
+        return JsonResponse({"success": False, "message": THERAPIST_FORBIDDEN}, status=403)
 
     try:
         therapist_obj = Therapist.objects.get(userId=ObjectId(therapist_id))
@@ -1486,6 +1531,9 @@ def remove_intervention_from_types(request, therapist_id):
             status=400,
         )
 
+    if not is_self_or_admin(request, therapist_id):
+        return JsonResponse({"success": False, "message": THERAPIST_FORBIDDEN}, status=403)
+
     try:
         therapist_obj = Therapist.objects.get(userId=ObjectId(therapist_id))
     except Exception:
@@ -1631,6 +1679,9 @@ def remove_intervention_from_types(request, therapist_id):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_patient_group(request):
+    if not is_therapist_or_admin(request):
+        return JsonResponse({"success": False, "message": "Only therapists can edit patient groups."}, status=403)
+
     field_errors = {}
     non_field_errors = []
 
@@ -1733,6 +1784,8 @@ def list_intervention_diagnoses(request, intervention, specialisation, therapist
     GET /api/interventions/<intervention>/assigned-diagnoses/<specialisation>/therapist/<therapist_id>/
     Returns a mapping of diagnoses to their assigned status and the 'all' flag.
     """
+    if not is_self_or_admin(request, therapist_id):
+        return JsonResponse({"success": False, "message": THERAPIST_FORBIDDEN}, status=403)
     try:
         therapist = Therapist.objects.get(userId=ObjectId(therapist_id))
         intervention_id = ObjectId(intervention)

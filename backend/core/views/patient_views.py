@@ -40,7 +40,7 @@ from core.models import (
     Translation,
     User,
 )
-from core.services.redcap_access import get_therapist_for_user
+from core.permissions import can_access_patient, is_self_or_admin
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from core.views.wearable_utils import fetch_merged_wearable_records
 from utils.interventions import (
@@ -227,6 +227,9 @@ def submit_patient_feedback(request):
             patient = Patient.objects.get(userId=ObjectId(user_id))
         except Patient.DoesNotExist:
             return JsonResponse({"error": "Patient not found."}, status=404)
+
+        if not can_access_patient(request, patient, allow_self=True):
+            return _forbidden_patient()
 
         # =========================
         # INTERVENTION feedback path
@@ -491,16 +494,8 @@ def mark_intervention_completed(request):
         # Resolve entities
         patient = Patient.objects.get(userId=ObjectId(patient_id))
 
-        # IDOR guard: allow the patient themselves or a therapist in the same clinic.
-        # Skipped in TESTING mode (the test auth backend uses a synthetic user that
-        # has no therapist record); production always has TESTING unset.
-        if not getattr(settings, "TESTING", False) and getattr(request.user, "id", None) is not None:
-            caller_id = str(request.user.id)
-            if caller_id != patient_id:
-                caller_therapist = get_therapist_for_user(request.user)
-                patient_clinic = getattr(patient, "clinic", None)
-                if not caller_therapist or patient_clinic not in (caller_therapist.clinics or []):
-                    return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
+        if not can_access_patient(request, patient, allow_self=True):
+            return _forbidden_patient()
 
         intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
@@ -644,6 +639,8 @@ def unmark_intervention_completed(request):
             )
 
         patient = Patient.objects.get(userId=ObjectId(patient_id))
+        if not can_access_patient(request, patient, allow_self=True):
+            return _forbidden_patient()
         intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
         if not rehab_plan:
@@ -1063,20 +1060,8 @@ def get_patient_plan(request, patient_id):
             logger.warning("[get_patient_plan] Patient not found")
             return JsonResponse({"error": "Patient not found"}, status=404)
 
-        # IDOR guard: allow the patient themselves or a therapist in the same clinic.
-        # Skipped in TESTING mode (the test auth backend uses a synthetic user that
-        # has no therapist record); production always has TESTING unset.
-        if not getattr(settings, "TESTING", False) and getattr(request.user, "id", None) is not None:
-            caller_id = str(request.user.id)
-            try:
-                patient_user_id = str(patient.userId.id)
-            except Exception:
-                patient_user_id = None
-            if patient_user_id != caller_id:
-                caller_therapist = get_therapist_for_user(request.user)
-                patient_clinic = getattr(patient, "clinic", None)
-                if not caller_therapist or patient_clinic not in (caller_therapist.clinics or []):
-                    return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
+        if not can_access_patient(request, patient, allow_self=True):
+            return _forbidden_patient()
 
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
 
@@ -1244,6 +1229,9 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         except Patient.DoesNotExist:
             logger.warning("[get_feedback_questions] Patient not found for provided identifier.")
             return JsonResponse({"error": "Patient not found."}, status=404)
+
+    if not can_access_patient(request, patient, allow_self=True):
+        return _forbidden_patient()
 
     # -------------------- HEALTHSTATUS --------------------
     if questionaire_type == "Healthstatus":
@@ -1780,6 +1768,19 @@ def _merge_dates(existing, incoming, *, return_naive_for_storage=True):
     return merged, added
 
 
+def _forbidden_patient():
+    return JsonResponse(
+        {
+            "success": False,
+            "error": "You are not authorised to access this patient's data.",
+            "message": "You are not authorised to access this patient's data.",
+            "field_errors": {},
+            "non_field_errors": [],
+        },
+        status=403,
+    )
+
+
 def _resolve_patient_flexible(identifier: str):
     """
     Resolve a patient from any commonly-used identifier:
@@ -1929,6 +1930,10 @@ def add_intervention_to_patient(request):
             status=400,
         )
 
+    # therapistId is only trusted when it names the caller.
+    if not is_self_or_admin(request, therapistId):
+        return _forbidden_patient()
+
     # ---- Resolve therapist ----
     try:
         therapist = Therapist.objects.get(userId=_coerce_object_id(therapistId) or therapistId)
@@ -1955,6 +1960,9 @@ def add_intervention_to_patient(request):
             },
             status=404,
         )
+
+    if not can_access_patient(request, patient):
+        return _forbidden_patient()
 
     # ---- Load/create plan ----
     plan = RehabilitationPlan.objects(patientId=patient).first()
@@ -2486,31 +2494,8 @@ def modify_intervention_from_date(request):
             status=404,
         )
 
-    # ----------------------
-    # Authorization (match get_patient_plan_for_therapist)
-    # ----------------------
-    from django.conf import settings as _dj_settings
-
-    if not getattr(_dj_settings, "TESTING", False):
-        try:
-            _caller = User.objects.get(pk=ObjectId(request.user.id))
-            _is_admin = _caller.role == "Admin" and _caller.isActive
-        except Exception:
-            _is_admin = False
-
-        if not _is_admin:
-            _caller_therapist = get_therapist_for_user(request.user)
-            _patient_clinic = getattr(patient, "clinic", None)
-            if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "message": "You are not authorised to access this patient's data.",
-                        "field_errors": {},
-                        "non_field_errors": [],
-                    },
-                    status=403,
-                )
+    if not can_access_patient(request, patient):
+        return _forbidden_patient()
 
     # ----------------------
     # Resolve plan
@@ -2786,37 +2771,9 @@ def reschedule_intervention_date(request):
             status=404,
         )
 
-    # ----------------------
-    # Authorization (match get_patient_plan_for_therapist, plus the
-    # patient themselves rescheduling their own sessions)
-    # ----------------------
-    from django.conf import settings as _dj_settings
-
-    if not getattr(_dj_settings, "TESTING", False):
-        try:
-            _caller = User.objects.get(pk=ObjectId(request.user.id))
-            _is_admin = _caller.role == "Admin" and _caller.isActive
-        except Exception:
-            _is_admin = False
-
-        try:
-            _is_owner = str(patient.userId.id) == str(request.user.id)
-        except Exception:
-            _is_owner = False
-
-        if not _is_admin and not _is_owner:
-            _caller_therapist = get_therapist_for_user(request.user)
-            _patient_clinic = getattr(patient, "clinic", None)
-            if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "message": "You are not authorised to access this patient's data.",
-                        "field_errors": {},
-                        "non_field_errors": [],
-                    },
-                    status=403,
-                )
+    # Patients may reschedule their own sessions.
+    if not can_access_patient(request, patient, allow_self=True):
+        return _forbidden_patient()
 
     # ----------------------
     # Resolve plan
@@ -3026,30 +2983,11 @@ def get_patient_plan_for_therapist(request, patient_id):
                 status=404,
             )
 
-        # Authorization: verify the calling therapist's clinics include the
-        # patient's clinic.  Admins bypass this check.  Skipped in test mode
-        # because test requests use a synthetic user with no DB record.
-        from django.conf import settings as _dj_settings
-
-        if not getattr(_dj_settings, "TESTING", False):
-            try:
-                from bson import ObjectId as _OID
-
-                from core.models import User as _User
-
-                _caller = _User.objects.get(pk=_OID(request.user.id))
-                _is_admin = _caller.role == "Admin" and _caller.isActive
-            except Exception:
-                _is_admin = False
-
-            if not _is_admin:
-                _caller_therapist = get_therapist_for_user(request.user)
-                _patient_clinic = getattr(patient, "clinic", None)
-                if not _caller_therapist or _patient_clinic not in (_caller_therapist.clinics or []):
-                    return JsonResponse(
-                        {"success": False, "error": "You are not authorised to access this patient's data."},
-                        status=403,
-                    )
+        if not can_access_patient(request, patient):
+            return JsonResponse(
+                {"success": False, "error": "You are not authorised to access this patient's data."},
+                status=403,
+            )
 
         # .first(), like every other plan reader: .get() raised an uncaught MultipleObjectsReturned
         # for a patient who ended up with two plan docs, and there is no unique index preventing that.
@@ -3376,6 +3314,9 @@ def remove_intervention_from_patient(request):
             status=404,
         )
 
+    if not can_access_patient(request, patient):
+        return _forbidden_patient()
+
     # .first(), like every other plan reader: .get() raised an uncaught MultipleObjectsReturned
     # for a patient who ended up with two plan docs, and there is no unique index preventing that.
     plan = RehabilitationPlan.objects(patientId=patient).first()
@@ -3501,6 +3442,9 @@ def initial_patient_questionaire(request, patient_id):
         logger.warning("[initial_patient_questionaire] Patient not found for provided patient identifier.")
         return error_response("Patient not found.", status=404)
 
+    if not can_access_patient(request, patient, allow_self=True):
+        return _forbidden_patient()
+
     # ----------------------------
     # GET → check if questionnaire is needed
     # ----------------------------
@@ -3593,6 +3537,8 @@ def get_patient_healthstatus_history(request, patient_id):
 
     try:
         patient = Patient.objects.get(userId=ObjectId(patient_id))
+        if not can_access_patient(request, patient, allow_self=True):
+            return _forbidden_patient()
 
         # Fetch all FeedbackQuestions of type "Healthstatus"
         questions = FeedbackQuestion.objects(questionSubject="Healthstatus")
@@ -3676,6 +3622,8 @@ def get_combined_health_data(request, patient_id):
             patient = Patient.objects.get(pk=patient_id)
         except Exception:
             patient = Patient.objects.get(userId=ObjectId(patient_id))
+        if not can_access_patient(request, patient, allow_self=True):
+            return _forbidden_patient()
 
         # ---------- date window ----------
         from_str = request.GET.get("from")
@@ -4020,6 +3968,9 @@ def add_manual_vitals(request, patient_id: str):
     except Patient.DoesNotExist:
         return JsonResponse({"error": "Patient not found"}, status=404)
 
+    if not can_access_patient(request, patient, allow_self=True):
+        return _forbidden_patient()
+
     # Parse JSON
     try:
         body = json.loads(request.body or "{}")
@@ -4187,6 +4138,9 @@ def vitals_exists_for_day(request, patient_id: str):
     if not patient:
         return JsonResponse({"error": "Patient not found"}, status=404)
 
+    if not can_access_patient(request, patient, allow_self=True):
+        return _forbidden_patient()
+
     # Day window (naive datetimes, consistent with your MongoEngine usage)
     start_dt = datetime.datetime.combine(day, datetime.time.min)
     end_dt = datetime.datetime.combine(day, datetime.time.max)
@@ -4238,6 +4192,9 @@ def log_intervention_view(request, patient_id: str):
     patient = _resolve_patient(patient_id)
     if not patient:
         return JsonResponse({"error": "Patient not found"}, status=404)
+
+    if not can_access_patient(request, patient, allow_self=True):
+        return _forbidden_patient()
 
     try:
         Logs.objects.create(

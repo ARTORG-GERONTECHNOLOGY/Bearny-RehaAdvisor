@@ -46,6 +46,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import PatientThresholds  # adjust import path
+from core.permissions import can_access_patient
 from core.models import (
     Patient,
     PatientThresholdsSnapshot,
@@ -447,9 +448,10 @@ def patient_thresholds_view(request, patient_id: str):
         except (DoesNotExist, Exception):
             return bad("Patient not found.", status=404)
 
-    if request.method == "GET":
-        # Patients can read only themselves
+    if not can_access_patient(request, pat, allow_self=request.method == "GET"):
+        return bad("You are not authorised to access this patient's data.", status=403)
 
+    if request.method == "GET":
         current = _ensure_patient_thresholds(pat)
         hist = list(getattr(pat, "thresholds_history", []) or [])
 

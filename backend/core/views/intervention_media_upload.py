@@ -7,6 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Intervention, InterventionMedia
+from core.permissions import is_therapist_or_admin
 from utils.interventions import _save_file
 
 logger = logging.getLogger(__name__)
@@ -156,6 +157,8 @@ def upload_intervention_media(request):
     The language suffix (e.g. _de) determines which language variant receives the file.
     Returns per-file results — never aborts the whole batch on a single error.
     """
+    if not is_therapist_or_admin(request):
+        return JsonResponse({"error": "Only therapists can upload intervention media."}, status=403)
 
     files = request.FILES.getlist("files[]")
     if not files:

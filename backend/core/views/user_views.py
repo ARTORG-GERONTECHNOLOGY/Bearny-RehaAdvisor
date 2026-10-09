@@ -92,7 +92,12 @@ from core.models import (
     Therapist,
     User,
 )
-from core.permissions import IsAdmin
+from core.permissions import (
+    IsAdmin,
+    can_access_patient,
+    can_assign_clinic,
+    is_self_or_admin,
+)
 from core.token_revocation import invalidate_user_tokens
 from utils.config import WEARABLE_DEVICE_CHOICES
 from utils.utils import (
@@ -280,6 +285,10 @@ def user_profile_view(request, user_id):
             return JsonResponse({"error": "User not found"}, status=404)
 
     target_role = getattr(user, "role", "Patient")
+
+    target_patient = Patient.objects(userId=user.id).first() if target_role == "Patient" else None
+    if not is_self_or_admin(request, user.id) and not (target_patient and can_access_patient(request, target_patient)):
+        return JsonResponse({"error": "You are not authorised to access this profile."}, status=403)
 
     # ------------------------------------------------------------------
     # Sanitizer
@@ -535,6 +544,10 @@ def user_profile_view(request, user_id):
             if target_role == "Therapist":
                 therapist = Therapist.objects.get(userId=user.id)
 
+                added_clinics = set(raw.get("clinics") or []) - set(therapist.clinics or [])
+                if not all(can_assign_clinic(request, c) for c in added_clinics):
+                    return JsonResponse({"error": "You are not authorised to assign this clinic."}, status=403)
+
                 for field, expected_type in TH_ALLOWED_USER.items():
                     if field in raw:
                         raw_val = raw[field]
@@ -560,6 +573,10 @@ def user_profile_view(request, user_id):
 
             else:  # PATIENT
                 patient = Patient.objects.get(userId=user.id)
+
+                new_clinic = raw.get("clinic")
+                if new_clinic and new_clinic != patient.clinic and not can_assign_clinic(request, new_clinic):
+                    return JsonResponse({"error": "You are not authorised to assign this clinic."}, status=403)
 
                 # Update USER fields
                 for field, expected_type in PATIENT_ALLOWED_USER.items():
@@ -748,6 +765,9 @@ def reset_patient_password(request, patient_id):
     except Exception:
         return JsonResponse({"error": "Invalid patient ID"}, status=400)
 
+    if not can_access_patient(request, patient):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
+
     user = patient.userId
 
     user.pwdhash = make_password(new_password)
@@ -780,6 +800,9 @@ def force_logout_patient(request, patient_id):
         return JsonResponse({"error": "Patient not found"}, status=404)
     except Exception:
         return JsonResponse({"error": "Invalid patient ID"}, status=400)
+
+    if not can_access_patient(request, patient):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     user = patient.userId
     invalidate_user_tokens(str(user.id))

@@ -23,6 +23,7 @@ from core.models import (
     Therapist,
     User,
 )
+from core.permissions import can_access_patient, is_self_or_admin
 from core.services.redcap_access import get_therapist_for_user
 from core.views.wearable_utils import fetch_merged_wearable_records
 from utils.interventions import _get_star_q_ids, _star_rating_value
@@ -697,8 +698,12 @@ def create_log(request):
         started = parse_datetime(data.get("started")) if data.get("started") else None
         ended = parse_datetime(data.get("ended")) if data.get("ended") else None
         patient = data.get("patient")  # Optional patient reference
+        if user and not is_self_or_admin(request, user):
+            return JsonResponse({"error": "You can only log your own activity."}, status=403)
         if patient:
             patient = Patient.objects.get(pk=ObjectId(patient))
+            if not can_access_patient(request, patient, allow_self=True):
+                return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
         if user:
             user = User.objects.get(id=ObjectId(user))
         log = Logs(

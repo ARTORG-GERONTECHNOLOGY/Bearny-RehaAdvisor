@@ -35,6 +35,7 @@ from core.models import (
     RehabilitationPlan,
     Therapist,
 )
+from core.permissions import can_access_patient
 from utils.interventions import (
     BASE_ANCHOR,
     _anchor_date_for_day,
@@ -876,6 +877,8 @@ def apply_named_template(request, template_id):
                 [],
                 status=404,
             )
+        if not all(can_access_patient(request, p) for p in patients):
+            return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
     else:
         # Diagnosis bulk mode — find all active clinic+project patients with this diagnosis
         bulk_filter: dict = {"clinic__in": therapist.clinics, "diagnosis": diagnosis_filter}

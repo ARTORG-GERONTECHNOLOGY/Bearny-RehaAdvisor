@@ -25,6 +25,7 @@ from core.models import (
     PatientVitals,
     User,
 )
+from core.permissions import can_access_patient, is_self_or_admin
 from core.views.wearable_utils import (
     _default_thresholds,
     _merge_thresholds,
@@ -120,6 +121,9 @@ def google_health_auth_init(request):
     patient_id = request.GET.get("patientId", "")
     if not patient_id:
         return JsonResponse({"error": "patientId required"}, status=400)
+    # The callback links the OAuth account to this user, so it must be the caller.
+    if not is_self_or_admin(request, patient_id):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     nonce = secrets.token_urlsafe(32)
     try:
@@ -235,7 +239,7 @@ def _first_data_date(user) -> str | None:
     return str(min(dates)) if dates else None
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def google_health_status(request, patient_id):
     user = _resolve_user_for_fitbit_status(patient_id)
@@ -249,6 +253,14 @@ def google_health_status(request, patient_id):
                 "days_until_expiry": None,
             }
         )
+
+    status_patient = Patient.objects(userId=user).first()
+    if not (
+        can_access_patient(request, status_patient, allow_self=True)
+        if status_patient
+        else is_self_or_admin(request, user.id)
+    ):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     token = GoogleHealthUserToken.objects(user=user).first()
     connected = bool(token) and not getattr(token, "is_revoked", False)
@@ -288,13 +300,15 @@ def google_health_status(request, patient_id):
     )
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def google_health_summary(request, patient_id=None):
     try:
         patient = _resolve_patient(request, patient_id)
         if not patient:
             return JsonResponse({"error": "Cannot resolve patient"}, status=400)
+        if not can_access_patient(request, patient, allow_self=True):
+            return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
         user = User.objects(id=patient.userId.id).first()
         if not user:
@@ -487,11 +501,13 @@ def google_health_summary(request, patient_id=None):
         return JsonResponse({"error": "Internal Server Error"}, status=500)
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_google_health_data(request, patient_id):
     try:
         patient = Patient.objects.get(id=ObjectId(patient_id))
+        if not can_access_patient(request, patient):
+            return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
         def eu_date(d):
             return d.strftime("%d.%m.%Y")
@@ -586,7 +602,7 @@ def get_google_health_data(request, patient_id):
         return JsonResponse({"error": "Internal server error"}, status=500)
 
 
-@csrf_exempt
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def google_manual_steps(request, patient_id):
     """Write steps directly to GoogleHealthData (no API write — Google Fit REST is read-only)."""
@@ -620,12 +636,14 @@ def google_manual_steps(request, patient_id):
     patient = _resolve_patient(request, patient_id)
     if not patient:
         return JsonResponse({"error": "Patient not found"}, status=404)
+    if not can_access_patient(request, patient, allow_self=True):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     GoogleHealthData.objects(user=patient.userId, date=safe_date).update_one(set__steps=steps, upsert=True)
     return JsonResponse({"success": True, "steps": steps, "date": safe_date}, status=200)
 
 
-@csrf_exempt
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def google_health_combined_history(request, patient_id):
     """
@@ -640,6 +658,8 @@ def google_health_combined_history(request, patient_id):
             patient = Patient.objects.get(id=ObjectId(patient_id))
         except Patient.DoesNotExist:
             return JsonResponse({"error": "Patient not found"}, status=404)
+        if not can_access_patient(request, patient, allow_self=True):
+            return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
         from_str = request.GET.get("from")
         to_str = request.GET.get("to")

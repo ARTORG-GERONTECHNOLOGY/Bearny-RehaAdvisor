@@ -815,6 +815,478 @@ def test_fixfp6_patient_cannot_reschedule_other_patients_session():
 
 
 # ===========================================================================
+# GHSA-xhrj-r59c-3c87 — missing authorization on patient and profile endpoints
+# ===========================================================================
+
+
+def _call_as(caller, view_fn, method, url, payload=None, *args):
+    """Call view_fn as caller (a User) with authorization checks enabled."""
+    from django.conf import settings as _ds
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    factory = APIRequestFactory()
+    if method == "get":
+        request = factory.get(url)
+    elif method == "multipart":
+        request = factory.post(url, data=payload or {}, format="multipart")
+    else:
+        request = getattr(factory, method)(url, data=json.dumps(payload or {}), content_type="application/json")
+    force_authenticate(request, user=SimpleNamespace(is_authenticated=True, id=str(caller.id), role=caller.role))
+    _ds.TESTING = False
+    try:
+        return view_fn(request, *args)
+    finally:
+        _ds.TESTING = True
+
+
+@pytest.fixture
+def xhrj_world():
+    """Therapist A (Inselspital) owns patient A; therapist B is in Bern; patient B is in Bern."""
+    th_user_a, th_a = _make_therapist("th_a_xhrj", ["Inselspital"])
+    th_user_b, th_b = _make_therapist("th_b_xhrj", ["Bern"])
+    patient_a, intervention, plan = _make_patient_with_plan("a_xhrj", "Inselspital", th_a)
+    patient_b, _, _ = _make_patient_with_plan("b_xhrj", "Bern", th_b)
+    return SimpleNamespace(
+        th_user_a=th_user_a,
+        th_a=th_a,
+        th_user_b=th_user_b,
+        th_b=th_b,
+        patient_a=patient_a,
+        patient_b=patient_b,
+        intervention=intervention,
+        plan=plan,
+        admin=_make_user("admin_xhrj", role="Admin"),
+    )
+
+
+@pytest.mark.parametrize("method", ["get", "put", "delete"])
+def test_xhrj_patient_cannot_touch_other_users_profile(xhrj_world, method):
+    from core.views.user_views import user_profile_view
+
+    w = xhrj_world
+    payload = {"email": "x@example.com"} if method == "put" else None
+    for target in (w.patient_a.userId, w.th_user_a, w.admin):
+        url = f"/api/users/{target.id}/profile/"
+        resp = _call_as(w.patient_b.userId, user_profile_view, method, url, payload, str(target.id))
+        assert resp.status_code == 403, f"patient must not {method} {target.role} profile"
+    w.patient_a.userId.reload()
+    assert w.patient_a.userId.email != "x@example.com"
+    assert w.admin.reload().isActive
+
+
+def test_xhrj_therapist_cannot_touch_other_clinic_patient_or_therapist_profile(xhrj_world):
+    from core.views.user_views import user_profile_view
+
+    w = xhrj_world
+    for target in (w.patient_a.userId, w.th_user_a):
+        resp = _call_as(w.th_user_b, user_profile_view, "get", "/api/users/x/profile/", None, str(target.id))
+        assert resp.status_code == 403
+
+
+def test_xhrj_profile_allowed_for_self_clinic_therapist_and_admin(xhrj_world):
+    from core.views.user_views import user_profile_view
+
+    w = xhrj_world
+    for caller, target in (
+        (w.patient_a.userId, w.patient_a.userId),
+        (w.th_user_a, w.patient_a.userId),
+        (w.th_user_a, w.th_user_a),
+        (w.admin, w.th_user_b),
+    ):
+        resp = _call_as(caller, user_profile_view, "get", "/api/users/x/profile/", None, str(target.id))
+        assert resp.status_code == 200, f"{caller.username} should read {target.username}"
+
+    # Profile ids may also be Patient ids.
+    resp = _call_as(w.th_user_a, user_profile_view, "get", "/api/users/x/profile/", None, str(w.patient_a.id))
+    assert resp.status_code == 200
+
+
+def test_xhrj_clinic_changes_limited_to_callers_clinics(xhrj_world):
+    from core.views.user_views import user_profile_view
+
+    w = xhrj_world
+    resp = _call_as(w.th_user_a, user_profile_view, "put", "/", {"clinic": "Bern"}, str(w.patient_a.userId.id))
+    assert resp.status_code == 403, "therapist must not move a patient to a clinic they don't belong to"
+    assert w.patient_a.reload().clinic == "Inselspital"
+
+    resp = _call_as(w.patient_a.userId, user_profile_view, "put", "/", {"clinic": "Bern"}, str(w.patient_a.userId.id))
+    assert resp.status_code == 403, "patient must not change their own clinic"
+
+    payload = {"clinics": ["Inselspital", "Bern"]}
+    resp = _call_as(w.th_user_a, user_profile_view, "put", "/", payload, str(w.th_user_a.id))
+    assert resp.status_code == 403, "therapist must not add clinics to their own account"
+    assert w.th_a.reload().clinics == ["Inselspital"]
+
+    resp = _call_as(w.admin, user_profile_view, "put", "/", {"clinic": "Bern"}, str(w.patient_a.userId.id))
+    assert resp.status_code == 200
+    assert w.patient_a.reload().clinic == "Bern"
+
+
+def test_xhrj_add_intervention_requires_patient_access_and_own_therapist_id(xhrj_world):
+    from core.views.patient_views import add_intervention_to_patient
+
+    w = xhrj_world
+    url = "/api/interventions/add-to-patient/"
+
+    def payload(therapist_user):
+        return {
+            "therapistId": str(therapist_user.id),
+            "patientId": str(w.patient_a.id),
+            "interventions": [{"interventionId": str(w.intervention.id), "unit": "day", "interval": 1}],
+        }
+
+    for caller, therapist_user in (
+        (w.patient_b.userId, w.th_user_a),  # patient spoofing a therapist
+        (w.th_user_b, w.th_user_b),  # therapist of another clinic
+        (w.th_user_b, w.th_user_a),  # therapist spoofing the patient's therapist
+    ):
+        resp = _call_as(caller, add_intervention_to_patient, "post", url, payload(therapist_user))
+        assert resp.status_code == 403, f"{caller.username} acting as {therapist_user.username}"
+
+
+def test_xhrj_remove_intervention_requires_patient_access(xhrj_world):
+    from core.views.patient_views import remove_intervention_from_patient
+
+    w = xhrj_world
+    url = "/api/interventions/remove-from-patient/"
+    payload = {"patientId": str(w.patient_a.id), "intervention": str(w.intervention.id)}
+
+    for caller in (w.patient_b.userId, w.patient_a.userId, w.th_user_b):
+        resp = _call_as(caller, remove_intervention_from_patient, "post", url, payload)
+        assert resp.status_code == 403, f"{caller.username} must not edit patient A's plan"
+
+    resp = _call_as(w.th_user_a, remove_intervention_from_patient, "post", url, payload)
+    assert resp.status_code == 200
+
+
+def test_xhrj_apply_named_template_rejects_other_clinic_patients(xhrj_world):
+    from core.models import InterventionTemplate
+    from core.views.template_views import apply_named_template
+
+    w = xhrj_world
+    tmpl = InterventionTemplate(name="Shared", is_public=True, created_by=w.th_b).save()
+    payload = {"patientIds": [str(w.patient_a.id)], "effectiveFrom": "2030-01-01"}
+    resp = _call_as(w.th_user_b, apply_named_template, "post", "/", payload, str(tmpl.id))
+    assert resp.status_code == 403
+
+
+def test_xhrj_apply_template_to_patient_checks_therapist_and_patient(xhrj_world):
+    from core.views.recomendation_views import apply_template_to_patient
+
+    w = xhrj_world
+    payload = {"patientId": str(w.patient_a.id), "diagnosis": "Stroke", "effectiveFrom": "2030-01-01"}
+
+    resp = _call_as(w.th_user_b, apply_template_to_patient, "post", "/", payload, str(w.th_user_a.id))
+    assert resp.status_code == 403, "therapist must not act under another therapist's id"
+
+    resp = _call_as(w.th_user_b, apply_template_to_patient, "post", "/", payload, str(w.th_user_b.id))
+    assert resp.status_code == 403, "therapist must not apply a template to another clinic's patient"
+
+
+def test_xhrj_reset_password_and_force_logout_require_patient_access(xhrj_world):
+    from core.views.user_views import force_logout_patient, reset_patient_password
+
+    w = xhrj_world
+    old_hash = w.patient_a.userId.pwdhash
+    for caller in (w.patient_b.userId, w.th_user_b):
+        resp = _call_as(
+            caller, reset_patient_password, "put", "/", {"new_password": "Hijack3d!pw"}, str(w.patient_a.id)
+        )
+        assert resp.status_code == 403
+        resp = _call_as(caller, force_logout_patient, "post", "/", None, str(w.patient_a.id))
+        assert resp.status_code == 403
+    assert w.patient_a.userId.reload().pwdhash == old_hash
+
+    resp = _call_as(w.th_user_a, force_logout_patient, "post", "/", None, str(w.patient_a.id))
+    assert resp.status_code == 200
+
+
+def _xhrj_sweep_cases(w):
+    """(label, view, method, url, payload, args, caller) that must all be refused with 403."""
+    from core.views import (
+        auth_views,
+        fitbit_view,
+        google_health_view,
+        intervention_import,
+        intervention_media_upload,
+        patient_thresholds,
+        patient_views,
+        questionaires_view,
+        recomendation_views,
+        redcap_import_views,
+        redcap_patient_views,
+        therapist_views,
+        wearables_redcap_view,
+    )
+
+    pa, pa_user, intruder, th_b = str(w.patient_a.id), str(w.patient_a.userId.id), w.patient_b.userId, w.th_user_b
+    th_a_id, iv = str(w.th_user_a.id), str(w.intervention.id)
+    return [
+        # patient data, read or written by another patient
+        (
+            "unmark",
+            patient_views.unmark_intervention_completed,
+            "post",
+            "/",
+            {"patient_id": pa_user, "intervention_id": iv, "date": "2030-01-01"},
+            (),
+            intruder,
+        ),
+        (
+            "feedback",
+            patient_views.submit_patient_feedback,
+            "multipart",
+            "/",
+            {"userId": pa_user, "q1": "5"},
+            (),
+            intruder,
+        ),
+        ("feedback-questions", patient_views.get_feedback_questions, "get", "/", None, ("Healthstatus", pa), intruder),
+        ("initial-questionnaire", patient_views.initial_patient_questionaire, "get", "/", None, (pa_user,), intruder),
+        (
+            "healthstatus-history",
+            patient_views.get_patient_healthstatus_history,
+            "get",
+            "/",
+            None,
+            (pa_user,),
+            intruder,
+        ),
+        ("combined-health", patient_views.get_combined_health_data, "get", "/", None, (pa,), intruder),
+        ("manual-vitals", patient_views.add_manual_vitals, "post", "/", {"weight_kg": 70}, (pa,), intruder),
+        ("vitals-exists", patient_views.vitals_exists_for_day, "get", "/?date=2030-01-01", None, (pa,), intruder),
+        (
+            "intervention-view",
+            patient_views.log_intervention_view,
+            "post",
+            "/",
+            {"intervention_id": iv, "seconds_viewed": 5},
+            (pa,),
+            intruder,
+        ),
+        ("thresholds-read", patient_thresholds.patient_thresholds_view, "get", "/", None, (pa,), intruder),
+        (
+            "thresholds-self-write",
+            patient_thresholds.patient_thresholds_view,
+            "post",
+            "/",
+            {},
+            (pa,),
+            w.patient_a.userId,
+        ),
+        ("fitbit-summary", fitbit_view.fitbit_summary, "get", "/", None, (pa,), intruder),
+        ("fitbit-status", fitbit_view.fitbit_status, "get", "/", None, (pa,), intruder),
+        (
+            "fitbit-manual-steps",
+            fitbit_view.manual_steps,
+            "post",
+            "/",
+            {"date": "2030-01-01", "steps": 10},
+            (pa,),
+            intruder,
+        ),
+        ("fitbit-auth-init", fitbit_view.fitbit_auth_init, "get", f"/?patientId={pa_user}", None, (), intruder),
+        ("google-summary", google_health_view.google_health_summary, "get", "/", None, (pa,), intruder),
+        ("google-status", google_health_view.google_health_status, "get", "/", None, (pa,), intruder),
+        (
+            "google-manual-steps",
+            google_health_view.google_manual_steps,
+            "post",
+            "/",
+            {"date": "2030-01-01", "steps": 10},
+            (pa,),
+            intruder,
+        ),
+        (
+            "google-auth-init",
+            google_health_view.google_health_auth_init,
+            "get",
+            f"/?patientId={pa_user}",
+            None,
+            (),
+            intruder,
+        ),
+        ("google-health-data", google_health_view.get_google_health_data, "get", "/", None, (pa,), th_b),
+        ("user-info", auth_views.get_user_info, "get", "/", None, (pa_user,), intruder),
+        ("analytics-log-spoofed-user", therapist_views.create_log, "post", "/", {"user": th_a_id}, (), th_b),
+        (
+            "analytics-log-other-patient",
+            therapist_views.create_log,
+            "post",
+            "/",
+            {"user": str(th_b.id), "patient": pa},
+            (),
+            th_b,
+        ),
+        # therapist-only actions on another clinic's patient
+        ("questionnaires-list", questionaires_view.list_patient_questionnaires, "get", "/", None, (pa,), th_b),
+        (
+            "questionnaires-assign",
+            questionaires_view.assign_questionnaire,
+            "post",
+            "/",
+            {"patientId": pa, "questionnaireKey": "x"},
+            (),
+            th_b,
+        ),
+        (
+            "questionnaires-remove",
+            questionaires_view.remove_questionnaire,
+            "post",
+            "/",
+            {"patientId": pa, "questionnaireId": iv},
+            (),
+            th_b,
+        ),
+        ("questionnaires-reset", questionaires_view.reset_patient_feedback, "post", "/", {"patientId": pa}, (), th_b),
+        ("wearables-redcap-sync", wearables_redcap_view.sync_wearables_to_redcap_view, "post", "/", {}, (pa,), th_b),
+        ("private-interventions", recomendation_views.list_all_interventions, "get", "/", None, (pa,), intruder),
+        # acting under another therapist's id
+        ("template-plan", recomendation_views.template_plan_preview, "get", "/", None, (th_a_id,), th_b),
+        ("assign-to-types", recomendation_views.assign_intervention_to_types, "post", "/", {}, (th_a_id,), th_b),
+        ("remove-from-types", recomendation_views.remove_intervention_from_types, "post", "/", {}, (th_a_id,), th_b),
+        (
+            "assigned-diagnoses",
+            recomendation_views.list_intervention_diagnoses,
+            "get",
+            "/",
+            None,
+            (iv, "Neuro", th_a_id),
+            th_b,
+        ),
+        (
+            "redcap-patient",
+            redcap_patient_views.redcap_patient,
+            "get",
+            f"/?patient_code=P1&therapistUserId={th_a_id}",
+            None,
+            (),
+            th_b,
+        ),
+        (
+            "redcap-available",
+            redcap_import_views.available_redcap_patients,
+            "get",
+            f"/?project=COPAIN&therapistUserId={th_a_id}",
+            None,
+            (),
+            th_b,
+        ),
+        (
+            "redcap-import",
+            redcap_import_views.import_patient_from_redcap,
+            "post",
+            "/",
+            {"project": "COPAIN", "patient_code": "P1", "therapistUserId": th_a_id},
+            (),
+            th_b,
+        ),
+        # catalog writes by a patient
+        (
+            "create-questionnaire",
+            questionaires_view.list_health_questionnaires,
+            "post",
+            "/",
+            {"title": "x", "questions": [{"text": "q", "type": "text"}]},
+            (),
+            intruder,
+        ),
+        ("add-intervention", recomendation_views.add_new_intervention, "multipart", "/", {"title": "x"}, (), intruder),
+        ("patient-group", recomendation_views.create_patient_group, "post", "/", {}, (), intruder),
+        ("intervention-detail", recomendation_views.get_intervention_detail, "get", "/", None, (iv,), intruder),
+        ("import-excel", intervention_import.import_interventions, "multipart", "/", {}, (), intruder),
+        ("import-media", intervention_media_upload.upload_intervention_media, "multipart", "/", {}, (), intruder),
+    ]
+
+
+def test_xhrj_sweep_endpoints_refuse_unauthorised_callers(xhrj_world):
+    refused = []
+    for label, view_fn, method, url, payload, args, caller in _xhrj_sweep_cases(xhrj_world):
+        resp = _call_as(caller, view_fn, method, url, payload, *args)
+        if resp.status_code != 403:
+            refused.append(f"{label}: {resp.status_code}")
+    assert not refused, "endpoints that did not return 403: " + ", ".join(refused)
+
+
+def test_xhrj_sweep_legitimate_callers_still_allowed(xhrj_world):
+    from core.views import auth_views, patient_thresholds, patient_views, questionaires_view
+
+    w = xhrj_world
+    pa, pa_user = str(w.patient_a.id), str(w.patient_a.userId.id)
+    for label, caller, view_fn, args in (
+        ("patient reads own thresholds", w.patient_a.userId, patient_thresholds.patient_thresholds_view, (pa,)),
+        ("therapist reads thresholds", w.th_user_a, patient_thresholds.patient_thresholds_view, (pa,)),
+        (
+            "patient reads own health history",
+            w.patient_a.userId,
+            patient_views.get_patient_healthstatus_history,
+            (pa_user,),
+        ),
+        ("therapist reads health history", w.th_user_a, patient_views.get_patient_healthstatus_history, (pa_user,)),
+        ("admin reads plan", w.admin, patient_views.get_patient_plan, (pa,)),
+        ("therapist lists questionnaires", w.th_user_a, questionaires_view.list_patient_questionnaires, (pa,)),
+        ("user reads own info", w.patient_a.userId, auth_views.get_user_info, (pa_user,)),
+    ):
+        resp = _call_as(caller, view_fn, "get", "/", None, *args)
+        assert resp.status_code == 200, f"{label}: {resp.status_code}"
+
+
+def test_xhrj_private_intervention_lookup_by_external_id(xhrj_world):
+    from core.views.recomendation_views import list_all_interventions
+
+    w = xhrj_world
+    Intervention(
+        external_id="custom_xhrj",
+        language="en",
+        title="Private",
+        description="Only for patient A",
+        content_type="Video",
+        is_private=True,
+        private_patient_id=w.patient_a,
+    ).save()
+
+    url = "/?external_id=custom_xhrj"
+    for caller, expected in ((w.patient_a.userId, 1), (w.th_user_a, 1), (w.patient_b.userId, 0), (w.th_user_b, 0)):
+        resp = _call_as(caller, list_all_interventions, "get", url)
+        assert resp.status_code == 200
+        assert len(json.loads(resp.content)) == expected, caller.username
+
+
+def test_xhrj_private_intervention_of_deleted_patient_is_hidden_not_500(xhrj_world):
+    from core.views.recomendation_views import get_intervention_detail, list_all_interventions
+
+    w = xhrj_world
+    orphan = Patient(
+        userId=_make_user("patient_gone_xhrj", role="Patient"),
+        patient_code="PAT_gone",
+        therapist=w.th_a,
+        clinic="Inselspital",
+    )
+    orphan.save()
+    iv = Intervention(
+        external_id="custom_gone_xhrj",
+        language="en",
+        title="Orphan",
+        description="Patient was hard-deleted",
+        content_type="Video",
+        is_private=True,
+        private_patient_id=orphan,
+    ).save()
+    orphan.delete()
+
+    resp = _call_as(w.th_user_a, list_all_interventions, "get", "/?external_id=custom_gone_xhrj")
+    assert resp.status_code == 200
+    assert json.loads(resp.content) == []
+
+    resp = _call_as(w.th_user_a, get_intervention_detail, "get", "/", None, str(iv.id))
+    assert resp.status_code == 404
+
+    resp = _call_as(w.patient_b.userId, list_all_interventions, "get", "/", None, str(orphan.id))
+    assert resp.status_code == 200
+    assert "custom_gone_xhrj" not in [i.get("external_id") for i in json.loads(resp.content)]
+
+
+# ===========================================================================
 # HealthSlider session-zip and delete-session — token required
 # ===========================================================================
 
