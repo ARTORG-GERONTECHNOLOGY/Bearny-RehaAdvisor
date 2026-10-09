@@ -46,12 +46,12 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import PatientThresholds  # adjust import path
-from core.permissions import can_access_patient
 from core.models import (
     Patient,
     PatientThresholdsSnapshot,
     User,
 )
+from core.permissions import can_access_patient
 
 logger = logging.getLogger(__name__)
 
