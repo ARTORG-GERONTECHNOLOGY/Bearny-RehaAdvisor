@@ -75,7 +75,7 @@ const ActiveUsersCard: React.FC = () => {
 
   const registered = data?.registered;
 
-  const stats = (totalLabel: string, total: number, byRole: Record<string, number>) => (
+  const renderStats = (totalLabel: string, total: number, byRole?: Record<string, number>) => (
     <>
       <Stat value={total} label={totalLabel} className="sm:border-r sm:pr-4" />
       {roles.map(([role, label]) => (
@@ -105,7 +105,7 @@ const ActiveUsersCard: React.FC = () => {
         {error ? (
           <div className="col-span-full text-sm text-nok">{error}</div>
         ) : (
-          data && stats(t('Total'), data.total, data.by_role)
+          data && renderStats(t('Total'), data.total, data.by_role)
         )}
       </StatGrid>
 
@@ -121,7 +121,9 @@ const ActiveUsersCard: React.FC = () => {
       {registered && (
         <div className="mt-6" data-testid="registered-accounts">
           <h5 className="mb-3 text-base font-semibold">{t('Registered accounts')}</h5>
-          <StatGrid>{stats(t('Active accounts'), registered.active, registered.by_role)}</StatGrid>
+          <StatGrid>
+            {renderStats(t('Active accounts'), registered.active, registered.by_role)}
+          </StatGrid>
           {registered.inactive > 0 && (
             <p className="mt-2 text-sm text-muted-foreground" data-testid="inactive-accounts">
               {t('inactiveAccountsCount', { count: registered.inactive })}
