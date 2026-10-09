@@ -1757,6 +1757,7 @@
   "Failed to load active users.": "Failed to load active users.",
   "Counts only users who did something that is logged, such as opening a patient or completing an exercise.": "Counts only users who did something that is logged, such as opening a patient or completing an exercise.",
   "Registered accounts": "Registered accounts",
+  "Active": "Active",
   "inactiveAccountsCount_one": "{{count}} inactive account (awaiting approval or deactivated)",
   "inactiveAccountsCount_other": "{{count}} inactive accounts (awaiting approval or deactivated)",
   "Affected: {{sections}}": "Affected: {{sections}}",

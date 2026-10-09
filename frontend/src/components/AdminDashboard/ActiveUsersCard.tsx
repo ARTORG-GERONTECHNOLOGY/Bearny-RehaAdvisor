@@ -28,6 +28,18 @@ const Stat: React.FC<{ value: number; label: string; className?: string }> = ({
   </div>
 );
 
+const StatGrid: React.FC<{ children: React.ReactNode; testId?: string }> = ({
+  children,
+  testId,
+}) => (
+  <div
+    className="grid grid-cols-2 gap-4 rounded-xl border bg-zinc-50 p-4 sm:grid-cols-[repeat(4,auto)] sm:justify-between"
+    data-testid={testId}
+  >
+    {children}
+  </div>
+);
+
 const ActiveUsersCard: React.FC = () => {
   const { t } = useTranslation();
   const [data, setData] = useState<ActiveUsers | null>(null);
@@ -59,8 +71,18 @@ const ActiveUsersCard: React.FC = () => {
 
   if (!data && !error) return null;
 
-  // Hidden on error so stale totals never sit under the error message.
-  const registered = error ? undefined : data?.registered;
+  // Hidden on error so stale numbers never sit under the error message.
+  const fresh = error ? null : data;
+  const registered = fresh?.registered;
+
+  const stats = (totalLabel: string, total: number, byRole: Record<string, number>) => (
+    <>
+      <Stat value={total} label={totalLabel} className="sm:border-r sm:pr-4" />
+      {roles.map(([role, label]) => (
+        <Stat key={role} value={byRole?.[role] ?? 0} label={label} />
+      ))}
+    </>
+  );
 
   return (
     <div className="mt-6 mb-4 max-w-[480px]" data-testid="active-users">
@@ -79,26 +101,18 @@ const ActiveUsersCard: React.FC = () => {
         </Button>
       </div>
 
-      <div
-        className="grid grid-cols-2 gap-4 rounded-xl border bg-zinc-50 p-4 sm:grid-cols-[repeat(4,auto)] sm:justify-between"
-        data-testid="active-counts"
-      >
+      <StatGrid testId="active-counts">
         {error ? (
           <div className="col-span-full text-sm text-nok">{error}</div>
         ) : (
-          data && (
-            <>
-              <Stat value={data.total} label={t('Total')} className="sm:border-r sm:pr-4" />
-              {roles.map(([role, label]) => (
-                <Stat key={role} value={data.by_role?.[role] ?? 0} label={label} />
-              ))}
-            </>
-          )
+          data && stats(t('Total'), data.total, data.by_role)
         )}
-      </div>
+      </StatGrid>
 
       <p className="mt-2 text-sm text-muted-foreground">
-        {data && <span>{t('As of {{time}}', { time: formatLocaleDateTime(data.as_of) })} · </span>}
+        {fresh && (
+          <span>{t('As of {{time}}', { time: formatLocaleDateTime(fresh.as_of) })} · </span>
+        )}
         <span>
           {t(
             'Counts only users who did something that is logged, such as opening a patient or completing an exercise.'
@@ -109,17 +123,12 @@ const ActiveUsersCard: React.FC = () => {
       {registered && (
         <div className="mt-6" data-testid="registered-accounts">
           <h5 className="mb-3 text-base font-semibold">{t('Registered accounts')}</h5>
-          <div className="grid grid-cols-2 gap-4 rounded-xl border bg-zinc-50 p-4 sm:grid-cols-[repeat(4,auto)] sm:justify-between">
-            <Stat value={registered.total} label={t('Total')} className="sm:border-r sm:pr-4" />
-            {roles.map(([role, label]) => (
-              <Stat key={role} value={registered.by_role?.[role] ?? 0} label={label} />
-            ))}
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground" data-testid="inactive-accounts">
-            {t('inactiveAccountsCount', {
-              count: registered.inactive,
-            })}
-          </p>
+          <StatGrid>{stats(t('Active'), registered.total, registered.by_role)}</StatGrid>
+          {registered.inactive > 0 && (
+            <p className="mt-2 text-sm text-muted-foreground" data-testid="inactive-accounts">
+              {t('inactiveAccountsCount', { count: registered.inactive })}
+            </p>
+          )}
         </div>
       )}
     </div>

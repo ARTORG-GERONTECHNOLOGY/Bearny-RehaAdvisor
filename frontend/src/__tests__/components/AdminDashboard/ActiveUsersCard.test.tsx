@@ -108,7 +108,7 @@ describe('ActiveUsersCard', () => {
 
     const registered = await screen.findByTestId('registered-accounts');
     expect(within(registered).getByText('Registered accounts')).toBeInTheDocument();
-    expect(countFor('Total', registered)).toBe('180');
+    expect(countFor('Active', registered)).toBe('180');
     expect(countFor('Patients', registered)).toBe('172');
     expect(countFor('Therapists', registered)).toBe('6');
     expect(countFor('Admins', registered)).toBe('2');
@@ -126,6 +126,13 @@ describe('ActiveUsersCard', () => {
     );
   });
 
+  it('hides the inactive note when there are no inactive accounts', async () => {
+    mockActive(active({ registered: { total: 2, by_role: { Admin: 2 }, inactive: 0 } }));
+    render(<ActiveUsersCard />);
+    await screen.findByTestId('registered-accounts');
+    expect(screen.queryByTestId('inactive-accounts')).not.toBeInTheDocument();
+  });
+
   it('hides registered accounts when the response has none', async () => {
     mockActive(active({ registered: undefined }));
     render(<ActiveUsersCard />);
@@ -133,7 +140,7 @@ describe('ActiveUsersCard', () => {
     expect(screen.queryByTestId('registered-accounts')).not.toBeInTheDocument();
   });
 
-  it('hides registered accounts when a refresh fails', async () => {
+  it('hides registered accounts and the timestamp when a refresh fails', async () => {
     mockActive(active());
     render(<ActiveUsersCard />);
     await screen.findByTestId('registered-accounts');
@@ -143,5 +150,6 @@ describe('ActiveUsersCard', () => {
 
     await screen.findByText('Failed to load active users.');
     expect(screen.queryByTestId('registered-accounts')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^As of /)).not.toBeInTheDocument();
   });
 });
