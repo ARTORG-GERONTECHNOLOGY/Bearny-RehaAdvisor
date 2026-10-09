@@ -4,7 +4,7 @@ from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from core.models import Logs
+from core.models import Logs, User
 from core.permissions import IsAdmin
 
 
@@ -62,5 +62,20 @@ def admin_active_users(request):
             "window_minutes": int(ACTIVE_WINDOW.total_seconds() // 60),
             "total": sum(by_role.values()),
             "by_role": by_role,
+            "registered": _registered_accounts(),
         }
     )
+
+
+def _registered_accounts():
+    # isActive=False covers both accounts awaiting approval and soft-deleted ones.
+    by_role = {role: 0 for role in ACTIVE_ROLES}
+    inactive = 0
+    pipeline = [{"$group": {"_id": {"role": "$role", "active": "$isActive"}, "count": {"$sum": 1}}}]
+    for row in User.objects.aggregate(pipeline):
+        if row["_id"].get("active") is True:
+            role = row["_id"].get("role") or "Unknown"
+            by_role[role] = by_role.get(role, 0) + row["count"]
+        else:
+            inactive += row["count"]
+    return {"total": sum(by_role.values()), "by_role": by_role, "inactive": inactive}

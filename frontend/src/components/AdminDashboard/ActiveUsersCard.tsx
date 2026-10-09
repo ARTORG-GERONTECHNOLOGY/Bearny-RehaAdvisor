@@ -10,7 +10,23 @@ export type ActiveUsers = {
   window_minutes: number;
   total: number;
   by_role: Record<string, number>;
+  registered?: {
+    total: number;
+    by_role: Record<string, number>;
+    inactive: number;
+  };
 };
+
+const Stat: React.FC<{ value: number; label: string; className?: string }> = ({
+  value,
+  label,
+  className,
+}) => (
+  <div className={className}>
+    <div className="text-lg font-semibold tabular-nums">{value}</div>
+    <div className="text-sm text-muted-foreground">{label}</div>
+  </div>
+);
 
 const ActiveUsersCard: React.FC = () => {
   const { t } = useTranslation();
@@ -60,23 +76,18 @@ const ActiveUsersCard: React.FC = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 rounded-xl border bg-zinc-50 p-4 sm:grid-cols-[repeat(4,auto)] sm:justify-between">
+      <div
+        className="grid grid-cols-2 gap-4 rounded-xl border bg-zinc-50 p-4 sm:grid-cols-[repeat(4,auto)] sm:justify-between"
+        data-testid="active-counts"
+      >
         {error ? (
           <div className="col-span-full text-sm text-nok">{error}</div>
         ) : (
           data && (
             <>
-              <div className="sm:border-r sm:pr-4">
-                <div className="text-lg font-semibold tabular-nums">{data.total}</div>
-                <div className="text-sm text-muted-foreground">{t('Total')}</div>
-              </div>
+              <Stat value={data.total} label={t('Total')} className="sm:border-r sm:pr-4" />
               {roles.map(([role, label]) => (
-                <div key={role}>
-                  <div className="text-lg font-semibold tabular-nums">
-                    {data.by_role?.[role] ?? 0}
-                  </div>
-                  <div className="text-sm text-muted-foreground">{label}</div>
-                </div>
+                <Stat key={role} value={data.by_role?.[role] ?? 0} label={label} />
               ))}
             </>
           )
@@ -91,6 +102,30 @@ const ActiveUsersCard: React.FC = () => {
           )}
         </span>
       </p>
+
+      {data?.registered && (
+        <div className="mt-6" data-testid="registered-accounts">
+          <h5 className="mb-3 text-base font-semibold">{t('Registered accounts')}</h5>
+          <div className="grid grid-cols-2 gap-4 rounded-xl border bg-zinc-50 p-4 sm:grid-cols-[repeat(5,auto)] sm:justify-between">
+            <Stat
+              value={data.registered.total}
+              label={t('Total')}
+              className="sm:border-r sm:pr-4"
+            />
+            {roles.map(([role, label]) => (
+              <Stat key={role} value={data.registered?.by_role?.[role] ?? 0} label={label} />
+            ))}
+            <Stat
+              value={data.registered.inactive}
+              label={t('Inactive')}
+              className="sm:border-l sm:pl-4"
+            />
+          </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {t('Inactive accounts are awaiting approval or have been deactivated.')}
+          </p>
+        </div>
+      )}
     </div>
   );
 };

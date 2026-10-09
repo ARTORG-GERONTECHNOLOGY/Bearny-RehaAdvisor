@@ -19,7 +19,8 @@ const active = (overrides: Partial<ActiveUsers> = {}): ActiveUsers => ({
 
 const mockActive = (data: ActiveUsers) => (apiClient.get as jest.Mock).mockResolvedValue({ data });
 
-const countFor = (label: string) => screen.getByText(label).previousElementSibling?.textContent;
+const countFor = (label: string, scope: HTMLElement = document.body) =>
+  within(scope).getByText(label).previousElementSibling?.textContent;
 
 describe('ActiveUsersCard', () => {
   beforeEach(() => {
@@ -98,5 +99,30 @@ describe('ActiveUsersCard', () => {
 
     await waitFor(() => expect(countFor('Total')).toBe('7'));
     expect(screen.queryByText('Failed to load active users.')).not.toBeInTheDocument();
+  });
+
+  it('shows registered accounts per role and the inactive count', async () => {
+    mockActive(
+      active({
+        registered: { total: 180, by_role: { Patient: 172, Therapist: 6, Admin: 2 }, inactive: 4 },
+      })
+    );
+    render(<ActiveUsersCard />);
+
+    const registered = await screen.findByTestId('registered-accounts');
+    expect(within(registered).getByText('Registered accounts')).toBeInTheDocument();
+    expect(countFor('Total', registered)).toBe('180');
+    expect(countFor('Patients', registered)).toBe('172');
+    expect(countFor('Therapists', registered)).toBe('6');
+    expect(countFor('Admins', registered)).toBe('2');
+    expect(countFor('Inactive', registered)).toBe('4');
+    expect(countFor('Total', screen.getByTestId('active-counts'))).toBe('7');
+  });
+
+  it('hides registered accounts when the response has none', async () => {
+    mockActive(active());
+    render(<ActiveUsersCard />);
+    await screen.findByText('Total');
+    expect(screen.queryByTestId('registered-accounts')).not.toBeInTheDocument();
   });
 });

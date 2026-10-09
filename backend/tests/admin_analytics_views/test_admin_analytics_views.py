@@ -16,6 +16,7 @@ Active users
   * Ignores entries logged on someone else's behalf (actor role differs from the user's role).
   * A therapist force-logging out a patient doesn't count as patient activity.
   * Always returns all three roles, with zeros.
+  * Counts registered active accounts per role, and inactive accounts separately.
   * Admin-only: 403 for non-admin users.
 """
 
@@ -52,12 +53,12 @@ def mongo_mock():
     disconnect(alias)
 
 
-def _user(username, role="Patient"):
+def _user(username, role="Patient", active=True):
     user = User(
         username=username,
         email=f"{username}@test.example.com",
         role=role,
-        isActive=True,
+        isActive=active,
         createdAt=datetime.now(),
     )
     user.pwdhash = "x"
@@ -156,7 +157,28 @@ def test_active_users_ignores_force_logout_by_therapist(admin_client):
 def test_active_users_returns_counts_only(admin_client):
     _log(_user("p1"))
     data = admin_client.get(ACTIVE_URL).json()
-    assert set(data) == {"as_of", "window_minutes", "total", "by_role"}
+    assert set(data) == {"as_of", "window_minutes", "total", "by_role", "registered"}
+    assert set(data["registered"]) == {"total", "by_role", "inactive"}
+
+
+def test_active_users_counts_registered_accounts(admin_client):
+    _user("p1")
+    _user("p2")
+    _user("t1", role="Therapist")
+    _user("pending", role="Therapist", active=False)
+    _user("deleted", active=False)
+
+    registered = admin_client.get(ACTIVE_URL).json()["registered"]
+    # admin_client's own admin counts too.
+    assert registered["by_role"] == {"Patient": 2, "Therapist": 1, "Admin": 1}
+    assert registered["total"] == 4
+    assert registered["inactive"] == 2
+
+
+def test_registered_accounts_include_users_without_recent_activity(admin_client):
+    _log(_user("p1"), minutes_ago=60 * 24)
+    registered = admin_client.get(ACTIVE_URL).json()["registered"]
+    assert registered["by_role"]["Patient"] == 1
 
 
 def test_active_users_forbidden_for_non_admin():
