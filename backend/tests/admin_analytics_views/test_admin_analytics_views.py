@@ -17,7 +17,7 @@ Active users
   * A therapist force-logging out a patient doesn't count as patient activity.
   * Always returns all three roles, with zeros.
   * Counts registered active accounts per role, and inactive accounts separately.
-  * Skips accounts with a missing isActive or an unknown role.
+  * Counts a missing isActive as inactive and skips unknown roles.
   * Admin-only: 403 for non-admin users.
 """
 
@@ -176,10 +176,19 @@ def test_active_users_counts_registered_accounts(admin_client):
     assert registered["inactive"] == 2
 
 
-def test_registered_accounts_skip_missing_active_flag_and_unknown_roles(admin_client):
+def test_registered_accounts_count_missing_active_flag_as_inactive(admin_client):
+    User._get_collection().insert_one({"username": "legacy", "role": "Patient", "createdAt": datetime.now()})
+
+    registered = admin_client.get(ACTIVE_URL).json()["registered"]
+    assert registered["by_role"]["Patient"] == 0
+    assert registered["inactive"] == 1
+
+
+def test_registered_accounts_skip_unknown_roles(admin_client):
     users = User._get_collection()
-    users.insert_one({"username": "legacy", "role": "Patient", "createdAt": datetime.now()})
     users.insert_one({"username": "odd", "role": "Researcher", "isActive": True, "createdAt": datetime.now()})
+    users.insert_one({"username": "odd2", "role": "Researcher", "isActive": False, "createdAt": datetime.now()})
+    users.insert_one({"username": "norole", "createdAt": datetime.now()})
 
     registered = admin_client.get(ACTIVE_URL).json()["registered"]
     assert registered["by_role"] == {"Patient": 0, "Therapist": 0, "Admin": 1}

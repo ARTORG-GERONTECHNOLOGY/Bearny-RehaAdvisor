@@ -112,8 +112,18 @@ describe('ActiveUsersCard', () => {
     expect(countFor('Patients', registered)).toBe('172');
     expect(countFor('Therapists', registered)).toBe('6');
     expect(countFor('Admins', registered)).toBe('2');
-    expect(countFor('Inactive', registered)).toBe('4');
+    expect(within(registered).getByTestId('inactive-accounts')).toHaveTextContent(
+      '4 inactive accounts (awaiting approval or deactivated)'
+    );
     expect(countFor('Total', screen.getByTestId('active-counts'))).toBe('7');
+  });
+
+  it('uses the singular for one inactive account', async () => {
+    mockActive(active({ registered: { total: 1, by_role: { Admin: 1 }, inactive: 1 } }));
+    render(<ActiveUsersCard />);
+    expect(await screen.findByTestId('inactive-accounts')).toHaveTextContent(
+      '1 inactive account (awaiting approval or deactivated)'
+    );
   });
 
   it('hides registered accounts when the response has none', async () => {

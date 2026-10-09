@@ -40,7 +40,7 @@ ACTIVE_ROLES = ("Patient", "Therapist", "Admin")
 @api_view(["GET"])
 @permission_classes([IsAdmin])
 def admin_active_users(request):
-    """Distinct users per role with a logged action in the last 15 min; counts only, never identities."""
+    """Distinct users per role active in the last 15 min, plus registered account totals; counts only."""
     now = timezone.now()
     pipeline = [
         {"$match": {"timestamp": {"$gte": now - ACTIVE_WINDOW}}},
@@ -68,15 +68,16 @@ def admin_active_users(request):
 
 
 def _registered_accounts():
-    # isActive=False covers both accounts awaiting approval and soft-deleted ones.
+    # Like login, anything but isActive=True is inactive (awaiting approval or soft-deleted).
     by_role = {role: 0 for role in ACTIVE_ROLES}
     inactive = 0
-    pipeline = [{"$group": {"_id": {"role": "$role", "active": "$isActive"}, "count": {"$sum": 1}}}]
+    pipeline = [
+        {"$match": {"role": {"$in": list(ACTIVE_ROLES)}}},
+        {"$group": {"_id": {"role": "$role", "active": "$isActive"}, "count": {"$sum": 1}}},
+    ]
     for row in User.objects.aggregate(pipeline):
-        active, role = row["_id"].get("active"), row["_id"].get("role")
-        # Matches the pending-users list, which also filters on isActive=False.
-        if active is False:
+        if row["_id"].get("active") is True:
+            by_role[row["_id"]["role"]] += row["count"]
+        else:
             inactive += row["count"]
-        elif active is True and role in by_role:
-            by_role[role] += row["count"]
     return {"total": sum(by_role.values()), "by_role": by_role, "inactive": inactive}
