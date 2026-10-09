@@ -4,7 +4,7 @@ from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from core.models import Logs
+from core.models import Logs, User
 from core.permissions import IsAdmin
 
 
@@ -40,7 +40,7 @@ ACTIVE_ROLES = ("Patient", "Therapist", "Admin")
 @api_view(["GET"])
 @permission_classes([IsAdmin])
 def admin_active_users(request):
-    """Distinct users per role with a logged action in the last 15 min; counts only, never identities."""
+    """Distinct users per role active in the last 15 min, plus registered account totals; counts only."""
     now = timezone.now()
     pipeline = [
         {"$match": {"timestamp": {"$gte": now - ACTIVE_WINDOW}}},
@@ -62,5 +62,22 @@ def admin_active_users(request):
             "window_minutes": int(ACTIVE_WINDOW.total_seconds() // 60),
             "total": sum(by_role.values()),
             "by_role": by_role,
+            "registered": _registered_accounts(),
         }
     )
+
+
+def _registered_accounts():
+    # Like login, anything but isActive=True is inactive (awaiting approval or soft-deleted).
+    by_role = {role: 0 for role in ACTIVE_ROLES}
+    inactive = 0
+    pipeline = [
+        {"$match": {"role": {"$in": list(ACTIVE_ROLES)}}},
+        {"$group": {"_id": {"role": "$role", "active": "$isActive"}, "count": {"$sum": 1}}},
+    ]
+    for row in User.objects.aggregate(pipeline):
+        if row["_id"].get("active") is True:
+            by_role[row["_id"]["role"]] += row["count"]
+        else:
+            inactive += row["count"]
+    return {"active": sum(by_role.values()), "by_role": by_role, "inactive": inactive}

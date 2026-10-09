@@ -146,7 +146,7 @@ describe('SystemStatusTab', () => {
       'ValueError: boom'
     );
     expect(within(rows[1]).getByText('No data since deploy')).toBeInTheDocument();
-    expect(within(rows[1]).getByText('Never')).toBeInTheDocument();
+    expect(within(rows[1]).getAllByRole('cell')[2]).toHaveTextContent('—');
   });
 
   it('renders the queue, wearable, push and translation cards', async () => {
