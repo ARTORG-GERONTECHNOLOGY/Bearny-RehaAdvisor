@@ -59,6 +59,9 @@ const ActiveUsersCard: React.FC = () => {
 
   if (!data && !error) return null;
 
+  // Hidden on error so stale totals never sit under the error message.
+  const registered = error ? undefined : data?.registered;
+
   return (
     <div className="mt-6 mb-4 max-w-[480px]" data-testid="active-users">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -103,20 +106,16 @@ const ActiveUsersCard: React.FC = () => {
         </span>
       </p>
 
-      {data?.registered && (
+      {registered && (
         <div className="mt-6" data-testid="registered-accounts">
           <h5 className="mb-3 text-base font-semibold">{t('Registered accounts')}</h5>
           <div className="grid grid-cols-2 gap-4 rounded-xl border bg-zinc-50 p-4 sm:grid-cols-[repeat(5,auto)] sm:justify-between">
-            <Stat
-              value={data.registered.total}
-              label={t('Total')}
-              className="sm:border-r sm:pr-4"
-            />
+            <Stat value={registered.total} label={t('Total')} className="sm:border-r sm:pr-4" />
             {roles.map(([role, label]) => (
-              <Stat key={role} value={data.registered?.by_role?.[role] ?? 0} label={label} />
+              <Stat key={role} value={registered.by_role?.[role] ?? 0} label={label} />
             ))}
             <Stat
-              value={data.registered.inactive}
+              value={registered.inactive}
               label={t('Inactive')}
               className="sm:border-l sm:pl-4"
             />

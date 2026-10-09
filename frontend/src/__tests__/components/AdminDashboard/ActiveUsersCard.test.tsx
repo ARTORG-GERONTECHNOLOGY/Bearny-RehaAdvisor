@@ -14,12 +14,13 @@ const active = (overrides: Partial<ActiveUsers> = {}): ActiveUsers => ({
   window_minutes: 15,
   total: 7,
   by_role: { Patient: 5, Therapist: 2, Admin: 0 },
+  registered: { total: 180, by_role: { Patient: 172, Therapist: 6, Admin: 2 }, inactive: 4 },
   ...overrides,
 });
 
 const mockActive = (data: ActiveUsers) => (apiClient.get as jest.Mock).mockResolvedValue({ data });
 
-const countFor = (label: string, scope: HTMLElement = document.body) =>
+const countFor = (label: string, scope = screen.getByTestId('active-counts')) =>
   within(scope).getByText(label).previousElementSibling?.textContent;
 
 describe('ActiveUsersCard', () => {
@@ -31,7 +32,7 @@ describe('ActiveUsersCard', () => {
     mockActive(active());
     render(<ActiveUsersCard />);
 
-    expect(await screen.findByText('Total')).toBeInTheDocument();
+    expect(await screen.findByTestId('active-counts')).toBeInTheDocument();
     expect(apiClient.get).toHaveBeenCalledWith('/admin/analytics/active-users/');
     expect(countFor('Total')).toBe('7');
     expect(countFor('Patients')).toBe('5');
@@ -67,14 +68,14 @@ describe('ActiveUsersCard', () => {
   it('treats a missing role as zero', async () => {
     mockActive(active({ total: 1, by_role: { Patient: 1 } }));
     render(<ActiveUsersCard />);
-    await screen.findByText('Total');
+    await screen.findByTestId('active-counts');
     expect(countFor('Therapists')).toBe('0');
   });
 
   it('refetches when Refresh is clicked', async () => {
     mockActive(active());
     render(<ActiveUsersCard />);
-    await screen.findByText('Total');
+    await screen.findByTestId('active-counts');
 
     mockActive(active({ total: 9, by_role: { Patient: 9, Therapist: 0, Admin: 0 } }));
     await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
@@ -102,11 +103,7 @@ describe('ActiveUsersCard', () => {
   });
 
   it('shows registered accounts per role and the inactive count', async () => {
-    mockActive(
-      active({
-        registered: { total: 180, by_role: { Patient: 172, Therapist: 6, Admin: 2 }, inactive: 4 },
-      })
-    );
+    mockActive(active());
     render(<ActiveUsersCard />);
 
     const registered = await screen.findByTestId('registered-accounts');
@@ -120,9 +117,21 @@ describe('ActiveUsersCard', () => {
   });
 
   it('hides registered accounts when the response has none', async () => {
+    mockActive(active({ registered: undefined }));
+    render(<ActiveUsersCard />);
+    await screen.findByTestId('active-counts');
+    expect(screen.queryByTestId('registered-accounts')).not.toBeInTheDocument();
+  });
+
+  it('hides registered accounts when a refresh fails', async () => {
     mockActive(active());
     render(<ActiveUsersCard />);
-    await screen.findByText('Total');
+    await screen.findByTestId('registered-accounts');
+
+    (apiClient.get as jest.Mock).mockRejectedValue(new Error('network'));
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+
+    await screen.findByText('Failed to load active users.');
     expect(screen.queryByTestId('registered-accounts')).not.toBeInTheDocument();
   });
 });

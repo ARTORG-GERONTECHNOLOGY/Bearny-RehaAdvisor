@@ -73,9 +73,10 @@ def _registered_accounts():
     inactive = 0
     pipeline = [{"$group": {"_id": {"role": "$role", "active": "$isActive"}, "count": {"$sum": 1}}}]
     for row in User.objects.aggregate(pipeline):
-        if row["_id"].get("active") is True:
-            role = row["_id"].get("role") or "Unknown"
-            by_role[role] = by_role.get(role, 0) + row["count"]
-        else:
+        active, role = row["_id"].get("active"), row["_id"].get("role")
+        # Matches the pending-users list, which also filters on isActive=False.
+        if active is False:
             inactive += row["count"]
+        elif active is True and role in by_role:
+            by_role[role] += row["count"]
     return {"total": sum(by_role.values()), "by_role": by_role, "inactive": inactive}

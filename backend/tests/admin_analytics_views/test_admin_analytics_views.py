@@ -17,6 +17,7 @@ Active users
   * A therapist force-logging out a patient doesn't count as patient activity.
   * Always returns all three roles, with zeros.
   * Counts registered active accounts per role, and inactive accounts separately.
+  * Skips accounts with a missing isActive or an unknown role.
   * Admin-only: 403 for non-admin users.
 """
 
@@ -173,6 +174,17 @@ def test_active_users_counts_registered_accounts(admin_client):
     assert registered["by_role"] == {"Patient": 2, "Therapist": 1, "Admin": 1}
     assert registered["total"] == 4
     assert registered["inactive"] == 2
+
+
+def test_registered_accounts_skip_missing_active_flag_and_unknown_roles(admin_client):
+    users = User._get_collection()
+    users.insert_one({"username": "legacy", "role": "Patient", "createdAt": datetime.now()})
+    users.insert_one({"username": "odd", "role": "Researcher", "isActive": True, "createdAt": datetime.now()})
+
+    registered = admin_client.get(ACTIVE_URL).json()["registered"]
+    assert registered["by_role"] == {"Patient": 0, "Therapist": 0, "Admin": 1}
+    assert registered["total"] == 1
+    assert registered["inactive"] == 0
 
 
 def test_registered_accounts_include_users_without_recent_activity(admin_client):
