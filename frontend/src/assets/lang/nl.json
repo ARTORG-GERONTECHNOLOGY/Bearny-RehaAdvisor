@@ -1757,7 +1757,7 @@
   "Failed to load active users.": "Actieve gebruikers konden niet worden geladen.",
   "Counts only users who did something that is logged, such as opening a patient or completing an exercise.": "Telt alleen gebruikers met een gelogde actie, zoals een patiënt openen of een oefening afronden.",
   "Registered accounts": "Geregistreerde accounts",
-  "Active": "Actief",
+  "Active accounts": "Actieve accounts",
   "inactiveAccountsCount_one": "{{count}} inactief account (wacht op goedkeuring of gedeactiveerd)",
   "inactiveAccountsCount_other": "{{count}} inactieve accounts (wachten op goedkeuring of gedeactiveerd)",
   "Affected: {{sections}}": "Betreft: {{sections}}",

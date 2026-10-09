@@ -80,4 +80,4 @@ def _registered_accounts():
             by_role[row["_id"]["role"]] += row["count"]
         else:
             inactive += row["count"]
-    return {"total": sum(by_role.values()), "by_role": by_role, "inactive": inactive}
+    return {"active": sum(by_role.values()), "by_role": by_role, "inactive": inactive}

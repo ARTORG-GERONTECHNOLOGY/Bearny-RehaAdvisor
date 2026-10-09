@@ -1757,7 +1757,7 @@
   "Failed to load active users.": "Aktive Benutzer:innen konnten nicht geladen werden.",
   "Counts only users who did something that is logged, such as opening a patient or completing an exercise.": "Zählt nur Benutzer:innen mit einer protokollierten Aktion, z. B. Patient:in öffnen oder Übung abschliessen.",
   "Registered accounts": "Registrierte Konten",
-  "Active": "Aktiv",
+  "Active accounts": "Aktive Konten",
   "inactiveAccountsCount_one": "{{count}} inaktives Konto (wartet auf Freigabe oder deaktiviert)",
   "inactiveAccountsCount_other": "{{count}} inaktive Konten (warten auf Freigabe oder deaktiviert)",
   "Affected: {{sections}}": "Betroffen: {{sections}}",

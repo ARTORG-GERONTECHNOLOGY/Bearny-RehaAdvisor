@@ -159,7 +159,7 @@ def test_active_users_returns_counts_only(admin_client):
     _log(_user("p1"))
     data = admin_client.get(ACTIVE_URL).json()
     assert set(data) == {"as_of", "window_minutes", "total", "by_role", "registered"}
-    assert set(data["registered"]) == {"total", "by_role", "inactive"}
+    assert set(data["registered"]) == {"active", "by_role", "inactive"}
 
 
 def test_active_users_counts_registered_accounts(admin_client):
@@ -172,7 +172,7 @@ def test_active_users_counts_registered_accounts(admin_client):
     registered = admin_client.get(ACTIVE_URL).json()["registered"]
     # admin_client's own admin counts too.
     assert registered["by_role"] == {"Patient": 2, "Therapist": 1, "Admin": 1}
-    assert registered["total"] == 4
+    assert registered["active"] == 4
     assert registered["inactive"] == 2
 
 
@@ -192,7 +192,7 @@ def test_registered_accounts_skip_unknown_roles(admin_client):
 
     registered = admin_client.get(ACTIVE_URL).json()["registered"]
     assert registered["by_role"] == {"Patient": 0, "Therapist": 0, "Admin": 1}
-    assert registered["total"] == 1
+    assert registered["active"] == 1
     assert registered["inactive"] == 0
 
 

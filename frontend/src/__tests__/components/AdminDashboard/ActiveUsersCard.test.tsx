@@ -14,7 +14,7 @@ const active = (overrides: Partial<ActiveUsers> = {}): ActiveUsers => ({
   window_minutes: 15,
   total: 7,
   by_role: { Patient: 5, Therapist: 2, Admin: 0 },
-  registered: { total: 180, by_role: { Patient: 172, Therapist: 6, Admin: 2 }, inactive: 4 },
+  registered: { active: 180, by_role: { Patient: 172, Therapist: 6, Admin: 2 }, inactive: 4 },
   ...overrides,
 });
 
@@ -108,7 +108,7 @@ describe('ActiveUsersCard', () => {
 
     const registered = await screen.findByTestId('registered-accounts');
     expect(within(registered).getByText('Registered accounts')).toBeInTheDocument();
-    expect(countFor('Active', registered)).toBe('180');
+    expect(countFor('Active accounts', registered)).toBe('180');
     expect(countFor('Patients', registered)).toBe('172');
     expect(countFor('Therapists', registered)).toBe('6');
     expect(countFor('Admins', registered)).toBe('2');
@@ -119,7 +119,7 @@ describe('ActiveUsersCard', () => {
   });
 
   it('uses the singular for one inactive account', async () => {
-    mockActive(active({ registered: { total: 1, by_role: { Admin: 1 }, inactive: 1 } }));
+    mockActive(active({ registered: { active: 1, by_role: { Admin: 1 }, inactive: 1 } }));
     render(<ActiveUsersCard />);
     expect(await screen.findByTestId('inactive-accounts')).toHaveTextContent(
       '1 inactive account (awaiting approval or deactivated)'
@@ -127,7 +127,7 @@ describe('ActiveUsersCard', () => {
   });
 
   it('hides the inactive note when there are no inactive accounts', async () => {
-    mockActive(active({ registered: { total: 2, by_role: { Admin: 2 }, inactive: 0 } }));
+    mockActive(active({ registered: { active: 2, by_role: { Admin: 2 }, inactive: 0 } }));
     render(<ActiveUsersCard />);
     await screen.findByTestId('registered-accounts');
     expect(screen.queryByTestId('inactive-accounts')).not.toBeInTheDocument();

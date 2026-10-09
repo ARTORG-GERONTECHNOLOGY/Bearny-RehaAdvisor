@@ -11,7 +11,7 @@ export type ActiveUsers = {
   total: number;
   by_role: Record<string, number>;
   registered?: {
-    total: number;
+    active: number;
     by_role: Record<string, number>;
     inactive: number;
   };
@@ -53,6 +53,8 @@ const ActiveUsersCard: React.FC = () => {
       const res = await apiClient.get<ActiveUsers>('/admin/analytics/active-users/');
       setData(res.data);
     } catch {
+      // Cleared so stale numbers never sit under the error message.
+      setData(null);
       setError(t('Failed to load active users.'));
     } finally {
       setLoading(false);
@@ -71,9 +73,7 @@ const ActiveUsersCard: React.FC = () => {
 
   if (!data && !error) return null;
 
-  // Hidden on error so stale numbers never sit under the error message.
-  const fresh = error ? null : data;
-  const registered = fresh?.registered;
+  const registered = data?.registered;
 
   const stats = (totalLabel: string, total: number, byRole: Record<string, number>) => (
     <>
@@ -110,9 +110,7 @@ const ActiveUsersCard: React.FC = () => {
       </StatGrid>
 
       <p className="mt-2 text-sm text-muted-foreground">
-        {fresh && (
-          <span>{t('As of {{time}}', { time: formatLocaleDateTime(fresh.as_of) })} · </span>
-        )}
+        {data && <span>{t('As of {{time}}', { time: formatLocaleDateTime(data.as_of) })} · </span>}
         <span>
           {t(
             'Counts only users who did something that is logged, such as opening a patient or completing an exercise.'
@@ -123,7 +121,7 @@ const ActiveUsersCard: React.FC = () => {
       {registered && (
         <div className="mt-6" data-testid="registered-accounts">
           <h5 className="mb-3 text-base font-semibold">{t('Registered accounts')}</h5>
-          <StatGrid>{stats(t('Active'), registered.total, registered.by_role)}</StatGrid>
+          <StatGrid>{stats(t('Active accounts'), registered.active, registered.by_role)}</StatGrid>
           {registered.inactive > 0 && (
             <p className="mt-2 text-sm text-muted-foreground" data-testid="inactive-accounts">
               {t('inactiveAccountsCount', { count: registered.inactive })}

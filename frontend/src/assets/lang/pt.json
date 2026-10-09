@@ -1757,7 +1757,7 @@
   "Failed to load active users.": "Não foi possível carregar os utilizadores ativos.",
   "Counts only users who did something that is logged, such as opening a patient or completing an exercise.": "Conta apenas utilizadores que realizaram uma ação registada, como abrir um paciente ou concluir um exercício.",
   "Registered accounts": "Contas registadas",
-  "Active": "Ativas",
+  "Active accounts": "Contas ativas",
   "inactiveAccountsCount_one": "{{count}} conta inativa (a aguardar aprovação ou desativada)",
   "inactiveAccountsCount_other": "{{count}} contas inativas (a aguardar aprovação ou desativadas)",
   "Affected: {{sections}}": "Áreas afetadas: {{sections}}",
