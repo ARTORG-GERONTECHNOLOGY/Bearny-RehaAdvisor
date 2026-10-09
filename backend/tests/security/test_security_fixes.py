@@ -965,9 +965,13 @@ def test_xhrj_apply_named_template_rejects_other_clinic_patients(xhrj_world):
 
     w = xhrj_world
     tmpl = InterventionTemplate(name="Shared", is_public=True, created_by=w.th_b).save()
-    payload = {"patientIds": [str(w.patient_a.id)], "effectiveFrom": "2030-01-01"}
+    payload = {"patientIds": [w.patient_a.patient_code], "effectiveFrom": "2030-01-01"}
     resp = _call_as(w.th_user_b, apply_named_template, "post", "/", payload, str(tmpl.id))
-    assert resp.status_code == 403
+    # Same answer as an unknown code, so other clinics' codes can't be probed.
+    unknown = _call_as(
+        w.th_user_b, apply_named_template, "post", "/", {**payload, "patientIds": ["NOPE"]}, str(tmpl.id)
+    )
+    assert resp.status_code == unknown.status_code == 404
 
 
 def test_xhrj_apply_template_to_patient_checks_therapist_and_patient(xhrj_world):
@@ -1284,6 +1288,84 @@ def test_xhrj_private_intervention_of_deleted_patient_is_hidden_not_500(xhrj_wor
     resp = _call_as(w.patient_b.userId, list_all_interventions, "get", "/", None, str(orphan.id))
     assert resp.status_code == 200
     assert "custom_gone_xhrj" not in [i.get("external_id") for i in json.loads(resp.content)]
+
+
+def test_xhrj_feedback_refused_before_uploads_are_stored(xhrj_world):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from core.views.patient_views import submit_patient_feedback
+
+    w = xhrj_world
+    upload = SimpleUploadedFile("answer.mp4", b"\x00\x01", content_type="video/mp4")
+    with patch("core.views.patient_views.default_storage.save") as save:
+        resp = _call_as(
+            w.patient_b.userId,
+            submit_patient_feedback,
+            "multipart",
+            "/",
+            {"userId": str(w.patient_a.userId.id), "q1_video": upload},
+        )
+    assert resp.status_code == 403
+    save.assert_not_called()
+
+
+def test_xhrj_detail_ignores_private_variant_sharing_public_external_id(xhrj_world):
+    from core.views.recomendation_views import get_intervention_detail
+
+    w = xhrj_world
+    w.intervention.update(set__external_id="pub_xhrj")
+    Intervention(
+        external_id="pub_xhrj",
+        language="fr",
+        title="Private French",
+        description="Patient A only",
+        content_type="Video",
+        is_private=True,
+        private_patient_id=w.patient_a,
+    ).save()
+
+    resp = _call_as(w.th_user_b, get_intervention_detail, "get", "/?lang=fr", None, str(w.intervention.id))
+    assert resp.status_code == 200
+    assert "Private French" not in resp.content.decode()
+
+    resp = _call_as(w.th_user_a, get_intervention_detail, "get", "/?lang=fr", None, str(w.intervention.id))
+    assert "Private French" in resp.content.decode()
+
+    # Hidden fr falls through the chain (fr, en, de) to the public en variant, not the requested de doc.
+    de = Intervention(
+        external_id="pub_xhrj", language="de", title="Deutsch", description="Public", content_type="Video"
+    ).save()
+    resp = _call_as(w.th_user_b, get_intervention_detail, "get", "/?lang=fr", None, str(de.id))
+    assert json.loads(resp.content)["recommendation"]["selected_language"] == "en"
+
+
+def test_xhrj_oauth_init_is_self_only_even_for_admins(xhrj_world):
+    from core.views.fitbit_view import fitbit_auth_init
+    from core.views.google_health_view import google_health_auth_init
+
+    w = xhrj_world
+    url = f"/?patientId={w.patient_a.userId.id}"
+    for view_fn in (fitbit_auth_init, google_health_auth_init):
+        assert _call_as(w.admin, view_fn, "get", url).status_code == 403
+        assert _call_as(w.patient_a.userId, view_fn, "get", url).status_code == 200
+
+
+def test_xhrj_profile_rejects_malformed_clinics(xhrj_world):
+    from core.views.user_views import user_profile_view
+
+    w = xhrj_world
+    for bad_clinics in ("Inselspital", [{"name": "Bern"}]):
+        resp = _call_as(w.th_user_a, user_profile_view, "put", "/", {"clinics": bad_clinics}, str(w.th_user_a.id))
+        assert resp.status_code == 400, bad_clinics
+
+
+def test_xhrj_create_questionnaire_rejects_foreign_therapist_id(xhrj_world):
+    from core.views.questionaires_view import list_health_questionnaires
+
+    w = xhrj_world
+    payload = {"title": "x", "questions": [{"text": "q", "type": "text"}], "therapistId": str(w.th_user_a.id)}
+    resp = _call_as(w.th_user_b, list_health_questionnaires, "post", "/", payload)
+    assert resp.status_code == 403
 
 
 # ===========================================================================

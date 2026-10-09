@@ -99,6 +99,14 @@ def submit_patient_feedback(request):
         if not user_id:
             return JsonResponse({"error": "Missing userId"}, status=400)
 
+        # Before any upload handling, so refused callers can't store files or spend transcription quota.
+        try:
+            patient = Patient.objects.get(userId=ObjectId(user_id))
+        except Patient.DoesNotExist:
+            return JsonResponse({"error": "Patient not found."}, status=404)
+        if not can_access_patient(request, patient, allow_self=True):
+            return _forbidden_patient()
+
         # --- Resolve target day (date-only) ---
         # If FE didn't send it, fallback to "today"
         if date_str:
@@ -221,15 +229,6 @@ def submit_patient_feedback(request):
         logger.info(f"[submit_patient_feedback] Collected answers: {answers}")
         if not answers:
             return JsonResponse({"error": "No feedback responses provided"}, status=400)
-
-        # --- Lookup patient ---
-        try:
-            patient = Patient.objects.get(userId=ObjectId(user_id))
-        except Patient.DoesNotExist:
-            return JsonResponse({"error": "Patient not found."}, status=404)
-
-        if not can_access_patient(request, patient, allow_self=True):
-            return _forbidden_patient()
 
         # =========================
         # INTERVENTION feedback path
@@ -1768,12 +1767,12 @@ def _merge_dates(existing, incoming, *, return_naive_for_storage=True):
     return merged, added
 
 
-def _forbidden_patient():
+def _forbidden_patient(message="You are not authorised to access this patient's data."):
     return JsonResponse(
         {
             "success": False,
-            "error": "You are not authorised to access this patient's data.",
-            "message": "You are not authorised to access this patient's data.",
+            "error": message,
+            "message": message,
             "field_errors": {},
             "non_field_errors": [],
         },
@@ -1932,7 +1931,7 @@ def add_intervention_to_patient(request):
 
     # therapistId is only trusted when it names the caller.
     if not is_self_or_admin(request, therapistId):
-        return _forbidden_patient()
+        return _forbidden_patient("You are not authorised to act for this therapist.")
 
     # ---- Resolve therapist ----
     try:

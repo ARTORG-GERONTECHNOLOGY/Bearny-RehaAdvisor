@@ -130,18 +130,6 @@ def _lang_fallback_chain(user_lang: str) -> List[str]:
     return out or ["en", "de"]
 
 
-def _pick_best_variant(external_id: str, lang_chain: List[str]) -> Optional["Intervention"]:
-    """
-    Return best matching intervention doc for external_id using fallback chain.
-    """
-    for l in lang_chain:
-        doc = Intervention.objects(external_id=external_id, language=l).first()
-        if doc:
-            return doc
-    # last resort: any
-    return Intervention.objects(external_id=external_id).first()
-
-
 def _variant_ids_for_external_id(external_id: str) -> List[ObjectId]:
     """Ids of all Intervention documents sharing this external_id (its language variants)."""
     if not external_id:
@@ -216,21 +204,6 @@ def _canonical_assignment_for(plan, intervention):
     """
     matches = _plan_assignments_for(plan, intervention)
     return matches[0] if matches else None
-
-
-def _available_language_variants(external_id: str) -> List[dict]:
-    """
-    Return all variants for UI dropdown.
-    """
-    variants = Intervention.objects(external_id=external_id).only("id", "language", "title")
-    return [
-        {
-            "_id": str(v.id),
-            "language": getattr(v, "language", None),
-            "title": getattr(v, "title", None),
-        }
-        for v in variants
-    ]
 
 
 def _serialize_intervention_basic(item):

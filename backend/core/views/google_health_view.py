@@ -25,7 +25,7 @@ from core.models import (
     PatientVitals,
     User,
 )
-from core.permissions import can_access_patient, is_self_or_admin
+from core.permissions import can_access_patient, can_access_user, is_self
 from core.views.wearable_utils import (
     _default_thresholds,
     _merge_thresholds,
@@ -122,7 +122,7 @@ def google_health_auth_init(request):
     if not patient_id:
         return JsonResponse({"error": "patientId required"}, status=400)
     # The callback links the OAuth account to this user, so it must be the caller.
-    if not is_self_or_admin(request, patient_id):
+    if not is_self(request, patient_id):
         return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     nonce = secrets.token_urlsafe(32)
@@ -254,12 +254,7 @@ def google_health_status(request, patient_id):
             }
         )
 
-    status_patient = Patient.objects(userId=user).first()
-    if not (
-        can_access_patient(request, status_patient, allow_self=True)
-        if status_patient
-        else is_self_or_admin(request, user.id)
-    ):
+    if not can_access_user(request, user):
         return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     token = GoogleHealthUserToken.objects(user=user).first()

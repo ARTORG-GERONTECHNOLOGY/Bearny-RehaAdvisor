@@ -95,8 +95,8 @@ from core.models import (
 from core.permissions import (
     IsAdmin,
     can_access_patient,
+    can_access_user,
     can_assign_clinic,
-    is_self_or_admin,
 )
 from core.token_revocation import invalidate_user_tokens
 from utils.config import WEARABLE_DEVICE_CHOICES
@@ -286,8 +286,7 @@ def user_profile_view(request, user_id):
 
     target_role = getattr(user, "role", "Patient")
 
-    target_patient = Patient.objects(userId=user.id).first() if target_role == "Patient" else None
-    if not is_self_or_admin(request, user.id) and not (target_patient and can_access_patient(request, target_patient)):
+    if not can_access_user(request, user):
         return JsonResponse({"error": "You are not authorised to access this profile."}, status=403)
 
     # ------------------------------------------------------------------
@@ -544,7 +543,10 @@ def user_profile_view(request, user_id):
             if target_role == "Therapist":
                 therapist = Therapist.objects.get(userId=user.id)
 
-                added_clinics = set(raw.get("clinics") or []) - set(therapist.clinics or [])
+                req_clinics = raw.get("clinics") or []
+                if not isinstance(req_clinics, list) or not all(isinstance(c, str) for c in req_clinics):
+                    return JsonResponse({"error": "clinics must be a list of strings"}, status=400)
+                added_clinics = set(req_clinics) - set(therapist.clinics or [])
                 if not all(can_assign_clinic(request, c) for c in added_clinics):
                     return JsonResponse({"error": "You are not authorised to assign this clinic."}, status=403)
 

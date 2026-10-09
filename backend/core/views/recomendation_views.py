@@ -51,7 +51,6 @@ from utils.interventions import (
     _abs_media_url,
     _anchor_date_for_day,
     _as_str_or_none,
-    _available_language_variants,
     _canonical_assignment_for,
     _clip_before,
     _detect_file_media_type,
@@ -67,7 +66,6 @@ from utils.interventions import (
     _parse_int,
     _parse_star_key,
     _parse_str_list,
-    _pick_best_variant,
     _pick_variant,
     _safe_title_slug,
     _save_file,
@@ -902,11 +900,14 @@ def get_intervention_detail(request, intervention_id):
             return JsonResponse({"error": "Intervention not found"}, status=404)
         external_id = getattr(base_doc, "external_id", None)
 
-        intervention = base_doc
-        if external_id:
-            picked = _pick_best_variant(external_id, lang_chain)
-            if picked:
-                intervention = picked
+        # A private variant can share a public external_id, so only visible variants are candidates.
+        variants = [
+            v
+            for v in (Intervention.objects(external_id=external_id) if external_id else [])
+            if not v.is_private or _can_see_private(request, v)
+        ]
+        by_lang = {v.language: v for v in variants}
+        intervention = next((by_lang[l] for l in lang_chain if l in by_lang), None) or base_doc
 
         feedbacks = []
         # Query across ALL language variants so logs recorded under a different
@@ -951,11 +952,7 @@ def get_intervention_detail(request, intervention_id):
             "private_patient_id": (
                 str(intervention.private_patient_id.id) if getattr(intervention, "private_patient_id", None) else None
             ),
-            "available_languages": (
-                _available_language_variants(getattr(intervention, "external_id", None))
-                if getattr(intervention, "external_id", None)
-                else []
-            ),
+            "available_languages": [{"_id": str(v.id), "language": v.language, "title": v.title} for v in variants],
             "selected_language": getattr(intervention, "language", None),
         }
 

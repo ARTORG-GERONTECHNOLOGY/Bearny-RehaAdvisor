@@ -15,7 +15,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from core.models import FitbitData, FitbitUserToken, GoogleHealthData, GoogleHealthUserToken, Patient, User
-from core.permissions import can_access_patient, is_self_or_admin
+from core.permissions import can_access_patient, can_access_user, is_self
 from core.views.wearable_utils import (
     _default_thresholds,
     _merge_thresholds,
@@ -423,12 +423,7 @@ def fitbit_status(request, patient_id):
         logger.info("[fitbit_status] unresolved identifier connected=False has_data=False")
         return JsonResponse({"connected": False, "has_data": False, "last_data": None})
 
-    status_patient = Patient.objects(userId=user).first()
-    if not (
-        can_access_patient(request, status_patient, allow_self=True)
-        if status_patient
-        else is_self_or_admin(request, user.id)
-    ):
+    if not can_access_user(request, user):
         return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     connected = FitbitUserToken.objects(user=user, is_revoked__ne=True).count() > 0
@@ -515,7 +510,7 @@ def fitbit_auth_init(request):
     if not patient_id:
         return JsonResponse({"error": "patientId required"}, status=400)
     # The callback links the OAuth account to this user, so it must be the caller.
-    if not is_self_or_admin(request, patient_id):
+    if not is_self(request, patient_id):
         return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     nonce = secrets.token_urlsafe(32)

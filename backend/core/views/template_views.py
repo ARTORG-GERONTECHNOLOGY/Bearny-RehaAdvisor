@@ -867,8 +867,12 @@ def apply_named_template(request, template_id):
                     p = Patient.objects.get(pk=ObjectId(pid))
                 else:
                     p = Patient.objects.get(patient_code=pid)
-                patients.append(p)
             except Exception:
+                p = None
+            # Inaccessible patients read as missing, so codes from other clinics can't be probed.
+            if p and can_access_patient(request, p):
+                patients.append(p)
+            else:
                 not_found.append(pid)
         if not_found:
             return bad(
@@ -877,8 +881,6 @@ def apply_named_template(request, template_id):
                 [],
                 status=404,
             )
-        if not all(can_access_patient(request, p) for p in patients):
-            return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
     else:
         # Diagnosis bulk mode — find all active clinic+project patients with this diagnosis
         bulk_filter: dict = {"clinic__in": therapist.clinics, "diagnosis": diagnosis_filter}

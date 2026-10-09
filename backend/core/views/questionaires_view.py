@@ -431,13 +431,15 @@ def list_health_questionnaires(request):
     except Exception:
         creator = None
 
-    if creator is None:
-        therapist_like = payload.get("therapistId")
-        if therapist_like and is_self_or_admin(request, therapist_like):
-            try:
-                creator = _get_therapist_by_any(therapist_like)
-            except Exception:
-                creator = None
+    therapist_like = payload.get("therapistId")
+    if therapist_like and not is_self_or_admin(request, therapist_like):
+        return JsonResponse({"error": "You are not authorised to act for this therapist."}, status=403)
+
+    if creator is None and therapist_like:
+        try:
+            creator = _get_therapist_by_any(therapist_like)
+        except Exception:
+            creator = None
 
     allowed_types = {"text", "select", "multi-select", "one-choice", "multiple-choice", "open-answer"}
     base_key = f"custom_{_slugify(title)}_{str(ObjectId())[-8:]}"
