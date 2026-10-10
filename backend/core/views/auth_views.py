@@ -35,6 +35,7 @@ from core.models import (
     Therapist,
     User,
 )
+from core.permissions import is_self_or_admin
 from core.tasks import fetch_fitbit_data_async
 from core.throttles import LoginRateThrottle
 from core.token_revocation import invalidate_user_tokens, revoke_jti
@@ -1138,6 +1139,8 @@ def verify_code_view(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_user_info(request, user_id):
+    if not is_self_or_admin(request, user_id):
+        return JsonResponse({"error": "You are not authorised to access this user."}, status=403)
     try:
         user = User.objects.filter(pk=ObjectId(user_id)).first()
         if not user:

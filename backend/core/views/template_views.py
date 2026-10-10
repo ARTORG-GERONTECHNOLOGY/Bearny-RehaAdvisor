@@ -35,6 +35,7 @@ from core.models import (
     RehabilitationPlan,
     Therapist,
 )
+from core.permissions import can_access_patient, is_admin_caller
 from utils.interventions import (
     BASE_ANCHOR,
     _anchor_date_for_day,
@@ -256,10 +257,9 @@ def template_detail(request, template_id):
     PATCH  /api/templates/<id>/   — update metadata (owner or admin)
     """
     therapist = _get_therapist(request)
-    if therapist is None:
+    is_admin = is_admin_caller(request)
+    if therapist is None and not is_admin:
         return JsonResponse({"error": "Therapist profile not found."}, status=403)
-
-    is_admin = getattr(request.user, "role", None) == "Admin"
 
     if not ObjectId.is_valid(template_id):
         return JsonResponse({"error": "Invalid template id."}, status=400)
@@ -495,6 +495,9 @@ def template_intervention_assign(request, template_id):
         intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
     except Exception:
         return JsonResponse({"error": "Intervention not found."}, status=404)
+    # Templates are applied to many patients; a private intervention belongs to one.
+    if intervention.is_private:
+        return JsonResponse({"error": "Private interventions cannot be added to templates."}, status=400)
 
     schedule = DiagnosisAssignmentSettings(
         active=True,
@@ -674,7 +677,8 @@ def _apply_template_to_single_patient(
     for rec in tmpl.recommendations or []:
         try:
             inter = rec.recommendation
-            if inter is None:
+            # Skips private interventions in templates created before they were refused.
+            if inter is None or inter.is_private:
                 continue
         except Exception:
             logger.warning("Could not dereference intervention in template %s", tmpl.id)
@@ -866,8 +870,12 @@ def apply_named_template(request, template_id):
                     p = Patient.objects.get(pk=ObjectId(pid))
                 else:
                     p = Patient.objects.get(patient_code=pid)
-                patients.append(p)
             except Exception:
+                p = None
+            # Inaccessible patients read as missing, so codes from other clinics can't be probed.
+            if p and can_access_patient(request, p):
+                patients.append(p)
+            else:
                 not_found.append(pid)
         if not_found:
             return bad(

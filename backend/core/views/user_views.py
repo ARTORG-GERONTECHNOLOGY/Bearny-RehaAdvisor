@@ -92,7 +92,13 @@ from core.models import (
     Therapist,
     User,
 )
-from core.permissions import IsAdmin
+from core.permissions import (
+    IsAdmin,
+    can_access_patient,
+    can_access_user,
+    can_assign_clinic,
+    is_self,
+)
 from core.token_revocation import invalidate_user_tokens
 from utils.config import WEARABLE_DEVICE_CHOICES
 from utils.utils import (
@@ -158,7 +164,7 @@ def valid_update_value(v):
 def change_password(request, therapist_id):
     """
     Secure password change with:
-    - self-only change (except Admin/Therapist)
+    - self-only change (therapists reset patients via reset_patient_password)
     - rate limiting
     - strong password rules
     """
@@ -171,6 +177,10 @@ def change_password(request, therapist_id):
             user = patient.userId
     except Exception:
         return JsonResponse({"error": "User not found"}, status=404)
+
+    # Otherwise anyone could burn the target's attempts and lock them out.
+    if not is_self(request, user.id):
+        return JsonResponse({"error": "You can only change your own password."}, status=403)
 
     # Rate limiting
     now = timezone.now()
@@ -280,6 +290,9 @@ def user_profile_view(request, user_id):
             return JsonResponse({"error": "User not found"}, status=404)
 
     target_role = getattr(user, "role", "Patient")
+
+    if not can_access_user(request, user):
+        return JsonResponse({"error": "You are not authorised to access this profile."}, status=403)
 
     # ------------------------------------------------------------------
     # Sanitizer
@@ -464,6 +477,9 @@ def user_profile_view(request, user_id):
             pw_old = raw.get("oldPassword") or raw.get("old_password")
 
             if pw_new is not None or pw_old is not None:
+                # Same rule as change_password: nobody may guess or set another user's password here.
+                if not is_self(request, user.id):
+                    return JsonResponse({"error": "You can only change your own password."}, status=403)
                 if not pw_old:
                     return JsonResponse({"error": "Old password required"}, status=400)
                 if not pw_new:
@@ -535,6 +551,13 @@ def user_profile_view(request, user_id):
             if target_role == "Therapist":
                 therapist = Therapist.objects.get(userId=user.id)
 
+                req_clinics = raw.get("clinics") or []
+                if not isinstance(req_clinics, list) or not all(isinstance(c, str) for c in req_clinics):
+                    return JsonResponse({"error": "clinics must be a list of strings"}, status=400)
+                added_clinics = set(req_clinics) - set(therapist.clinics or [])
+                if not all(can_assign_clinic(request, c) for c in added_clinics):
+                    return JsonResponse({"error": "You are not authorised to assign this clinic."}, status=403)
+
                 for field, expected_type in TH_ALLOWED_USER.items():
                     if field in raw:
                         raw_val = raw[field]
@@ -560,6 +583,10 @@ def user_profile_view(request, user_id):
 
             else:  # PATIENT
                 patient = Patient.objects.get(userId=user.id)
+
+                new_clinic = raw.get("clinic")
+                if new_clinic and new_clinic != patient.clinic and not can_assign_clinic(request, new_clinic):
+                    return JsonResponse({"error": "You are not authorised to assign this clinic."}, status=403)
 
                 # Update USER fields
                 for field, expected_type in PATIENT_ALLOWED_USER.items():
@@ -684,6 +711,7 @@ def user_profile_view(request, user_id):
 
             user.isActive = False
             user.save()
+            invalidate_user_tokens(str(user.id))
 
             Logs.objects.create(
                 userId=user,
@@ -748,6 +776,9 @@ def reset_patient_password(request, patient_id):
     except Exception:
         return JsonResponse({"error": "Invalid patient ID"}, status=400)
 
+    if not can_access_patient(request, patient):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
+
     user = patient.userId
 
     user.pwdhash = make_password(new_password)
@@ -780,6 +811,9 @@ def force_logout_patient(request, patient_id):
         return JsonResponse({"error": "Patient not found"}, status=404)
     except Exception:
         return JsonResponse({"error": "Invalid patient ID"}, status=400)
+
+    if not can_access_patient(request, patient):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     user = patient.userId
     invalidate_user_tokens(str(user.id))

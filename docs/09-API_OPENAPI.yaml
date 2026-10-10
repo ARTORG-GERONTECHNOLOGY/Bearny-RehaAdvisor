@@ -6,8 +6,6 @@ info:
     Machine-readable API spec generated from `backend/core/urls.py`.
     Notes:
     - Some endpoints use legacy path spellings (e.g. `questionaire`, `recomendation`).
-    - `GET /api/patients/health-combined-history/{patient_id}/` is declared twice in URL config;
-      Django resolves the first declaration at runtime.
 servers:
   - url: http://localhost:8001
 security:

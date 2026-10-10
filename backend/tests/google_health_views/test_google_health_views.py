@@ -176,12 +176,9 @@ def test_status_token_without_connected_at_no_reconnect():
     assert body["days_until_expiry"] is None
 
 
-def test_status_unresolved_identifier_returns_safe_defaults():
-    resp = _status_as("not-a-valid-id")
-    body = json.loads(resp.content)
-    assert body["connected"] is False
-    assert body["needs_reconnect"] is False
-    assert body["days_until_expiry"] is None
+def test_status_unresolved_identifier_returns_403():
+    # Same answer as an inaccessible patient, so ids can't be probed for existence.
+    assert _status_as("not-a-valid-id").status_code == 403
 
 
 def test_status_includes_wearable_device_field():

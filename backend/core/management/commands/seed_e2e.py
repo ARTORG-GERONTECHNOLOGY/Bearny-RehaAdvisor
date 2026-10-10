@@ -169,6 +169,8 @@ class Command(BaseCommand):
         return therapist
 
     def _seed_patient(self, therapist):
+        """Returns the saved patient User, or None if creds are absent. The patient joins the
+        therapist's first clinic, since therapists only see and manage patients in their own clinics."""
         login, password = self._creds("E2E_PATIENT_LOGIN", "E2E_PATIENT_PASSWORD", "Patient")
         if not login:
             return None
@@ -185,6 +187,7 @@ class Command(BaseCommand):
             userId=user,
             patient_code="E2E-PAT-001",
             therapist=therapist,
+            clinic=therapist.clinics[0] if therapist.clinics else "",
         ).save()
         self.stdout.write(self.style.SUCCESS(f"  Created Patient    : {login}  (id={E2E_PATIENT_OID})"))
         return user

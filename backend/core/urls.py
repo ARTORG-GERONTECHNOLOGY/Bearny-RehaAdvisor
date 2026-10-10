@@ -262,11 +262,6 @@ urlpatterns = [
         name="fitbit_health_data",
     ),
     path(
-        "api/therapists/<str:therapist_id>/patients/",
-        therapist_views.get_patients_by_therapist,
-        name="get_patients_by_therapist",
-    ),
-    path(
         "api/patients/healthstatus-history/<str:patient_id>/",
         patient_views.get_patient_healthstatus_history,
         name="get_patient_healthstatus_history",
@@ -307,11 +302,6 @@ urlpatterns = [
         "api/users/<str:therapist_id>/change-password/",
         user_views.change_password,
         name="change_password",
-    ),
-    path(
-        "api/patients/health-combined-history/<str:patient_id>/",
-        fitbit_views.health_combined_history,
-        name="health_combined_history",
     ),
     # Google Health API
     path(

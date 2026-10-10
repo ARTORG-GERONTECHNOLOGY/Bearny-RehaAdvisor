@@ -14,6 +14,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Logs, Patient, Therapist, User  # MongoEngine models (as in your project)
+from core.permissions import is_self_or_admin
 from utils.config import config
 
 logger = logging.getLogger(__name__)
@@ -339,6 +340,8 @@ def available_redcap_patients(request):
     """
 
     therapist_user_id = _norm(request.GET.get("therapistUserId"))
+    if therapist_user_id and not is_self_or_admin(request, therapist_user_id):
+        return _bad("You are not authorised to act for this therapist.", status=403)
 
     # Allow both: (A) therapistUserId param OR (B) derive from request.user
     therapist = (
@@ -500,6 +503,8 @@ def import_patient_from_redcap(request):
     project = _norm(payload.get("project"))
     identifier = _norm(payload.get("patient_code"))  # FE sends identifier here
     password = _norm(payload.get("password"))
+    if payload.get("therapistUserId") and not is_self_or_admin(request, payload.get("therapistUserId")):
+        return _bad("You are not authorised to act for this therapist.", status=403)
     therapist = (
         get_therapist_by_user_id(payload.get("therapistUserId"))
         if payload.get("therapistUserId")
