@@ -15,6 +15,7 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
+from mongoengine.errors import DoesNotExist
 from mongoengine.queryset.visitor import Q
 from pydub import AudioSegment
 from pydub.utils import which as pd_which
@@ -1767,6 +1768,13 @@ def _merge_dates(existing, incoming, *, return_naive_for_storage=True):
     return merged, added
 
 
+def _is_private_to(intervention, patient) -> bool:
+    try:
+        return getattr(intervention.private_patient_id, "id", None) == patient.id
+    except DoesNotExist:
+        return False
+
+
 def _forbidden_patient(message="You are not authorised to access this patient's data."):
     return JsonResponse(
         {
@@ -1885,12 +1893,14 @@ def add_intervention_to_patient(request):
                 seen.add(l)
         return out or ["en", "de"]
 
-    def pick_best_variant(external_id: str, chain):
+    def pick_best_variant(external_id: str, chain, patient):
+        # Public variants, or private ones belonging to this patient.
+        allowed = Q(is_private=False) | Q(is_private__exists=False) | Q(private_patient_id=patient)
         for l in chain:
-            doc = Intervention.objects(external_id=external_id, language=l).first()
+            doc = Intervention.objects(allowed, external_id=external_id, language=l).first()
             if doc:
                 return doc
-        return Intervention.objects(external_id=external_id).first()
+        return Intervention.objects(allowed, external_id=external_id).first()
 
     # ---- Parse JSON ----
     try:
@@ -2005,7 +2015,7 @@ def add_intervention_to_patient(request):
         chosen_lang = (item.get("language") or item.get("lang") or request_lang or "").strip().lower()
 
         if external_id:
-            intervention = pick_best_variant(external_id, lang_fallback_chain(chosen_lang or "en"))
+            intervention = pick_best_variant(external_id, lang_fallback_chain(chosen_lang or "en"), patient)
             if not intervention:
                 add_ferr(
                     "externalId",
@@ -2018,6 +2028,9 @@ def add_intervention_to_patient(request):
                 add_ferr("interventionId", "Invalid interventionId.")
                 continue
             intervention = Intervention.objects(id=int_oid).first()
+            # Another patient's private intervention reads as missing.
+            if intervention and intervention.is_private and not _is_private_to(intervention, patient):
+                intervention = None
             if not intervention:
                 add_ferr("interventionId", f"Intervention {str(int_oid)} not found.")
                 continue

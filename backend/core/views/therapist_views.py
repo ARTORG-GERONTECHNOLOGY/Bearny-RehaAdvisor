@@ -634,39 +634,6 @@ def list_therapist_patients(request, therapist_id):
         return JsonResponse({"error": "Internal server error."}, status=500)
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_patients_by_therapist(request, therapist_id):
-    """
-    GET /api/therapists/<therapist_id>/patients/
-    Returns list of patients (first name, last name, id) assigned to a therapist.
-    """
-    try:
-        # Authorization: therapist_id in the URL is a User ID (same convention as
-        # list_therapist_patients). Compare the caller's user ID directly.
-        is_admin = getattr(request.user, "role", None) == "Admin"
-        if not is_admin:
-            caller_user_id = str(getattr(request.user, "id", ""))
-            if not caller_user_id or caller_user_id != str(therapist_id):
-                return JsonResponse(
-                    {"error": "You are not authorised to access this resource."},
-                    status=403,
-                )
-
-        patients = Patient.objects.filter(therapistId=ObjectId(therapist_id))
-        data = [
-            {
-                "id": str(p.userId),
-                "patient_code": p.patient_code,
-            }
-            for p in patients
-        ]
-        return JsonResponse(data, safe=False, status=200)
-    except Exception:
-        logger.exception("[get_patients_by_therapist] Unexpected error")
-        return JsonResponse({"error": "Internal server error."}, status=500)
-
-
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_log(request):
@@ -682,14 +649,15 @@ def create_log(request):
         started = parse_datetime(data.get("started")) if data.get("started") else None
         ended = parse_datetime(data.get("ended")) if data.get("ended") else None
         patient = data.get("patient")  # Optional patient reference
-        if user and not is_self_or_admin(request, user):
+        if not user:
+            return JsonResponse({"error": "user is required"}, status=400)
+        if not is_self_or_admin(request, user):
             return JsonResponse({"error": "You can only log your own activity."}, status=403)
         if patient:
             patient = Patient.objects.get(pk=ObjectId(patient))
             if not can_access_patient(request, patient, allow_self=True):
                 return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
-        if user:
-            user = User.objects.get(id=ObjectId(user))
+        user = User.objects.get(id=ObjectId(user))
         log = Logs(
             userId=user,
             action=data.get("action", "REHATABLE"),

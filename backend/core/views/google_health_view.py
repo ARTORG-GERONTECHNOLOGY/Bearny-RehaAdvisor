@@ -633,7 +633,7 @@ def google_manual_steps(request, patient_id):
 def google_health_combined_history(request, patient_id):
     """
     Combined wearables + questionnaire + adherence history.
-    Uses GoogleHealthData; response shape is identical to health_combined_history
+    Uses GoogleHealthData; response shape is identical to patient_views.get_combined_health_data
     so the frontend requires no changes.
     """
     import datetime as dt_mod

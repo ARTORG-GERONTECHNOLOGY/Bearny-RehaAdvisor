@@ -15,7 +15,7 @@ from unittest.mock import patch
 import mongomock
 import pytest
 from bson import ObjectId
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import check_password, make_password
 from django.test import Client
 from rest_framework.test import APIClient
 
@@ -523,108 +523,6 @@ def test_fixfp1_existing_and_nonexistent_email_return_identical_body():
 
 
 # ===========================================================================
-# Fix FP2 — get_patients_by_therapist authorization gap
-# ===========================================================================
-
-
-def test_fixfp2_therapist_b_cannot_access_therapist_a_patient_list():
-    """
-    GET /api/therapists/<a_id>/patients/ must return 403 when called by
-    Therapist B — any authenticated user could previously read any therapist's
-    patient list through this endpoint (the sister endpoint list_therapist_patients
-    was fixed in Fix 6, but get_patients_by_therapist was missed).
-    """
-    from django.conf import settings as _ds
-    from rest_framework.test import APIRequestFactory, force_authenticate
-
-    from core.views.therapist_views import get_patients_by_therapist
-
-    th_user_a, _ = _make_therapist("th_a_fp2", ["Inselspital"])
-    th_user_b, _ = _make_therapist("th_b_fp2", ["Bern"])
-
-    factory = APIRequestFactory()
-    request = factory.get(f"/api/therapists/{th_user_a.id}/patients/")
-    force_authenticate(
-        request,
-        user=SimpleNamespace(is_authenticated=True, id=str(th_user_b.id), role="Therapist"),
-    )
-
-    _ds.TESTING = False
-    try:
-        resp = get_patients_by_therapist(request, therapist_id=str(th_user_a.id))
-    finally:
-        _ds.TESTING = True
-
-    assert resp.status_code == 403, "Therapist B must not be able to read Therapist A's patient list"
-
-
-def test_fixfp2_therapist_can_access_own_patient_list():
-    """
-    A therapist accessing their own list must not be rejected by the auth guard.
-
-    Note: get_patients_by_therapist is shadowed by list_therapist_patients in
-    urls.py (same path registered first).  list_therapist_patients has its own
-    more thorough tests in test_fix6_*.  Here we only validate the auth guard
-    lets the owner through — the Patient query is mocked so the view reaches 200.
-    """
-    from unittest.mock import patch
-
-    from django.conf import settings as _ds
-    from rest_framework.test import APIRequestFactory, force_authenticate
-
-    from core.views.therapist_views import get_patients_by_therapist
-
-    th_user, _ = _make_therapist("th_self_fp2", ["Inselspital"])
-
-    factory = APIRequestFactory()
-    request = factory.get(f"/api/therapists/{th_user.id}/patients/")
-    force_authenticate(
-        request,
-        user=SimpleNamespace(is_authenticated=True, id=str(th_user.id), role="Therapist"),
-    )
-
-    _ds.TESTING = False
-    try:
-        with patch("core.views.therapist_views.Patient") as mock_patient:
-            mock_patient.objects.filter.return_value = []
-            resp = get_patients_by_therapist(request, therapist_id=str(th_user.id))
-    finally:
-        _ds.TESTING = True
-
-    assert resp.status_code == 200
-
-
-def test_fixfp2_admin_can_access_any_therapist_patient_list():
-    """Admin can reach any therapist's list — auth guard must pass them through."""
-    from unittest.mock import patch
-
-    from django.conf import settings as _ds
-    from rest_framework.test import APIRequestFactory, force_authenticate
-
-    from core.views.therapist_views import get_patients_by_therapist
-
-    th_user, _ = _make_therapist("th_target_fp2", ["Inselspital"])
-    admin_user = _make_user("admin_fp2", role="Admin")
-
-    factory = APIRequestFactory()
-    request = factory.get(f"/api/therapists/{th_user.id}/patients/")
-    force_authenticate(
-        request,
-        user=SimpleNamespace(is_authenticated=True, id=str(admin_user.id), role="Admin"),
-    )
-
-    _ds.TESTING = False
-    try:
-        with patch("core.views.therapist_views.Patient") as mock_patient:
-            mock_patient.objects.filter.return_value = []
-            resp = get_patients_by_therapist(request, therapist_id=str(th_user.id))
-    finally:
-        _ds.TESTING = True
-
-    assert resp.status_code == 200
-
-
-# ===========================================================================
 # Fix FP3 — Hardcoded production IP in backend config.json
 # ===========================================================================
 
@@ -831,7 +729,8 @@ def _call_as(caller, view_fn, method, url, payload=None, *args):
         request = factory.post(url, data=payload or {}, format="multipart")
     else:
         request = getattr(factory, method)(url, data=json.dumps(payload or {}), content_type="application/json")
-    force_authenticate(request, user=SimpleNamespace(is_authenticated=True, id=str(caller.id), role=caller.role))
+    # Same shape as the production JWT user (core/jwt_auth.py): no role attribute.
+    force_authenticate(request, user=SimpleNamespace(is_authenticated=True, id=str(caller.id)))
     _ds.TESTING = False
     try:
         return view_fn(request, *args)
@@ -1433,6 +1332,129 @@ def test_xhrj_therapist_projects_is_admin_only(xhrj_world):
     w = xhrj_world
     payload = {"therapistId": str(w.th_a.id), "projects": []}
     assert _call_as(w.th_user_a, therapist_projects, "put", "/", payload).status_code == 403
+
+
+def test_xhrj_profile_password_change_is_self_only(xhrj_world):
+    from core.views.user_views import user_profile_view
+
+    w = xhrj_world
+    patient_user = w.patient_a.userId
+    patient_user.pwdhash = make_password("Correct-Old-1")
+    patient_user.save()
+
+    # Correct old password, so only the self-only guard can refuse it.
+    payload = {"oldPassword": "Correct-Old-1", "newPassword": "weak"}
+    resp = _call_as(w.th_user_a, user_profile_view, "put", "/", payload, str(patient_user.id))
+    assert resp.status_code == 403
+    patient_user.reload()
+    assert check_password("Correct-Old-1", patient_user.pwdhash)
+
+
+def test_xhrj_admin_can_list_any_therapists_patients(xhrj_world):
+    from core.views.therapist_views import list_therapist_patients
+
+    w = xhrj_world
+    assert _call_as(w.admin, list_therapist_patients, "get", "/", None, str(w.th_user_a.id)).status_code == 200
+    assert _call_as(w.th_user_b, list_therapist_patients, "get", "/", None, str(w.th_user_a.id)).status_code == 403
+
+
+def test_xhrj_admin_without_therapist_profile_can_manage_templates(xhrj_world):
+    from core.models import InterventionTemplate
+    from core.views.template_views import template_detail
+
+    w = xhrj_world
+    tmpl = InterventionTemplate(name="Private", is_public=False, created_by=w.th_a).save()
+    assert _call_as(w.admin, template_detail, "get", "/", None, str(tmpl.id)).status_code == 200
+    assert _call_as(w.th_user_b, template_detail, "get", "/", None, str(tmpl.id)).status_code == 404
+
+
+def _private_intervention(owner, external_id, language="en"):
+    return Intervention(
+        external_id=external_id,
+        language=language,
+        title=f"Private {external_id} {language}",
+        description="Private",
+        content_type="Video",
+        is_private=True,
+        private_patient_id=owner,
+    ).save()
+
+
+def _add_to_patient_a(w, item):
+    from core.views.patient_views import add_intervention_to_patient
+
+    start = (datetime.now() + timedelta(days=1)).isoformat()
+    payload = {
+        "therapistId": str(w.th_user_a.id),
+        "patientId": str(w.patient_a.id),
+        "interventions": [
+            {"unit": "day", "interval": 1, "startDate": start, "end": {"type": "count", "count": 2}, **item}
+        ],
+    }
+    return _call_as(w.th_user_a, add_intervention_to_patient, "post", "/", payload)
+
+
+def test_xhrj_private_intervention_only_assignable_to_its_patient(xhrj_world):
+    w = xhrj_world
+    foreign = _private_intervention(w.patient_b, "custom_b_xhrj")
+    own = _private_intervention(w.patient_a, "custom_a_xhrj")
+
+    resp = _add_to_patient_a(w, {"interventionId": str(foreign.id)})
+    assert resp.status_code == 400
+    assert "not found" in json.loads(resp.content)["field_errors"]["interventionId"][0]
+
+    assert _add_to_patient_a(w, {"interventionId": str(own.id)}).status_code == 201
+
+
+def test_xhrj_external_id_lookup_skips_other_patients_private_variant(xhrj_world):
+    w = xhrj_world
+    w.intervention.update(set__external_id="shared_xhrj")
+    _private_intervention(w.patient_b, "shared_xhrj", language="fr")
+
+    resp = _add_to_patient_a(w, {"externalId": "shared_xhrj", "language": "fr"})
+    assert resp.status_code == 201
+    plan = RehabilitationPlan.objects(patientId=w.patient_a).first()
+    assigned = {a.interventionId.id for a in plan.interventions}
+    assert assigned == {w.intervention.id}
+
+
+def test_xhrj_private_intervention_not_assignable_to_diagnosis_group(xhrj_world):
+    from core.views.recomendation_views import assign_intervention_to_types
+
+    w = xhrj_world
+    private = _private_intervention(w.patient_a, "custom_group_xhrj")
+    payload = {
+        "diagnosis": "Stroke",
+        "interventions": [{"interventionId": str(private.id), "interval": 1, "unit": "week"}],
+    }
+    resp = _call_as(w.th_user_a, assign_intervention_to_types, "post", "/", payload, str(w.th_user_a.id))
+    assert resp.status_code == 400
+    assert json.loads(resp.content)["field_errors"]["interventions[0].interventionId"] == [
+        "Private interventions cannot be assigned to diagnosis groups."
+    ]
+
+
+def test_xhrj_templates_refuse_and_skip_private_interventions(xhrj_world):
+    from core.models import DefaultInterventions, DiagnosisAssignmentSettings, InterventionTemplate
+    from core.views.template_views import apply_named_template, template_intervention_assign
+
+    w = xhrj_world
+    private = _private_intervention(w.patient_b, "custom_tmpl_xhrj")
+    tmpl = InterventionTemplate(name="T", is_public=False, created_by=w.th_a).save()
+
+    payload = {"interventionId": str(private.id), "end_day": 10, "interval": 1, "unit": "day"}
+    resp = _call_as(w.th_user_a, template_intervention_assign, "post", "/", payload, str(tmpl.id))
+    assert resp.status_code == 400
+    assert json.loads(resp.content)["error"] == "Private interventions cannot be added to templates."
+
+    # A template that already holds a private intervention must not hand it to other patients.
+    block = DiagnosisAssignmentSettings(active=True, interval=1, unit="day", start_day=1, end_day=3)
+    tmpl.recommendations.append(DefaultInterventions(recommendation=private, diagnosis_assignments={"_all": [block]}))
+    tmpl.save()
+    apply = {"patientIds": [w.patient_a.patient_code], "effectiveFrom": "2030-01-01"}
+    assert _call_as(w.th_user_a, apply_named_template, "post", "/", apply, str(tmpl.id)).status_code == 200
+    plan = RehabilitationPlan.objects(patientId=w.patient_a).first()
+    assert private.id not in {a.interventionId.id for a in plan.interventions}
 
 
 # ===========================================================================

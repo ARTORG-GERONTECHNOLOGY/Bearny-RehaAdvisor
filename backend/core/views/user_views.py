@@ -164,7 +164,7 @@ def valid_update_value(v):
 def change_password(request, therapist_id):
     """
     Secure password change with:
-    - self-only change (except Admin/Therapist)
+    - self-only change (therapists reset patients via reset_patient_password)
     - rate limiting
     - strong password rules
     """
@@ -477,6 +477,9 @@ def user_profile_view(request, user_id):
             pw_old = raw.get("oldPassword") or raw.get("old_password")
 
             if pw_new is not None or pw_old is not None:
+                # Same rule as change_password: nobody may guess or set another user's password here.
+                if not is_self(request, user.id):
+                    return JsonResponse({"error": "You can only change your own password."}, status=403)
                 if not pw_old:
                     return JsonResponse({"error": "Old password required"}, status=400)
                 if not pw_new:

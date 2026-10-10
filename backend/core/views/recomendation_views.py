@@ -1253,6 +1253,13 @@ def assign_intervention_to_types(request, therapist_id):
                 "interventions[0].interventionId",
                 "Intervention not found or invalid ID.",
             )
+        else:
+            # Private interventions belong to one patient, never to a diagnosis group.
+            if inter_obj.is_private:
+                add_error(
+                    "interventions[0].interventionId",
+                    "Private interventions cannot be assigned to diagnosis groups.",
+                )
 
     interval = int(payload.get("interval", -99))
     if interval is -99:
