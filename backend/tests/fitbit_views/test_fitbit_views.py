@@ -210,13 +210,10 @@ def test_fitbit_status_true_when_called_with_patient_id():
     assert body["last_data"] is None
 
 
-def test_fitbit_status_unresolved_identifier_returns_false():
+def test_fitbit_status_unresolved_identifier_returns_403():
+    # Same answer as an inaccessible patient, so ids can't be probed for existence.
     resp = client.get("/api/fitbit/status/not-an-id/", HTTP_AUTHORIZATION="Bearer test")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["connected"] is False
-    assert body["has_data"] is False
-    assert body["last_data"] is None
+    assert resp.status_code == 403
 
 
 def test_fitbit_callback_does_not_require_authentication():

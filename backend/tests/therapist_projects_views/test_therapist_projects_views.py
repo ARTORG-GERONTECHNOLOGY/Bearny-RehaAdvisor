@@ -8,6 +8,7 @@ because this view is currently not wired in core/urls.py.
 
 import json
 from datetime import datetime
+from unittest.mock import patch
 
 import mongomock
 import pytest
@@ -35,6 +36,13 @@ def mongo_mock():
     )
     yield conn
     disconnect(alias)
+
+
+@pytest.fixture(autouse=True)
+def allow_admin():
+    # The endpoint is admin-only; these tests cover its behaviour, the guard is tested in tests/security.
+    with patch("core.permissions.IsAdmin.has_permission", return_value=True):
+        yield
 
 
 @pytest.fixture

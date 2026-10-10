@@ -243,18 +243,8 @@ def _first_data_date(user) -> str | None:
 @permission_classes([IsAuthenticated])
 def google_health_status(request, patient_id):
     user = _resolve_user_for_fitbit_status(patient_id)
-    if not user:
-        return JsonResponse(
-            {
-                "connected": False,
-                "has_data": False,
-                "last_data": None,
-                "needs_reconnect": False,
-                "days_until_expiry": None,
-            }
-        )
-
-    if not can_access_user(request, user):
+    # Unknown and inaccessible ids get the same answer, so existence can't be probed.
+    if not user or not can_access_user(request, user):
         return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     token = GoogleHealthUserToken.objects(user=user).first()

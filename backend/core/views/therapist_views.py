@@ -24,7 +24,6 @@ from core.models import (
     User,
 )
 from core.permissions import can_access_patient, is_self_or_admin
-from core.services.redcap_access import get_therapist_for_user
 from core.views.wearable_utils import fetch_merged_wearable_records
 from utils.interventions import _get_star_q_ids, _star_rating_value
 from utils.utils import _adherence, resolve_patient
@@ -464,23 +463,8 @@ def list_therapist_patients(request, therapist_id):
         # ✅ tests expect this exact key + value
         return JsonResponse({"error": "Therapist not found"}, status=404)
 
-    # Authorization: the caller must be the therapist whose patient list is
-    # being requested, OR an Admin.  Skipped in test mode because test requests
-    # use a synthetic user that has no corresponding DB record.
-    from django.conf import settings as _settings
-
-    if not getattr(_settings, "TESTING", False):
-        try:
-            caller_user = User.objects.get(pk=ObjectId(request.user.id))
-            is_admin = caller_user.role == "Admin" and caller_user.isActive
-        except Exception:
-            is_admin = False
-
-        if not is_admin:
-            caller_therapist = get_therapist_for_user(request.user)
-            is_self = caller_therapist and str(caller_therapist.id) == str(therapist.id)
-            if not is_self:
-                return JsonResponse({"error": "You are not authorised to access this resource."}, status=403)
+    if not is_self_or_admin(request, therapist_id):
+        return JsonResponse({"error": "You are not authorised to access this resource."}, status=403)
 
     try:
         # Truncate to midnight so FitbitData entries stored as date-at-midnight are always included.

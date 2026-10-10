@@ -41,6 +41,7 @@ from core.models import (
     Therapist,
 )
 from core.permissions import (
+    accessible_patient_filter,
     can_access_patient,
     is_self_or_admin,
     is_therapist_or_admin,
@@ -73,7 +74,6 @@ from utils.interventions import (
     _serialize_media,
     _split_taglist_into_fields,
     _upsert_intervention,
-    _variant_ids_for_external_id,
     normalize_content_type,
 )
 from utils.scheduling import _expand_dates  # you already use this
@@ -910,14 +910,12 @@ def get_intervention_detail(request, intervention_id):
         intervention = next((by_lang[l] for l in lang_chain if l in by_lang), None) or base_doc
 
         feedbacks = []
-        # Query across ALL language variants so logs recorded under a different
-        # language variant of the same intervention are included.
-        if external_id:
-            patient_logs = PatientInterventionLogs.objects.filter(
-                interventionId__in=_variant_ids_for_external_id(external_id)
-            )
-        else:
-            patient_logs = PatientInterventionLogs.objects.filter(interventionId=base_doc)
+        # Feedback across all visible language variants, limited to patients the caller may access.
+        log_filter = {"interventionId__in": [v.id for v in variants] if external_id else [base_doc.id]}
+        patient_filter = accessible_patient_filter(request)
+        if patient_filter is not None:
+            log_filter["userId__in"] = list(Patient.objects(**patient_filter).scalar("id"))
+        patient_logs = PatientInterventionLogs.objects.filter(**log_filter)
         for log in patient_logs:
             for entry in log.feedback or []:
                 feedbacks.append(

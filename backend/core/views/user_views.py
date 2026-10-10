@@ -97,6 +97,7 @@ from core.permissions import (
     can_access_patient,
     can_access_user,
     can_assign_clinic,
+    is_self,
 )
 from core.token_revocation import invalidate_user_tokens
 from utils.config import WEARABLE_DEVICE_CHOICES
@@ -176,6 +177,10 @@ def change_password(request, therapist_id):
             user = patient.userId
     except Exception:
         return JsonResponse({"error": "User not found"}, status=404)
+
+    # Otherwise anyone could burn the target's attempts and lock them out.
+    if not is_self(request, user.id):
+        return JsonResponse({"error": "You can only change your own password."}, status=403)
 
     # Rate limiting
     now = timezone.now()
@@ -703,6 +708,7 @@ def user_profile_view(request, user_id):
 
             user.isActive = False
             user.save()
+            invalidate_user_tokens(str(user.id))
 
             Logs.objects.create(
                 userId=user,

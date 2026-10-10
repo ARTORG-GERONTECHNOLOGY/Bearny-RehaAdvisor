@@ -1368,6 +1368,73 @@ def test_xhrj_create_questionnaire_rejects_foreign_therapist_id(xhrj_world):
     assert resp.status_code == 403
 
 
+def test_xhrj_therapist_limited_to_own_projects(xhrj_world):
+    from core.views.patient_views import get_patient_plan
+
+    w = xhrj_world
+    user = _make_user("th_copain_xhrj")
+    Therapist(userId=user, clinics=["Inselspital"], projects=["COPAIN"]).save()
+    w.patient_a.update(set__project="COMPASS")
+    assert _call_as(user, get_patient_plan, "get", "/", None, str(w.patient_a.id)).status_code == 403
+    w.patient_a.update(set__project="COPAIN")
+    assert _call_as(user, get_patient_plan, "get", "/", None, str(w.patient_a.id)).status_code == 200
+
+
+def test_xhrj_deactivated_therapist_loses_access_and_tokens(xhrj_world):
+    from core.views.patient_views import get_patient_plan
+    from core.views.user_views import user_profile_view
+
+    w = xhrj_world
+    with patch("core.views.user_views.invalidate_user_tokens") as invalidate:
+        resp = _call_as(w.admin, user_profile_view, "delete", "/", None, str(w.th_user_a.id))
+    assert resp.status_code == 200
+    invalidate.assert_called_once_with(str(w.th_user_a.id))
+
+    w.th_user_a.reload()
+    assert _call_as(w.th_user_a, get_patient_plan, "get", "/", None, str(w.patient_a.id)).status_code == 403
+
+
+def test_xhrj_intervention_feedback_limited_to_accessible_patients(xhrj_world):
+    from core.models import FeedbackEntry, FeedbackQuestion, PatientInterventionLogs
+    from core.views.recomendation_views import get_intervention_detail
+
+    w = xhrj_world
+    question = FeedbackQuestion(questionSubject="Intervention", questionKey="q_xhrj", answer_type="text").save()
+    plan_b = RehabilitationPlan.objects(patientId=w.patient_b).first()
+    for patient, plan, comment in ((w.patient_a, w.plan, "from clinic A"), (w.patient_b, plan_b, "from clinic B")):
+        PatientInterventionLogs(
+            userId=patient,
+            interventionId=w.intervention,
+            rehabilitationPlanId=plan,
+            date=datetime.now(),
+            feedback=[FeedbackEntry(questionId=question, comment=comment)],
+        ).save()
+
+    def comments(caller):
+        resp = _call_as(caller, get_intervention_detail, "get", "/", None, str(w.intervention.id))
+        return sorted(f["comment"] for f in json.loads(resp.content)["feedback"])
+
+    assert comments(w.th_user_a) == ["from clinic A"]
+    assert comments(w.admin) == ["from clinic A", "from clinic B"]
+
+
+def test_xhrj_change_password_is_self_only(xhrj_world):
+    from core.views.user_views import change_password
+
+    w = xhrj_world
+    payload = {"old_password": "wrong", "new_password": "N3w!password"}
+    resp = _call_as(w.patient_b.userId, change_password, "put", "/", payload, str(w.th_user_a.id))
+    assert resp.status_code == 403
+
+
+def test_xhrj_therapist_projects_is_admin_only(xhrj_world):
+    from core.views.therapist_projects import therapist_projects
+
+    w = xhrj_world
+    payload = {"therapistId": str(w.th_a.id), "projects": []}
+    assert _call_as(w.th_user_a, therapist_projects, "put", "/", payload).status_code == 403
+
+
 # ===========================================================================
 # HealthSlider session-zip and delete-session — token required
 # ===========================================================================

@@ -419,11 +419,8 @@ def fitbit_summary(request, patient_id=None):
 @permission_classes([IsAuthenticated])
 def fitbit_status(request, patient_id):
     user = _resolve_user_for_fitbit_status(patient_id)
-    if not user:
-        logger.info("[fitbit_status] unresolved identifier connected=False has_data=False")
-        return JsonResponse({"connected": False, "has_data": False, "last_data": None})
-
-    if not can_access_user(request, user):
+    # Unknown and inaccessible ids get the same answer, so existence can't be probed.
+    if not user or not can_access_user(request, user):
         return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     connected = FitbitUserToken.objects(user=user, is_revoked__ne=True).count() > 0
