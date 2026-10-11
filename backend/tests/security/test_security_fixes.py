@@ -820,6 +820,26 @@ def test_xhrj_clinic_changes_limited_to_callers_clinics(xhrj_world):
     assert resp.status_code == 200
     assert w.patient_a.reload().clinic == "Bern"
 
+    resp = _call_as(w.admin, user_profile_view, "put", "/", payload, str(w.th_user_a.id))
+    assert resp.status_code == 200
+    assert w.th_a.reload().clinics == ["Inselspital", "Bern"]
+
+
+def test_xhrj_unchanged_clinics_do_not_block_profile_saves(xhrj_world):
+    from core.views.user_views import user_profile_view
+
+    # Both edit forms send the full profile back, current clinic(s) included.
+    w = xhrj_world
+    payload = {"clinics": ["Inselspital"], "name": "Renamed"}
+    resp = _call_as(w.th_user_a, user_profile_view, "put", "/", payload, str(w.th_user_a.id))
+    assert resp.status_code == 200
+    assert w.th_a.reload().name == "Renamed"
+
+    payload = {"clinic": "Inselspital", "last_clinic_visit": "2026-10-01"}
+    resp = _call_as(w.th_user_a, user_profile_view, "put", "/", payload, str(w.patient_a.userId.id))
+    assert resp.status_code == 200
+    assert w.patient_a.reload().last_clinic_visit.date().isoformat() == "2026-10-01"
+
 
 def test_xhrj_add_intervention_requires_patient_access_and_own_therapist_id(xhrj_world):
     from core.views.patient_views import add_intervention_to_patient
