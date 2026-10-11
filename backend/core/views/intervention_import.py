@@ -16,6 +16,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Intervention, InterventionMedia
+from core.permissions import is_therapist_or_admin
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,8 @@ def import_interventions(request):
     Returns:
       { created, updated, skipped, errors }
     """
+    if not is_therapist_or_admin(request):
+        return JsonResponse({"error": "Only therapists can import interventions."}, status=403)
     print(
         "Received intervention import request:",
         request.POST.dict(),

@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
+from core.permissions import is_self_or_admin
 from core.services.redcap_access import (
     get_allowed_redcap_projects_for_therapist,
     get_therapist_for_user,
@@ -34,6 +35,8 @@ def redcap_patient(request):
     if not patient_code:
         return JsonResponse({"ok": False, "error": "patient_code is required"}, status=400)
     therapist_user_id = _norm(request.GET.get("therapistUserId"))
+    if therapist_user_id and not is_self_or_admin(request, therapist_user_id):
+        return JsonResponse({"ok": False, "error": "You are not authorised to act for this therapist."}, status=403)
 
     # Allow both: (A) therapistUserId param OR (B) derive from request.user
     therapist = (

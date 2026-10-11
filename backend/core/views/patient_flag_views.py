@@ -29,6 +29,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Patient, PatientComment, User
+from core.permissions import can_access_patient
 from core.services.redcap_access import get_therapist_for_user
 
 logger = logging.getLogger(__name__)
@@ -73,23 +74,7 @@ def _get_patient(patient_id: str) -> Patient | None:
 
 def _authorize(request, patient: Patient) -> JsonResponse | None:
     """Returns an error JsonResponse if unauthorized, else None."""
-    from django.conf import settings as _settings
-
-    if getattr(_settings, "TESTING", False):
-        return None
-
-    try:
-        caller = User.objects.get(pk=ObjectId(request.user.id))
-        is_admin = caller.role == "Admin" and caller.isActive
-    except Exception:
-        is_admin = False
-
-    if is_admin:
-        return None
-
-    caller_therapist = get_therapist_for_user(request.user)
-    patient_clinic = getattr(patient, "clinic", None)
-    if not caller_therapist or patient_clinic not in (caller_therapist.clinics or []):
+    if not can_access_patient(request, patient):
         return bad("You are not authorised to access this patient's data.", status=403)
     return None
 

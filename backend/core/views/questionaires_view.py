@@ -26,6 +26,11 @@ from core.models import (
     Translation,
     User,
 )
+from core.permissions import (
+    can_access_patient,
+    is_self_or_admin,
+    is_therapist_or_admin,
+)
 from utils.scheduling import (
     _expand_dates,
     _merge_date_and_time,
@@ -34,6 +39,8 @@ from utils.scheduling import (
 )
 
 logger = logging.getLogger(__name__)
+
+PATIENT_FORBIDDEN = "You are not authorised to access this patient's data."
 
 
 # --- frequency helpers --------------------------------------------------------
@@ -398,6 +405,9 @@ def list_health_questionnaires(request):
         data = [_serialize_health_questionnaire(q) for q in qs]
         return JsonResponse(data, safe=False, status=200)
 
+    if not is_therapist_or_admin(request):
+        return JsonResponse({"error": "Only therapists can create questionnaires."}, status=403)
+
     try:
         payload = json.loads(request.body or "{}")
     except Exception:
@@ -421,13 +431,15 @@ def list_health_questionnaires(request):
     except Exception:
         creator = None
 
-    if creator is None:
-        therapist_like = payload.get("therapistId")
-        if therapist_like:
-            try:
-                creator = _get_therapist_by_any(therapist_like)
-            except Exception:
-                creator = None
+    therapist_like = payload.get("therapistId")
+    if therapist_like and not is_self_or_admin(request, therapist_like):
+        return JsonResponse({"error": "You are not authorised to act for this therapist."}, status=403)
+
+    if creator is None and therapist_like:
+        try:
+            creator = _get_therapist_by_any(therapist_like)
+        except Exception:
+            creator = None
 
     allowed_types = {"text", "select", "multi-select", "one-choice", "multiple-choice", "open-answer"}
     base_key = f"custom_{_slugify(title)}_{str(ObjectId())[-8:]}"
@@ -561,6 +573,8 @@ def list_patient_questionnaires(request, patient_id):
     """GET /api/questionnaires/patient/<patient_id>/"""
     try:
         patient = _get_patient_by_any_id(patient_id)
+        if not can_access_patient(request, patient):
+            return JsonResponse({"error": PATIENT_FORBIDDEN}, status=403)
         plan = RehabilitationPlan.objects(patientId=patient).first()
         if not plan:
             return JsonResponse([], safe=False, status=200)
@@ -683,6 +697,10 @@ def assign_questionnaire(request):
 
         # resolve patient & therapist (your existing helpers)
         patient = _get_patient_by_any_id(patient_id)
+        if not can_access_patient(request, patient):
+            return JsonResponse({"error": PATIENT_FORBIDDEN}, status=403)
+        if therapist_id and not is_self_or_admin(request, therapist_id):
+            return JsonResponse({"error": "You are not authorised to act for this therapist."}, status=403)
         therapist = _resolve_therapist(therapist_id, patient)
         if therapist is None:
             return JsonResponse({"error": "Therapist not found"}, status=404)
@@ -804,6 +822,9 @@ def remove_questionnaire(request):
         except Patient.DoesNotExist:
             return JsonResponse({"error": "Patient not found"}, status=404)
 
+        if not can_access_patient(request, patient):
+            return JsonResponse({"error": PATIENT_FORBIDDEN}, status=403)
+
         plan = RehabilitationPlan.objects(patientId=patient).first()
         if not plan or not getattr(plan, "questionnaires", None):
             return JsonResponse({"message": "ok"}, status=200)
@@ -844,6 +865,9 @@ def reset_patient_feedback(request):
             patient = _get_patient_by_any_id(patient_id)
         except Patient.DoesNotExist:
             return JsonResponse({"error": "Patient not found"}, status=404)
+
+        if not can_access_patient(request, patient):
+            return JsonResponse({"error": PATIENT_FORBIDDEN}, status=403)
 
         date_str = payload.get("date") or str(timezone.localdate(timezone.now()))
         from_dt = _parse_yyyy_mm_dd(date_str)

@@ -14,7 +14,6 @@ This document describes tests in
 | `/api/fitbit/health-data/<patient_id>/` | GET | 3 |
 | `/api/fitbit/manual_steps/<patient_id>/` | POST/GET | 5 |
 | `/api/fitbit/summary/(<patient_id>/)` | GET | 3 |
-| `health_combined_history(<patient_id>)` | GET (direct view test) | 6 |
 | Helper functions | N/A | 7 |
 
 **Total: 35 tests**
