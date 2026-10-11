@@ -14,8 +14,16 @@ from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from core.models import FitbitData, FitbitUserToken, GoogleHealthData, GoogleHealthUserToken, Patient, User
-from core.services.redcap_access import get_therapist_for_user
+from core.models import (
+    FitbitData,
+    FitbitUserToken,
+    GoogleHealthData,
+    GoogleHealthUserToken,
+    Patient,
+    PatientVitals,
+    User,
+)
+from core.permissions import can_access_patient, can_access_user, is_self
 from core.views.wearable_utils import (
     _default_thresholds,
     _merge_thresholds,
@@ -70,6 +78,8 @@ def fitbit_summary(request, patient_id=None):
         patient = _resolve_patient(request, patient_id)
         if not patient:
             return JsonResponse({"error": "Cannot resolve patient"}, status=400)
+        if not can_access_patient(request, patient, allow_self=True):
+            return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
         # Retrieve the corresponding user object
         user = User.objects(id=patient.userId.id).first()
@@ -417,9 +427,9 @@ def fitbit_summary(request, patient_id=None):
 @permission_classes([IsAuthenticated])
 def fitbit_status(request, patient_id):
     user = _resolve_user_for_fitbit_status(patient_id)
-    if not user:
-        logger.info("[fitbit_status] unresolved identifier connected=False has_data=False")
-        return JsonResponse({"connected": False, "has_data": False, "last_data": None})
+    # Unknown and inaccessible ids get the same answer, so existence can't be probed.
+    if not user or not can_access_user(request, user):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     connected = FitbitUserToken.objects(user=user, is_revoked__ne=True).count() > 0
     needs_reconnect = not connected and FitbitUserToken.objects(user=user).count() > 0
@@ -504,6 +514,9 @@ def fitbit_auth_init(request):
     patient_id = request.GET.get("patientId", "")
     if not patient_id:
         return JsonResponse({"error": "patientId required"}, status=400)
+    # The callback links the OAuth account to this user, so it must be the caller.
+    if not is_self(request, patient_id):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     nonce = secrets.token_urlsafe(32)
     try:
@@ -685,14 +698,8 @@ def get_fitbit_health_data(request, patient_id):
     try:
         patient = Patient.objects.get(id=ObjectId(patient_id))
 
-        # IDOR guard: only a therapist in the patient's clinic may view health data.
-        # Skipped in TESTING mode (the test auth backend uses a synthetic user that
-        # has no therapist record); production always has TESTING unset.
-        if not getattr(settings, "TESTING", False) and getattr(request.user, "id", None) is not None:
-            caller_therapist = get_therapist_for_user(request.user)
-            patient_clinic = getattr(patient, "clinic", None)
-            if not caller_therapist or patient_clinic not in (caller_therapist.clinics or []):
-                return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
+        if not can_access_patient(request, patient):
+            return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
         # Convert to european DD.MM.YYYY
         def eu_date(d):
@@ -840,267 +847,9 @@ def manual_steps(request, patient_id):
 
     if not patient:
         return JsonResponse({"error": "Patient not found"}, status=404)
+    if not can_access_patient(request, patient, allow_self=True):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     FitbitData.objects(user=patient.userId, date=date).update_one(set__steps=steps, upsert=True)
 
     return JsonResponse({"success": True, "steps": steps, "date": date}, status=200)
-
-
-import datetime
-
-from bson import ObjectId
-from django.http import JsonResponse
-
-# --------------------------------------------
-# HEALTH-COMBINED-HISTORY ENDPOINT
-# --------------------------------------------
-from django.utils import timezone
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-
-from core.models import (
-    FitbitData,
-    Patient,
-    PatientICFRating,
-    PatientInterventionLogs,
-    PatientVitals,
-    RehabilitationPlan,
-    User,
-)
-
-
-# Helper
-def _date(d):
-    if isinstance(d, datetime.datetime):
-        return d.date().strftime("%Y-%m-%d")
-    if isinstance(d, datetime.date):
-        return d.strftime("%Y-%m-%d")
-    return None
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def health_combined_history(request, patient_id):
-    """
-    Returns:
-    {
-        "fitbit": [...],          # FitbitEntry[]
-        "questionnaire": [...],   # QuestionnaireEntry[]
-        "adherence": [...],       # Adherence entries
-    }
-
-    Includes:
-       - All FitbitData fields
-       - weight_kg, bp_sys, bp_dia (merged from PatientVitals)
-    """
-
-    try:
-        # -------------------------
-        # 1) Resolve Patient
-        # -------------------------
-        try:
-            patient = Patient.objects.get(id=ObjectId(patient_id))
-        except Patient.DoesNotExist:
-            return JsonResponse({"error": "Patient not found"}, status=404)
-
-        # -------------------------
-        # 2) Parse time range
-        # -------------------------
-        from_str = request.GET.get("from")
-        to_str = request.GET.get("to")
-
-        if from_str and to_str:
-            try:
-                from_date = datetime.datetime.strptime(from_str, "%Y-%m-%d").date()
-                to_date = datetime.datetime.strptime(to_str, "%Y-%m-%d").date()
-            except ValueError:
-                return JsonResponse(
-                    {"error": "Invalid date format. Use YYYY-MM-DD."},
-                    status=400,
-                )
-        else:
-            to_date = timezone.now().date()
-            from_date = to_date - timedelta(days=30)
-
-        # -------------------------
-        # 3) Load wearable data (per-day GH+Fitbit merge)
-        # -------------------------
-        fitbit_qs = fetch_merged_wearable_records(patient.userId, from_date, to_date)
-
-        # Index by date for merging
-        fitbit_map = {}
-        for f in fitbit_qs:
-            dkey = f.date.strftime("%Y-%m-%d")
-            fitbit_map[dkey] = f
-
-        # -------------------------
-        # 4) Load PatientVitals
-        # -------------------------
-        vitals_qs = PatientVitals.objects(
-            patientId=patient,
-            date__gte=from_date,
-            date__lte=to_date,
-        ).order_by("date")
-
-        # Merge vitals into the in-memory fitbit_map — do NOT write to DB in a GET endpoint.
-        # Vitals are read-merged at response time only.
-        vitals_overlay: dict[str, dict] = {}
-        for v in vitals_qs:
-            dkey = v.date.strftime("%Y-%m-%d")
-            vitals_overlay[dkey] = {
-                "weight_kg": v.weight_kg,
-                "bp_sys": v.bp_sys,
-                "bp_dia": v.bp_dia,
-            }
-            if dkey not in fitbit_map:
-                # Synthetic placeholder so vitals-only days appear in output
-                fitbit_map[dkey] = None
-
-        # Now convert fitbit_map → sorted list
-        fitbit_list = []
-        for key in sorted(fitbit_map.keys()):
-            f = fitbit_map[key]
-            vit = vitals_overlay.get(key, {})
-            # Prefer FitbitData vitals; fall back to PatientVitals overlay
-            weight_kg = (getattr(f, "weight_kg", None) if f else None) or vit.get("weight_kg")
-            bp_sys = (getattr(f, "bp_sys", None) if f else None) or vit.get("bp_sys")
-            bp_dia = (getattr(f, "bp_dia", None) if f else None) or vit.get("bp_dia")
-            fitbit_list.append(
-                {
-                    "date": key,
-                    "steps": f.steps if f else None,
-                    "resting_heart_rate": f.resting_heart_rate if f else None,
-                    "max_heart_rate": f.max_heart_rate if f else None,
-                    "floors": f.floors if f else None,
-                    "distance": f.distance if f else None,
-                    "calories": f.calories if f else None,
-                    "active_minutes": f.active_minutes if f else None,
-                    "active_zone_minutes": getattr(f, "active_zone_minutes", None) if f else None,
-                    "sleep": {
-                        "sleep_duration": f.sleep.sleep_duration if f and f.sleep else None,
-                        "minutes_asleep": f.sleep.minutes_asleep if f and f.sleep else None,
-                        "sleep_start": f.sleep.sleep_start if f and f.sleep else None,
-                        "sleep_end": f.sleep.sleep_end if f and f.sleep else None,
-                        "awakenings": f.sleep.awakenings if f and f.sleep else None,
-                    },
-                    "wear_time_minutes": getattr(f, "wear_time_minutes", None) if f else None,
-                    "heart_rate_zones": (
-                        [
-                            {
-                                "name": z.name,
-                                "min": z.min,
-                                "max": z.max,
-                                "minutes": z.minutes,
-                            }
-                            for z in (f.heart_rate_zones or [])
-                        ]
-                        if f
-                        else []
-                    ),
-                    "breathing_rate": f.breathing_rate if f else None,
-                    "hrv": f.hrv if f else None,
-                    "exercise": _normalize_exercise_field(f.exercise) if f else {"sessions": []},
-                    "weight_kg": weight_kg,
-                    "bp_sys": bp_sys,
-                    "bp_dia": bp_dia,
-                }
-            )
-
-        # -------------------------
-        # 5) Questionnaire history
-        # -------------------------
-        q_qs = PatientICFRating.objects(
-            patientId=patient,
-            date__gte=from_date,
-            date__lte=to_date,
-        ).order_by("date")
-
-        questionnaire_list = []
-        for q in q_qs:
-            entries = list(getattr(q, "feedback_entries", None) or [])
-            if not entries:
-                questionnaire_list.append(
-                    {
-                        "date": q.date.date().isoformat(),
-                        "questionKey": q.icfCode,
-                        "answers": [],
-                        "questionTranslations": [],
-                        "comment": "",
-                        "audio_url": None,
-                        "media_urls": [],
-                    }
-                )
-                continue
-
-            for entry in entries:
-                parsed_answers = []
-                for ans in getattr(entry, "answerKey", None) or []:
-                    if hasattr(ans, "key"):
-                        parsed_answers.append(
-                            {
-                                "key": ans.key,
-                                "translations": [
-                                    {"language": tr.language, "text": tr.text}
-                                    for tr in (getattr(ans, "translations", None) or [])
-                                ],
-                            }
-                        )
-                    else:
-                        parsed_answers.append({"key": str(ans), "translations": [{"language": "en", "text": str(ans)}]})
-
-                question_obj = getattr(entry, "questionId", None)
-                question_key = getattr(question_obj, "questionKey", None) or getattr(q, "icfCode", None) or ""
-                question_translations = [
-                    {"language": tr.language, "text": tr.text}
-                    for tr in (getattr(question_obj, "translations", None) or [])
-                ]
-                audio_url = getattr(entry, "audio_url", None)
-                media_urls = [audio_url] if audio_url else []
-
-                questionnaire_list.append(
-                    {
-                        "date": q.date.date().isoformat(),
-                        "questionKey": question_key,
-                        "answers": parsed_answers,
-                        "questionTranslations": question_translations,
-                        "comment": getattr(entry, "comment", "") or "",
-                        "audio_url": audio_url,
-                        "media_urls": media_urls,
-                    }
-                )
-
-        # -------------------------
-        # 6) Adherence data
-        # -------------------------
-        logs = PatientInterventionLogs.objects(
-            patientId=patient,
-            date__gte=from_date,
-            date__lte=to_date,
-        ).order_by("date")
-
-        adherence_list = []
-        for l in logs:
-            adherence_list.append(
-                {
-                    "date": l.date.date().isoformat(),
-                    "scheduled": l.scheduled_count,
-                    "completed": l.completed_count,
-                    "pct": l.adherence_percentage,
-                }
-            )
-
-        # -------------------------
-        # 7) Return everything
-        # -------------------------
-        return JsonResponse(
-            {
-                "fitbit": fitbit_list,
-                "questionnaire": questionnaire_list,
-                "adherence": adherence_list,
-            },
-            status=200,
-        )
-
-    except Exception:
-        logger.exception("[health_combined_history] error")
-        return JsonResponse({"error": "Internal server error"}, status=500)

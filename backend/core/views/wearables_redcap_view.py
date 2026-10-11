@@ -7,6 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
 from core.models import Patient
+from core.permissions import can_access_patient
 from core.services.redcap_service import RedcapError
 from core.services.wearables_redcap_service import (
     WearablesSyncError,
@@ -138,6 +139,8 @@ def sync_wearables_to_redcap_view(request, patient_id: str):
     patient = _resolve_patient(patient_id)
     if not patient:
         return JsonResponse({"error": "Patient not found"}, status=404)
+    if not can_access_patient(request, patient):
+        return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
 
     try:
         body = json.loads(request.body or b"{}")

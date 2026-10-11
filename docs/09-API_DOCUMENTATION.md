@@ -37,8 +37,6 @@ Obtain this token via the two-step `POST /api/healthslider/auth/` → `POST /api
 - Route matching is order-based (Django `path()` first-match wins).
 - `POST /api/analytics/log` and `GET /api/therapists/<therapist_id>/template-plan` have **no trailing slash**.
 - `POST /api/interventions/import/excel` has **no trailing slash**.
-- Duplicate URL `GET /api/therapists/<therapist_id>/patients/` appears twice in `urls.py`; only the first entry (`list_therapist_patients`) is reachable.
-- `GET /api/patients/health-combined-history/<patient_id>/` is also defined twice; the first entry (`patient_views.get_combined_health_data`) wins.
 - Some paths keep legacy spelling: `questionaire` (one 'n'), `recomendation` (one 'm').
 
 ---

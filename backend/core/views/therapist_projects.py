@@ -5,9 +5,9 @@ import logging
 from bson import ObjectId
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
 
 from core.models import Logs, Therapist, User
+from core.permissions import IsAdmin
 from utils.config import config
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ def _bad(message: str, status: int = 400, extra: dict | None = None):
 
 
 @api_view(["GET", "PUT"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdmin])
 def therapist_projects(request):
     available_projects = list((config.get("therapistInfo") or {}).get("projects", []) or [])
 

@@ -23,7 +23,7 @@ from core.models import (
     Therapist,
     User,
 )
-from core.services.redcap_access import get_therapist_for_user
+from core.permissions import can_access_patient, is_self_or_admin
 from core.views.wearable_utils import fetch_merged_wearable_records
 from utils.interventions import _get_star_q_ids, _star_rating_value
 from utils.utils import _adherence, resolve_patient
@@ -463,23 +463,8 @@ def list_therapist_patients(request, therapist_id):
         # ✅ tests expect this exact key + value
         return JsonResponse({"error": "Therapist not found"}, status=404)
 
-    # Authorization: the caller must be the therapist whose patient list is
-    # being requested, OR an Admin.  Skipped in test mode because test requests
-    # use a synthetic user that has no corresponding DB record.
-    from django.conf import settings as _settings
-
-    if not getattr(_settings, "TESTING", False):
-        try:
-            caller_user = User.objects.get(pk=ObjectId(request.user.id))
-            is_admin = caller_user.role == "Admin" and caller_user.isActive
-        except Exception:
-            is_admin = False
-
-        if not is_admin:
-            caller_therapist = get_therapist_for_user(request.user)
-            is_self = caller_therapist and str(caller_therapist.id) == str(therapist.id)
-            if not is_self:
-                return JsonResponse({"error": "You are not authorised to access this resource."}, status=403)
+    if not is_self_or_admin(request, therapist_id):
+        return JsonResponse({"error": "You are not authorised to access this resource."}, status=403)
 
     try:
         # Truncate to midnight so FitbitData entries stored as date-at-midnight are always included.
@@ -649,39 +634,6 @@ def list_therapist_patients(request, therapist_id):
         return JsonResponse({"error": "Internal server error."}, status=500)
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_patients_by_therapist(request, therapist_id):
-    """
-    GET /api/therapists/<therapist_id>/patients/
-    Returns list of patients (first name, last name, id) assigned to a therapist.
-    """
-    try:
-        # Authorization: therapist_id in the URL is a User ID (same convention as
-        # list_therapist_patients). Compare the caller's user ID directly.
-        is_admin = getattr(request.user, "role", None) == "Admin"
-        if not is_admin:
-            caller_user_id = str(getattr(request.user, "id", ""))
-            if not caller_user_id or caller_user_id != str(therapist_id):
-                return JsonResponse(
-                    {"error": "You are not authorised to access this resource."},
-                    status=403,
-                )
-
-        patients = Patient.objects.filter(therapistId=ObjectId(therapist_id))
-        data = [
-            {
-                "id": str(p.userId),
-                "patient_code": p.patient_code,
-            }
-            for p in patients
-        ]
-        return JsonResponse(data, safe=False, status=200)
-    except Exception:
-        logger.exception("[get_patients_by_therapist] Unexpected error")
-        return JsonResponse({"error": "Internal server error."}, status=500)
-
-
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def create_log(request):
@@ -697,10 +649,15 @@ def create_log(request):
         started = parse_datetime(data.get("started")) if data.get("started") else None
         ended = parse_datetime(data.get("ended")) if data.get("ended") else None
         patient = data.get("patient")  # Optional patient reference
+        if not user:
+            return JsonResponse({"error": "user is required"}, status=400)
+        if not is_self_or_admin(request, user):
+            return JsonResponse({"error": "You can only log your own activity."}, status=403)
         if patient:
             patient = Patient.objects.get(pk=ObjectId(patient))
-        if user:
-            user = User.objects.get(id=ObjectId(user))
+            if not can_access_patient(request, patient, allow_self=True):
+                return JsonResponse({"error": "You are not authorised to access this patient's data."}, status=403)
+        user = User.objects.get(id=ObjectId(user))
         log = Logs(
             userId=user,
             action=data.get("action", "REHATABLE"),

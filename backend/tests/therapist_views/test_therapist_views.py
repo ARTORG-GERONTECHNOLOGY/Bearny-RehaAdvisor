@@ -474,6 +474,18 @@ def test_create_log_success_for_existing_user():
     assert len(log.details) == 500
 
 
+def test_create_log_without_user_returns_400():
+    resp = client.post(
+        "/api/analytics/log",
+        data=json.dumps({"action": "REHATABLE"}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 400
+    assert Logs.objects.count() == 0
+
+
 def test_create_log_with_patient_reference():
     therapist, patient = create_therapist_with_patient()
 

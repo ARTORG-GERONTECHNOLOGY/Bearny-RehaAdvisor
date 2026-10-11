@@ -45,13 +45,11 @@ from core.models import (
     User,
 )
 from core.views.fitbit_view import (
-    _date,
     _default_thresholds,
     _merge_thresholds,
     _resolve_patient,
     _sleep_minutes,
     avg_excluding_zero,
-    health_combined_history,
 )
 
 client = Client()
@@ -124,7 +122,7 @@ def test_helper_avg_excluding_zero():
     assert avg_excluding_zero([0, 0]) == 0
 
 
-def test_helper_sleep_minutes_and_date():
+def test_helper_sleep_minutes():
     _, _, patient_user, _ = create_patient_graph()
 
     # minutes_asleep takes priority and matches Fitbit app display (wake phases excluded)
@@ -144,7 +142,6 @@ def test_helper_sleep_minutes_and_date():
     assert _sleep_minutes(row_duration_only) == 90
 
     assert _sleep_minutes(SimpleNamespace(sleep="bad")) == 0
-    assert _date(datetime(2026, 1, 1, 10, 30)) == "2026-01-01"
 
 
 def test_threshold_defaults_and_merge():
@@ -210,13 +207,10 @@ def test_fitbit_status_true_when_called_with_patient_id():
     assert body["last_data"] is None
 
 
-def test_fitbit_status_unresolved_identifier_returns_false():
+def test_fitbit_status_unresolved_identifier_returns_403():
+    # Same answer as an inaccessible patient, so ids can't be probed for existence.
     resp = client.get("/api/fitbit/status/not-an-id/", HTTP_AUTHORIZATION="Bearer test")
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["connected"] is False
-    assert body["has_data"] is False
-    assert body["last_data"] is None
+    assert resp.status_code == 403
 
 
 def test_fitbit_callback_does_not_require_authentication():
@@ -325,6 +319,15 @@ def test_get_fitbit_health_data_patient_not_found():
 def test_get_fitbit_health_data_success_empty_data():
     _, _, _, patient = create_patient_graph()
     resp = client.get(f"/api/fitbit/health-data/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    assert resp.json()["data"] == []
+
+
+def test_get_fitbit_health_data_with_date_range():
+    _, _, _, patient = create_patient_graph()
+    resp = client.get(
+        f"/api/fitbit/health-data/{patient.id}/?from=2026-01-01&to=2026-01-31", HTTP_AUTHORIZATION="Bearer test"
+    )
     assert resp.status_code == 200
     assert resp.json()["data"] == []
 
@@ -565,166 +568,6 @@ def test_get_fitbit_health_data_success_with_entries():
     assert len(data[0]["heart_rate_zones"]) == 1
 
 
-def test_health_combined_history_patient_not_found():
-    req = rf.get(f"/api/patients/health-combined-history/{ObjectId()}/")
-    resp = health_combined_history(req, str(ObjectId()))
-    assert resp.status_code == 404
-
-
-@patch("core.views.fitbit_view.PatientInterventionLogs.objects")
-def test_health_combined_history_success_merges_fitbit_vitals_and_lists(
-    mock_logs_objects,
-):
-    _, _, patient_user, patient = create_patient_graph()
-    today = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
-    FitbitData(user=patient_user, date=today, steps=111).save()
-    PatientVitals(
-        patientId=patient,
-        user=patient_user,
-        date=today,
-        weight_kg=70.2,
-        bp_sys=119,
-        bp_dia=79,
-    ).save()
-
-    qrow = SimpleNamespace(
-        date=today,
-        icfCode="d450",
-        feedback_entries=[{"k": "v"}],
-        question_translations=[{"language": "en", "text": "Q"}],
-    )
-    lrow = SimpleNamespace(date=today, scheduled_count=3, completed_count=2, adherence_percentage=66)
-
-    mock_logs_objects.return_value.order_by.return_value = [lrow]
-
-    with patch(
-        "core.views.fitbit_view.PatientICFRating",
-        new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [qrow])),
-    ):
-        req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
-        resp = health_combined_history(req, str(patient.id))
-    assert resp.status_code == 200
-    body = json.loads(resp.content)
-    assert "fitbit" in body
-    if body["fitbit"]:
-        assert any((row.get("weight_kg") == 70.2 or row.get("steps") == 111) for row in body["fitbit"])
-    assert len(body["questionnaire"]) == 1
-    assert len(body["adherence"]) == 1
-
-
-def test_health_combined_history_invalid_date_query_returns_400():
-    _, _, _, patient = create_patient_graph()
-    req = rf.get(f"/api/patients/health-combined-history/{patient.id}/?from=bad&to=bad")
-    resp = health_combined_history(req, str(patient.id))
-    assert resp.status_code == 400
-    assert "error" in json.loads(resp.content)
-
-
-@patch("core.views.fitbit_view.PatientInterventionLogs.objects")
-@patch("core.views.fitbit_view.PatientVitals.objects")
-@patch("core.views.fitbit_view.fetch_merged_wearable_records")
-def test_health_combined_history_google_health_patient_returns_google_health_data(
-    mock_merged, mock_vitals_objects, mock_logs
-):
-    """
-    When patient.wearable_device == 'google_health', health_combined_history must
-    read from GoogleHealthData instead of FitbitData. Previously the endpoint always
-    queried FitbitData, so google_health patients (e.g. 905-140, 934-279, 934-252)
-    always received an empty 'fitbit' list even though their data existed.
-    """
-    _, _, _patient_user, patient = create_patient_graph()
-    patient.wearable_device = "google_health"
-    patient.save()
-
-    entry_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
-    mock_logs.return_value.order_by.return_value = []
-    mock_vitals_objects.return_value.order_by.return_value = []
-
-    fake_gh = SimpleNamespace(
-        date=entry_dt,
-        steps=5000,
-        resting_heart_rate=62,
-        max_heart_rate=None,
-        floors=None,
-        distance=None,
-        calories=None,
-        active_minutes=None,
-        wear_time_minutes=None,
-        sleep=None,
-        heart_rate_zones=[],
-        breathing_rate=None,
-        hrv=None,
-        exercise={},
-        weight_kg=None,
-        bp_sys=None,
-        bp_dia=None,
-    )
-    mock_merged.return_value = [fake_gh]
-
-    with patch(
-        "core.views.fitbit_view.PatientICFRating",
-        new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [])),
-    ):
-        req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
-        resp = health_combined_history(req, str(patient.id))
-
-    assert resp.status_code == 200
-    body = json.loads(resp.content)
-    assert "fitbit" in body
-    assert len(body["fitbit"]) == 1
-    row = body["fitbit"][0]
-    assert row["steps"] == 5000
-    assert row["resting_heart_rate"] == 62
-
-
-@patch("core.views.fitbit_view.PatientInterventionLogs.objects")
-@patch("core.views.fitbit_view.PatientVitals.objects")
-@patch("core.views.fitbit_view.fetch_merged_wearable_records")
-def test_health_combined_history_fitbit_patient_not_affected_by_google_health_fix(
-    mock_merged, mock_vitals_objects, mock_logs
-):
-    """Fitbit patients continue to receive wearable data via the day-by-day merge."""
-    _, _, _patient_user, patient = create_patient_graph()
-    # create_patient_graph() sets wearable_device="fitbit" explicitly
-
-    entry_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
-    mock_logs.return_value.order_by.return_value = []
-    mock_vitals_objects.return_value.order_by.return_value = []
-
-    fake_fitbit = SimpleNamespace(
-        date=entry_dt,
-        steps=8000,
-        resting_heart_rate=None,
-        max_heart_rate=None,
-        floors=None,
-        distance=None,
-        calories=None,
-        active_minutes=None,
-        wear_time_minutes=None,
-        sleep=None,
-        heart_rate_zones=[],
-        breathing_rate=None,
-        hrv=None,
-        exercise={},
-        weight_kg=None,
-        bp_sys=None,
-        bp_dia=None,
-    )
-    mock_merged.return_value = [fake_fitbit]
-
-    with patch(
-        "core.views.fitbit_view.PatientICFRating",
-        new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [])),
-    ):
-        req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
-        resp = health_combined_history(req, str(patient.id))
-
-    assert resp.status_code == 200
-    body = json.loads(resp.content)
-    assert len(body["fitbit"]) == 1
-    assert body["fitbit"][0]["steps"] == 8000
-
-
 @patch(
     "core.views.fitbit_view.fetch_fitbit_today_for_user",
     side_effect=Exception("sync failed"),
@@ -793,167 +636,6 @@ def test_health_data_includes_minutes_asleep():
     assert entry["sleep"]["minutes_asleep"] == 435
     # sleep_hours still reflects time-in-bed (8.0h)
     assert entry["sleep"]["sleep_hours"] == pytest.approx(8.0, rel=1e-2)
-
-
-@patch("core.views.fitbit_view.PatientInterventionLogs.objects")
-@patch("core.views.fitbit_view.PatientVitals.objects")
-@patch("core.views.fitbit_view.fetch_merged_wearable_records")
-def test_health_combined_history_includes_minutes_asleep_and_wear_time(mock_merged, mock_vitals_objects, mock_logs):
-    """health-combined-history FitbitEntry contains minutes_asleep and wear_time_minutes."""
-    _, _, _patient_user, patient = create_patient_graph()
-    entry_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
-    mock_logs.return_value.order_by.return_value = []
-    mock_vitals_objects.return_value.order_by.return_value = []
-
-    fake_fitbit = SimpleNamespace(
-        date=entry_dt,
-        steps=800,
-        resting_heart_rate=None,
-        max_heart_rate=None,
-        floors=None,
-        distance=None,
-        calories=None,
-        active_minutes=None,
-        wear_time_minutes=650,
-        sleep=SimpleNamespace(
-            sleep_duration=25200000,
-            minutes_asleep=390,
-            sleep_start=None,
-            sleep_end=None,
-            awakenings=None,
-        ),
-        heart_rate_zones=[],
-        breathing_rate=None,
-        hrv=None,
-        exercise={},
-        weight_kg=None,
-        bp_sys=None,
-        bp_dia=None,
-    )
-    mock_merged.return_value = [fake_fitbit]
-
-    with patch(
-        "core.views.fitbit_view.PatientICFRating",
-        new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [])),
-    ):
-        req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
-        resp = health_combined_history(req, str(patient.id))
-
-    assert resp.status_code == 200
-    body = json.loads(resp.content)
-    fitbit_rows = body["fitbit"]
-    assert fitbit_rows, "Expected at least one FitbitEntry"
-    row = fitbit_rows[0]
-    assert row["wear_time_minutes"] == 650
-    assert row["sleep"]["minutes_asleep"] == 390
-    assert row["sleep"]["sleep_duration"] == 25200000
-
-
-@patch("core.views.fitbit_view.PatientInterventionLogs.objects")
-@patch("core.views.fitbit_view.PatientVitals.objects")
-@patch("core.views.fitbit_view.fetch_merged_wearable_records")
-def test_health_combined_history_wear_time_none_when_absent(mock_merged, mock_vitals_objects, mock_logs):
-    """wear_time_minutes is None in FitbitEntry when not recorded."""
-    _, _, _patient_user, patient = create_patient_graph()
-    entry_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
-    mock_logs.return_value.order_by.return_value = []
-    mock_vitals_objects.return_value.order_by.return_value = []
-
-    fake_fitbit = SimpleNamespace(
-        date=entry_dt,
-        steps=300,
-        resting_heart_rate=None,
-        max_heart_rate=None,
-        floors=None,
-        distance=None,
-        calories=None,
-        active_minutes=None,
-        wear_time_minutes=None,
-        sleep=SimpleNamespace(
-            sleep_duration=None,
-            minutes_asleep=None,
-            sleep_start=None,
-            sleep_end=None,
-            awakenings=None,
-        ),
-        heart_rate_zones=[],
-        breathing_rate=None,
-        hrv=None,
-        exercise={},
-        weight_kg=None,
-        bp_sys=None,
-        bp_dia=None,
-    )
-    mock_merged.return_value = [fake_fitbit]
-
-    with patch(
-        "core.views.fitbit_view.PatientICFRating",
-        new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [])),
-    ):
-        req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
-        resp = health_combined_history(req, str(patient.id))
-
-    assert resp.status_code == 200
-    body = json.loads(resp.content)
-    assert body["fitbit"], "Expected at least one FitbitEntry"
-    row = body["fitbit"][0]
-    assert row["wear_time_minutes"] is None
-    assert row["sleep"]["minutes_asleep"] is None
-
-
-@patch("core.views.fitbit_view.PatientInterventionLogs.objects")
-@patch("core.views.fitbit_view.PatientVitals.objects")
-@patch("core.views.fitbit_view.FitbitData.objects")
-def test_health_combined_history_questionnaire_rows_include_comment_and_media_fields(
-    mock_fb_objects, mock_vitals_objects, mock_logs
-):
-    _, _, _patient_user, patient = create_patient_graph()
-    entry_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
-    mock_logs.return_value.order_by.return_value = []
-    mock_vitals_objects.return_value.order_by.return_value = []
-    mock_fb_objects.return_value.order_by.return_value = []
-
-    fake_entry = SimpleNamespace(
-        questionId=SimpleNamespace(
-            questionKey="16_profile_mood_1",
-            translations=[SimpleNamespace(language="en", text="How is your mood today?")],
-        ),
-        answerKey=[
-            SimpleNamespace(
-                key="1",
-                translations=[SimpleNamespace(language="en", text="Bad")],
-            ),
-            SimpleNamespace(
-                key="3",
-                translations=[SimpleNamespace(language="en", text="Good")],
-            ),
-        ],
-        comment="Patient noted mild fatigue in afternoon.",
-        audio_url="https://files.example/audio1.m4a",
-    )
-    fake_q = SimpleNamespace(
-        date=entry_dt,
-        icfCode="d450",
-        feedback_entries=[fake_entry],
-    )
-
-    with patch(
-        "core.views.fitbit_view.PatientICFRating",
-        new=SimpleNamespace(objects=lambda *a, **k: SimpleNamespace(order_by=lambda *x, **y: [fake_q])),
-    ):
-        req = rf.get(f"/api/patients/health-combined-history/{patient.id}/")
-        resp = health_combined_history(req, str(patient.id))
-
-    assert resp.status_code == 200
-    body = json.loads(resp.content)
-    assert len(body["questionnaire"]) == 1
-    row = body["questionnaire"][0]
-    assert row["questionKey"] == "16_profile_mood_1"
-    assert row["answers"][0]["key"] == "1"
-    assert row["answers"][1]["key"] == "3"
-    assert row["comment"] == "Patient noted mild fatigue in afternoon."
-    assert row["audio_url"] == "https://files.example/audio1.m4a"
-    assert row["media_urls"] == ["https://files.example/audio1.m4a"]
 
 
 # ---------------------------------------------------------------------------

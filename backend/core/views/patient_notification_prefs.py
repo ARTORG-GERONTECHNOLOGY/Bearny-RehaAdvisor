@@ -21,7 +21,6 @@ import logging
 from typing import Any, Dict
 
 from bson import ObjectId
-from django.conf import settings
 from django.http import JsonResponse
 from mongoengine.errors import NotUniqueError
 from rest_framework.decorators import api_view, permission_classes
@@ -29,7 +28,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from core.models import Patient, PatientNotificationPreferences, PushSubscription, SentPushNotification
 from core.notifications.push_endpoints import is_allowed_push_endpoint
-from core.services.redcap_access import get_therapist_for_user
+from core.permissions import can_access_patient, is_self
 from core.views.patient_views import _as_aware_utc
 
 logger = logging.getLogger(__name__)
@@ -142,23 +141,14 @@ def _apply_notification_preference_updates(patient: Patient, updates: Dict[str, 
 
 def _check_can_write(request, patient: Patient, patient_id: str) -> JsonResponse | None:
     """Only the patient themselves may write their own preferences/subscriptions."""
-    if getattr(settings, "TESTING", False) or getattr(request.user, "id", None) is None:
-        return None
-    if str(request.user.id) != patient_id and str(request.user.id) != _patient_user_id(patient):
+    if not is_self(request, patient_id) and not is_self(request, _patient_user_id(patient)):
         return bad("You are not authorised to modify this patient's data.", status=403)
     return None
 
 
 def _check_can_read(request, patient: Patient, patient_id: str) -> JsonResponse | None:
-    """Patient themselves, or their therapist, may read preferences."""
-    if getattr(settings, "TESTING", False) or getattr(request.user, "id", None) is None:
-        return None
-    caller_id = str(request.user.id)
-    if caller_id == patient_id or caller_id == _patient_user_id(patient):
-        return None
-    caller_therapist = get_therapist_for_user(request.user)
-    patient_clinic = getattr(patient, "clinic", None)
-    if not caller_therapist or patient_clinic not in (caller_therapist.clinics or []):
+    """Patient themselves, their clinic's therapists, or an admin may read preferences."""
+    if not can_access_patient(request, patient, allow_self=True):
         return bad("You are not authorised to access this patient's data.", status=403)
     return None
 

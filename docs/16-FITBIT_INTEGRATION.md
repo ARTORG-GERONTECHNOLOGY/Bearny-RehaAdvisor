@@ -497,7 +497,7 @@ If a user's quota is exhausted (HTTP 429), all subsequent fetches within the coo
    - `fetch_fitbit_today_for_user` ([fitbit_sync.py](../backend/core/views/fitbit_sync.py)) — today-only, on-demand
    - `fetch_fitbit_date_range_for_user` ([fitbit_sync.py](../backend/core/views/fitbit_sync.py)) — range backfill, on-demand when gaps detected
    - Management command ([fetch_fitbit_data.py](../backend/core/management/commands/fetch_fitbit_data.py)) — nightly 30-day bulk backfill
-3. **Expose it** in whichever endpoints need it (`fitbit_summary`, `get_fitbit_health_data`, `health_combined_history`).
+3. **Expose it** in whichever endpoints need it (`fitbit_summary`, `get_fitbit_health_data`, `patient_views.get_combined_health_data`).
 4. **Add tests** in [tests/fitbit_sync/test_fitbit_sync.py](../backend/tests/fitbit_sync/test_fitbit_sync.py) and [tests/fitbit_views/test_fitbit_views.py](../backend/tests/fitbit_views/test_fitbit_views.py).
 
 MongoDB is schema-less, so no migration is needed — new fields are `None` in existing documents until the next sync.
