@@ -10,7 +10,35 @@ export type ActiveUsers = {
   window_minutes: number;
   total: number;
   by_role: Record<string, number>;
+  registered?: {
+    active: number;
+    by_role: Record<string, number>;
+    inactive: number;
+  };
 };
+
+const Stat: React.FC<{ value: number; label: string; className?: string }> = ({
+  value,
+  label,
+  className,
+}) => (
+  <div className={className}>
+    <div className="text-lg font-semibold tabular-nums">{value}</div>
+    <div className="text-sm text-muted-foreground">{label}</div>
+  </div>
+);
+
+const StatGrid: React.FC<{ children: React.ReactNode; testId?: string }> = ({
+  children,
+  testId,
+}) => (
+  <div
+    className="grid grid-cols-2 gap-4 rounded-xl border bg-zinc-50 p-4 sm:grid-cols-[repeat(4,auto)] sm:justify-between"
+    data-testid={testId}
+  >
+    {children}
+  </div>
+);
 
 const ActiveUsersCard: React.FC = () => {
   const { t } = useTranslation();
@@ -25,6 +53,8 @@ const ActiveUsersCard: React.FC = () => {
       const res = await apiClient.get<ActiveUsers>('/admin/analytics/active-users/');
       setData(res.data);
     } catch {
+      // Cleared so stale numbers never sit under the error message.
+      setData(null);
       setError(t('Failed to load active users.'));
     } finally {
       setLoading(false);
@@ -43,6 +73,17 @@ const ActiveUsersCard: React.FC = () => {
 
   if (!data && !error) return null;
 
+  const registered = data?.registered;
+
+  const renderStats = (totalLabel: string, total: number, byRole?: Record<string, number>) => (
+    <>
+      <Stat value={total} label={totalLabel} className="sm:border-r sm:pr-4" />
+      {roles.map(([role, label]) => (
+        <Stat key={role} value={byRole?.[role] ?? 0} label={label} />
+      ))}
+    </>
+  );
+
   return (
     <div className="mt-6 mb-4 max-w-[480px]" data-testid="active-users">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -60,28 +101,13 @@ const ActiveUsersCard: React.FC = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 rounded-xl border bg-zinc-50 p-4 sm:grid-cols-[repeat(4,auto)] sm:justify-between">
+      <StatGrid testId="active-counts">
         {error ? (
           <div className="col-span-full text-sm text-nok">{error}</div>
         ) : (
-          data && (
-            <>
-              <div className="sm:border-r sm:pr-4">
-                <div className="text-lg font-semibold tabular-nums">{data.total}</div>
-                <div className="text-sm text-muted-foreground">{t('Total')}</div>
-              </div>
-              {roles.map(([role, label]) => (
-                <div key={role}>
-                  <div className="text-lg font-semibold tabular-nums">
-                    {data.by_role?.[role] ?? 0}
-                  </div>
-                  <div className="text-sm text-muted-foreground">{label}</div>
-                </div>
-              ))}
-            </>
-          )
+          data && renderStats(t('Total'), data.total, data.by_role)
         )}
-      </div>
+      </StatGrid>
 
       <p className="mt-2 text-sm text-muted-foreground">
         {data && <span>{t('As of {{time}}', { time: formatLocaleDateTime(data.as_of) })} · </span>}
@@ -91,6 +117,20 @@ const ActiveUsersCard: React.FC = () => {
           )}
         </span>
       </p>
+
+      {registered && (
+        <div className="mt-6" data-testid="registered-accounts">
+          <h5 className="mb-3 text-base font-semibold">{t('Registered accounts')}</h5>
+          <StatGrid>
+            {renderStats(t('Active accounts'), registered.active, registered.by_role)}
+          </StatGrid>
+          {registered.inactive > 0 && (
+            <p className="mt-2 text-sm text-muted-foreground" data-testid="inactive-accounts">
+              {t('inactiveAccountsCount', { count: registered.inactive })}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };

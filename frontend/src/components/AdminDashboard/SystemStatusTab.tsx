@@ -79,8 +79,8 @@ const sortJobs = (items: JobItem[]): JobItem[] =>
     (a, b) => SORT_RANK[a.status] - SORT_RANK[b.status] || a.name.localeCompare(b.name)
   );
 
-const formatTime = (value: string | null | undefined, never: string) =>
-  value ? formatLocaleDateTime(value) : never;
+const formatTime = (value: string | null | undefined) =>
+  value ? formatLocaleDateTime(value) : '—';
 
 const NUM = /^\d+$/;
 const pad = (v: string) => v.padStart(2, '0');
@@ -302,9 +302,9 @@ const SystemStatusTab: React.FC = () => {
                       {describeSchedule(job.schedule, job.timezone, t, i18n.language)}
                     </span>
                   </TableCell>
-                  <TableCell>{formatTime(job.last_success_at, t('Never'))}</TableCell>
+                  <TableCell>{formatTime(job.last_success_at)}</TableCell>
                   <TableCell>
-                    {formatTime(job.last_failure_at, '—')}
+                    {formatTime(job.last_failure_at)}
                     {job.last_error && (
                       <div
                         className="text-xs text-muted-foreground break-all line-clamp-2"
