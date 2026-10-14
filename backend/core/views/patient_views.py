@@ -2955,19 +2955,20 @@ def reschedule_intervention_date(request):
     plan.save()
 
     try:
-        # Patients and therapists both move sessions; an unidentified caller is skipped, not guessed.
+        # Patients, therapists and admins all move sessions; an unidentified caller is skipped, not guessed.
         caller = _caller_user(request)
         if caller:
+            intervention = _safe_intervention(target)
             Logs(
                 userId=caller,
                 action="INTERVENTION_RESCHEDULE",
                 actor_role=caller.role,
                 user_agent=(request.headers.get("User-Agent", "") or "")[:300],
                 patient=patient,
-                # Title last: it is free text, so everything after "intervention=" is the title.
                 details=(
                     f"from={match_utc.isoformat()} to={new_dt_utc.isoformat()} "
-                    f"intervention={getattr(_safe_intervention(target), 'title', '')}"
+                    f"intervention_id={getattr(intervention, 'external_id', '')} "
+                    f"intervention={getattr(intervention, 'title', '')}"
                 )[:1000],
             ).save()
     except Exception:

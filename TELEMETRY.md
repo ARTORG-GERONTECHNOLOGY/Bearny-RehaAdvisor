@@ -48,7 +48,7 @@ Every `Logs` document has these fields:
 | `UPDATE_PLAN` | Therapist edits an existing rehab plan | plan id, change summary | Yes |
 | `REDCAP_IMPORT` | Therapist imports a patient from REDCap | `project=X identifier=X dag=X` | Yes |
 | `INTERVENTION_VIEW` | Patient navigates away from intervention detail | `intervention_id=X date=X seconds=N` | Yes |
-| `INTERVENTION_RESCHEDULE` | Patient or therapist moves a session to another date (`userId`/`userAgent` = whoever moved it) | `from=<old UTC> to=<new UTC> intervention=<title>` (title last, may contain spaces) | Yes |
+| `INTERVENTION_RESCHEDULE` | Patient, therapist or admin moves a session to another date (`userId`/`userAgent` = whoever moved it) | `from=<old UTC> to=<new UTC> intervention_id=<external_id> intervention=<title>` (title last, may contain spaces; `external_id` is the same across languages) | Yes |
 
 ### Example queries (MongoDB shell)
 
