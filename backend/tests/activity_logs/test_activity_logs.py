@@ -18,6 +18,7 @@ Endpoints under test
 ---------------------
 ``POST /api/interventions/complete/``           → INTERVENTION_COMPLETE
 ``POST /api/interventions/uncomplete/``         → INTERVENTION_UNCOMPLETE
+``POST /api/interventions/reschedule-date/``    → INTERVENTION_RESCHEDULE
 ``POST /api/patients/feedback/questionaire/``   → QUESTIONNAIRE_SUBMIT
 ``POST /api/auth/register/``  (Patient path)    → PATIENT_REGISTER
 ``GET  /api/users/<id>/profile/``  (Therapist)  → OPEN_PATIENT
@@ -26,6 +27,7 @@ Endpoints under test
 
 import json
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from unittest import mock
 
 import mongomock
@@ -33,6 +35,7 @@ import pytest
 from bson import ObjectId
 from django.contrib.auth.hashers import make_password
 from django.test import Client
+from rest_framework.test import APIClient
 
 from core.models import (
     Intervention,
@@ -261,6 +264,86 @@ def test_unmark_no_log_does_not_write_uncomplete_log(mongo_mock):
     )
 
     assert Logs.objects(action="INTERVENTION_UNCOMPLETE").count() == 0
+
+
+# ---------------------------------------------------------------------------
+# INTERVENTION_RESCHEDULE
+# ---------------------------------------------------------------------------
+
+
+def _reschedule(api_client, p_user, intervention, old_dt, new_dt):
+    return api_client.post(
+        "/api/interventions/reschedule-date/",
+        data={
+            "patientId": str(p_user.id),
+            "interventionId": str(intervention.id),
+            "oldDatetime": old_dt.isoformat(),
+            "newDatetime": new_dt.isoformat() + "Z",
+        },
+        format="json",
+    )
+
+
+def _future_session(patient, therapist):
+    """Plan whose only session is tomorrow 10:00 UTC, so it can be moved."""
+    intervention, plan = _make_plan_with_intervention(patient, therapist)
+    old_dt = (datetime.utcnow() + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
+    plan.interventions[0].dates = [old_dt]
+    plan.save()
+    return intervention, old_dt, old_dt + timedelta(days=2)
+
+
+def test_reschedule_by_patient_writes_intervention_reschedule_log(mongo_mock):
+    """A patient moving their own session logs INTERVENTION_RESCHEDULE as the patient."""
+    _, therapist = _make_therapist(suffix="rs")
+    p_user, patient = _make_patient(therapist, suffix="rs")
+    intervention, old_dt, new_dt = _future_session(patient, therapist)
+
+    api_client = APIClient()
+    api_client.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(p_user.id)))
+    resp = _reschedule(api_client, p_user, intervention, old_dt, new_dt)
+    assert resp.status_code == 200
+
+    log = Logs.objects(action="INTERVENTION_RESCHEDULE").first()
+    assert log is not None, "Expected INTERVENTION_RESCHEDULE log"
+    assert log.userId.id == p_user.id
+    assert log.actor_role == "Patient"
+    assert log.patient.id == patient.id
+    assert "TestIntervention" in log.details
+    assert f"from={old_dt.date().isoformat()}" in log.details
+    assert f"to={new_dt.date().isoformat()}" in log.details
+
+
+def test_reschedule_by_therapist_logs_therapist_as_actor(mongo_mock):
+    """A therapist moving a patient's session is logged as the therapist, so analysis can split the two."""
+    th_user, therapist = _make_therapist(suffix="rs2")
+    _, patient = _make_patient(therapist, suffix="rs2")
+    intervention, old_dt, new_dt = _future_session(patient, therapist)
+
+    api_client = APIClient()
+    api_client.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(th_user.id)))
+    resp = _reschedule(api_client, patient.userId, intervention, old_dt, new_dt)
+    assert resp.status_code == 200
+
+    log = Logs.objects(action="INTERVENTION_RESCHEDULE").first()
+    assert log is not None
+    assert log.userId.id == th_user.id
+    assert log.actor_role == "Therapist"
+    assert log.patient.id == patient.id
+
+
+def test_rejected_reschedule_writes_no_log(mongo_mock):
+    """Nothing moved (target day in the past) → nothing logged."""
+    _, therapist = _make_therapist(suffix="rs3")
+    p_user, patient = _make_patient(therapist, suffix="rs3")
+    intervention, old_dt, _ = _future_session(patient, therapist)
+
+    api_client = APIClient()
+    api_client.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(p_user.id)))
+    resp = _reschedule(api_client, p_user, intervention, old_dt, old_dt - timedelta(days=3))
+    assert resp.status_code == 400
+
+    assert Logs.objects(action="INTERVENTION_RESCHEDULE").count() == 0
 
 
 # ---------------------------------------------------------------------------

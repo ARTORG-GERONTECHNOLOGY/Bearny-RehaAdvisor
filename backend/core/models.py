@@ -258,6 +258,7 @@ class Logs(Document):
             "INTERVENTION_VIEW",
             "INTERVENTION_COMPLETE",
             "INTERVENTION_UNCOMPLETE",
+            "INTERVENTION_RESCHEDULE",
             "TEMPLATE_APPLY",
             "PATIENT_REGISTER",
             "ADMIN_EXPORT",

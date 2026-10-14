@@ -2705,7 +2705,8 @@ def reschedule_intervention_date(request):
 
     Moves a single occurrence within an InterventionAssignment.dates list to
     a new datetime (drag-and-drop reschedule). Does not regenerate the
-    recurrence and does not touch PatientInterventionLogs.
+    recurrence and does not touch PatientInterventionLogs. Each successful
+    move writes an INTERVENTION_RESCHEDULE activity log.
 
     Always returns:
     {
@@ -2938,6 +2939,25 @@ def reschedule_intervention_date(request):
 
     plan.updatedAt = timezone.now()
     plan.save()
+
+    try:
+        caller_oid = _coerce_object_id(getattr(request.user, "id", None))
+        caller = User.objects(id=caller_oid).first() if caller_oid else None
+        # Patients and therapists both move sessions; no caller record only happens with the test user.
+        actor = caller or patient.userId
+        Logs(
+            userId=actor,
+            action="INTERVENTION_RESCHEDULE",
+            actor_role=actor.role,
+            user_agent=(request.headers.get("User-Agent", "") or "")[:300],
+            patient=patient,
+            details=(
+                f"intervention={getattr(_safe_intervention(target), 'title', '')} "
+                f"from={old_dt_utc.isoformat()} to={new_dt_utc.isoformat()}"
+            ),
+        ).save()
+    except Exception:
+        logger.exception("[reschedule_intervention_date] Failed to write activity log")
 
     return JsonResponse(
         {

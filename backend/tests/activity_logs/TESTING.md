@@ -33,6 +33,7 @@ readable — the Python attribute name changed but the database field name did n
 |---|---|---|
 | `/api/interventions/complete/` | POST | `INTERVENTION_COMPLETE` |
 | `/api/interventions/uncomplete/` | POST | `INTERVENTION_UNCOMPLETE` |
+| `/api/interventions/reschedule-date/` | POST | `INTERVENTION_RESCHEDULE` |
 | `/api/patients/feedback/questionaire/` | POST | `QUESTIONNAIRE_SUBMIT` |
 | `/api/auth/register/` (Patient path) | POST | `PATIENT_REGISTER` |
 | `/api/users/<id>/profile/` (Therapist viewer) | GET | `OPEN_PATIENT` |
@@ -55,6 +56,16 @@ readable — the Python attribute name changed but the database field name did n
 |---|---|---|
 | `test_unmark_intervention_completed_writes_intervention_uncomplete_log` | Completion log exists; patient unmarks it | `Logs(action="INTERVENTION_UNCOMPLETE")` written; correct user/patient linkage |
 | `test_unmark_no_log_does_not_write_uncomplete_log` | No completion log for the requested day | Zero `INTERVENTION_UNCOMPLETE` logs (nothing changed → nothing to record) |
+
+### INTERVENTION_RESCHEDULE
+
+Written whenever a session is moved to another date. `userId` / `actor_role` name whoever moved it, so patient-initiated moves can be filtered with `actor_role="Patient"`. `details` holds the intervention title and the old and new UTC datetimes (`from=… to=…`).
+
+| Test | Scenario | Asserts |
+|---|---|---|
+| `test_reschedule_by_patient_writes_intervention_reschedule_log` | Patient moves their own upcoming session | `Logs(action="INTERVENTION_RESCHEDULE")` written; `userId=patient.userId`, `actor_role="Patient"`, `patient=patient`, title and both dates in details |
+| `test_reschedule_by_therapist_logs_therapist_as_actor` | Therapist moves the patient's session | `userId=therapist.userId`, `actor_role="Therapist"`, `patient=patient` |
+| `test_rejected_reschedule_writes_no_log` | Move to a past date is rejected (400) | Zero `INTERVENTION_RESCHEDULE` logs |
 
 ### QUESTIONNAIRE_SUBMIT
 
