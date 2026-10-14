@@ -314,7 +314,7 @@ def test_reschedule_by_patient_writes_intervention_reschedule_log(mongo_mock):
     assert log.userId.id == p_user.id
     assert log.actor_role == "Patient"
     assert log.patient.id == patient.id
-    assert log.details == f"intervention=TestIntervention from={_utc_iso(old_dt)} to={_utc_iso(new_dt)}"
+    assert log.details == f"from={_utc_iso(old_dt)} to={_utc_iso(new_dt)} intervention=TestIntervention"
 
 
 def test_reschedule_by_therapist_logs_therapist_as_actor(mongo_mock):

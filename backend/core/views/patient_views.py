@@ -2964,9 +2964,10 @@ def reschedule_intervention_date(request):
                 actor_role=caller.role,
                 user_agent=(request.headers.get("User-Agent", "") or "")[:300],
                 patient=patient,
+                # Title last: it is free text, so everything after "intervention=" is the title.
                 details=(
-                    f"intervention={getattr(_safe_intervention(target), 'title', '')} "
-                    f"from={old_dt_utc.isoformat()} to={new_dt_utc.isoformat()}"
+                    f"from={match_utc.isoformat()} to={new_dt_utc.isoformat()} "
+                    f"intervention={getattr(_safe_intervention(target), 'title', '')}"
                 )[:1000],
             ).save()
     except Exception:
