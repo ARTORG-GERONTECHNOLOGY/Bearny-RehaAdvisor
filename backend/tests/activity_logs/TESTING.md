@@ -59,12 +59,15 @@ readable — the Python attribute name changed but the database field name did n
 
 ### INTERVENTION_RESCHEDULE
 
-Written whenever a session is moved to another date. `userId` / `actor_role` name whoever moved it, so patient-initiated moves can be filtered with `actor_role="Patient"`. `details` holds the intervention title and the old and new UTC datetimes (`from=… to=…`).
+Written whenever a session is moved to another date. `userId` / `actor_role` name whoever moved it, so patient-initiated moves can be filtered with `actor_role="Patient"`. `details` holds the intervention title and the old and new UTC datetimes (`from=… to=…`). No log is written when nothing moved (rejected, or dropped on its own slot) or when the caller has no `User` record.
 
 | Test | Scenario | Asserts |
 |---|---|---|
-| `test_reschedule_by_patient_writes_intervention_reschedule_log` | Patient moves their own upcoming session | `Logs(action="INTERVENTION_RESCHEDULE")` written; `userId=patient.userId`, `actor_role="Patient"`, `patient=patient`, title and both dates in details |
+| `test_reschedule_by_patient_writes_intervention_reschedule_log` | Patient moves their own upcoming session | `Logs(action="INTERVENTION_RESCHEDULE")` written; `userId=patient.userId`, `actor_role="Patient"`, `patient=patient`, `details` exactly `intervention=<title> from=<old UTC> to=<new UTC>` |
 | `test_reschedule_by_therapist_logs_therapist_as_actor` | Therapist moves the patient's session | `userId=therapist.userId`, `actor_role="Therapist"`, `patient=patient` |
+| `test_reschedule_by_admin_logs_admin_as_actor` | Admin moves the patient's session | `userId=admin`, `actor_role="Admin"` |
+| `test_reschedule_by_unknown_caller_writes_no_log` | Caller has no `User` record | 200, zero logs (the actor is never guessed) |
+| `test_reschedule_to_same_slot_writes_no_log` | Session dropped back on its own slot | 200, zero logs (nothing moved) |
 | `test_rejected_reschedule_writes_no_log` | Move to a past date is rejected (400) | Zero `INTERVENTION_RESCHEDULE` logs |
 
 ### QUESTIONNAIRE_SUBMIT

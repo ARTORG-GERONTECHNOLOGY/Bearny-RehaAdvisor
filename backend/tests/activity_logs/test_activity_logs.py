@@ -26,7 +26,7 @@ Endpoints under test
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest import mock
 
@@ -271,7 +271,9 @@ def test_unmark_no_log_does_not_write_uncomplete_log(mongo_mock):
 # ---------------------------------------------------------------------------
 
 
-def _reschedule(api_client, p_user, intervention, old_dt, new_dt):
+def _reschedule(caller_id, p_user, intervention, old_dt, new_dt):
+    api_client = APIClient()
+    api_client.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(caller_id)))
     return api_client.post(
         "/api/interventions/reschedule-date/",
         data={
@@ -285,12 +287,17 @@ def _reschedule(api_client, p_user, intervention, old_dt, new_dt):
 
 
 def _future_session(patient, therapist):
-    """Plan whose only session is tomorrow 10:00 UTC, so it can be moved."""
+    """Plan whose only session is tomorrow 10:00 UTC (stored naive, as the plan does), so it can be moved."""
     intervention, plan = _make_plan_with_intervention(patient, therapist)
-    old_dt = (datetime.utcnow() + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
+    tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+    old_dt = tomorrow.replace(hour=10, minute=0, second=0, microsecond=0, tzinfo=None)
     plan.interventions[0].dates = [old_dt]
     plan.save()
     return intervention, old_dt, old_dt + timedelta(days=2)
+
+
+def _utc_iso(naive_dt):
+    return naive_dt.replace(tzinfo=timezone.utc).isoformat()
 
 
 def test_reschedule_by_patient_writes_intervention_reschedule_log(mongo_mock):
@@ -299,9 +306,7 @@ def test_reschedule_by_patient_writes_intervention_reschedule_log(mongo_mock):
     p_user, patient = _make_patient(therapist, suffix="rs")
     intervention, old_dt, new_dt = _future_session(patient, therapist)
 
-    api_client = APIClient()
-    api_client.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(p_user.id)))
-    resp = _reschedule(api_client, p_user, intervention, old_dt, new_dt)
+    resp = _reschedule(p_user.id, p_user, intervention, old_dt, new_dt)
     assert resp.status_code == 200
 
     log = Logs.objects(action="INTERVENTION_RESCHEDULE").first()
@@ -309,9 +314,7 @@ def test_reschedule_by_patient_writes_intervention_reschedule_log(mongo_mock):
     assert log.userId.id == p_user.id
     assert log.actor_role == "Patient"
     assert log.patient.id == patient.id
-    assert "TestIntervention" in log.details
-    assert f"from={old_dt.date().isoformat()}" in log.details
-    assert f"to={new_dt.date().isoformat()}" in log.details
+    assert log.details == f"intervention=TestIntervention from={_utc_iso(old_dt)} to={_utc_iso(new_dt)}"
 
 
 def test_reschedule_by_therapist_logs_therapist_as_actor(mongo_mock):
@@ -320,9 +323,7 @@ def test_reschedule_by_therapist_logs_therapist_as_actor(mongo_mock):
     _, patient = _make_patient(therapist, suffix="rs2")
     intervention, old_dt, new_dt = _future_session(patient, therapist)
 
-    api_client = APIClient()
-    api_client.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(th_user.id)))
-    resp = _reschedule(api_client, patient.userId, intervention, old_dt, new_dt)
+    resp = _reschedule(th_user.id, patient.userId, intervention, old_dt, new_dt)
     assert resp.status_code == 200
 
     log = Logs.objects(action="INTERVENTION_RESCHEDULE").first()
@@ -332,15 +333,63 @@ def test_reschedule_by_therapist_logs_therapist_as_actor(mongo_mock):
     assert log.patient.id == patient.id
 
 
+def test_reschedule_by_admin_logs_admin_as_actor(mongo_mock):
+    _, therapist = _make_therapist(suffix="rs4")
+    _, patient = _make_patient(therapist, suffix="rs4")
+    intervention, old_dt, new_dt = _future_session(patient, therapist)
+    admin = User(
+        username="admin_rs4",
+        email="admin_rs4@example.com",
+        phone="222",
+        role="Admin",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+
+    resp = _reschedule(admin.id, patient.userId, intervention, old_dt, new_dt)
+    assert resp.status_code == 200
+
+    log = Logs.objects(action="INTERVENTION_RESCHEDULE").first()
+    assert log is not None
+    assert log.userId.id == admin.id
+    assert log.actor_role == "Admin"
+
+
+def test_reschedule_by_unknown_caller_writes_no_log(mongo_mock):
+    """A caller with no User record is not guessed to be the patient: nothing is logged.
+
+    Covers the logging fallback only: the 200 relies on TESTING bypassing can_access_patient,
+    which rejects this caller in production.
+    """
+    _, therapist = _make_therapist(suffix="rs5")
+    p_user, patient = _make_patient(therapist, suffix="rs5")
+    intervention, old_dt, new_dt = _future_session(patient, therapist)
+
+    resp = _reschedule(ObjectId(), p_user, intervention, old_dt, new_dt)
+    assert resp.status_code == 200
+
+    assert Logs.objects(action="INTERVENTION_RESCHEDULE").count() == 0
+
+
+def test_reschedule_to_same_slot_writes_no_log(mongo_mock):
+    """Dropping a session back on its own slot changes nothing → nothing logged."""
+    _, therapist = _make_therapist(suffix="rs6")
+    p_user, patient = _make_patient(therapist, suffix="rs6")
+    intervention, old_dt, _ = _future_session(patient, therapist)
+
+    resp = _reschedule(p_user.id, p_user, intervention, old_dt, old_dt)
+    assert resp.status_code == 200
+
+    assert Logs.objects(action="INTERVENTION_RESCHEDULE").count() == 0
+
+
 def test_rejected_reschedule_writes_no_log(mongo_mock):
     """Nothing moved (target day in the past) → nothing logged."""
     _, therapist = _make_therapist(suffix="rs3")
     p_user, patient = _make_patient(therapist, suffix="rs3")
     intervention, old_dt, _ = _future_session(patient, therapist)
 
-    api_client = APIClient()
-    api_client.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(p_user.id)))
-    resp = _reschedule(api_client, p_user, intervention, old_dt, old_dt - timedelta(days=3))
+    resp = _reschedule(p_user.id, p_user, intervention, old_dt, old_dt - timedelta(days=3))
     assert resp.status_code == 400
 
     assert Logs.objects(action="INTERVENTION_RESCHEDULE").count() == 0

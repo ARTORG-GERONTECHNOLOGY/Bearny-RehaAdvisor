@@ -41,7 +41,7 @@ from core.models import (
     Translation,
     User,
 )
-from core.permissions import can_access_patient, is_self_or_admin
+from core.permissions import _caller_user, can_access_patient, is_self_or_admin
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from core.views.wearable_utils import fetch_merged_wearable_records
 from utils.interventions import (
@@ -2902,6 +2902,20 @@ def reschedule_intervention_date(request):
             status=400,
         )
 
+    # Dropped back on its own slot: nothing moves, so nothing to save or log.
+    if abs((new_dt_utc - match_utc).total_seconds()) < 1:
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Session unchanged.",
+                "oldDatetime": old_dt_utc.isoformat(),
+                "newDatetime": new_dt_utc.isoformat(),
+                "field_errors": {},
+                "non_field_errors": [],
+            },
+            status=200,
+        )
+
     # ----------------------
     # Collision check (exclude the slot being moved)
     #
@@ -2941,21 +2955,20 @@ def reschedule_intervention_date(request):
     plan.save()
 
     try:
-        caller_oid = _coerce_object_id(getattr(request.user, "id", None))
-        caller = User.objects(id=caller_oid).first() if caller_oid else None
-        # Patients and therapists both move sessions; no caller record only happens with the test user.
-        actor = caller or patient.userId
-        Logs(
-            userId=actor,
-            action="INTERVENTION_RESCHEDULE",
-            actor_role=actor.role,
-            user_agent=(request.headers.get("User-Agent", "") or "")[:300],
-            patient=patient,
-            details=(
-                f"intervention={getattr(_safe_intervention(target), 'title', '')} "
-                f"from={old_dt_utc.isoformat()} to={new_dt_utc.isoformat()}"
-            ),
-        ).save()
+        # Patients and therapists both move sessions; an unidentified caller is skipped, not guessed.
+        caller = _caller_user(request)
+        if caller:
+            Logs(
+                userId=caller,
+                action="INTERVENTION_RESCHEDULE",
+                actor_role=caller.role,
+                user_agent=(request.headers.get("User-Agent", "") or "")[:300],
+                patient=patient,
+                details=(
+                    f"intervention={getattr(_safe_intervention(target), 'title', '')} "
+                    f"from={old_dt_utc.isoformat()} to={new_dt_utc.isoformat()}"
+                )[:1000],
+            ).save()
     except Exception:
         logger.exception("[reschedule_intervention_date] Failed to write activity log")
 
