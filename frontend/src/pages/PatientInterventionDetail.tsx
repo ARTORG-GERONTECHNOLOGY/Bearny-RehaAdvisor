@@ -628,7 +628,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
                   aria-pressed={completed}
                   onClick={handleToggleCompleted}
                   variant={completed ? 'default' : 'secondary'}
-                  className={!completed && 'bg-white text-zinc-400'}
+                  className={!completed ? 'bg-white border border-brand text-brand' : undefined}
                 >
                   {(() => {
                     const isBehaviorChange =

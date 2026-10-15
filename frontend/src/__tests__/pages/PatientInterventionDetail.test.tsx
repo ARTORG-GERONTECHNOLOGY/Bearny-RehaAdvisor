@@ -495,6 +495,21 @@ describe('PatientInterventionDetail', () => {
     expect(screen.queryByRole('button', { name: /Mark as viewed/i })).not.toBeInTheDocument();
   });
 
+  it('outlines "Mark as done" in green until done, then fills it', async () => {
+    (patientInterventionsStore as any).items = [buildRec()];
+    const { unmount } = render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    const open = screen.getByRole('button', { name: /Mark as done/i });
+    expect(open).toHaveClass('border-brand', 'text-brand');
+    expect(open).not.toHaveClass('bg-brand');
+    unmount();
+
+    (patientInterventionsStore as any).isCompletedOn.mockReturnValue(true);
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    expect(screen.getByRole('button', { name: /Done/i })).toHaveClass('bg-brand');
+  });
+
   it('shows "Viewed" for a completed behavior change intervention', async () => {
     (patientInterventionsStore as any).isCompletedOn.mockReturnValue(true);
     (patientInterventionsStore as any).items = [
