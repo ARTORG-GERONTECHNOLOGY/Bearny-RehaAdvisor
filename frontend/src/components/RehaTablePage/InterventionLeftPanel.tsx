@@ -15,7 +15,7 @@ import {
 import StarIcon from '@/assets/icons/interventions/star.svg?react';
 
 import config from '@/config/config.json';
-import { DATE_STATUS_FILTER_OPTIONS } from '@/stores/rehabTableStore';
+import { DATE_STATUS_FILTER_OPTIONS } from '@/utils/interventions';
 import { Intervention } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';

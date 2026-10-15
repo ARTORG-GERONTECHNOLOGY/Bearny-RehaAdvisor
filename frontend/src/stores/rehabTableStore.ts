@@ -5,7 +5,6 @@ import authStore from '@/stores/authStore';
 import { filterInterventions } from '@/utils/filterUtils';
 import { translateText } from '@/utils/translate';
 import { toLocalYMD } from '@/utils/dateFormat';
-import { DATE_STATUS_LABELS } from '@/utils/interventions';
 import { extractApiError, toStr } from '@/utils/apiErrorMessages';
 import config from '@/config/config.json';
 import type { Intervention } from '@/types';
@@ -77,14 +76,6 @@ const getDates = (x: unknown): Array<{ datetime: string; status: string }> => {
 };
 
 const isTruthy = (v: unknown): boolean => v === true || v === 'true' || v === 1 || v === '1';
-
-// Status filter choices and their translation keys; "not_seen" is not a session status, so it has its own label.
-export const DATE_STATUS_FILTER_OPTIONS = [
-  { value: 'completed', label: DATE_STATUS_LABELS.completed },
-  { value: 'accessed', label: DATE_STATUS_LABELS.accessed },
-  { value: 'missed', label: DATE_STATUS_LABELS.missed },
-  { value: 'not_seen', label: 'Not seen yet' },
-] as const;
 
 // -------------------- Store --------------------
 

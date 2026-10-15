@@ -958,6 +958,20 @@ def test_patient_plan_carries_accessed_to_the_new_day_but_not_a_view_logged_afte
     assert d_day.isoformat() not in accessed
 
 
+def test_plans_load_for_a_patient_whose_user_record_is_gone(mongo_mock):
+    """Views are looked up by patient, so a dangling userId doesn't take both plan views down."""
+    patient, _, intervention, _ = setup_basic_plan()
+    _log_view(patient, str(intervention.id), timezone.localdate())
+    patient.userId.delete()
+
+    for role in ("patient", "therapist"):
+        resp = client.get(
+            f"/api/patients/rehabilitation-plan/{role}/{patient.id}/",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+        assert resp.status_code == 200, (role, resp.content.decode())
+
+
 def test_therapist_plan_lists_every_viewed_intervention_including_unplanned(mongo_mock):
     """
     ``viewed_interventions`` holds everything the patient opened - library views of unplanned interventions too -

@@ -978,7 +978,8 @@ def _accessed_logs(patient, since=None):
     window = {"timestamp__gte": since} if since else {}
     views: dict = {}
     opened: set = set()
-    for lg in Logs.objects(userId=patient.userId, action="INTERVENTION_VIEW", **window).only("details", "timestamp"):
+    # By patient, not userId: a deleted user record would crash both plan views.
+    for lg in Logs.objects(patient=patient, action="INTERVENTION_VIEW", **window).only("details", "timestamp"):
         m = _VIEW_DETAILS_RE.match(lg.details or "")
         if not m or not lg.timestamp:
             continue
@@ -4368,7 +4369,7 @@ def log_intervention_view(request, patient_id: str):
     # Only a real intervention: unknown ids never reach viewed_interventions.
     intervention = Intervention.objects(id=ObjectId(intervention_id)).only("id").first()
     if intervention is None:
-        return JsonResponse({"error": "Intervention not found"}, status=400)
+        return JsonResponse({"error": "Intervention not found"}, status=404)
 
     try:
         log = Logs.objects.create(

@@ -173,11 +173,11 @@ def test_log_intervention_view_happy_path(mongo_mock):
 
 
 @pytest.mark.parametrize(
-    "intervention_id",
-    # Crafted text, a well-formed but unknown id, and an external_id (pages always link by id).
-    ["no-such-intervention", "abc123 date=2030-01-01", str(ObjectId()), "abc123"],
+    "intervention_id, status",
+    # Crafted text and an external_id (pages always link by id) are malformed; a well-formed id can be unknown.
+    [("no-such-intervention", 400), ("abc123 date=2030-01-01", 400), ("abc123", 400), (str(ObjectId()), 404)],
 )
-def test_log_intervention_view_rejects_an_unknown_intervention(mongo_mock, intervention_id):
+def test_log_intervention_view_rejects_an_unknown_intervention(mongo_mock, intervention_id, status):
     """Unknown or crafted ids never reach details, so they can't pad viewed_interventions or fake a date."""
     patient = create_patient()
     resp = client.post(
@@ -186,7 +186,7 @@ def test_log_intervention_view_rejects_an_unknown_intervention(mongo_mock, inter
         content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",
     )
-    assert resp.status_code == 400
+    assert resp.status_code == status
     assert Logs.objects(action="INTERVENTION_VIEW").count() == 0
 
 
