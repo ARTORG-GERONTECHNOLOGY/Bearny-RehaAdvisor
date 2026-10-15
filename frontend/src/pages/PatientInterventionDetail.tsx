@@ -479,7 +479,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
   // (app killed, request lost), the open stays recorded and the duration stays empty.
   const viewDateParam = searchParams.get('date') || '';
   // Only a date that matches a session marks it; a stale or bookmarked ?date= counts like a library open.
-  // Read when the log is sent, since the plan may still be loading when the page opens.
+  // Read when the log is sent, since the plan may still be loading when the page opens. Not an effect
+  // dependency: rescheduling from this page changes ?date=, and that stays one visit (the move carries it).
   const viewSessionDateRef = useRef('');
   viewSessionDateRef.current = targetOccurrenceIso ? viewDateParam : '';
   useEffect(() => {
@@ -505,7 +506,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
         });
       });
     };
-  }, [patientId, interventionId, viewDateParam]);
+  }, [patientId, interventionId]);
 
   // keep translations in sync with effectiveItem
   useEffect(() => {

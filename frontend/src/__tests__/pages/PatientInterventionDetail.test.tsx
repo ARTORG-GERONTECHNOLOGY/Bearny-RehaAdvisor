@@ -372,6 +372,21 @@ describe('PatientInterventionDetail', () => {
       expect(viewPosts()[0][1]).toEqual({ intervention_id: 'int-1', date: '' });
     });
 
+    it('keeps a visit that changes ?date= (reschedule from this page) as one row', async () => {
+      const { rerender, unmount } = await renderDetail();
+      await advance(3_000);
+      mockSearchParams = new URLSearchParams('date=2026-03-20');
+      rerender(<PatientInterventionDetail />);
+      await advance(5_000);
+      unmount();
+      await advance(0);
+
+      expect(viewPosts().map(([, body]) => body)).toEqual([
+        { intervention_id: 'int-1', date: '2026-03-16' },
+        { log_id: 'log-1', seconds_viewed: 8 },
+      ]);
+    });
+
     it('adds the duration to that same row when leaving', async () => {
       const { unmount } = await renderDetail();
       await advance(10_000);
