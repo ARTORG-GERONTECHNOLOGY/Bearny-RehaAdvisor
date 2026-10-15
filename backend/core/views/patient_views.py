@@ -968,14 +968,13 @@ def _completion_day_keys_from_logs(logs) -> list[str]:
 
 _VIEW_DETAILS_RE = re.compile(r"intervention_id=(\S+) date=(\S*)")
 _RESCHEDULE_DETAILS_RE = re.compile(r"from=(\S+) to=(\S+) intervention_id=(\S+)")
-# The detail page posts its view log as it closes, i.e. just after a reschedule made from that page.
-_RESCHEDULE_VIEW_GRACE = timedelta(minutes=15)
 
 
-def _accessed_logs(patient):
+def _accessed_logs(patient, since=None):
     """({ref -> [(day, logged_at)]} from INTERVENTION_VIEW logs, {external_id -> [(moved_at, from_day, to_day)]})."""
+    window = {"timestamp__gte": since} if since else {}
     views: dict = {}
-    for lg in Logs.objects(userId=patient.userId, action="INTERVENTION_VIEW").only("details", "timestamp"):
+    for lg in Logs.objects(userId=patient.userId, action="INTERVENTION_VIEW", **window).only("details", "timestamp"):
         m = _VIEW_DETAILS_RE.match(lg.details or "")
         if not m or not lg.timestamp:
             continue
@@ -988,7 +987,7 @@ def _accessed_logs(patient):
             views.setdefault(m.group(1), []).append((day, lg.timestamp))
 
     moves: dict = {}
-    for lg in Logs.objects(patient=patient, action="INTERVENTION_RESCHEDULE").only("details", "timestamp"):
+    for lg in Logs.objects(patient=patient, action="INTERVENTION_RESCHEDULE", **window).only("details", "timestamp"):
         m = _RESCHEDULE_DETAILS_RE.match(lg.details or "")
         if not m or not lg.timestamp:
             continue
@@ -1001,6 +1000,12 @@ def _accessed_logs(patient):
     return views, moves
 
 
+def _accessed_since(plan):
+    """Earliest log that can concern this plan: its creation, or its start if earlier (the start can lie ahead)."""
+    bounds = [_as_aware_utc(d) for d in (getattr(plan, "createdAt", None), plan.startDate) if d]
+    return min(bounds) if bounds else None
+
+
 def _accessed_days(accessed_logs, intervention, variant_ids) -> set:
     """Days any variant of this intervention was opened, carried along when an opened session was rescheduled."""
     views, moves = accessed_logs
@@ -1009,8 +1014,10 @@ def _accessed_days(accessed_logs, intervention, variant_ids) -> set:
     seen = [v for r in refs for v in views.get(r, [])]
 
     for moved_at, from_day, to_day in sorted(moves.get(ext_id, []) if ext_id else []):
-        if any(day == from_day and at <= moved_at + _RESCHEDULE_VIEW_GRACE for day, at in seen):
-            seen.append((to_day, moved_at))
+        carried = [(day, at) for day, at in seen if day == from_day and at <= moved_at]
+        if carried:
+            # Moved, not copied: a session later put on the vacated day hasn't been opened.
+            seen = [v for v in seen if v not in carried] + [(to_day, moved_at)]
     return {day for day, _ in seen}
 
 
@@ -1154,7 +1161,7 @@ def get_patient_plan(request, patient_id):
             assignments.append((assignment, assigned_intervention))
 
         variant_ids = _variant_ids_by_intervention(iv for _, iv in assignments)
-        accessed_logs = _accessed_logs(patient)
+        accessed_logs = _accessed_logs(patient, since=_accessed_since(rehab_plan))
 
         for assignment, assigned_intervention in assignments:
             # Preferred variant for display, but logs across every variant of the external_id, so a
@@ -3186,7 +3193,7 @@ def get_patient_plan_for_therapist(request, patient_id):
         }
         _question_ids.discard(None)
         _questions_by_id = {q.id: q for q in FeedbackQuestion.objects(id__in=_question_ids)}
-        accessed_logs = _accessed_logs(patient)
+        accessed_logs = _accessed_logs(patient, since=_accessed_since(plan))
         plan_data["viewed_interventions"] = _viewed_intervention_refs(accessed_logs)
 
         for _group in _groups:
@@ -3282,6 +3289,8 @@ def get_patient_plan_for_therapist(request, patient_id):
                         # Attach the UTC offset explicitly — a naive isoformat string
                         # gets misparsed as local time by the frontend's `new Date()`.
                         "datetime": _as_aware_utc(display_dt).isoformat(),
+                        # datetime can be the log's createdAt; moving and drag rules need the planned slot.
+                        "scheduled": _as_aware_utc(date).isoformat(),
                         "status": status,
                         "feedback": feedback_entries,
                         **({"video": video_feedback} if video_feedback else {}),
@@ -4292,8 +4301,9 @@ def vitals_exists_for_day(request, patient_id: str):
 def log_intervention_view(request, patient_id: str):
     """
     POST /api/patients/vitals/intervention-view/<patient_id>/
-    Records how long a patient spent viewing an intervention detail page.
-    Body: { intervention_id, date, seconds_viewed }
+    Records a patient opening an intervention detail page, then how long they stayed.
+    Body to create: { intervention_id, date, seconds_viewed } -> { ok, id }
+    Body to update the time on that row: { log_id, seconds_viewed }
     """
 
     try:
@@ -4301,11 +4311,15 @@ def log_intervention_view(request, patient_id: str):
     except Exception:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
-    intervention_id = (body.get("intervention_id") or "").strip()
-    seconds_viewed = int(body.get("seconds_viewed") or 0)
-    date = (body.get("date") or "").strip()
+    log_id = str(body.get("log_id") or "").strip()
+    intervention_id = str(body.get("intervention_id") or "").strip()
+    date = str(body.get("date") or "").strip()
+    try:
+        seconds_viewed = int(body.get("seconds_viewed") or 0)
+    except (TypeError, ValueError):
+        return JsonResponse({"ok": False}, status=400)
 
-    if not intervention_id or seconds_viewed < 1:
+    if (not log_id and not intervention_id) or seconds_viewed < 1:
         return JsonResponse({"ok": False}, status=400)
 
     patient = _resolve_patient(patient_id)
@@ -4315,8 +4329,23 @@ def log_intervention_view(request, patient_id: str):
     if not can_access_patient(request, patient, allow_self=True):
         return _forbidden_patient()
 
+    if log_id:
+        log = (
+            Logs.objects(id=log_id, action="INTERVENTION_VIEW", patient=patient).first()
+            if ObjectId.is_valid(log_id)
+            else None
+        )
+        if log is None:
+            return JsonResponse({"error": "View log not found"}, status=404)
+        m = re.search(r"seconds=(\d+)$", log.details or "")
+        # Only ever grows: a late, out-of-order update must not shorten the visit.
+        if m and seconds_viewed > int(m.group(1)):
+            log.details = log.details[: m.start()] + f"seconds={seconds_viewed}"
+            log.save()
+        return JsonResponse({"ok": True, "id": str(log.id)}, status=200)
+
     try:
-        Logs.objects.create(
+        log = Logs.objects.create(
             userId=patient.userId,
             action="INTERVENTION_VIEW",
             actor_role="Patient",
@@ -4325,6 +4354,7 @@ def log_intervention_view(request, patient_id: str):
             details=f"intervention_id={intervention_id} date={date} seconds={seconds_viewed}",
         )
     except Exception:
-        pass
+        logger.exception("[log_intervention_view] Failed to write view log")
+        return JsonResponse({"ok": False}, status=500)
 
-    return JsonResponse({"ok": True}, status=200)
+    return JsonResponse({"ok": True, "id": str(log.id)}, status=200)

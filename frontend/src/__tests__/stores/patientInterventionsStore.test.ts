@@ -71,7 +71,7 @@ describe('PatientInterventionsStore', () => {
   });
 
   // ------------------------------------------------------------------
-  // isAccessedOn / markAccessed
+  // isAccessedOn
   // ------------------------------------------------------------------
   describe('isAccessedOn', () => {
     it('matches the local day key of the date', () => {
@@ -82,27 +82,6 @@ describe('PatientInterventionsStore', () => {
 
     it('is false when accessed_dates is missing', () => {
       expect(store.isAccessedOn({} as any, new Date(2026, 0, 5))).toBe(false);
-    });
-  });
-
-  describe('markAccessed', () => {
-    beforeEach(() => {
-      store.items = [
-        { intervention_id: 'int-1', intervention: { external_id: 'ext-1' }, dates: [] },
-        { intervention_id: 'int-2', dates: [], accessed_dates: ['2026-01-04'] },
-      ] as any;
-    });
-
-    it('adds the day to the record matched by intervention_id or external_id', () => {
-      store.markAccessed('ext-1', '2026-01-05');
-      store.markAccessed('int-2', '2026-01-05');
-      expect(store.items[0].accessed_dates).toEqual(['2026-01-05']);
-      expect(store.items[1].accessed_dates).toEqual(['2026-01-04', '2026-01-05']);
-    });
-
-    it('does not duplicate a day already marked', () => {
-      store.markAccessed('int-2', '2026-01-04');
-      expect(store.items[1].accessed_dates).toEqual(['2026-01-04']);
     });
   });
 
@@ -191,17 +170,12 @@ describe('PatientInterventionsStore', () => {
       expect(rec.media).toEqual([{ url: 'meta' }]);
     });
 
-    it('keeps a day marked accessed locally when a racing refetch has not seen it yet', async () => {
-      store.items = [
-        { intervention_id: 'int-1', dates: [], accessed_dates: ['2026-01-05'] },
-      ] as any;
+    it('takes accessed_dates from the server as is', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({
         data: [{ intervention_id: 'int-1', accessed_dates: ['2026-01-04'] }],
       });
-
       await store.fetchPlan('patient-1', 'en');
-
-      expect(store.items[0].accessed_dates).toEqual(['2026-01-04', '2026-01-05']);
+      expect(store.items[0].accessed_dates).toEqual(['2026-01-04']);
     });
 
     it('defaults duration to undefined when not a number', async () => {

@@ -152,6 +152,53 @@ def test_log_intervention_view_happy_path(mongo_mock):
     assert "abc123" in (log.details or "")
     assert "seconds=45" in (log.details or "")
     assert log.userId.id == patient.userId.id
+    assert resp.json()["id"] == str(log.id)
+
+
+def _update_view(patient, log_id, seconds):
+    return client.post(
+        VIEW_URL.format(patient_id=str(patient.id)),
+        data=json.dumps({"log_id": log_id, "seconds_viewed": seconds}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+
+def test_log_intervention_view_update_sets_seconds_on_the_same_row(mongo_mock):
+    """The page logs on open and updates that row's time on leaving: one row per visit."""
+    patient = create_patient()
+    resp = client.post(
+        VIEW_URL.format(patient_id=str(patient.id)),
+        data=json.dumps({"intervention_id": "abc123", "date": "2026-03-21", "seconds_viewed": 2}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    log_id = resp.json()["id"]
+
+    assert _update_view(patient, log_id, 95).status_code == 200
+    # A late, out-of-order update must not shorten the visit.
+    assert _update_view(patient, log_id, 40).status_code == 200
+
+    assert Logs.objects(action="INTERVENTION_VIEW").count() == 1
+    assert Logs.objects(action="INTERVENTION_VIEW").first().details == (
+        "intervention_id=abc123 date=2026-03-21 seconds=95"
+    )
+
+
+def test_log_intervention_view_update_only_touches_an_existing_view_row(mongo_mock):
+    patient = create_patient()
+    other_log = Logs(
+        userId=patient.userId,
+        action="LOGIN",
+        actor_role="Patient",
+        patient=patient,
+        details="seconds=1",
+    ).save()
+
+    assert _update_view(patient, str(ObjectId()), 30).status_code == 404
+    assert _update_view(patient, "not-an-id", 30).status_code == 404
+    assert _update_view(patient, str(other_log.id), 30).status_code == 404
+    assert Logs.objects(id=other_log.id).first().details == "seconds=1"
 
 
 def test_log_intervention_view_get_returns_405(mongo_mock):
@@ -173,6 +220,24 @@ def test_log_intervention_view_zero_seconds_rejected(mongo_mock):
     )
     assert resp.status_code == 400
     assert Logs.objects(action="INTERVENTION_VIEW").count() == 0
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"intervention_id": "abc123", "seconds_viewed": "lots"},
+        {"log_id": 12345, "seconds_viewed": None},
+    ],
+)
+def test_log_intervention_view_malformed_body_is_a_400_not_a_500(mongo_mock, body):
+    patient = create_patient()
+    resp = client.post(
+        VIEW_URL.format(patient_id=str(patient.id)),
+        data=json.dumps(body),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
 
 
 def test_log_intervention_view_unknown_patient_returns_404(mongo_mock):

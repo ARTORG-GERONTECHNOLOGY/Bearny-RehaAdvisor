@@ -475,37 +475,64 @@ const PatientInterventionDetail: React.FC = observer(() => {
     return null;
   }, [selectedRec, selectedLibraryItem]);
 
-  // Track time spent on this intervention detail page
+  // Log the visit once the page has been on screen for 2s, then keep that row's time up to date.
+  // Logging on open (not on leaving) means the dashboard's next fetch already sees the view.
   const viewDateParam = searchParams.get('date') || '';
   useEffect(() => {
-    let openedAt = Date.now();
-    const flush = () => {
-      const seconds = Math.round((Date.now() - openedAt) / 1000);
-      openedAt = Date.now();
-      if (seconds < 2 || !patientId || !interventionId) return;
-      patientInterventionsStore.markAccessed(
-        interventionId,
-        viewDateParam || format(new Date(), 'yyyy-MM-dd')
-      );
-      apiClient
-        .post(`/patients/vitals/intervention-view/${patientId}/`, {
-          intervention_id: interventionId,
-          date: viewDateParam,
-          seconds_viewed: seconds,
-        })
-        .catch(() => {
+    if (!patientId || !interventionId) return;
+    const url = `/patients/vitals/intervention-view/${patientId}/`;
+    let visibleMs = 0;
+    let visibleSince: number | null = document.visibilityState === 'hidden' ? null : Date.now();
+    let logId: Promise<string | null> | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // keepalive lets a request outlive the page when the app is swiped away.
+    const KEEPALIVE = { adapter: 'fetch' as const, fetchOptions: { keepalive: true } };
+
+    const seconds = () =>
+      Math.round((visibleMs + (visibleSince === null ? 0 : Date.now() - visibleSince)) / 1000);
+
+    const create = () => {
+      logId = apiClient
+        .post(
+          url,
+          { intervention_id: interventionId, date: viewDateParam, seconds_viewed: seconds() },
+          KEEPALIVE
+        )
+        .then(({ data }) => (data?.id ? String(data.id) : null))
+        .catch(() => null);
+    };
+    const armTimer = () => {
+      if (!logId) timer = setTimeout(create, Math.max(0, 2000 - visibleMs));
+    };
+    // Hidden or left: bank the visible time and update the row.
+    const pause = () => {
+      clearTimeout(timer);
+      if (visibleSince !== null) {
+        visibleMs += Date.now() - visibleSince;
+        visibleSince = null;
+      }
+      void logId?.then((id) => {
+        if (!id) return;
+        apiClient.post(url, { log_id: id, seconds_viewed: seconds() }, KEEPALIVE).catch(() => {
           /* best-effort, no noise */
         });
+      });
     };
-    // Backgrounding or closing the app never unmounts the page, so also log when it is hidden.
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') flush();
-      else openedAt = Date.now();
+      if (document.visibilityState === 'hidden') {
+        pause();
+      } else if (visibleSince === null) {
+        visibleSince = Date.now();
+        armTimer();
+      }
     };
+
+    if (visibleSince !== null) armTimer();
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      if (document.visibilityState !== 'hidden') flush();
+      if (visibleSince !== null) pause();
+      else clearTimeout(timer);
     };
   }, [patientId, interventionId, viewDateParam]);
 

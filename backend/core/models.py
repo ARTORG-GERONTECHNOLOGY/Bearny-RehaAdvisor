@@ -235,6 +235,8 @@ class Logs(Document):
             {"fields": ["userId", "action", "-timestamp"]},
             # Fast lookup by user + role ordered by time (used by last-activity queries)
             {"fields": ["userId", "actor_role", "-timestamp"]},
+            # Per-patient lookups regardless of actor (e.g. reschedules made by a therapist)
+            {"fields": ["patient", "action", "-timestamp"]},
             # General time-range queries
             {"fields": ["-timestamp"]},
         ],

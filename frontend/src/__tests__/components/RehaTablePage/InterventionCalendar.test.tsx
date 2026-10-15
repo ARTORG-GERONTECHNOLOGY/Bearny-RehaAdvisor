@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import InterventionCalendar from '@/components/RehaTablePage/InterventionCalendar';
 
@@ -302,6 +302,35 @@ describe('InterventionCalendar big-calendar wiring', () => {
       />
     );
     expect(screen.getByTestId('draggable')).toHaveTextContent('false');
+  });
+
+  it('judges and moves an accessed session by its planned slot, not a log time it is drawn at', async () => {
+    const tomorrow = new Date(TODAY.getTime() + 86400000);
+    const loggedAt = new Date(TODAY.getTime() - 3 * 86400000);
+    const onRescheduleEvent = jest.fn().mockResolvedValue(true);
+    render(
+      <InterventionCalendar
+        patientData={
+          makePatientData(loggedAt, null, {
+            status: 'accessed',
+            scheduled: tomorrow.toISOString(),
+          }) as any
+        }
+        onSelectIntervention={jest.fn()}
+        onSelectFeedback={jest.fn()}
+        onRescheduleEvent={onRescheduleEvent}
+      />
+    );
+    expect(screen.getByTestId('draggable')).toHaveTextContent('true');
+
+    fireEvent.click(screen.getByText('drop event'));
+    await waitFor(() =>
+      expect(onRescheduleEvent).toHaveBeenCalledWith(
+        'itv-1',
+        tomorrow.toISOString(),
+        expect.any(Date)
+      )
+    );
   });
 
   it('colors a missed event', () => {

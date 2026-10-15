@@ -23,6 +23,8 @@ type PatientPlan = { interventions: Intervention[] } & Record<string, any>;
 
 type DateEntry = {
   datetime: string;
+  // Planned slot; datetime can be a log's createdAt instead.
+  scheduled?: string;
   status?: 'completed' | 'accessed' | 'missed' | 'today' | 'upcoming' | string;
   feedback?: any[];
   video?: any;
@@ -60,11 +62,14 @@ const DnDCalendar = withDragAndDrop(Calendar);
 
 const startOfToday = () => new Date(new Date().setHours(0, 0, 0, 0));
 
-// An opened session is still movable while it lies in the future.
+const scheduledSlot = (entry: DateEntry) => entry.scheduled || entry.datetime;
+
+// An opened session is still movable while its planned slot lies in the future.
 const isEventDraggable = (event: CalendarEvent) =>
   event.resource?.status === 'today' ||
   event.resource?.status === 'upcoming' ||
-  (event.resource?.status === 'accessed' && event.start >= startOfToday());
+  (event.resource?.status === 'accessed' &&
+    new Date(scheduledSlot(event.resource.dateEntry)) >= startOfToday());
 
 interface Props {
   patientData: PatientPlan;
@@ -201,7 +206,7 @@ const InterventionCalendar: React.FC<Props> = ({
           try {
             const ok = await onRescheduleEvent(
               event.resource.interventionId,
-              event.resource.dateEntry.datetime,
+              scheduledSlot(event.resource.dateEntry),
               start
             );
             if (ok === false) return;
