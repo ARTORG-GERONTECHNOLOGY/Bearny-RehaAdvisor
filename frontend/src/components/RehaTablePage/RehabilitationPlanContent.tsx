@@ -103,6 +103,8 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                     setBenefitForFilter: store.setBenefitForFilter,
                     languageFilter: store.languageFilter,
                     setLanguageFilter: store.setLanguageFilter,
+                    statusFilter: store.statusFilter,
+                    setStatusFilter: store.setStatusFilter,
                     resetFilters: store.resetAllFilters,
                   },
                   active: {
@@ -118,6 +120,8 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                     setBenefitForFilter: store.setActiveBenefitForFilter,
                     languageFilter: store.activeLanguageFilter,
                     setLanguageFilter: store.setActiveLanguageFilter,
+                    statusFilter: store.activeStatusFilter,
+                    setStatusFilter: store.setActiveStatusFilter,
                     resetFilters: store.resetActiveFilters,
                   },
                   past: {
@@ -133,6 +137,8 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                     setBenefitForFilter: store.setPastBenefitForFilter,
                     languageFilter: store.pastLanguageFilter,
                     setLanguageFilter: store.setPastLanguageFilter,
+                    statusFilter: store.pastStatusFilter,
+                    setStatusFilter: store.setPastStatusFilter,
                     resetFilters: store.resetPastFilters,
                   },
                 }}
@@ -159,6 +165,12 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                   {t('Status')}:
                   <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
                     {t('Completed')}
+                  </Badge>
+                  <Badge
+                    variant="dashboard"
+                    className="bg-blue-500/5 border-blue-500 text-blue-500"
+                  >
+                    {t('Accessed')}
                   </Badge>
                   <Badge variant="dashboard" className="bg-pink/5 border-pink text-pink">
                     {t('Missed')}

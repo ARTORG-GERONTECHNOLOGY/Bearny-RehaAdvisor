@@ -34,9 +34,14 @@ jest.mock(
           ? 'benefit-select'
           : props.placeholder?.includes('Language')
             ? 'language-select'
-            : 'other-select';
+            : props.placeholder?.includes('Status')
+              ? 'status-select'
+              : 'other-select';
       return (
-        <div data-testid={testId}>
+        <div
+          data-testid={testId}
+          data-options={(props.options || []).map((o: any) => o.value).join(',')}
+        >
           <button onClick={() => props.onChange?.([{ value: 'picked', label: 'Picked' }])}>
             change {testId}
           </button>
@@ -70,6 +75,8 @@ const makeSectionFilters = () => ({
   setBenefitForFilter: jest.fn(),
   languageFilter: [] as string[],
   setLanguageFilter: jest.fn(),
+  statusFilter: [] as string[],
+  setStatusFilter: jest.fn(),
   resetFilters: jest.fn(),
 });
 
@@ -509,6 +516,27 @@ describe('InterventionLeftPanel', () => {
 
       fireEvent.click(within(languageSelect).getByText('clear language-select'));
       expect(filters[key].setLanguageFilter).toHaveBeenCalledWith([]);
+    });
+
+    it('offers completed/accessed/missed in the status filter and updates it', async () => {
+      const user = userEvent.setup();
+      const { filters } = renderPanel();
+      openSection(title);
+      await user.click(within(section()).getByRole('button', { name: /Filters/i }));
+
+      const statusSelect = screen.getByTestId('status-select');
+      expect(statusSelect).toHaveAttribute('data-options', 'completed,accessed,missed');
+      fireEvent.click(within(statusSelect).getByText('change status-select'));
+      expect(filters[key].setStatusFilter).toHaveBeenCalledWith(['picked']);
+
+      fireEvent.click(within(statusSelect).getByText('clear status-select'));
+      expect(filters[key].setStatusFilter).toHaveBeenCalledWith([]);
+    });
+
+    it('counts a selected status in the Filters toggle', () => {
+      renderPanel({ filters: { [key]: { statusFilter: ['accessed', 'missed'] } } as any });
+      openSection(title);
+      expect(within(section()).getByText(/Filters/).textContent).toContain('(1)');
     });
 
     it('calls resetFilters when Reset filters is clicked', async () => {

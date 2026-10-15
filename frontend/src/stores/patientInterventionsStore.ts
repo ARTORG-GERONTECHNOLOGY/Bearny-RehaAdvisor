@@ -34,6 +34,8 @@ export type PatientRec = {
   // assignment
   dates: string[];
   completion_dates?: string[];
+  // Days the patient opened the intervention, as YYYY-MM-DD.
+  accessed_dates?: string[];
   frequency?: string;
   notes?: string;
   require_video_feedback?: boolean;
@@ -120,6 +122,21 @@ class PatientInterventionsStore {
     return asArray<string>(rec.completion_dates).some((d) => String(d).startsWith(dateStr));
   }
 
+  isAccessedOn(rec: PatientRec, date: Date) {
+    return asArray<string>(rec.accessed_dates).includes(format(date, 'yyyy-MM-dd'));
+  }
+
+  // Optimistic: the view log posts as the detail page closes, racing the dashboard's refetch.
+  markAccessed(interventionRef: string, dateKey: string) {
+    this.items = this.items.map((r) =>
+      [r.intervention_id, r.intervention?._id, r.intervention?.external_id].includes(
+        interventionRef
+      ) && !asArray<string>(r.accessed_dates).includes(dateKey)
+        ? { ...r, accessed_dates: [...asArray<string>(r.accessed_dates), dateKey] }
+        : r
+    );
+  }
+
   async fetchPlan(patientId: string, uiLang: string) {
     this.currentPatientId = patientId;
     const generation = ++this.fetchGeneration;
@@ -137,6 +154,11 @@ class PatientInterventionsStore {
     const target = currentUiLang();
 
     // Rows publish before translations resolve, so carry known ones over or a refetch flashes back to source.
+    // Opening is never undone, so keep days marked locally that a racing refetch hasn't seen yet.
+    const previousAccessed = new Map(
+      this.items.map((r) => [r.intervention_id, asArray<string>(r.accessed_dates)] as const)
+    );
+
     const previousTranslations = new Map(
       this.items
         .filter((r) => r.translated_title !== undefined && r.translatedForLang === target)
@@ -168,6 +190,12 @@ class PatientInterventionsStore {
 
           dates: asArray<string>(row?.dates),
           completion_dates: asArray<string>(row?.completion_dates),
+          accessed_dates: [
+            ...new Set([
+              ...asArray<string>(row?.accessed_dates),
+              ...(previousAccessed.get(intervention_id) || []),
+            ]),
+          ],
           frequency: String(row?.frequency || ''),
           notes: String(row?.notes || ''),
           require_video_feedback: Boolean(row?.require_video_feedback),

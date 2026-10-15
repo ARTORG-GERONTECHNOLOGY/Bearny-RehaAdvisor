@@ -86,6 +86,7 @@ jest.mock('@/stores/patientInterventionsStore', () => ({
     items: [],
     fetchPlan: jest.fn(async () => {}),
     isCompletedOn: jest.fn(() => false),
+    markAccessed: jest.fn(),
     toggleCompleted: jest.fn(async () => ({ completed: false, dateKey: '2026-03-16' })),
     rescheduleOccurrence: jest.fn(async () => '2026-03-20T00:00:00+00:00'),
   },
@@ -341,7 +342,67 @@ describe('PatientInterventionDetail', () => {
         })
       );
     });
+    // Marked locally too, so the dashboard shows it as opened before the refetch sees the log.
+    expect((patientInterventionsStore as any).markAccessed).toHaveBeenCalledWith(
+      'int-1',
+      '2026-03-16'
+    );
 
+    jest.restoreAllMocks();
+  });
+
+  it('logs the view when the app is hidden and only the visible time after it returns', async () => {
+    (patientInterventionsStore as any).items = [buildRec()];
+    const visibility = jest.spyOn(document, 'visibilityState', 'get');
+    const now = jest.spyOn(Date, 'now');
+    const t0 = 1_000_000;
+    now.mockReturnValue(t0);
+    visibility.mockReturnValue('visible');
+
+    const { unmount } = render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    const viewPosts = () =>
+      mockApiPost.mock.calls.filter(([url]) => String(url).includes('/intervention-view/'));
+
+    // Backgrounding the app (or closing it) never unmounts the page.
+    now.mockReturnValue(t0 + 8_000);
+    visibility.mockReturnValue('hidden');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(viewPosts()).toHaveLength(1);
+    expect(viewPosts()[0][1]).toEqual(expect.objectContaining({ seconds_viewed: 8 }));
+
+    // An hour in the background isn't counted as viewing time.
+    now.mockReturnValue(t0 + 3_608_000);
+    visibility.mockReturnValue('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    now.mockReturnValue(t0 + 3_613_000);
+    unmount();
+
+    expect(viewPosts()).toHaveLength(2);
+    expect(viewPosts()[1][1]).toEqual(expect.objectContaining({ seconds_viewed: 5 }));
+    jest.restoreAllMocks();
+  });
+
+  it('does not log again on unmount while the app is hidden', async () => {
+    (patientInterventionsStore as any).items = [buildRec()];
+    const visibility = jest.spyOn(document, 'visibilityState', 'get');
+    const now = jest.spyOn(Date, 'now');
+    now.mockReturnValue(1_000_000);
+    visibility.mockReturnValue('visible');
+
+    const { unmount } = render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+
+    now.mockReturnValue(1_010_000);
+    visibility.mockReturnValue('hidden');
+    document.dispatchEvent(new Event('visibilitychange'));
+    now.mockReturnValue(1_900_000);
+    unmount();
+
+    const viewPosts = mockApiPost.mock.calls.filter(([url]) =>
+      String(url).includes('/intervention-view/')
+    );
+    expect(viewPosts).toHaveLength(1);
     jest.restoreAllMocks();
   });
 

@@ -280,6 +280,30 @@ describe('InterventionCalendar big-calendar wiring', () => {
     expect(screen.getByTestId('draggable')).toHaveTextContent('false');
   });
 
+  it('colors an accessed event, draggable today but not once it is past', () => {
+    const { rerender } = render(
+      <InterventionCalendar
+        patientData={makePatientData(TODAY, null, { status: 'accessed' }) as any}
+        onSelectIntervention={jest.fn()}
+        onSelectFeedback={jest.fn()}
+      />
+    );
+    expect(screen.getByTestId('event-classname')).toHaveTextContent(
+      '!bg-blue-500/10 !text-blue-500'
+    );
+    expect(screen.getByTestId('draggable')).toHaveTextContent('true');
+
+    const yesterday = new Date(TODAY.getTime() - 86400000);
+    rerender(
+      <InterventionCalendar
+        patientData={makePatientData(yesterday, null, { status: 'accessed' }) as any}
+        onSelectIntervention={jest.fn()}
+        onSelectFeedback={jest.fn()}
+      />
+    );
+    expect(screen.getByTestId('draggable')).toHaveTextContent('false');
+  });
+
   it('colors a missed event', () => {
     render(
       <InterventionCalendar

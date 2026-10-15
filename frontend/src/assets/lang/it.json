@@ -1764,5 +1764,8 @@
   "Daily at {{time}}": "Ogni giorno alle {{time}}",
   "Weekly on {{day}} at {{time}}": "Ogni settimana il {{day}} alle {{time}}",
   "Every hour": "Ogni ora",
-  "Every {{hours}} hours": "Ogni {{hours}} ore"
+  "Every {{hours}} hours": "Ogni {{hours}} ore",
+  "Accessed": "Visualizzato",
+  "Opened, not completed": "Aperto, non completato",
+  "Filter by Status": "Filtra per stato"
 }

@@ -15,6 +15,7 @@
  */
 
 import { RehabTableStore } from '@/stores/rehabTableStore';
+import { filterInterventions } from '@/utils/filterUtils';
 import { extractApiError } from '@/utils/apiErrorMessages';
 import { toLocalYMD } from '@/utils/dateFormat';
 
@@ -564,6 +565,7 @@ describe('setters', () => {
     store.setTagFilter(['a']);
     store.setBenefitForFilter(['b']);
     store.setLanguageFilter(['c']);
+    store.setStatusFilter(['accessed']);
 
     store.resetAllFilters();
 
@@ -573,6 +575,7 @@ describe('setters', () => {
     expect(store.tagFilter).toEqual([]);
     expect(store.benefitForFilter).toEqual([]);
     expect(store.languageFilter).toEqual([]);
+    expect(store.statusFilter).toEqual([]);
   });
 });
 
@@ -628,6 +631,7 @@ describe.each([
     store[`set${cap}TagFilter`](['a']);
     store[`set${cap}BenefitForFilter`](['b']);
     store[`set${cap}LanguageFilter`](['c']);
+    store[`set${cap}StatusFilter`](['missed']);
 
     store[`reset${cap}Filters`]();
 
@@ -637,6 +641,103 @@ describe.each([
     expect(store[`${section}TagFilter`]).toEqual([]);
     expect(store[`${section}BenefitForFilter`]).toEqual([]);
     expect(store[`${section}LanguageFilter`]).toEqual([]);
+    expect(store[`${section}StatusFilter`]).toEqual([]);
+  });
+});
+
+describe.each([
+  {
+    section: 'all',
+    setter: 'setStatusFilter',
+    source: 'recommendations',
+    getter: 'filteredRecommendations',
+    dayOffset: -1,
+  },
+  {
+    section: 'active',
+    setter: 'setActiveStatusFilter',
+    source: 'activePatientItems',
+    getter: 'filteredActivePatientItems',
+    dayOffset: 1,
+  },
+  {
+    section: 'past',
+    setter: 'setPastStatusFilter',
+    source: 'pastPatientItems',
+    getter: 'filteredPastPatientItems',
+    dayOffset: -1,
+  },
+])('$section status filter', ({ setter, source, getter, dayOffset }) => {
+  // Sessions on the section's side of now, so every assigned item lands in the list under test.
+  const at = new Date(Date.now() + dayOffset * 86400000).toISOString();
+  const sessions = (...statuses: string[]) => statuses.map((status) => ({ datetime: at, status }));
+
+  const setup = () => {
+    const store = makeStore() as any;
+    const items = [{ _id: 'seen' }, { _id: 'done' }, { _id: 'skipped' }, { _id: 'unassigned' }];
+    store.allInterventions = items.slice(0, 3);
+    store.recommendations = items;
+    store.patientData = {
+      interventions: [
+        { _id: 'seen', dates: sessions('accessed', 'upcoming') },
+        { _id: 'done', dates: sessions('completed', 'accessed') },
+        { _id: 'skipped', dates: sessions('missed', 'upcoming') },
+      ],
+    };
+    return store;
+  };
+
+  // filterInterventions is mocked, so read what the status step handed it.
+  const filteredIds = (store: any) => {
+    void store[getter];
+    const calls = (filterInterventions as jest.Mock).mock.calls;
+    return calls[calls.length - 1][0].map((x: any) => x._id);
+  };
+
+  it('passes every item through when no status is selected', () => {
+    const store = setup();
+    expect(filteredIds(store)).toEqual(store[source].map((x: any) => x._id));
+  });
+
+  it('matches anything the patient opened under "accessed", planned or not, by external_id or id', () => {
+    const store = setup();
+    store.recommendations = [
+      ...store.recommendations,
+      { _id: 'lib-de', external_id: 'ext-lib' },
+      { _id: 'no-ext' },
+      { _id: 'skipped-de', external_id: 'ext-skip' },
+    ];
+    store.allInterventions = [
+      ...store.allInterventions,
+      { _id: 'skipped-de', external_id: 'ext-skip' },
+    ];
+    store.patientData = {
+      ...store.patientData,
+      interventions: [
+        ...store.patientData.interventions,
+        { _id: 'skipped-de', dates: sessions('missed') },
+      ],
+      viewed_interventions: ['ext-lib', 'no-ext', 'ext-skip'],
+    };
+
+    store[setter](['accessed']);
+    const ids = filteredIds(store);
+    expect(ids).toEqual(expect.arrayContaining(['seen', 'done', 'skipped-de']));
+    if (source === 'recommendations')
+      expect(ids).toEqual(expect.arrayContaining(['lib-de', 'no-ext']));
+
+    // Only the accessed option looks at views.
+    store[setter](['missed']);
+    expect(filteredIds(store)).not.toContain('lib-de');
+  });
+
+  it('keeps items with at least one session in a selected status', () => {
+    const store = setup();
+    store[setter](['accessed']);
+    expect(filteredIds(store)).toEqual(['seen', 'done']);
+
+    store[setter](['completed', 'missed']);
+    expect(filteredIds(store)).toEqual(['done', 'skipped']);
   });
 });
 

@@ -71,6 +71,42 @@ describe('PatientInterventionsStore', () => {
   });
 
   // ------------------------------------------------------------------
+  // isAccessedOn / markAccessed
+  // ------------------------------------------------------------------
+  describe('isAccessedOn', () => {
+    it('matches the local day key of the date', () => {
+      const rec = { accessed_dates: ['2026-01-05'] } as any;
+      expect(store.isAccessedOn(rec, new Date(2026, 0, 5, 18))).toBe(true);
+      expect(store.isAccessedOn(rec, new Date(2026, 0, 6))).toBe(false);
+    });
+
+    it('is false when accessed_dates is missing', () => {
+      expect(store.isAccessedOn({} as any, new Date(2026, 0, 5))).toBe(false);
+    });
+  });
+
+  describe('markAccessed', () => {
+    beforeEach(() => {
+      store.items = [
+        { intervention_id: 'int-1', intervention: { external_id: 'ext-1' }, dates: [] },
+        { intervention_id: 'int-2', dates: [], accessed_dates: ['2026-01-04'] },
+      ] as any;
+    });
+
+    it('adds the day to the record matched by intervention_id or external_id', () => {
+      store.markAccessed('ext-1', '2026-01-05');
+      store.markAccessed('int-2', '2026-01-05');
+      expect(store.items[0].accessed_dates).toEqual(['2026-01-05']);
+      expect(store.items[1].accessed_dates).toEqual(['2026-01-04', '2026-01-05']);
+    });
+
+    it('does not duplicate a day already marked', () => {
+      store.markAccessed('int-2', '2026-01-04');
+      expect(store.items[1].accessed_dates).toEqual(['2026-01-04']);
+    });
+  });
+
+  // ------------------------------------------------------------------
   // fetchPlan
   // ------------------------------------------------------------------
   describe('fetchPlan', () => {
@@ -153,6 +189,19 @@ describe('PatientInterventionsStore', () => {
       expect(rec.description).toBe('Meta Desc');
       expect(rec.preview_img).toBe('meta.jpg');
       expect(rec.media).toEqual([{ url: 'meta' }]);
+    });
+
+    it('keeps a day marked accessed locally when a racing refetch has not seen it yet', async () => {
+      store.items = [
+        { intervention_id: 'int-1', dates: [], accessed_dates: ['2026-01-05'] },
+      ] as any;
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [{ intervention_id: 'int-1', accessed_dates: ['2026-01-04'] }],
+      });
+
+      await store.fetchPlan('patient-1', 'en');
+
+      expect(store.items[0].accessed_dates).toEqual(['2026-01-04', '2026-01-05']);
     });
 
     it('defaults duration to undefined when not a number', async () => {

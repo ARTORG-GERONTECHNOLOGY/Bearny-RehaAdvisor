@@ -276,11 +276,13 @@ export const getMediaBadge = (media: InterventionMedia[]) => {
   }
 };
 
-/** Tailwind classes for an intervention date's status badge (completed/missed/today/upcoming). */
+/** Tailwind classes for an intervention date's status badge (completed/accessed/missed/today/upcoming). */
 export const getInterventionDateStatusClass = (status: string): string => {
   switch (String(status || '').toLowerCase()) {
     case 'completed':
       return 'border border-ok bg-ok/5 text-ok';
+    case 'accessed':
+      return 'border border-blue-500 bg-blue-500/5 text-blue-500';
     case 'missed':
       return 'border border-pink bg-pink/5 text-pink';
     case 'today':

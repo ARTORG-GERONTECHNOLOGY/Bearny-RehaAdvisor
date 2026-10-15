@@ -39,6 +39,7 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
     const dates = asArray<any>(assigned?.dates);
 
     let completed = 0;
+    let accessed = 0;
     let missed = 0;
     let today = 0;
     let upcoming = 0;
@@ -49,6 +50,7 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
     dates.forEach((d: any) => {
       const st = String(d?.status || '').toLowerCase();
       if (st === 'completed') completed += 1;
+      else if (st === 'accessed') accessed += 1;
       else if (st === 'missed') missed += 1;
       else if (st === 'today') today += 1;
       else upcoming += 1;
@@ -78,6 +80,7 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
     return {
       total,
       completed,
+      accessed,
       missed,
       today,
       upcoming,
@@ -108,6 +111,9 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
           </Badge>
           <Badge variant="dashboard" className={getInterventionDateStatusClass('completed')}>
             {safeT(t, 'Completed')}: {stats.completed}
+          </Badge>
+          <Badge variant="dashboard" className={getInterventionDateStatusClass('accessed')}>
+            {safeT(t, 'Accessed')}: {stats.accessed}
           </Badge>
           <Badge variant="dashboard" className={getInterventionDateStatusClass('missed')}>
             {safeT(t, 'Missed')}: {stats.missed}

@@ -966,6 +966,64 @@ def _completion_day_keys_from_logs(logs) -> list[str]:
     return sorted(out)
 
 
+_VIEW_DETAILS_RE = re.compile(r"intervention_id=(\S+) date=(\S*)")
+_RESCHEDULE_DETAILS_RE = re.compile(r"from=(\S+) to=(\S+) intervention_id=(\S+)")
+# The detail page posts its view log as it closes, i.e. just after a reschedule made from that page.
+_RESCHEDULE_VIEW_GRACE = timedelta(minutes=15)
+
+
+def _accessed_logs(patient):
+    """({ref -> [(day, logged_at)]} from INTERVENTION_VIEW logs, {external_id -> [(moved_at, from_day, to_day)]})."""
+    views: dict = {}
+    for lg in Logs.objects(userId=patient.userId, action="INTERVENTION_VIEW").only("details", "timestamp"):
+        m = _VIEW_DETAILS_RE.match(lg.details or "")
+        if not m or not lg.timestamp:
+            continue
+        try:
+            day = datetime.date.fromisoformat(m.group(2))
+        except ValueError:
+            # Opened without a ?date= (e.g. from the library): count it for the day it was opened.
+            day = _local_day(lg.timestamp)
+        if day:
+            views.setdefault(m.group(1), []).append((day, lg.timestamp))
+
+    moves: dict = {}
+    for lg in Logs.objects(patient=patient, action="INTERVENTION_RESCHEDULE").only("details", "timestamp"):
+        m = _RESCHEDULE_DETAILS_RE.match(lg.details or "")
+        if not m or not lg.timestamp:
+            continue
+        try:
+            from_day = _local_day(datetime.datetime.fromisoformat(m.group(1)))
+            to_day = _local_day(datetime.datetime.fromisoformat(m.group(2)))
+        except ValueError:
+            continue
+        moves.setdefault(m.group(3), []).append((lg.timestamp, from_day, to_day))
+    return views, moves
+
+
+def _accessed_days(accessed_logs, intervention, variant_ids) -> set:
+    """Days any variant of this intervention was opened, carried along when an opened session was rescheduled."""
+    views, moves = accessed_logs
+    ext_id = getattr(intervention, "external_id", None)
+    refs = {str(v) for v in variant_ids} | ({ext_id} if ext_id else set())
+    seen = [v for r in refs for v in views.get(r, [])]
+
+    for moved_at, from_day, to_day in sorted(moves.get(ext_id, []) if ext_id else []):
+        if any(day == from_day and at <= moved_at + _RESCHEDULE_VIEW_GRACE for day, at in seen):
+            seen.append((to_day, moved_at))
+    return {day for day, _ in seen}
+
+
+def _viewed_intervention_refs(accessed_logs) -> list:
+    """Every intervention the patient opened, planned or not, as external_ids (raw id when it has none)."""
+    views, _ = accessed_logs
+    ids = [r for r in views if ObjectId.is_valid(r)]
+    ext_by_id = {
+        str(iv.id): iv.external_id for iv in Intervention.objects(id__in=ids).only("external_id") if iv.external_id
+    }
+    return sorted({ext_by_id.get(r, r) for r in views})
+
+
 def _intervention_meta(intervention) -> dict:
     """
     Whitelisted full intervention fields (expand as needed).
@@ -1096,6 +1154,7 @@ def get_patient_plan(request, patient_id):
             assignments.append((assignment, assigned_intervention))
 
         variant_ids = _variant_ids_by_intervention(iv for _, iv in assignments)
+        accessed_logs = _accessed_logs(patient)
 
         for assignment, assigned_intervention in assignments:
             # Preferred variant for display, but logs across every variant of the external_id, so a
@@ -1156,6 +1215,12 @@ def get_patient_plan(request, patient_id):
                     "dates": dates_iso,
                     # status + feedback
                     "completion_dates": completion_dates,
+                    "accessed_dates": sorted(
+                        d.isoformat()
+                        for d in _accessed_days(
+                            accessed_logs, assigned_intervention, variant_ids[assigned_intervention.pk]
+                        )
+                    ),
                     "feedback": feedback_data,
                 }
             )
@@ -3121,6 +3186,8 @@ def get_patient_plan_for_therapist(request, patient_id):
         }
         _question_ids.discard(None)
         _questions_by_id = {q.id: q for q in FeedbackQuestion.objects(id__in=_question_ids)}
+        accessed_logs = _accessed_logs(patient)
+        plan_data["viewed_interventions"] = _viewed_intervention_refs(accessed_logs)
 
         for _group in _groups:
             assignment = _group["canonical"]
@@ -3131,6 +3198,7 @@ def get_patient_plan_for_therapist(request, patient_id):
             # or a patient with a second plan doc gets different counts in the two views.
             logs = [log for vid in variant_ids[intervention.pk] for log in _logs_by_variant_id.get(vid, [])]
             questions_by_id = _questions_by_id
+            accessed_days = _accessed_days(accessed_logs, intervention, variant_ids[intervention.pk])
 
             intervention_dates = []
             completed_count = 0
@@ -3146,6 +3214,10 @@ def get_patient_plan_for_therapist(request, patient_id):
                     status = "completed"
                     completed_count += 1
                     current_total_count += 1
+                elif date_local in accessed_days:
+                    status = "accessed"
+                    if date_local < today:
+                        current_total_count += 1
                 elif date_local < today:
                     status = "missed"
                     current_total_count += 1

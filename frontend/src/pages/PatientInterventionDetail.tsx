@@ -478,10 +478,15 @@ const PatientInterventionDetail: React.FC = observer(() => {
   // Track time spent on this intervention detail page
   const viewDateParam = searchParams.get('date') || '';
   useEffect(() => {
-    const openedAt = Date.now();
-    return () => {
+    let openedAt = Date.now();
+    const flush = () => {
       const seconds = Math.round((Date.now() - openedAt) / 1000);
+      openedAt = Date.now();
       if (seconds < 2 || !patientId || !interventionId) return;
+      patientInterventionsStore.markAccessed(
+        interventionId,
+        viewDateParam || format(new Date(), 'yyyy-MM-dd')
+      );
       apiClient
         .post(`/patients/vitals/intervention-view/${patientId}/`, {
           intervention_id: interventionId,
@@ -491,6 +496,16 @@ const PatientInterventionDetail: React.FC = observer(() => {
         .catch(() => {
           /* best-effort, no noise */
         });
+    };
+    // Backgrounding or closing the app never unmounts the page, so also log when it is hidden.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flush();
+      else openedAt = Date.now();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (document.visibilityState !== 'hidden') flush();
     };
   }, [patientId, interventionId, viewDateParam]);
 

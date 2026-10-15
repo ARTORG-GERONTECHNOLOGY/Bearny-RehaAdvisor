@@ -15,6 +15,7 @@ import {
 import StarIcon from '@/assets/icons/interventions/star.svg?react';
 
 import config from '@/config/config.json';
+import { DATE_STATUS_FILTER_OPTIONS } from '@/stores/rehabTableStore';
 import { Intervention } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -67,6 +68,8 @@ interface SectionFilterState {
   setBenefitForFilter: (v: string[]) => void;
   languageFilter: string[];
   setLanguageFilter: (v: string[]) => void;
+  statusFilter: string[];
+  setStatusFilter: (v: string[]) => void;
   resetFilters: () => void;
 }
 
@@ -134,6 +137,11 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
       .filter(Boolean);
     return [...new Set(langs)].sort().map((l) => ({ value: l, label: l.toUpperCase() }));
   }, [allItems]);
+
+  const statusOptions = DATE_STATUS_FILTER_OPTIONS.map((s) => ({
+    value: s,
+    label: t(s.charAt(0).toUpperCase() + s.slice(1)),
+  }));
 
   const {
     handleExerciseClick,
@@ -416,6 +424,8 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
       setBenefitForFilter,
       languageFilter,
       setLanguageFilter,
+      statusFilter,
+      setStatusFilter,
       resetFilters,
     } = fs;
 
@@ -424,7 +434,8 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
       (contentTypeFilter ? 1 : 0) +
       (tagFilter?.length ? 1 : 0) +
       (benefitForFilter?.length ? 1 : 0) +
-      (languageFilter?.length ? 1 : 0);
+      (languageFilter?.length ? 1 : 0) +
+      (statusFilter?.length ? 1 : 0);
 
     const scrollToTop = () => {
       const el = cfg.scrollRef.current;
@@ -547,6 +558,20 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                   value={languageFilter.map((l) => ({ value: l, label: l.toUpperCase() }))}
                   onChange={(opts) => setLanguageFilter((opts || []).map((opt: any) => opt.value))}
                   placeholder={t('Filter by Language')}
+                  styles={selectStyles}
+                  menuPortalTarget={document.body}
+                />
+              </Field>
+
+              <Field className="col-span-2">
+                <Select
+                  classNamePrefix="select"
+                  inputId={`${cfg.idPrefix}-statusFilter`}
+                  isMulti
+                  options={statusOptions}
+                  value={statusOptions.filter((o) => statusFilter.includes(o.value))}
+                  onChange={(opts) => setStatusFilter((opts || []).map((opt: any) => opt.value))}
+                  placeholder={t('Filter by Status')}
                   styles={selectStyles}
                   menuPortalTarget={document.body}
                 />
