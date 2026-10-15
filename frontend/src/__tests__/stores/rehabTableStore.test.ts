@@ -699,30 +699,35 @@ describe.each([
     expect(filteredIds(store)).toEqual(store[source].map((x: any) => x._id));
   });
 
-  it('matches anything the patient opened under "accessed", planned or not, by external_id or id', () => {
+  it('matches an opened, never completed intervention under "accessed", planned or not, by external_id or id', () => {
     const store = setup();
     store.recommendations = [
       ...store.recommendations,
       { _id: 'lib-de', external_id: 'ext-lib' },
       { _id: 'no-ext' },
       { _id: 'skipped-de', external_id: 'ext-skip' },
+      { _id: 'all-done', external_id: 'ext-done' },
     ];
     store.allInterventions = [
       ...store.allInterventions,
       { _id: 'skipped-de', external_id: 'ext-skip' },
+      { _id: 'all-done', external_id: 'ext-done' },
     ];
     store.patientData = {
       ...store.patientData,
       interventions: [
         ...store.patientData.interventions,
         { _id: 'skipped-de', dates: sessions('missed') },
+        { _id: 'all-done', dates: sessions('completed') },
       ],
-      viewed_interventions: ['ext-lib', 'no-ext', 'ext-skip'],
+      viewed_interventions: ['ext-lib', 'no-ext', 'ext-skip', 'ext-done'],
     };
 
     store[setter](['accessed']);
     const ids = filteredIds(store);
     expect(ids).toEqual(expect.arrayContaining(['seen', 'done', 'skipped-de']));
+    // Opened and done is not "opened but not completed".
+    expect(ids).not.toContain('all-done');
     if (source === 'recommendations')
       expect(ids).toEqual(expect.arrayContaining(['lib-de', 'no-ext']));
 

@@ -499,7 +499,12 @@ const PatientInterventionDetail: React.FC = observer(() => {
           KEEPALIVE
         )
         .then(({ data }) => (data?.id ? String(data.id) : null))
-        .catch(() => null);
+        .catch(() => null)
+        .then((id) => {
+          // Failed: forget it, so the next time the page is on screen tries again.
+          if (!id) logId = null;
+          return id;
+        });
     };
     const armTimer = () => {
       if (!logId) timer = setTimeout(create, Math.max(0, 2000 - visibleMs));

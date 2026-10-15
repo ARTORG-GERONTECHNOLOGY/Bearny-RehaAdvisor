@@ -1209,6 +1209,29 @@ def test_xhrj_private_intervention_of_deleted_patient_is_hidden_not_500(xhrj_wor
     assert "custom_gone_xhrj" not in [i.get("external_id") for i in json.loads(resp.content)]
 
 
+def test_xhrj_only_the_patient_can_log_or_update_their_intervention_view(xhrj_world):
+    """Even the patient's own therapist can't: a view row marks the session as opened by the patient."""
+    from core.models import Logs
+    from core.views.patient_views import log_intervention_view
+
+    w = xhrj_world
+    pa, iv = str(w.patient_a.id), str(w.intervention.id)
+    create = {"intervention_id": iv, "seconds_viewed": 5}
+
+    resp = _call_as(w.th_user_a, log_intervention_view, "post", "/", create, pa)
+    assert resp.status_code == 403
+    assert Logs.objects(action="INTERVENTION_VIEW").count() == 0
+
+    resp = _call_as(w.patient_a.userId, log_intervention_view, "post", "/", create, pa)
+    assert resp.status_code == 200
+    log_id = json.loads(resp.content)["id"]
+
+    update = {"log_id": log_id, "seconds_viewed": 999}
+    resp = _call_as(w.th_user_a, log_intervention_view, "post", "/", update, pa)
+    assert resp.status_code == 403
+    assert Logs.objects(id=log_id).first().details.endswith("seconds=5")
+
+
 def test_xhrj_feedback_refused_before_uploads_are_stored(xhrj_world):
     from django.core.files.uploadedfile import SimpleUploadedFile
 

@@ -302,18 +302,19 @@ export class RehabTableStore {
     return new Set(Array.isArray(raw) ? raw.map(String) : []);
   }
 
-  // Keeps items with a session in a selected status; "accessed" also matches anything the patient opened.
+  // Keeps items with a session in a selected status. "accessed" also matches an intervention the patient
+  // opened (planned or not) that has no completed session, i.e. seen but never done.
   private filterByStatus(items: Intervention[], statusFilter: string[]): Intervention[] {
     if (!statusFilter.length) return items;
     const viewed = statusFilter.includes('accessed') ? this.viewedInterventions : new Set<string>();
-    return items.filter(
-      (it) =>
+    return items.filter((it) => {
+      const statuses = getDateStatuses(this.planInterventionsById.get(it._id));
+      if (statuses.some((st) => statusFilter.includes(st))) return true;
+      const opened =
         viewed.has(it._id) ||
-        viewed.has(String((it as { external_id?: unknown }).external_id || '')) ||
-        getDateStatuses(this.planInterventionsById.get(it._id)).some((st) =>
-          statusFilter.includes(st)
-        )
-    );
+        viewed.has(String((it as { external_id?: unknown }).external_id || ''));
+      return opened && !statuses.includes('completed');
+    });
   }
 
   // Shared by the three filtered* getters below — the only thing that differs

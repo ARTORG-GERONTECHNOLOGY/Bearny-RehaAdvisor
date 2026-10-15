@@ -155,6 +155,17 @@ def test_log_intervention_view_happy_path(mongo_mock):
     assert resp.json()["id"] == str(log.id)
 
 
+def test_log_intervention_view_caps_seconds_at_a_day(mongo_mock):
+    patient = create_patient()
+    client.post(
+        VIEW_URL.format(patient_id=str(patient.id)),
+        data=json.dumps({"intervention_id": "abc123", "seconds_viewed": 10**9}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert Logs.objects(action="INTERVENTION_VIEW").first().details.endswith("seconds=86400")
+
+
 def _update_view(patient, log_id, seconds):
     return client.post(
         VIEW_URL.format(patient_id=str(patient.id)),
@@ -227,9 +238,11 @@ def test_log_intervention_view_zero_seconds_rejected(mongo_mock):
     [
         {"intervention_id": "abc123", "seconds_viewed": "lots"},
         {"log_id": 12345, "seconds_viewed": None},
+        {"intervention_id": "x" * 201, "seconds_viewed": 5},
+        {"intervention_id": "abc123", "date": "2026-03-21" * 200, "seconds_viewed": 5},
     ],
 )
-def test_log_intervention_view_malformed_body_is_a_400_not_a_500(mongo_mock, body):
+def test_log_intervention_view_malformed_or_oversized_body_is_a_400_not_a_500(mongo_mock, body):
     patient = create_patient()
     resp = client.post(
         VIEW_URL.format(patient_id=str(patient.id)),

@@ -280,10 +280,13 @@ describe('InterventionCalendar big-calendar wiring', () => {
     expect(screen.getByTestId('draggable')).toHaveTextContent('false');
   });
 
-  it('colors an accessed event, draggable today but not once it is past', () => {
+  it('colors an accessed event, draggable until its planned time but not after', () => {
+    // The backend refuses to move an occurrence whose time has passed, even earlier today.
+    const inAnHour = new Date(Date.now() + 3600_000);
+    const anHourAgo = new Date(Date.now() - 3600_000);
     const { rerender } = render(
       <InterventionCalendar
-        patientData={makePatientData(TODAY, null, { status: 'accessed' }) as any}
+        patientData={makePatientData(inAnHour, null, { status: 'accessed' }) as any}
         onSelectIntervention={jest.fn()}
         onSelectFeedback={jest.fn()}
       />
@@ -293,10 +296,9 @@ describe('InterventionCalendar big-calendar wiring', () => {
     );
     expect(screen.getByTestId('draggable')).toHaveTextContent('true');
 
-    const yesterday = new Date(TODAY.getTime() - 86400000);
     rerender(
       <InterventionCalendar
-        patientData={makePatientData(yesterday, null, { status: 'accessed' }) as any}
+        patientData={makePatientData(anHourAgo, null, { status: 'accessed' }) as any}
         onSelectIntervention={jest.fn()}
         onSelectFeedback={jest.fn()}
       />

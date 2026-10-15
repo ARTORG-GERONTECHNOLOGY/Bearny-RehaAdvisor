@@ -18,6 +18,15 @@ import '@/assets/styles/RehabTable.css';
 import { RehabilitationPlanContentLoadingSkeleton } from '@/components/skeletons/TherapistPatientDetailSkeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { getInterventionDateStatusClass } from '@/utils/interventions';
+
+const STATUS_LEGEND = [
+  ['completed', 'Completed'],
+  ['accessed', 'Accessed'],
+  ['missed', 'Missed'],
+  ['today', 'today'],
+  ['upcoming', 'Upcoming'],
+] as const;
 
 interface RehabilitationPlanContentProps {
   patientId: string;
@@ -163,27 +172,15 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                 <CardTitle>{t('Reha Calendar')}</CardTitle>
                 <CardDescription className="flex flex-wrap items-center gap-1">
                   {t('Status')}:
-                  <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
-                    {t('Completed')}
-                  </Badge>
-                  <Badge
-                    variant="dashboard"
-                    className="bg-blue-500/5 border-blue-500 text-blue-500"
-                  >
-                    {t('Accessed')}
-                  </Badge>
-                  <Badge variant="dashboard" className="bg-pink/5 border-pink text-pink">
-                    {t('Missed')}
-                  </Badge>
-                  <Badge variant="dashboard" className="bg-yellow/5 border-yellow text-yellow">
-                    {t('today')}
-                  </Badge>
-                  <Badge
-                    variant="dashboard"
-                    className="bg-chartMuted/5 border-chartMuted text-zinc-500"
-                  >
-                    {t('Upcoming')}
-                  </Badge>
+                  {STATUS_LEGEND.map(([status, label]) => (
+                    <Badge
+                      key={status}
+                      variant="dashboard"
+                      className={getInterventionDateStatusClass(status)}
+                    >
+                      {t(label)}
+                    </Badge>
+                  ))}
                 </CardDescription>
               </CardHeader>
               <CardContent className="rehaCalendarWrap">

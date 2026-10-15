@@ -60,16 +60,14 @@ const addMinutes = (d: Date, minutes: number) => new Date(d.getTime() + minutes 
 
 const DnDCalendar = withDragAndDrop(Calendar);
 
-const startOfToday = () => new Date(new Date().setHours(0, 0, 0, 0));
-
 const scheduledSlot = (entry: DateEntry) => entry.scheduled || entry.datetime;
 
-// An opened session is still movable while its planned slot lies in the future.
+// An opened session stays movable until its planned time; the backend refuses to move it after that.
 const isEventDraggable = (event: CalendarEvent) =>
   event.resource?.status === 'today' ||
   event.resource?.status === 'upcoming' ||
   (event.resource?.status === 'accessed' &&
-    new Date(scheduledSlot(event.resource.dateEntry)) >= startOfToday());
+    new Date(scheduledSlot(event.resource.dateEntry)) > new Date());
 
 interface Props {
   patientData: PatientPlan;

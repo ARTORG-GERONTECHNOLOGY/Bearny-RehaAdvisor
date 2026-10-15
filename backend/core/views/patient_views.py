@@ -41,7 +41,7 @@ from core.models import (
     Translation,
     User,
 )
-from core.permissions import _caller_user, can_access_patient, is_self_or_admin
+from core.permissions import _caller_user, can_access_patient, is_self, is_self_or_admin
 from core.views.fitbit_sync import fetch_fitbit_today_for_user
 from core.views.wearable_utils import fetch_merged_wearable_records
 from utils.interventions import (
@@ -4296,6 +4296,11 @@ def vitals_exists_for_day(request, patient_id: str):
     return JsonResponse({"exists": bool(exists)}, status=200)
 
 
+_MAX_VIEW_SECONDS = 24 * 60 * 60
+# Custom external_ids embed a title slug; this keeps details far below its 1000-char limit.
+_MAX_VIEW_REF_LENGTH = 200
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def log_intervention_view(request, patient_id: str):
@@ -4315,18 +4320,25 @@ def log_intervention_view(request, patient_id: str):
     intervention_id = str(body.get("intervention_id") or "").strip()
     date = str(body.get("date") or "").strip()
     try:
-        seconds_viewed = int(body.get("seconds_viewed") or 0)
+        # Capped at a day so one bogus value can't skew the telemetry.
+        seconds_viewed = min(int(body.get("seconds_viewed") or 0), _MAX_VIEW_SECONDS)
     except (TypeError, ValueError):
         return JsonResponse({"ok": False}, status=400)
 
-    if (not log_id and not intervention_id) or seconds_viewed < 1:
+    if (not log_id and not intervention_id) or seconds_viewed < 1 or len(intervention_id) > _MAX_VIEW_REF_LENGTH:
         return JsonResponse({"ok": False}, status=400)
+    if date:
+        try:
+            date = datetime.date.fromisoformat(date).isoformat()
+        except ValueError:
+            return JsonResponse({"ok": False}, status=400)
 
     patient = _resolve_patient(patient_id)
     if not patient:
         return JsonResponse({"error": "Patient not found"}, status=404)
 
-    if not can_access_patient(request, patient, allow_self=True):
+    # Only the patient: a therapist's or admin's call would mark the session as opened by the patient.
+    if not is_self(request, patient.userId.id):
         return _forbidden_patient()
 
     if log_id:

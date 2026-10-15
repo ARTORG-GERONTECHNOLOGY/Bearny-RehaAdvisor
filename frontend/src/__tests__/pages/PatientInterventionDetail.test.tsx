@@ -413,6 +413,21 @@ describe('PatientInterventionDetail', () => {
       ]);
     });
 
+    it('tries again the next time the page is on screen when logging failed', async () => {
+      mockApiPost.mockRejectedValueOnce(new Error('offline'));
+      await renderDetail();
+      await advance(2_000);
+      expect(viewPosts()).toHaveLength(1);
+
+      setVisibility('hidden');
+      setVisibility('visible');
+      await advance(0);
+      expect(viewPosts()).toHaveLength(2);
+      expect(viewPosts()[1][1]).toEqual(
+        expect.objectContaining({ intervention_id: 'int-1', seconds_viewed: 2 })
+      );
+    });
+
     it('counts 2 seconds of time on screen, not time in the background, before logging', async () => {
       await renderDetail();
       await advance(1_000);
