@@ -478,6 +478,10 @@ const PatientInterventionDetail: React.FC = observer(() => {
   // Log the visit as opened after 2s on the page; its duration is added on leaving. If leaving is never seen
   // (app killed, request lost), the open stays recorded and the duration stays empty.
   const viewDateParam = searchParams.get('date') || '';
+  // Only a date that matches a session marks it; a stale or bookmarked ?date= counts like a library open.
+  // Read when the log is sent, since the plan may still be loading when the page opens.
+  const viewSessionDateRef = useRef('');
+  viewSessionDateRef.current = targetOccurrenceIso ? viewDateParam : '';
   useEffect(() => {
     if (!patientId || !interventionId) return;
     const url = `/patients/vitals/intervention-view/${patientId}/`;
@@ -486,7 +490,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
     const timer = setTimeout(() => {
       logId = apiClient
-        .post(url, { intervention_id: interventionId, date: viewDateParam })
+        .post(url, { intervention_id: interventionId, date: viewSessionDateRef.current })
         .then(({ data }) => (data?.id ? String(data.id) : null))
         .catch(() => null);
     }, 2000);
