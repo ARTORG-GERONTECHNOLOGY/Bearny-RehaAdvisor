@@ -277,6 +277,26 @@ def test_log_intervention_view_update_only_touches_an_existing_view_row(mongo_mo
     assert Logs.objects(id=other_log.id).first().details == "seconds=1"
 
 
+def test_log_intervention_view_open_with_infinite_seconds_is_still_recorded(mongo_mock):
+    patient = create_patient()
+    resp = client.post(
+        VIEW_URL.format(patient_id=str(patient.id)),
+        data='{"intervention_id": "%s", "seconds_viewed": 1e400}' % _iv(),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    assert Logs.objects(action="INTERVENTION_VIEW").first().details.endswith(" seconds=")
+
+
+def test_log_intervention_view_patient_without_user_record_is_403_not_500(mongo_mock):
+    patient = create_patient()
+    patient.userId.delete()
+    resp = _open_view(Patient.objects.get(id=patient.id), intervention_id=_iv())
+    assert resp.status_code == 403
+    assert Logs.objects(action="INTERVENTION_VIEW").count() == 0
+
+
 def test_log_intervention_view_get_returns_405(mongo_mock):
     patient = create_patient()
     resp = client.get(
@@ -291,6 +311,8 @@ def test_log_intervention_view_get_returns_405(mongo_mock):
     [
         {"log_id": str(ObjectId()), "seconds_viewed": "lots"},
         {"log_id": 12345, "seconds_viewed": None},
+        # JSON's 1e400 parses to infinity, which int() can't convert.
+        {"log_id": str(ObjectId()), "seconds_viewed": float("inf")},
         {"intervention_id": "x" * 201, "seconds_viewed": 5},
         {"intervention_id": str(ObjectId()), "date": "2026-03-21" * 200, "seconds_viewed": 5},
     ],

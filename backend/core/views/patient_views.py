@@ -4322,7 +4322,7 @@ def log_intervention_view(request, patient_id: str):
     try:
         # Capped at a day so one bogus value can't skew the telemetry.
         seconds_viewed = max(min(int(body.get("seconds_viewed") or 0), _MAX_VIEW_SECONDS), 0)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):  # OverflowError: JSON's 1e400 parses to infinity
         if log_id:
             return JsonResponse({"ok": False}, status=400)
         seconds_viewed = 0  # an open is still worth recording without it
@@ -4343,7 +4343,11 @@ def log_intervention_view(request, patient_id: str):
         return JsonResponse({"error": "Patient not found"}, status=404)
 
     # Only the patient: a therapist's or admin's call would mark the session as opened by the patient.
-    if not is_self(request, patient.userId.id):
+    try:
+        owner_id = patient.userId.id
+    except DoesNotExist:  # the patient's user record is gone; nobody can be them
+        return _forbidden_patient()
+    if not is_self(request, owner_id):
         return _forbidden_patient()
 
     if log_id:
