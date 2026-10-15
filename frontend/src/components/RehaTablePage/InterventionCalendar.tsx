@@ -58,11 +58,11 @@ const addMinutes = (d: Date, minutes: number) => new Date(d.getTime() + minutes 
 
 const DnDCalendar = withDragAndDrop(Calendar);
 
-// An opened session stays movable until its planned time; the backend refuses to move it after that.
+const DRAGGABLE_STATUSES = ['today', 'upcoming', 'accessed'];
+
+// Movable until its planned time, matching the backend, which refuses to move a session after that.
 const isEventDraggable = (event: CalendarEvent) =>
-  event.resource?.status === 'today' ||
-  event.resource?.status === 'upcoming' ||
-  (event.resource?.status === 'accessed' && event.start > new Date());
+  DRAGGABLE_STATUSES.includes(event.resource?.status || '') && event.start > new Date();
 
 interface Props {
   patientData: PatientPlan;

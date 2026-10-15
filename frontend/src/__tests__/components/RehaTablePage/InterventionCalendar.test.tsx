@@ -69,6 +69,8 @@ const openAnswer = () => ({
 
 const TODAY = new Date();
 TODAY.setHours(10, 0, 0, 0);
+// Sessions can only be dragged while their time is ahead, so drag tests use one in an hour.
+const SOON = new Date(Date.now() + 3600_000);
 
 const makeIntervention = (
   datetime: Date,
@@ -320,7 +322,7 @@ describe('InterventionCalendar big-calendar wiring', () => {
   it('colors a today event and marks it draggable', () => {
     render(
       <InterventionCalendar
-        patientData={makePatientData(TODAY, null, { status: 'today' }) as any}
+        patientData={makePatientData(SOON, null, { status: 'today' }) as any}
         onSelectIntervention={jest.fn()}
         onSelectFeedback={jest.fn()}
       />
@@ -329,10 +331,24 @@ describe('InterventionCalendar big-calendar wiring', () => {
     expect(screen.getByTestId('draggable')).toHaveTextContent('true');
   });
 
+  it('does not let a today session be dragged once its time has passed', () => {
+    // The backend refuses to move a past occurrence, even earlier the same day.
+    render(
+      <InterventionCalendar
+        patientData={
+          makePatientData(new Date(Date.now() - 3600_000), null, { status: 'today' }) as any
+        }
+        onSelectIntervention={jest.fn()}
+        onSelectFeedback={jest.fn()}
+      />
+    );
+    expect(screen.getByTestId('draggable')).toHaveTextContent('false');
+  });
+
   it('colors an upcoming event and marks it draggable', () => {
     render(
       <InterventionCalendar
-        patientData={makePatientData(TODAY, null, { status: 'upcoming' }) as any}
+        patientData={makePatientData(SOON, null, { status: 'upcoming' }) as any}
         onSelectIntervention={jest.fn()}
         onSelectFeedback={jest.fn()}
       />
@@ -394,7 +410,7 @@ describe('InterventionCalendar big-calendar wiring', () => {
     const onRescheduleEvent = jest.fn().mockResolvedValue(true);
     render(
       <InterventionCalendar
-        patientData={makePatientData(TODAY, null, { status: 'today' }) as any}
+        patientData={makePatientData(SOON, null, { status: 'today' }) as any}
         onSelectIntervention={jest.fn()}
         onSelectFeedback={jest.fn()}
         onRescheduleEvent={onRescheduleEvent}
@@ -404,7 +420,7 @@ describe('InterventionCalendar big-calendar wiring', () => {
     fireEvent.click(screen.getByText('drop event'));
 
     await screen.findByTestId('mock-calendar');
-    expect(onRescheduleEvent).toHaveBeenCalledWith('itv-1', TODAY.toISOString(), expect.any(Date));
+    expect(onRescheduleEvent).toHaveBeenCalledWith('itv-1', SOON.toISOString(), expect.any(Date));
   });
 
   it('does not reschedule a non-draggable (completed) event on drop', () => {
@@ -427,7 +443,7 @@ describe('InterventionCalendar big-calendar wiring', () => {
     const onRescheduleEvent = jest.fn().mockRejectedValue(new Error('network down'));
     render(
       <InterventionCalendar
-        patientData={makePatientData(TODAY, null, { status: 'today' }) as any}
+        patientData={makePatientData(SOON, null, { status: 'today' }) as any}
         onSelectIntervention={jest.fn()}
         onSelectFeedback={jest.fn()}
         onRescheduleEvent={onRescheduleEvent}
