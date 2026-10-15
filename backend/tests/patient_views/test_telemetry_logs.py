@@ -21,6 +21,7 @@ Coverage goals
 
 import json
 from datetime import datetime
+from unittest.mock import patch
 
 import mongomock
 import pytest
@@ -201,6 +202,25 @@ def test_log_intervention_view_leaving_sets_the_duration_on_the_same_row(mongo_m
 
     # Set once: a replayed or repeated request can't overwrite it.
     assert _update_view(patient, log_id, 7).status_code == 200
+    assert Logs.objects(id=log_id).first().details.endswith(" seconds=95")
+
+
+def test_log_intervention_view_concurrent_second_write_does_not_overwrite(mongo_mock):
+    """Two leave requests that both read the row before either wrote: only the first duration sticks."""
+    from mongoengine.queryset import QuerySet
+
+    patient = create_patient()
+    log_id = _open_view(patient, intervention_id="abc123").json()["id"]
+    stale = Logs.objects(id=log_id).first()
+    assert _update_view(patient, log_id, 95).status_code == 200
+
+    # The second request still sees the row as it was before the first write.
+    real_first = QuerySet.first
+    with patch.object(
+        QuerySet, "first", autospec=True, side_effect=lambda qs: stale if qs._document is Logs else real_first(qs)
+    ):
+        assert _update_view(patient, log_id, 7).status_code == 200
+
     assert Logs.objects(id=log_id).first().details.endswith(" seconds=95")
 
 

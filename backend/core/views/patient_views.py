@@ -4355,10 +4355,10 @@ def log_intervention_view(request, patient_id: str):
         )
         if log is None:
             return JsonResponse({"error": "View log not found"}, status=404)
-        # Set once: a replayed or repeated request can't overwrite a recorded duration.
+        # Set once, atomically: only while the stored details still end without a duration, so neither a
+        # replayed nor a concurrent second request can overwrite a recorded one.
         if (log.details or "").endswith(" seconds="):
-            log.details += str(seconds_viewed)
-            log.save()
+            Logs.objects(id=log.id, details=log.details).update_one(set__details=log.details + str(seconds_viewed))
         return JsonResponse({"ok": True, "id": str(log.id)}, status=200)
 
     # The page's URL may carry an id or an external_id. Storing the resolved id keeps unknown values out of
