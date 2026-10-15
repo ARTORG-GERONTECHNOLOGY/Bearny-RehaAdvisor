@@ -63,18 +63,15 @@ const getContentType = (x: unknown): string => {
   return typeof v === 'string' ? v : '';
 };
 
-type DateEntryLike = { datetime?: unknown; scheduled?: unknown; status?: unknown };
-
-// Planned slot and status per session. `datetime` can be a log's createdAt, so `scheduled` wins when present.
-const getDates = (x: unknown): Array<{ slot: string; status: string }> => {
+// Datetime and status per session.
+const getDates = (x: unknown): Array<{ datetime: string; status: string }> => {
   if (!x || typeof x !== 'object') return [];
   const o = x as { dates?: unknown };
   if (!Array.isArray(o.dates)) return [];
   return o.dates.flatMap((d) => {
     if (!d || typeof d !== 'object') return [];
-    const { datetime, scheduled, status } = d as DateEntryLike;
-    const slot = typeof scheduled === 'string' && scheduled ? scheduled : datetime;
-    return typeof slot === 'string' ? [{ slot, status: String(status || '') }] : [];
+    const { datetime, status } = d as { datetime?: unknown; status?: unknown };
+    return typeof datetime === 'string' ? [{ datetime, status: String(status || '') }] : [];
   });
 };
 
@@ -290,7 +287,7 @@ export class RehabTableStore {
     const planItem = this.planInterventionsById.get(interventionId);
     const dates = getDates(planItem);
     const now = new Date();
-    return dates.some((d) => new Date(d.slot) > now);
+    return dates.some((d) => new Date(d.datetime) > now);
   }
 
   private get matchedPatientItems(): Intervention[] {
@@ -775,7 +772,7 @@ export class RehabTableStore {
 
     const assigned = this.selectedAssignment as unknown;
     const dates = getDates(assigned)
-      .map((d) => new Date(d.slot))
+      .map((d) => new Date(d.datetime))
       .filter((d) => !Number.isNaN(d.getTime()))
       .sort((a, b) => a.getTime() - b.getTime());
 

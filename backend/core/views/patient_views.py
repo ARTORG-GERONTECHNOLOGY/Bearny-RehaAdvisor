@@ -3284,16 +3284,14 @@ def get_patient_plan_for_therapist(request, patient_id):
                         "comment": getattr(log, "comments", "") or "",
                     }
 
-                # Use the actual completion timestamp when available so the
-                # therapist sees when the patient submitted, not the scheduled time.
-                display_dt = log.createdAt if log and getattr(log, "createdAt", None) else date
+                # A completed session shows when the patient submitted it; any other keeps its planned slot,
+                # which dragging, rescheduling and removing it rely on.
+                display_dt = log.createdAt if status == "completed" and getattr(log, "createdAt", None) else date
                 intervention_dates.append(
                     {
                         # Attach the UTC offset explicitly — a naive isoformat string
                         # gets misparsed as local time by the frontend's `new Date()`.
                         "datetime": _as_aware_utc(display_dt).isoformat(),
-                        # datetime can be the log's createdAt; moving and drag rules need the planned slot.
-                        "scheduled": _as_aware_utc(date).isoformat(),
                         "status": status,
                         "feedback": feedback_entries,
                         **({"video": video_feedback} if video_feedback else {}),
@@ -4312,6 +4310,7 @@ def log_intervention_view(request, patient_id: str):
     Records a patient opening an intervention detail page, then how long they stayed.
     Body to create: { intervention_id, date } -> { ok, id }. The row's seconds stay empty until:
     Body to set the time on that row on leaving: { log_id, seconds_viewed }
+    App versions from before this flow post once on leaving, with seconds_viewed on the create; it's kept.
     """
 
     try:
@@ -4324,9 +4323,11 @@ def log_intervention_view(request, patient_id: str):
     date = str(body.get("date") or "").strip()
     try:
         # Capped at a day so one bogus value can't skew the telemetry.
-        seconds_viewed = min(int(body.get("seconds_viewed") or 0), _MAX_VIEW_SECONDS)
+        seconds_viewed = max(min(int(body.get("seconds_viewed") or 0), _MAX_VIEW_SECONDS), 0)
     except (TypeError, ValueError):
-        return JsonResponse({"ok": False}, status=400)
+        if log_id:
+            return JsonResponse({"ok": False}, status=400)
+        seconds_viewed = 0  # an open is still worth recording without it
 
     if log_id and seconds_viewed < 1:
         return JsonResponse({"ok": False}, status=400)
@@ -4354,9 +4355,9 @@ def log_intervention_view(request, patient_id: str):
         )
         if log is None:
             return JsonResponse({"error": "View log not found"}, status=404)
-        m = re.search(r"seconds=\d*$", log.details or "")
-        if m:
-            log.details = log.details[: m.start()] + f"seconds={seconds_viewed}"
+        # Set once: a replayed or repeated request can't overwrite a recorded duration.
+        if (log.details or "").endswith(" seconds="):
+            log.details += str(seconds_viewed)
             log.save()
         return JsonResponse({"ok": True, "id": str(log.id)}, status=200)
 
@@ -4375,7 +4376,7 @@ def log_intervention_view(request, patient_id: str):
             actor_role="Patient",
             user_agent=(request.headers.get("User-Agent", "") or "")[:300],
             patient=patient,
-            details=f"intervention_id={intervention.id} date={date} seconds=",
+            details=f"intervention_id={intervention.id} date={date} seconds={seconds_viewed or ''}",
         )
     except Exception:
         logger.exception("[log_intervention_view] Failed to write view log")

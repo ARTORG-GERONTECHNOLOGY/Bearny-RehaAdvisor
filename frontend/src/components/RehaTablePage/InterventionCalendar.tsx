@@ -23,8 +23,6 @@ type PatientPlan = { interventions: Intervention[] } & Record<string, any>;
 
 type DateEntry = {
   datetime: string;
-  // Planned slot; datetime can be a log's createdAt instead.
-  scheduled?: string;
   status?: 'completed' | 'accessed' | 'missed' | 'today' | 'upcoming' | string;
   feedback?: any[];
   video?: any;
@@ -60,14 +58,11 @@ const addMinutes = (d: Date, minutes: number) => new Date(d.getTime() + minutes 
 
 const DnDCalendar = withDragAndDrop(Calendar);
 
-const scheduledSlot = (entry: DateEntry) => entry.scheduled || entry.datetime;
-
 // An opened session stays movable until its planned time; the backend refuses to move it after that.
 const isEventDraggable = (event: CalendarEvent) =>
   event.resource?.status === 'today' ||
   event.resource?.status === 'upcoming' ||
-  (event.resource?.status === 'accessed' &&
-    new Date(scheduledSlot(event.resource.dateEntry)) > new Date());
+  (event.resource?.status === 'accessed' && event.start > new Date());
 
 interface Props {
   patientData: PatientPlan;
@@ -113,13 +108,11 @@ const InterventionCalendar: React.FC<Props> = ({
 
       // normalize dates
       for (const d of dates) {
-        // Completed sessions sit at when they were done; the rest at their planned slot, which drag also moves.
-        const at = d.status === 'completed' ? d.datetime : scheduledSlot(d);
-        const start = safeDate(at);
+        const start = safeDate(d.datetime);
         if (!start) continue;
 
         out.push({
-          id: `${it._id}__${at}`,
+          id: `${it._id}__${d.datetime}`,
           title: displayTitle,
           start,
           end: addMinutes(start, durationMin),
@@ -206,7 +199,7 @@ const InterventionCalendar: React.FC<Props> = ({
           try {
             const ok = await onRescheduleEvent(
               event.resource.interventionId,
-              scheduledSlot(event.resource.dateEntry),
+              event.resource.dateEntry.datetime,
               start
             );
             if (ok === false) return;

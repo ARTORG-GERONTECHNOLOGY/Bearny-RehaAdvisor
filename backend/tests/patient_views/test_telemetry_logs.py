@@ -199,8 +199,31 @@ def test_log_intervention_view_leaving_sets_the_duration_on_the_same_row(mongo_m
     assert Logs.objects(action="INTERVENTION_VIEW").count() == 1
     assert Logs.objects(id=log_id).first().details.endswith(" seconds=95")
 
-    assert _update_view(patient, log_id, 10**9).status_code == 200
+    # Set once: a replayed or repeated request can't overwrite it.
+    assert _update_view(patient, log_id, 7).status_code == 200
+    assert Logs.objects(id=log_id).first().details.endswith(" seconds=95")
+
+
+def test_log_intervention_view_duration_is_capped_at_a_day(mongo_mock):
+    patient = create_patient()
+    log_id = _open_view(patient, intervention_id="abc123").json()["id"]
+    _update_view(patient, log_id, 10**9)
     assert Logs.objects(id=log_id).first().details.endswith(" seconds=86400")
+
+
+@pytest.mark.parametrize(
+    "seconds_viewed, stored",
+    [(45, " seconds=45"), ("lots", " seconds="), (-3, " seconds=")],
+)
+def test_log_intervention_view_keeps_an_old_app_versions_duration(mongo_mock, seconds_viewed, stored):
+    """
+    App versions cached from before this flow post once on leaving, with the duration on the create. It is kept;
+    an unusable value doesn't cost the open.
+    """
+    patient = create_patient()
+    resp = _open_view(patient, intervention_id="abc123", date="2026-03-21", seconds_viewed=seconds_viewed)
+    assert resp.status_code == 200
+    assert Logs.objects(action="INTERVENTION_VIEW").first().details.endswith(stored)
 
 
 def test_log_intervention_view_leaving_needs_a_duration(mongo_mock):
@@ -238,7 +261,7 @@ def test_log_intervention_view_get_returns_405(mongo_mock):
 @pytest.mark.parametrize(
     "body",
     [
-        {"intervention_id": "abc123", "seconds_viewed": "lots"},
+        {"log_id": str(ObjectId()), "seconds_viewed": "lots"},
         {"log_id": 12345, "seconds_viewed": None},
         {"intervention_id": "x" * 201, "seconds_viewed": 5},
         {"intervention_id": "abc123", "date": "2026-03-21" * 200, "seconds_viewed": 5},

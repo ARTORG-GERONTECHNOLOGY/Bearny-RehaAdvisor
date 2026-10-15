@@ -908,8 +908,8 @@ def test_accessed_counts_a_view_from_after_plan_creation_but_before_its_start(mo
     assert resp.json()[0]["accessed_dates"] == [start_day.isoformat()]
 
 
-def test_therapist_plan_dates_carry_the_scheduled_slot(mongo_mock):
-    """``datetime`` may be a log's createdAt; ``scheduled`` is always the planned slot, for drag and reschedule."""
+def test_therapist_plan_shows_a_non_completed_session_with_a_log_at_its_planned_slot(mongo_mock):
+    """Only a completed session moves to its log's createdAt; any other keeps the slot drag and remove rely on."""
     patient, _, intervention, plan = setup_basic_plan()
     scheduled_dt, day = _local_noon_utc(2)
     plan.interventions[0].dates = [scheduled_dt]
@@ -932,8 +932,8 @@ def test_therapist_plan_dates_carry_the_scheduled_slot(mongo_mock):
     )
     assert resp.status_code == 200, resp.content.decode()
     entry = resp.json()["interventions"][0]["dates"][0]
-    assert entry["datetime"].startswith("2026-01-01T09:00")
-    assert entry["scheduled"] == scheduled_dt.replace(tzinfo=dt_timezone.utc).isoformat()
+    assert entry["status"] == "upcoming"
+    assert entry["datetime"] == scheduled_dt.replace(tzinfo=dt_timezone.utc).isoformat()
 
 
 def test_patient_plan_carries_accessed_to_the_new_day_but_not_a_view_logged_after_the_move(mongo_mock):

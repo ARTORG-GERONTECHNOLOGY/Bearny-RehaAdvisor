@@ -477,19 +477,6 @@ describe('getters', () => {
     expect(store.pastPatientItems.map((x) => x._id)).toEqual(['b']);
   });
 
-  it('splits active/past by the planned slot, not a log time in datetime', () => {
-    const store = makeStore();
-    const future = new Date(Date.now() + 86400000).toISOString();
-    const past = new Date(Date.now() - 86400000).toISOString();
-    (store as any).allInterventions = [{ _id: 'a', title: 'Upcoming, logged earlier' }];
-    (store as any).patientData = {
-      interventions: [{ _id: 'a', dates: [{ datetime: past, scheduled: future }] }],
-    };
-
-    expect(store.activePatientItems.map((x) => x._id)).toEqual(['a']);
-    expect(store.pastPatientItems).toEqual([]);
-  });
-
   it('selectedExerciseFromPlan prefers the plan item, then falls back to the catalog', () => {
     const store = makeStore();
     (store as any).allInterventions = [{ _id: 'cat-1', title: 'Catalog Item' }];

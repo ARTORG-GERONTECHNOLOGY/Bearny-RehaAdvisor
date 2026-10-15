@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import InterventionCalendar from '@/components/RehaTablePage/InterventionCalendar';
 
@@ -304,61 +304,6 @@ describe('InterventionCalendar big-calendar wiring', () => {
       />
     );
     expect(screen.getByTestId('draggable')).toHaveTextContent('false');
-  });
-
-  it('judges and moves an accessed session by its planned slot, not a log time it is drawn at', async () => {
-    const tomorrow = new Date(TODAY.getTime() + 86400000);
-    const loggedAt = new Date(TODAY.getTime() - 3 * 86400000);
-    const onRescheduleEvent = jest.fn().mockResolvedValue(true);
-    render(
-      <InterventionCalendar
-        patientData={
-          makePatientData(loggedAt, null, {
-            status: 'accessed',
-            scheduled: tomorrow.toISOString(),
-          }) as any
-        }
-        onSelectIntervention={jest.fn()}
-        onSelectFeedback={jest.fn()}
-        onRescheduleEvent={onRescheduleEvent}
-      />
-    );
-    expect(screen.getByTestId('draggable')).toHaveTextContent('true');
-
-    fireEvent.click(screen.getByText('drop event'));
-    await waitFor(() =>
-      expect(onRescheduleEvent).toHaveBeenCalledWith(
-        'itv-1',
-        tomorrow.toISOString(),
-        expect.any(Date)
-      )
-    );
-  });
-
-  it('draws a session that is not completed at its planned slot, a completed one at when it was done', () => {
-    const at = (h: number, m: number) => {
-      const d = new Date(TODAY.getTime() + 86400000);
-      d.setHours(h, m, 0, 0);
-      return d.toISOString();
-    };
-    const entry = (status: string) => ({ datetime: at(8, 13), scheduled: at(18, 0), status });
-    const { rerender } = render(
-      <InterventionCalendar
-        patientData={makePatientData(TODAY, null, entry('accessed')) as any}
-        onSelectIntervention={jest.fn()}
-        onSelectFeedback={jest.fn()}
-      />
-    );
-    expect(screen.getByText(/18:00 – 18:30/)).toBeInTheDocument();
-
-    rerender(
-      <InterventionCalendar
-        patientData={makePatientData(TODAY, null, entry('completed')) as any}
-        onSelectIntervention={jest.fn()}
-        onSelectFeedback={jest.fn()}
-      />
-    );
-    expect(screen.getByText(/08:13 – 08:43/)).toBeInTheDocument();
   });
 
   it('colors a missed event', () => {
