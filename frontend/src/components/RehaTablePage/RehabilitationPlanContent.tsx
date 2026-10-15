@@ -18,6 +18,7 @@ import '@/assets/styles/RehabTable.css';
 import { RehabilitationPlanContentLoadingSkeleton } from '@/components/skeletons/TherapistPatientDetailSkeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { DATE_STATUS_LABELS, getInterventionDateStatusClass } from '@/utils/interventions';
 
 interface RehabilitationPlanContentProps {
   patientId: string;
@@ -103,6 +104,8 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                     setBenefitForFilter: store.setBenefitForFilter,
                     languageFilter: store.languageFilter,
                     setLanguageFilter: store.setLanguageFilter,
+                    statusFilter: store.statusFilter,
+                    setStatusFilter: store.setStatusFilter,
                     resetFilters: store.resetAllFilters,
                   },
                   active: {
@@ -118,6 +121,8 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                     setBenefitForFilter: store.setActiveBenefitForFilter,
                     languageFilter: store.activeLanguageFilter,
                     setLanguageFilter: store.setActiveLanguageFilter,
+                    statusFilter: store.activeStatusFilter,
+                    setStatusFilter: store.setActiveStatusFilter,
                     resetFilters: store.resetActiveFilters,
                   },
                   past: {
@@ -133,6 +138,8 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                     setBenefitForFilter: store.setPastBenefitForFilter,
                     languageFilter: store.pastLanguageFilter,
                     setLanguageFilter: store.setPastLanguageFilter,
+                    statusFilter: store.pastStatusFilter,
+                    setStatusFilter: store.setPastStatusFilter,
                     resetFilters: store.resetPastFilters,
                   },
                 }}
@@ -157,21 +164,15 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                 <CardTitle>{t('Reha Calendar')}</CardTitle>
                 <CardDescription className="flex flex-wrap items-center gap-1">
                   {t('Status')}:
-                  <Badge variant="dashboard" className="bg-ok/5 border-ok text-ok">
-                    {t('Completed')}
-                  </Badge>
-                  <Badge variant="dashboard" className="bg-pink/5 border-pink text-pink">
-                    {t('Missed')}
-                  </Badge>
-                  <Badge variant="dashboard" className="bg-yellow/5 border-yellow text-yellow">
-                    {t('today')}
-                  </Badge>
-                  <Badge
-                    variant="dashboard"
-                    className="bg-chartMuted/5 border-chartMuted text-zinc-500"
-                  >
-                    {t('Upcoming')}
-                  </Badge>
+                  {Object.entries(DATE_STATUS_LABELS).map(([status, label]) => (
+                    <Badge
+                      key={status}
+                      variant="dashboard"
+                      className={getInterventionDateStatusClass(status)}
+                    >
+                      {t(label)}
+                    </Badge>
+                  ))}
                 </CardDescription>
               </CardHeader>
               <CardContent className="rehaCalendarWrap">

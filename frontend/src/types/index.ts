@@ -131,7 +131,7 @@ export interface PendingEntry {
 
 export interface InterventionLog {
   datetime: string;
-  status: 'completed' | 'missed' | 'today' | 'upcoming';
+  status: 'completed' | 'accessed' | 'missed' | 'today' | 'upcoming';
   feedback?: FeedbackEntry[];
 }
 
@@ -198,7 +198,7 @@ export interface Intervention {
 
 export interface InterventionDate {
   datetime: string;
-  status: 'completed' | 'missed' | 'today' | 'upcoming';
+  status: 'completed' | 'accessed' | 'missed' | 'today' | 'upcoming';
   feedback?: FeedbackEntry[];
 }
 

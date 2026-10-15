@@ -177,7 +177,11 @@ const PatientView: React.FC = observer(() => {
 
         <StatusBanner type="success" message={pageSuccess} onClose={dismissPageSuccess} />
         <StatusBanner type="destructive" message={pageError} onClose={dismissPageError} />
-        {patientFitbitStore.useGoogleHealth && <ReconnectBanner />}
+        {/* Full width above the cards on desktop instead of taking a grid column. */}
+        {patientFitbitStore.useGoogleHealth && (
+          <ReconnectBanner className="lg:col-span-3 lg:order-first" />
+        )}
+
         <ActivitySection
           loading={patientFitbitStore.connected === null || patientFitbitStore.summaryLoading}
           connected={Boolean(patientFitbitStore.connected)}

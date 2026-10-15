@@ -276,11 +276,30 @@ export const getMediaBadge = (media: InterventionMedia[]) => {
   }
 };
 
-/** Tailwind classes for an intervention date's status badge (completed/missed/today/upcoming). */
+/** Translation key per intervention date status, in legend order. */
+export const DATE_STATUS_LABELS = {
+  completed: 'Completed',
+  accessed: 'Accessed',
+  missed: 'Missed',
+  today: 'today',
+  upcoming: 'Upcoming',
+} as const;
+
+/** Status filter choices and their translation keys; "not_seen" is not a session status, so it has its own label. */
+export const DATE_STATUS_FILTER_OPTIONS = [
+  { value: 'completed', label: DATE_STATUS_LABELS.completed },
+  { value: 'accessed', label: DATE_STATUS_LABELS.accessed },
+  { value: 'missed', label: DATE_STATUS_LABELS.missed },
+  { value: 'not_seen', label: 'Not seen yet' },
+] as const;
+
+/** Tailwind classes for an intervention date's status badge (completed/accessed/missed/today/upcoming). */
 export const getInterventionDateStatusClass = (status: string): string => {
   switch (String(status || '').toLowerCase()) {
     case 'completed':
       return 'border border-ok bg-ok/5 text-ok';
+    case 'accessed':
+      return 'border border-blue-500 bg-blue-500/5 text-blue-500';
     case 'missed':
       return 'border border-pink bg-pink/5 text-pink';
     case 'today':

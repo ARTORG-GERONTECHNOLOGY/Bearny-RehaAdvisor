@@ -62,6 +62,7 @@ jest.mock('@/stores/patientInterventionsStore', () => {
         const dateKey = format(date, 'yyyy-MM-dd');
         return rec.completed_dates?.includes(dateKey) || false;
       }),
+      isAccessedOn: jest.fn(() => false),
     },
   };
 });

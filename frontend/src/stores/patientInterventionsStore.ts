@@ -34,6 +34,8 @@ export type PatientRec = {
   // assignment
   dates: string[];
   completion_dates?: string[];
+  // Days the patient opened the intervention, as YYYY-MM-DD.
+  accessed_dates?: string[];
   frequency?: string;
   notes?: string;
   require_video_feedback?: boolean;
@@ -120,6 +122,10 @@ class PatientInterventionsStore {
     return asArray<string>(rec.completion_dates).some((d) => String(d).startsWith(dateStr));
   }
 
+  isAccessedOn(rec: PatientRec, date: Date) {
+    return asArray<string>(rec.accessed_dates).includes(format(date, 'yyyy-MM-dd'));
+  }
+
   async fetchPlan(patientId: string, uiLang: string) {
     this.currentPatientId = patientId;
     const generation = ++this.fetchGeneration;
@@ -168,6 +174,7 @@ class PatientInterventionsStore {
 
           dates: asArray<string>(row?.dates),
           completion_dates: asArray<string>(row?.completion_dates),
+          accessed_dates: asArray<string>(row?.accessed_dates),
           frequency: String(row?.frequency || ''),
           notes: String(row?.notes || ''),
           require_video_feedback: Boolean(row?.require_video_feedback),

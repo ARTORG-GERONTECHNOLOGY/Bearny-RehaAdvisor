@@ -71,6 +71,21 @@ describe('PatientInterventionsStore', () => {
   });
 
   // ------------------------------------------------------------------
+  // isAccessedOn
+  // ------------------------------------------------------------------
+  describe('isAccessedOn', () => {
+    it('matches the local day key of the date', () => {
+      const rec = { accessed_dates: ['2026-01-05'] } as any;
+      expect(store.isAccessedOn(rec, new Date(2026, 0, 5, 18))).toBe(true);
+      expect(store.isAccessedOn(rec, new Date(2026, 0, 6))).toBe(false);
+    });
+
+    it('is false when accessed_dates is missing', () => {
+      expect(store.isAccessedOn({} as any, new Date(2026, 0, 5))).toBe(false);
+    });
+  });
+
+  // ------------------------------------------------------------------
   // fetchPlan
   // ------------------------------------------------------------------
   describe('fetchPlan', () => {
@@ -153,6 +168,14 @@ describe('PatientInterventionsStore', () => {
       expect(rec.description).toBe('Meta Desc');
       expect(rec.preview_img).toBe('meta.jpg');
       expect(rec.media).toEqual([{ url: 'meta' }]);
+    });
+
+    it('takes accessed_dates from the server as is', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [{ intervention_id: 'int-1', accessed_dates: ['2026-01-04'] }],
+      });
+      await store.fetchPlan('patient-1', 'en');
+      expect(store.items[0].accessed_dates).toEqual(['2026-01-04']);
     });
 
     it('defaults duration to undefined when not a number', async () => {

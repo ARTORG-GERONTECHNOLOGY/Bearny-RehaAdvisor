@@ -1764,5 +1764,9 @@
   "Daily at {{time}}": "Dagelijks om {{time}}",
   "Weekly on {{day}} at {{time}}": "Wekelijks op {{day}} om {{time}}",
   "Every hour": "Elk uur",
-  "Every {{hours}} hours": "Elke {{hours}} uur"
+  "Every {{hours}} hours": "Elke {{hours}} uur",
+  "Accessed": "Geopend",
+  "Opened, not completed": "Geopend, niet voltooid",
+  "Filter by Status": "Filteren op status",
+  "Not seen yet": "Nog niet gezien"
 }

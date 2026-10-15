@@ -7,10 +7,11 @@ import { patientFitbitStore } from '@/stores/patientFitbitStore';
 import authStore from '@/stores/authStore';
 import { buildFitbitAuthUrl } from '@/utils/fitbitAuthUrl';
 import { buildGoogleHealthAuthUrl } from '@/utils/googleHealthAuthUrl';
+import { cn } from '@/lib/utils';
 
 const DISMISS_KEY = (id: string) => `reconnect_banner_dismissed_${id}`;
 
-const ReconnectBanner: React.FC = observer(() => {
+const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className }) => {
   const { t } = useTranslation();
   const patientId = authStore.getStoredUserId();
   const [dismissed, setDismissed] = useState(
@@ -46,12 +47,17 @@ const ReconnectBanner: React.FC = observer(() => {
   };
 
   return (
-    <div className="p-4 rounded-3xl border border-yellow bg-yellow/10 flex items-center gap-3">
+    <div
+      className={cn(
+        'p-4 rounded-3xl border border-yellow bg-yellow/10 flex flex-wrap items-center gap-3',
+        className
+      )}
+    >
       <div className="shrink-0 w-10 h-10 rounded-full bg-yellow/20 flex items-center justify-center">
         <WifiIcon className="w-5 h-5 text-yellow" />
       </div>
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-48 break-words">
         <div className="font-bold text-sm text-zinc-800">
           {hrScopeMissing
             ? t('hrScopeBannerTitle')
@@ -64,9 +70,9 @@ const ReconnectBanner: React.FC = observer(() => {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-2 ml-auto">
         <Button
-          size="sm"
+          size="dashboard"
           className="bg-yellow hover:bg-yellow/90 text-white rounded-2xl"
           onClick={handleReconnect}
           disabled={reconnecting}

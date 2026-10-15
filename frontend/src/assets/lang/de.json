@@ -1764,5 +1764,9 @@
   "Daily at {{time}}": "Täglich um {{time}}",
   "Weekly on {{day}} at {{time}}": "Wöchentlich am {{day}} um {{time}}",
   "Every hour": "Stündlich",
-  "Every {{hours}} hours": "Alle {{hours}} Stunden"
+  "Every {{hours}} hours": "Alle {{hours}} Stunden",
+  "Accessed": "Geöffnet",
+  "Opened, not completed": "Geöffnet, nicht abgeschlossen",
+  "Filter by Status": "Nach Status filtern",
+  "Not seen yet": "Noch nicht gesehen"
 }
