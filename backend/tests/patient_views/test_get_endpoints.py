@@ -980,8 +980,8 @@ def test_therapist_plan_lists_every_viewed_intervention_including_unplanned(mong
 
 def test_patient_plan_returns_accessed_dates_from_view_logs(mongo_mock):
     """
-    ``accessed_dates`` lists the days the patient opened the intervention: the ``date`` the detail page was
-    opened for, or the log's own day when it was opened without one. Views of other interventions don't count.
+    ``accessed_dates`` lists the session days the patient opened from the plan. A library open (no ``date``) marks
+    no session, even one planned that day, and views of other interventions don't count.
     """
     patient, _, intervention, plan = setup_basic_plan()
     plan.startDate = datetime.utcnow() - timedelta(days=7)
@@ -990,10 +990,9 @@ def test_patient_plan_returns_accessed_dates_from_view_logs(mongo_mock):
         title="Other", description="d", content_type="Video", external_id="TEST-EXT-OTHER", language="en"
     ).save()
     _, scheduled_day = _local_noon_utc(1)
-    opened_at, opened_day = _local_noon_utc(-4)
 
     _log_view(patient, str(intervention.id), scheduled_day)
-    _log_view(patient, intervention.external_id, timestamp=opened_at)
+    _log_view(patient, intervention.external_id)
     _log_view(patient, str(other.id), timezone.localdate())
 
     resp = client.get(
@@ -1002,7 +1001,7 @@ def test_patient_plan_returns_accessed_dates_from_view_logs(mongo_mock):
     )
     assert resp.status_code == 200, resp.content.decode()
     rows = resp.json()
-    assert rows[0]["accessed_dates"] == sorted([opened_day.isoformat(), scheduled_day.isoformat()])
+    assert rows[0]["accessed_dates"] == [scheduled_day.isoformat()]
 
 
 # ===========================================================================

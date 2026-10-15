@@ -971,20 +971,23 @@ _RESCHEDULE_DETAILS_RE = re.compile(r"from=(\S+) to=(\S+) intervention_id=(\S+)"
 
 
 def _accessed_logs(patient, since=None):
-    """({ref -> [(day, logged_at)]} from INTERVENTION_VIEW logs, {external_id -> [(moved_at, from_day, to_day)]})."""
+    """
+    From INTERVENTION_VIEW and INTERVENTION_RESCHEDULE logs:
+    ({ref -> [(session day, logged_at)]}, {external_id -> [(moved_at, from_day, to_day)]}, {every ref opened}).
+    """
     window = {"timestamp__gte": since} if since else {}
     views: dict = {}
+    opened: set = set()
     for lg in Logs.objects(userId=patient.userId, action="INTERVENTION_VIEW", **window).only("details", "timestamp"):
         m = _VIEW_DETAILS_RE.match(lg.details or "")
         if not m or not lg.timestamp:
             continue
+        opened.add(m.group(1))
+        # Only an open from the plan names its session's day; a library open (no date) marks no session.
         try:
-            day = datetime.date.fromisoformat(m.group(2))
+            views.setdefault(m.group(1), []).append((datetime.date.fromisoformat(m.group(2)), lg.timestamp))
         except ValueError:
-            # Opened without a ?date= (e.g. from the library): count it for the day it was opened.
-            day = _local_day(lg.timestamp)
-        if day:
-            views.setdefault(m.group(1), []).append((day, lg.timestamp))
+            continue
 
     moves: dict = {}
     for lg in Logs.objects(patient=patient, action="INTERVENTION_RESCHEDULE", **window).only("details", "timestamp"):
@@ -997,7 +1000,7 @@ def _accessed_logs(patient, since=None):
         except ValueError:
             continue
         moves.setdefault(m.group(3), []).append((lg.timestamp, from_day, to_day))
-    return views, moves
+    return views, moves, opened
 
 
 def _accessed_since(plan):
@@ -1008,7 +1011,7 @@ def _accessed_since(plan):
 
 def _accessed_days(accessed_logs, intervention, variant_ids) -> set:
     """Days any variant of this intervention was opened, carried along when an opened session was rescheduled."""
-    views, moves = accessed_logs
+    views, moves, _ = accessed_logs
     ext_id = getattr(intervention, "external_id", None)
     refs = {str(v) for v in variant_ids} | ({ext_id} if ext_id else set())
     seen = [v for r in refs for v in views.get(r, [])]
@@ -1022,13 +1025,13 @@ def _accessed_days(accessed_logs, intervention, variant_ids) -> set:
 
 
 def _viewed_intervention_refs(accessed_logs) -> list:
-    """Every intervention the patient opened, planned or not, as external_ids (raw id when it has none)."""
-    views, _ = accessed_logs
-    ids = [r for r in views if ObjectId.is_valid(r)]
+    """Every intervention the patient opened, from the plan or the library, as external_ids (raw id when it has none)."""
+    _, _, opened = accessed_logs
+    ids = [r for r in opened if ObjectId.is_valid(r)]
     ext_by_id = {
         str(iv.id): iv.external_id for iv in Intervention.objects(id__in=ids).only("external_id") if iv.external_id
     }
-    return sorted({ext_by_id.get(r, r) for r in views})
+    return sorted({ext_by_id.get(r, r) for r in opened})
 
 
 def _intervention_meta(intervention) -> dict:
@@ -4307,8 +4310,8 @@ def log_intervention_view(request, patient_id: str):
     """
     POST /api/patients/vitals/intervention-view/<patient_id>/
     Records a patient opening an intervention detail page, then how long they stayed.
-    Body to create: { intervention_id, date, seconds_viewed } -> { ok, id }
-    Body to update the time on that row: { log_id, seconds_viewed }
+    Body to create: { intervention_id, date } -> { ok, id }. The row's seconds stay empty until:
+    Body to set the time on that row on leaving: { log_id, seconds_viewed }
     """
 
     try:
@@ -4325,7 +4328,9 @@ def log_intervention_view(request, patient_id: str):
     except (TypeError, ValueError):
         return JsonResponse({"ok": False}, status=400)
 
-    if (not log_id and not intervention_id) or seconds_viewed < 1 or len(intervention_id) > _MAX_VIEW_REF_LENGTH:
+    if log_id and seconds_viewed < 1:
+        return JsonResponse({"ok": False}, status=400)
+    if not log_id and (not intervention_id or len(intervention_id) > _MAX_VIEW_REF_LENGTH):
         return JsonResponse({"ok": False}, status=400)
     if date:
         try:
@@ -4349,9 +4354,8 @@ def log_intervention_view(request, patient_id: str):
         )
         if log is None:
             return JsonResponse({"error": "View log not found"}, status=404)
-        m = re.search(r"seconds=(\d+)$", log.details or "")
-        # Only ever grows: a late, out-of-order update must not shorten the visit.
-        if m and seconds_viewed > int(m.group(1)):
+        m = re.search(r"seconds=\d*$", log.details or "")
+        if m:
             log.details = log.details[: m.start()] + f"seconds={seconds_viewed}"
             log.save()
         return JsonResponse({"ok": True, "id": str(log.id)}, status=200)
@@ -4371,7 +4375,7 @@ def log_intervention_view(request, patient_id: str):
             actor_role="Patient",
             user_agent=(request.headers.get("User-Agent", "") or "")[:300],
             patient=patient,
-            details=f"intervention_id={intervention.id} date={date} seconds={seconds_viewed}",
+            details=f"intervention_id={intervention.id} date={date} seconds=",
         )
     except Exception:
         logger.exception("[log_intervention_view] Failed to write view log")

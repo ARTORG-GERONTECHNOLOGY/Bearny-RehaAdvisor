@@ -12,10 +12,10 @@ Coverage goals
 --------------
 * ``add_manual_vitals`` persists a ``Logs`` document with ``action="VITALS_SUBMIT"``
   and a ``details`` string that includes the recorded fields.
-* ``log_intervention_view`` (happy path) persists ``action="INTERVENTION_VIEW"``
-  with the intervention_id and seconds_viewed encoded in ``details``.
-* ``log_intervention_view`` rejects GET (405) and payloads with zero or missing
-  seconds_viewed (400).
+* ``log_intervention_view`` persists ``action="INTERVENTION_VIEW"`` on open, for a
+  real intervention only, and fills in seconds_viewed on that row when the patient leaves.
+* ``log_intervention_view`` rejects GET (405), unknown interventions and a leave
+  without seconds_viewed (400).
 * Logs entry is linked to the correct patient User.
 """
 
@@ -140,26 +140,29 @@ def test_add_manual_vitals_log_details_contain_bp(mongo_mock):
 # ---------------------------------------------------------------------------
 
 
-def test_log_intervention_view_happy_path(mongo_mock):
-    """
-    A valid POST creates an INTERVENTION_VIEW Logs entry containing the
-    intervention_id and seconds_viewed.
-    """
-    patient = create_patient()
-    resp = client.post(
+def _open_view(patient, **body):
+    return client.post(
         VIEW_URL.format(patient_id=str(patient.id)),
-        data=json.dumps({"intervention_id": "abc123", "date": "2026-03-21", "seconds_viewed": 45}),
+        data=json.dumps(body),
         content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",
     )
+
+
+def test_log_intervention_view_happy_path(mongo_mock):
+    """
+    Opening creates an INTERVENTION_VIEW row for the intervention with no duration yet; it gets one only if the
+    patient leaves the page normally.
+    """
+    patient = create_patient()
+    resp = _open_view(patient, intervention_id="abc123", date="2026-03-21")
     assert resp.status_code == 200
     assert resp.json().get("ok") is True
 
     log = Logs.objects(action="INTERVENTION_VIEW").first()
     assert log is not None
     # Stored by its id, whatever form the page's URL used.
-    assert f"intervention_id={Intervention.objects.first().id} " in (log.details or "")
-    assert "seconds=45" in (log.details or "")
+    assert log.details == f"intervention_id={Intervention.objects.first().id} date=2026-03-21 seconds="
     assert log.userId.id == patient.userId.id
     assert resp.json()["id"] == str(log.id)
 
@@ -178,17 +181,6 @@ def test_log_intervention_view_rejects_an_unknown_intervention(mongo_mock, inter
     assert Logs.objects(action="INTERVENTION_VIEW").count() == 0
 
 
-def test_log_intervention_view_caps_seconds_at_a_day(mongo_mock):
-    patient = create_patient()
-    client.post(
-        VIEW_URL.format(patient_id=str(patient.id)),
-        data=json.dumps({"intervention_id": "abc123", "seconds_viewed": 10**9}),
-        content_type="application/json",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
-    assert Logs.objects(action="INTERVENTION_VIEW").first().details.endswith("seconds=86400")
-
-
 def _update_view(patient, log_id, seconds):
     return client.post(
         VIEW_URL.format(patient_id=str(patient.id)),
@@ -198,25 +190,24 @@ def _update_view(patient, log_id, seconds):
     )
 
 
-def test_log_intervention_view_update_sets_seconds_on_the_same_row(mongo_mock):
-    """The page logs on open and updates that row's time on leaving: one row per visit."""
+def test_log_intervention_view_leaving_sets_the_duration_on_the_same_row(mongo_mock):
+    """One row per visit: the duration is filled in on leaving, capped at a day so one bogus value can't skew it."""
     patient = create_patient()
-    resp = client.post(
-        VIEW_URL.format(patient_id=str(patient.id)),
-        data=json.dumps({"intervention_id": "abc123", "date": "2026-03-21", "seconds_viewed": 2}),
-        content_type="application/json",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
-    log_id = resp.json()["id"]
+    log_id = _open_view(patient, intervention_id="abc123", date="2026-03-21").json()["id"]
 
     assert _update_view(patient, log_id, 95).status_code == 200
-    # A late, out-of-order update must not shorten the visit.
-    assert _update_view(patient, log_id, 40).status_code == 200
-
     assert Logs.objects(action="INTERVENTION_VIEW").count() == 1
-    assert Logs.objects(action="INTERVENTION_VIEW").first().details == (
-        f"intervention_id={Intervention.objects.first().id} date=2026-03-21 seconds=95"
-    )
+    assert Logs.objects(id=log_id).first().details.endswith(" seconds=95")
+
+    assert _update_view(patient, log_id, 10**9).status_code == 200
+    assert Logs.objects(id=log_id).first().details.endswith(" seconds=86400")
+
+
+def test_log_intervention_view_leaving_needs_a_duration(mongo_mock):
+    patient = create_patient()
+    log_id = _open_view(patient, intervention_id="abc123").json()["id"]
+    assert _update_view(patient, log_id, 0).status_code == 400
+    assert Logs.objects(id=log_id).first().details.endswith(" seconds=")
 
 
 def test_log_intervention_view_update_only_touches_an_existing_view_row(mongo_mock):
@@ -242,18 +233,6 @@ def test_log_intervention_view_get_returns_405(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 405
-
-
-def test_log_intervention_view_zero_seconds_rejected(mongo_mock):
-    patient = create_patient()
-    resp = client.post(
-        VIEW_URL.format(patient_id=str(patient.id)),
-        data=json.dumps({"intervention_id": "abc123", "seconds_viewed": 0}),
-        content_type="application/json",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
-    assert resp.status_code == 400
-    assert Logs.objects(action="INTERVENTION_VIEW").count() == 0
 
 
 @pytest.mark.parametrize(

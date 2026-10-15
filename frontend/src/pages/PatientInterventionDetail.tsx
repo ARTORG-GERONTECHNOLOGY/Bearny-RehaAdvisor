@@ -475,81 +475,31 @@ const PatientInterventionDetail: React.FC = observer(() => {
     return null;
   }, [selectedRec, selectedLibraryItem]);
 
-  // Log the visit once the page has been on screen for 2s, then keep that row's time up to date.
-  // Logging on open (not on leaving) means the dashboard's next fetch already sees the view.
+  // Log the visit as opened after 2s on the page; its duration is added on leaving. If leaving is never seen
+  // (app killed, request lost), the open stays recorded and the duration stays empty.
   const viewDateParam = searchParams.get('date') || '';
   useEffect(() => {
     if (!patientId || !interventionId) return;
     const url = `/patients/vitals/intervention-view/${patientId}/`;
-    let visibleMs = 0;
-    let visibleSince: number | null = document.visibilityState === 'hidden' ? null : Date.now();
+    const openedAt = Date.now();
     let logId: Promise<string | null> | null = null;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    // keepalive lets a request outlive the page when the app is swiped away.
-    const KEEPALIVE = { adapter: 'fetch' as const, fetchOptions: { keepalive: true } };
 
-    const seconds = () =>
-      Math.round((visibleMs + (visibleSince === null ? 0 : Date.now() - visibleSince)) / 1000);
-
-    let retriesLeft = 3;
-
-    const create = () => {
-      let retryable = false;
+    const timer = setTimeout(() => {
       logId = apiClient
-        .post(
-          url,
-          { intervention_id: interventionId, date: viewDateParam, seconds_viewed: seconds() },
-          KEEPALIVE
-        )
+        .post(url, { intervention_id: interventionId, date: viewDateParam })
         .then(({ data }) => (data?.id ? String(data.id) : null))
-        .catch((err) => {
-          // A 4xx won't change on a retry; network errors and 5xx might.
-          retryable = !(err?.response?.status >= 400 && err.response.status < 500);
-          return null;
-        })
-        .then((id) => {
-          if (id) return id;
-          // Forgotten, so the next time the page is on screen tries again; meanwhile retry while it stays.
-          logId = null;
-          if (retryable && retriesLeft > 0 && visibleSince !== null) {
-            retriesLeft -= 1;
-            timer = setTimeout(create, 10_000);
-          }
-          return null;
-        });
-    };
-    const armTimer = () => {
-      if (!logId) timer = setTimeout(create, Math.max(0, 2000 - visibleMs));
-    };
-    // Hidden or left: bank the visible time and update the row.
-    const pause = () => {
+        .catch(() => null);
+    }, 2000);
+
+    return () => {
       clearTimeout(timer);
-      if (visibleSince !== null) {
-        visibleMs += Date.now() - visibleSince;
-        visibleSince = null;
-      }
+      const seconds = Math.round((Date.now() - openedAt) / 1000);
       void logId?.then((id) => {
         if (!id) return;
-        apiClient.post(url, { log_id: id, seconds_viewed: seconds() }, KEEPALIVE).catch(() => {
+        apiClient.post(url, { log_id: id, seconds_viewed: seconds }).catch(() => {
           /* best-effort, no noise */
         });
       });
-    };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        pause();
-      } else if (visibleSince === null) {
-        visibleSince = Date.now();
-        armTimer();
-      }
-    };
-
-    if (visibleSince !== null) armTimer();
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      if (visibleSince !== null) pause();
-      else clearTimeout(timer);
     };
   }, [patientId, interventionId, viewDateParam]);
 

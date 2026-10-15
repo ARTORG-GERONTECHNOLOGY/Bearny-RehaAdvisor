@@ -322,11 +322,6 @@ describe('PatientInterventionDetail', () => {
   });
 
   describe('view logging', () => {
-    const visibility = () => jest.spyOn(document, 'visibilityState', 'get');
-    const setVisibility = (state: DocumentVisibilityState) => {
-      visibility().mockReturnValue(state);
-      document.dispatchEvent(new Event('visibilitychange'));
-    };
     const viewPosts = () =>
       mockApiPost.mock.calls.filter(([url]) => String(url).includes('/intervention-view/'));
     const advance = async (ms: number) => {
@@ -335,11 +330,9 @@ describe('PatientInterventionDetail', () => {
         for (let i = 0; i < 5; i++) await Promise.resolve();
       });
     };
-    const KEEPALIVE = expect.objectContaining({ fetchOptions: { keepalive: true } });
 
     beforeEach(() => {
       jest.useFakeTimers();
-      visibility().mockReturnValue('visible');
       mockApiPost.mockImplementation((_url: string, body: any) =>
         Promise.resolve(body?.log_id ? {} : { data: { id: 'log-1' } })
       );
@@ -348,7 +341,6 @@ describe('PatientInterventionDetail', () => {
 
     afterEach(() => {
       jest.useRealTimers();
-      jest.restoreAllMocks();
       mockApiPost.mockReset().mockResolvedValue({});
     });
 
@@ -358,7 +350,7 @@ describe('PatientInterventionDetail', () => {
       return utils;
     };
 
-    it('logs the visit once the page has been on screen for 2 seconds', async () => {
+    it('logs the visit as opened once the page has been open for 2 seconds', async () => {
       await renderDetail();
       await advance(1_900);
       expect(viewPosts()).toHaveLength(0);
@@ -367,24 +359,19 @@ describe('PatientInterventionDetail', () => {
       expect(viewPosts()).toEqual([
         [
           expect.stringContaining('/patients/vitals/intervention-view/'),
-          { intervention_id: 'int-1', date: '2026-03-16', seconds_viewed: 2 },
-          KEEPALIVE,
+          { intervention_id: 'int-1', date: '2026-03-16' },
         ],
       ]);
     });
 
-    it('updates that same row with the time on screen when leaving, with keepalive', async () => {
+    it('adds the duration to that same row when leaving', async () => {
       const { unmount } = await renderDetail();
       await advance(10_000);
       unmount();
       await advance(0);
 
       expect(viewPosts()).toHaveLength(2);
-      expect(viewPosts()[1]).toEqual([
-        expect.any(String),
-        { log_id: 'log-1', seconds_viewed: 10 },
-        KEEPALIVE,
-      ]);
+      expect(viewPosts()[1][1]).toEqual({ log_id: 'log-1', seconds_viewed: 10 });
     });
 
     it('does not log a visit shorter than 2 seconds', async () => {
@@ -395,68 +382,13 @@ describe('PatientInterventionDetail', () => {
       expect(viewPosts()).toHaveLength(0);
     });
 
-    it('updates on backgrounding and counts only the time on screen', async () => {
+    it('leaves the duration out when the open could not be logged', async () => {
+      mockApiPost.mockRejectedValue(new Error('offline'));
       const { unmount } = await renderDetail();
       await advance(5_000);
-      // Backgrounding or closing the app never unmounts the page.
-      setVisibility('hidden');
-      await advance(3_600_000);
-      setVisibility('visible');
-      await advance(4_000);
       unmount();
       await advance(0);
-
-      expect(viewPosts().map(([, body]) => body)).toEqual([
-        expect.objectContaining({ seconds_viewed: 2 }),
-        { log_id: 'log-1', seconds_viewed: 5 },
-        { log_id: 'log-1', seconds_viewed: 9 },
-      ]);
-    });
-
-    it('tries again the next time the page is on screen when logging failed', async () => {
-      mockApiPost.mockRejectedValueOnce(new Error('offline'));
-      await renderDetail();
-      await advance(2_000);
       expect(viewPosts()).toHaveLength(1);
-
-      setVisibility('hidden');
-      setVisibility('visible');
-      await advance(0);
-      expect(viewPosts()).toHaveLength(2);
-      expect(viewPosts()[1][1]).toEqual(
-        expect.objectContaining({ intervention_id: 'int-1', seconds_viewed: 2 })
-      );
-    });
-
-    it('retries a failed first log every 10 seconds while the page stays on screen, at most 3 times', async () => {
-      mockApiPost.mockRejectedValue(new Error('offline'));
-      await renderDetail();
-      await advance(2_000);
-      expect(viewPosts()).toHaveLength(1);
-
-      // Each retry is only scheduled once the previous attempt has failed.
-      for (let i = 0; i < 6; i++) await advance(10_000);
-      expect(viewPosts()).toHaveLength(4);
-    });
-
-    it('does not retry when the server rejects the log', async () => {
-      mockApiPost.mockRejectedValue({ response: { status: 400 } });
-      await renderDetail();
-      for (let i = 0; i < 6; i++) await advance(10_000);
-      expect(viewPosts()).toHaveLength(1);
-    });
-
-    it('counts 2 seconds of time on screen, not time in the background, before logging', async () => {
-      await renderDetail();
-      await advance(1_000);
-      setVisibility('hidden');
-      await advance(10_000);
-      expect(viewPosts()).toHaveLength(0);
-
-      setVisibility('visible');
-      await advance(1_000);
-      expect(viewPosts()).toHaveLength(1);
-      expect(viewPosts()[0][1]).toEqual(expect.objectContaining({ seconds_viewed: 2 }));
     });
   });
 

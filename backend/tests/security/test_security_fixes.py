@@ -1216,7 +1216,7 @@ def test_xhrj_only_the_patient_can_log_or_update_their_intervention_view(xhrj_wo
 
     w = xhrj_world
     pa, iv = str(w.patient_a.id), str(w.intervention.id)
-    create = {"intervention_id": iv, "seconds_viewed": 5}
+    create = {"intervention_id": iv}
 
     resp = _call_as(w.th_user_a, log_intervention_view, "post", "/", create, pa)
     assert resp.status_code == 403
@@ -1229,7 +1229,7 @@ def test_xhrj_only_the_patient_can_log_or_update_their_intervention_view(xhrj_wo
     update = {"log_id": log_id, "seconds_viewed": 999}
     resp = _call_as(w.th_user_a, log_intervention_view, "post", "/", update, pa)
     assert resp.status_code == 403
-    assert Logs.objects(id=log_id).first().details.endswith("seconds=5")
+    assert Logs.objects(id=log_id).first().details.endswith(" seconds=")
 
 
 def test_xhrj_feedback_refused_before_uploads_are_stored(xhrj_world):

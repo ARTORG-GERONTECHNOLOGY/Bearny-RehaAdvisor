@@ -47,7 +47,7 @@ Every `Logs` document has these fields:
 | `ASSIGN_INTERVENTION` | Therapist applies a template to a patient | `diagnosis=X applied=N sessions=N` | Yes |
 | `UPDATE_PLAN` | Therapist edits an existing rehab plan | plan id, change summary | Yes |
 | `REDCAP_IMPORT` | Therapist imports a patient from REDCap | `project=X identifier=X dag=X` | Yes |
-| `INTERVENTION_VIEW` | Patient has had an intervention detail page on screen for 2 s; `seconds` is updated on the same row when they leave or hide the app (time on screen only) | `intervention_id=X date=X seconds=N` | Yes |
+| `INTERVENTION_VIEW` | Patient has had an intervention detail page open for 2 s; `seconds` is filled in on the same row when they leave the page, and stays empty if that is never seen (app closed, request lost). `date` is set when opened from the plan, empty from the library | `intervention_id=X date=X seconds=N` | Yes |
 | `INTERVENTION_RESCHEDULE` | Patient, therapist or admin moves a session to another date (`userId`/`userAgent` = whoever moved it) | `from=<old UTC> to=<new UTC> intervention_id=<external_id> intervention=<title>` (title last, may contain spaces; `external_id` is the same across languages) | Yes |
 
 ### Example queries (MongoDB shell)
