@@ -28,7 +28,7 @@ import pytest
 from bson import ObjectId
 from django.test import Client
 
-from core.models import Intervention, Logs, Patient, Therapist, User
+from core.models import Intervention, InterventionAssignment, Logs, Patient, RehabilitationPlan, Therapist, User
 
 client = Client()
 
@@ -145,6 +145,23 @@ def _iv():
     return str(Intervention.objects.first().id)
 
 
+def _plan_session_on(patient, day: str, intervention=None):
+    """Give the patient a plan with one session of the intervention at local noon (UTC 10:00 in CET/CEST) on day."""
+    RehabilitationPlan(
+        patientId=patient,
+        therapistId=patient.therapist,
+        startDate=datetime(2026, 1, 1),
+        endDate=datetime(2026, 12, 31),
+        status="active",
+        interventions=[
+            InterventionAssignment(
+                interventionId=intervention or Intervention.objects.first(),
+                dates=[datetime.fromisoformat(f"{day}T10:00:00")],
+            )
+        ],
+    ).save()
+
+
 def _open_view(patient, **body):
     return client.post(
         VIEW_URL.format(patient_id=str(patient.id)),
@@ -160,6 +177,7 @@ def test_log_intervention_view_happy_path(mongo_mock):
     patient leaves the page normally.
     """
     patient = create_patient()
+    _plan_session_on(patient, "2026-03-21")
     resp = _open_view(patient, intervention_id=_iv(), date="2026-03-21")
     assert resp.status_code == 200
     assert resp.json().get("ok") is True
@@ -170,6 +188,24 @@ def test_log_intervention_view_happy_path(mongo_mock):
     assert log.details == f"intervention_id={Intervention.objects.first().id} date=2026-03-21 seconds="
     assert log.userId.id == patient.userId.id
     assert resp.json()["id"] == str(log.id)
+
+
+def test_log_intervention_view_drops_a_date_without_a_session_that_day(mongo_mock):
+    """A stale link, an old app or a page whose plan was still loading can't mark a session that doesn't exist."""
+    patient = create_patient()
+    _plan_session_on(patient, "2026-03-21")
+    _open_view(patient, intervention_id=_iv(), date="2026-03-22")
+    assert " date= " in Logs.objects(action="INTERVENTION_VIEW").first().details
+
+
+def test_log_intervention_view_keeps_the_date_for_a_session_of_another_language_variant(mongo_mock):
+    patient = create_patient()
+    german = Intervention(
+        title="Dehnung", description="d", content_type="Video", external_id="abc123", language="de"
+    ).save()
+    _plan_session_on(patient, "2026-03-21", intervention=german)
+    _open_view(patient, intervention_id=_iv(), date="2026-03-21")
+    assert " date=2026-03-21 " in Logs.objects(action="INTERVENTION_VIEW").first().details
 
 
 @pytest.mark.parametrize(

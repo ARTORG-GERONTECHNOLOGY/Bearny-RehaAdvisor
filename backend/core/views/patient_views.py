@@ -4301,6 +4301,20 @@ def vitals_exists_for_day(request, patient_id: str):
 _MAX_VIEW_SECONDS = 24 * 60 * 60
 
 
+def _plan_has_session_on(patient, intervention, day) -> bool:
+    """Whether the patient's plan holds a session of this intervention (any language variant) on this local day."""
+    plan = RehabilitationPlan.objects(patientId=patient).no_dereference().first()
+    if plan is None:
+        return False
+    variants = set(_variant_ids_by_intervention([intervention])[intervention.pk])
+    return any(
+        _local_day(d) == day
+        for a in plan.interventions or []
+        if getattr(a.interventionId, "id", a.interventionId) in variants
+        for d in a.dates or []
+    )
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def log_intervention_view(request, patient_id: str):
@@ -4369,9 +4383,13 @@ def log_intervention_view(request, patient_id: str):
         return JsonResponse({"ok": True, "id": str(log.id)}, status=200)
 
     # Only a real intervention: unknown ids never reach viewed_interventions.
-    intervention = Intervention.objects(id=ObjectId(intervention_id)).only("id").first()
+    intervention = Intervention.objects(id=ObjectId(intervention_id)).only("id", "external_id").first()
     if intervention is None:
         return JsonResponse({"error": "Intervention not found"}, status=404)
+    # Checked here, not by the page: a stale link, an old app or a plan still loading on the page can't mark
+    # a session that doesn't exist. Without one, it's an open like from the library.
+    if date and not _plan_has_session_on(patient, intervention, datetime.date.fromisoformat(date)):
+        date = ""
 
     try:
         log = Logs.objects.create(

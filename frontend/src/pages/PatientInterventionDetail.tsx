@@ -475,14 +475,10 @@ const PatientInterventionDetail: React.FC = observer(() => {
     return null;
   }, [selectedRec, selectedLibraryItem]);
 
-  // Log the visit as opened after 2s on the page; its duration is added on leaving. If leaving is never seen
-  // (app killed, request lost), the open stays recorded and the duration stays empty.
-  const viewDateParam = searchParams.get('date') || '';
-  // Only a date that matches a session marks it; a stale or bookmarked ?date= counts like a library open.
-  // Read when the log is sent, since the plan may still be loading when the page opens. Not an effect
-  // dependency: rescheduling from this page changes ?date=, and that stays one visit (the move carries it).
-  const viewSessionDateRef = useRef('');
-  viewSessionDateRef.current = targetOccurrenceIso ? viewDateParam : '';
+  // Logged as opened after 2s; the duration is added on leaving, or stays empty if leaving is never seen.
+  // The date is read when sent (the backend checks it against the plan), so a reschedule here stays one visit.
+  const viewDateRef = useRef('');
+  viewDateRef.current = searchParams.get('date') || '';
   useEffect(() => {
     if (!patientId || !interventionId) return;
     const url = `/patients/vitals/intervention-view/${patientId}/`;
@@ -491,7 +487,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
     const timer = setTimeout(() => {
       logId = apiClient
-        .post(url, { intervention_id: interventionId, date: viewSessionDateRef.current })
+        .post(url, { intervention_id: interventionId, date: viewDateRef.current })
         .then(({ data }) => (data?.id ? String(data.id) : null))
         .catch(() => null);
     }, 2000);

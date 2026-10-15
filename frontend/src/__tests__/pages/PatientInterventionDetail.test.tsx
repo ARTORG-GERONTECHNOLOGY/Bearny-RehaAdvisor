@@ -364,14 +364,6 @@ describe('PatientInterventionDetail', () => {
       ]);
     });
 
-    it('logs a ?date= without a session on that day like a library open', async () => {
-      // A stale or bookmarked link: must not mark a session moved onto that day later.
-      mockSearchParams = new URLSearchParams('date=2026-04-30');
-      await renderDetail();
-      await advance(2_000);
-      expect(viewPosts()[0][1]).toEqual({ intervention_id: 'int-1', date: '' });
-    });
-
     it('keeps a visit that changes ?date= (reschedule from this page) as one row', async () => {
       const { rerender, unmount } = await renderDetail();
       await advance(3_000);
