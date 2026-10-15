@@ -4,7 +4,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Card from '@/components/Card';
 import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
-import CircleHalfDashedFill from '@/assets/icons/circle-half-dashed-fill.svg?react';
+import CircleHalfDottedCheckFill from '@/assets/icons/circle-half-dotted-check-fill.svg?react';
 import ExerciseIcon from '@/assets/icons/interventions/exercise.svg?react';
 import EducationIcon from '@/assets/icons/interventions/education.svg?react';
 import { patientInterventionsStore, type PatientRec } from '@/stores/patientInterventionsStore';
@@ -85,8 +85,8 @@ const InterventionItem: React.FC<InterventionItemProps> = ({
         ) : completed ? (
           <CircleCheckFill className="w-8 h-8 text-ok cursor-pointer" aria-hidden="true" />
         ) : accessed ? (
-          <CircleHalfDashedFill
-            className="w-8 h-8 text-zinc-400 cursor-pointer"
+          <CircleHalfDottedCheckFill
+            className="w-7 h-7 m-0.5 text-zinc-300 cursor-pointer"
             aria-hidden="true"
           />
         ) : (

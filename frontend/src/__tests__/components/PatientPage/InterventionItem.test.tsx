@@ -52,7 +52,7 @@ describe('InterventionItem', () => {
   it('shows the half-filled icon for an opened but not completed intervention', () => {
     store.isAccessedOn.mockReturnValue(true);
     renderItem();
-    expect(toggleIconClass('Mark as complete')).toContain('text-zinc-400');
+    expect(toggleIconClass('Mark as complete')).toContain('text-zinc-300');
     expect(screen.getByRole('button', { name: /Morning Stretch/ })).toHaveAccessibleName(
       'Morning Stretch. Opened, not completed'
     );
