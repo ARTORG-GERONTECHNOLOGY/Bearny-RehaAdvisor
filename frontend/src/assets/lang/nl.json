@@ -1767,5 +1767,6 @@
   "Every {{hours}} hours": "Elke {{hours}} uur",
   "Accessed": "Geopend",
   "Opened, not completed": "Geopend, niet voltooid",
-  "Filter by Status": "Filteren op status"
+  "Filter by Status": "Filteren op status",
+  "Not seen yet": "Nog niet gezien"
 }

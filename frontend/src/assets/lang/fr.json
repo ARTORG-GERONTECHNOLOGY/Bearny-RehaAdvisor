@@ -1767,5 +1767,6 @@
   "Every {{hours}} hours": "Toutes les {{hours}} heures",
   "Accessed": "Consulté",
   "Opened, not completed": "Ouvert, non terminé",
-  "Filter by Status": "Filtrer par statut"
+  "Filter by Status": "Filtrer par statut",
+  "Not seen yet": "Pas encore vu"
 }

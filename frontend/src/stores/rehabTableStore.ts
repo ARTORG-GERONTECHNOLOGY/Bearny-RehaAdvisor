@@ -5,6 +5,7 @@ import authStore from '@/stores/authStore';
 import { filterInterventions } from '@/utils/filterUtils';
 import { translateText } from '@/utils/translate';
 import { toLocalYMD } from '@/utils/dateFormat';
+import { DATE_STATUS_LABELS } from '@/utils/interventions';
 import { extractApiError, toStr } from '@/utils/apiErrorMessages';
 import config from '@/config/config.json';
 import type { Intervention } from '@/types';
@@ -77,7 +78,13 @@ const getDates = (x: unknown): Array<{ datetime: string; status: string }> => {
 
 const isTruthy = (v: unknown): boolean => v === true || v === 'true' || v === 1 || v === '1';
 
-export const DATE_STATUS_FILTER_OPTIONS = ['completed', 'accessed', 'missed'] as const;
+// Status filter choices and their translation keys; "not_seen" is not a session status, so it has its own label.
+export const DATE_STATUS_FILTER_OPTIONS = [
+  { value: 'completed', label: DATE_STATUS_LABELS.completed },
+  { value: 'accessed', label: DATE_STATUS_LABELS.accessed },
+  { value: 'missed', label: DATE_STATUS_LABELS.missed },
+  { value: 'not_seen', label: 'Not seen yet' },
+] as const;
 
 // -------------------- Store --------------------
 
@@ -309,18 +316,19 @@ export class RehabTableStore {
     return new Set(Array.isArray(raw) ? raw.map(String) : []);
   }
 
-  // Keeps items with a session in a selected status. "accessed" also matches an intervention the patient
-  // opened (planned or not) that has no completed session, i.e. seen but never done.
+  // Keeps items with a session in a selected status. Beyond that, "accessed" matches an intervention the
+  // patient opened (planned or not) but never completed, and "not_seen" one they never opened or completed.
   private filterByStatus(items: Intervention[], statusFilter: string[]): Intervention[] {
     if (!statusFilter.length) return items;
-    const viewed = statusFilter.includes('accessed') ? this.viewedInterventions : new Set<string>();
+    const viewed = this.viewedInterventions;
     return items.filter((it) => {
       const statuses = getDates(this.planItemFor(it)).map((d) => d.status);
       if (statuses.some((st) => statusFilter.includes(st))) return true;
+      if (statuses.includes('completed')) return false;
       const opened =
         viewed.has(it._id) ||
         viewed.has(String((it as { external_id?: unknown }).external_id || ''));
-      return opened && !statuses.includes('completed');
+      return statusFilter.includes(opened ? 'accessed' : 'not_seen');
     });
   }
 

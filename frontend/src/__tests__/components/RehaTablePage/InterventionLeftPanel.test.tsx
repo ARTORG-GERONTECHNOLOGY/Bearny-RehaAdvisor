@@ -518,14 +518,14 @@ describe('InterventionLeftPanel', () => {
       expect(filters[key].setLanguageFilter).toHaveBeenCalledWith([]);
     });
 
-    it('offers completed/accessed/missed in the status filter and updates it', async () => {
+    it('offers completed/accessed/missed/not seen in the status filter and updates it', async () => {
       const user = userEvent.setup();
       const { filters } = renderPanel();
       openSection(title);
       await user.click(within(section()).getByRole('button', { name: /Filters/i }));
 
       const statusSelect = screen.getByTestId('status-select');
-      expect(statusSelect).toHaveAttribute('data-options', 'completed,accessed,missed');
+      expect(statusSelect).toHaveAttribute('data-options', 'completed,accessed,missed,not_seen');
       fireEvent.click(within(statusSelect).getByText('change status-select'));
       expect(filters[key].setStatusFilter).toHaveBeenCalledWith(['picked']);
 

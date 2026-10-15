@@ -757,6 +757,19 @@ describe.each([
     expect(filteredIds(store)).not.toContain('lib-de');
   });
 
+  it('matches never opened, never completed interventions under "not seen yet", planned or not', () => {
+    const store = setup();
+    store.recommendations = [...store.recommendations, { _id: 'lib', external_id: 'ext-lib' }];
+    store.patientData = { ...store.patientData, viewed_interventions: ['seen', 'ext-lib'] };
+
+    store[setter](['not_seen']);
+    const ids = filteredIds(store);
+    // 'skipped' only has missed/upcoming sessions and was never opened.
+    expect(ids).toContain('skipped');
+    for (const id of ['seen', 'done', 'lib']) expect(ids).not.toContain(id);
+    if (source === 'recommendations') expect(ids).toContain('unassigned');
+  });
+
   it('keeps items with at least one session in a selected status', () => {
     const store = setup();
     store[setter](['accessed']);
