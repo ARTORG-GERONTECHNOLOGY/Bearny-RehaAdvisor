@@ -4316,6 +4316,8 @@ def log_intervention_view(request, patient_id: str):
         body = json.loads(request.body or "{}")
     except Exception:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
+    if not isinstance(body, dict):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     log_id = str(body.get("log_id") or "").strip()
     intervention_id = str(body.get("intervention_id") or "").strip()

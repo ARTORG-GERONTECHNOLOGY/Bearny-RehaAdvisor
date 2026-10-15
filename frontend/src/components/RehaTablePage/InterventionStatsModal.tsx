@@ -11,7 +11,7 @@ import StarRating from './StarRating';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getInterventionDateStatusClass } from '@/utils/interventions';
+import { DATE_STATUS_LABELS, getInterventionDateStatusClass } from '@/utils/interventions';
 import { asArray } from '@/utils/typeGuards';
 
 type AnyObj = Record<string, any>;
@@ -109,21 +109,15 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
           <Badge variant="dashboard">
             {safeT(t, 'Total')}: {stats.total}
           </Badge>
-          <Badge variant="dashboard" className={getInterventionDateStatusClass('completed')}>
-            {safeT(t, 'Completed')}: {stats.completed}
-          </Badge>
-          <Badge variant="dashboard" className={getInterventionDateStatusClass('accessed')}>
-            {safeT(t, 'Accessed')}: {stats.accessed}
-          </Badge>
-          <Badge variant="dashboard" className={getInterventionDateStatusClass('missed')}>
-            {safeT(t, 'Missed')}: {stats.missed}
-          </Badge>
-          <Badge variant="dashboard" className={getInterventionDateStatusClass('today')}>
-            {safeT(t, 'Today')}: {stats.today}
-          </Badge>
-          <Badge variant="dashboard" className={getInterventionDateStatusClass('upcoming')}>
-            {safeT(t, 'Upcoming')}: {stats.upcoming}
-          </Badge>
+          {Object.entries(DATE_STATUS_LABELS).map(([status, label]) => (
+            <Badge
+              key={status}
+              variant="dashboard"
+              className={getInterventionDateStatusClass(status)}
+            >
+              {safeT(t, label)}: {stats[status as keyof typeof DATE_STATUS_LABELS]}
+            </Badge>
+          ))}
         </div>
 
         <Table>

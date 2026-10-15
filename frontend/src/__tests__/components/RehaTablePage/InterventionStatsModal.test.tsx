@@ -102,6 +102,8 @@ describe('InterventionStatsModal', () => {
     // Opened-but-not-completed sessions get their own count instead of falling into Upcoming.
     expect(screen.getByText('Accessed: 1')).toBeInTheDocument();
     expect(screen.getByText('Upcoming: 1')).toBeInTheDocument();
+    // Uses the translated "today" key (the old "Today" key had no translations).
+    expect(screen.getByText('today: 0')).toBeInTheDocument();
 
     // Check table rows
     expect(screen.getByText(/Average rating/)).toBeInTheDocument();

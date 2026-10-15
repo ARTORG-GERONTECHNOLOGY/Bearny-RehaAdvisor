@@ -311,6 +311,9 @@ def test_log_intervention_view_get_returns_405(mongo_mock):
     [
         {"log_id": str(ObjectId()), "seconds_viewed": "lots"},
         {"log_id": 12345, "seconds_viewed": None},
+        # Valid JSON that isn't an object.
+        [],
+        1,
         # JSON's 1e400 parses to infinity, which int() can't convert.
         {"log_id": str(ObjectId()), "seconds_viewed": float("inf")},
         {"intervention_id": "x" * 201, "seconds_viewed": 5},
