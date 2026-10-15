@@ -477,6 +477,19 @@ describe('getters', () => {
     expect(store.pastPatientItems.map((x) => x._id)).toEqual(['b']);
   });
 
+  it('splits active/past by the planned slot, not a log time in datetime', () => {
+    const store = makeStore();
+    const future = new Date(Date.now() + 86400000).toISOString();
+    const past = new Date(Date.now() - 86400000).toISOString();
+    (store as any).allInterventions = [{ _id: 'a', title: 'Upcoming, logged earlier' }];
+    (store as any).patientData = {
+      interventions: [{ _id: 'a', dates: [{ datetime: past, scheduled: future }] }],
+    };
+
+    expect(store.activePatientItems.map((x) => x._id)).toEqual(['a']);
+    expect(store.pastPatientItems).toEqual([]);
+  });
+
   it('selectedExerciseFromPlan prefers the plan item, then falls back to the catalog', () => {
     const store = makeStore();
     (store as any).allInterventions = [{ _id: 'cat-1', title: 'Catalog Item' }];
@@ -642,6 +655,27 @@ describe.each([
     expect(store[`${section}BenefitForFilter`]).toEqual([]);
     expect(store[`${section}LanguageFilter`]).toEqual([]);
     expect(store[`${section}StatusFilter`]).toEqual([]);
+  });
+});
+
+describe('status filter across language variants', () => {
+  it('finds the assigned variant by external_id when the catalog shows another one', () => {
+    const store = makeStore() as any;
+    store.recommendations = [{ _id: 'en', external_id: 'ext-1' }];
+    store.patientData = {
+      interventions: [
+        {
+          _id: 'de',
+          external_id: 'ext-1',
+          dates: [{ datetime: new Date().toISOString(), status: 'completed' }],
+        },
+      ],
+    };
+
+    store.setStatusFilter(['completed']);
+    void store.filteredRecommendations;
+    const calls = (filterInterventions as jest.Mock).mock.calls;
+    expect(calls[calls.length - 1][0].map((x: any) => x._id)).toEqual(['en']);
   });
 });
 

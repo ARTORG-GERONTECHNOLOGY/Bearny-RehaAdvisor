@@ -276,6 +276,15 @@ export const getMediaBadge = (media: InterventionMedia[]) => {
   }
 };
 
+/** Translation key per intervention date status, in legend order. */
+export const DATE_STATUS_LABELS = {
+  completed: 'Completed',
+  accessed: 'Accessed',
+  missed: 'Missed',
+  today: 'today',
+  upcoming: 'Upcoming',
+} as const;
+
 /** Tailwind classes for an intervention date's status badge (completed/accessed/missed/today/upcoming). */
 export const getInterventionDateStatusClass = (status: string): string => {
   switch (String(status || '').toLowerCase()) {

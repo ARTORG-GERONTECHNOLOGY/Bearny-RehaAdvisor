@@ -428,6 +428,24 @@ describe('PatientInterventionDetail', () => {
       );
     });
 
+    it('retries a failed first log every 10 seconds while the page stays on screen, at most 3 times', async () => {
+      mockApiPost.mockRejectedValue(new Error('offline'));
+      await renderDetail();
+      await advance(2_000);
+      expect(viewPosts()).toHaveLength(1);
+
+      // Each retry is only scheduled once the previous attempt has failed.
+      for (let i = 0; i < 6; i++) await advance(10_000);
+      expect(viewPosts()).toHaveLength(4);
+    });
+
+    it('does not retry when the server rejects the log', async () => {
+      mockApiPost.mockRejectedValue({ response: { status: 400 } });
+      await renderDetail();
+      for (let i = 0; i < 6; i++) await advance(10_000);
+      expect(viewPosts()).toHaveLength(1);
+    });
+
     it('counts 2 seconds of time on screen, not time in the background, before logging', async () => {
       await renderDetail();
       await advance(1_000);

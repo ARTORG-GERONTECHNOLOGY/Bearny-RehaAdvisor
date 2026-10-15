@@ -491,7 +491,10 @@ const PatientInterventionDetail: React.FC = observer(() => {
     const seconds = () =>
       Math.round((visibleMs + (visibleSince === null ? 0 : Date.now() - visibleSince)) / 1000);
 
+    let retriesLeft = 3;
+
     const create = () => {
+      let retryable = false;
       logId = apiClient
         .post(
           url,
@@ -499,11 +502,20 @@ const PatientInterventionDetail: React.FC = observer(() => {
           KEEPALIVE
         )
         .then(({ data }) => (data?.id ? String(data.id) : null))
-        .catch(() => null)
+        .catch((err) => {
+          // A 4xx won't change on a retry; network errors and 5xx might.
+          retryable = !(err?.response?.status >= 400 && err.response.status < 500);
+          return null;
+        })
         .then((id) => {
-          // Failed: forget it, so the next time the page is on screen tries again.
-          if (!id) logId = null;
-          return id;
+          if (id) return id;
+          // Forgotten, so the next time the page is on screen tries again; meanwhile retry while it stays.
+          logId = null;
+          if (retryable && retriesLeft > 0 && visibleSince !== null) {
+            retriesLeft -= 1;
+            timer = setTimeout(create, 10_000);
+          }
+          return null;
         });
     };
     const armTimer = () => {

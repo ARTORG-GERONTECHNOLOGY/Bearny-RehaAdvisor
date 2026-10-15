@@ -4356,6 +4356,14 @@ def log_intervention_view(request, patient_id: str):
             log.save()
         return JsonResponse({"ok": True, "id": str(log.id)}, status=200)
 
+    # The page's URL may carry an id or an external_id. Storing the resolved id keeps unknown values out of
+    # viewed_interventions and keeps details parseable whatever the external_id contains.
+    intervention = (
+        Intervention.objects(id=intervention_id).only("id").first() if ObjectId.is_valid(intervention_id) else None
+    ) or Intervention.objects(external_id=intervention_id).only("id").first()
+    if intervention is None:
+        return JsonResponse({"error": "Intervention not found"}, status=400)
+
     try:
         log = Logs.objects.create(
             userId=patient.userId,
@@ -4363,7 +4371,7 @@ def log_intervention_view(request, patient_id: str):
             actor_role="Patient",
             user_agent=(request.headers.get("User-Agent", "") or "")[:300],
             patient=patient,
-            details=f"intervention_id={intervention_id} date={date} seconds={seconds_viewed}",
+            details=f"intervention_id={intervention.id} date={date} seconds={seconds_viewed}",
         )
     except Exception:
         logger.exception("[log_intervention_view] Failed to write view log")

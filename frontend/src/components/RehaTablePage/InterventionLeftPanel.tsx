@@ -16,6 +16,7 @@ import StarIcon from '@/assets/icons/interventions/star.svg?react';
 
 import config from '@/config/config.json';
 import { DATE_STATUS_FILTER_OPTIONS } from '@/stores/rehabTableStore';
+import { DATE_STATUS_LABELS } from '@/utils/interventions';
 import { Intervention } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -140,7 +141,7 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
 
   const statusOptions = DATE_STATUS_FILTER_OPTIONS.map((s) => ({
     value: s,
-    label: t(s.charAt(0).toUpperCase() + s.slice(1)),
+    label: t(DATE_STATUS_LABELS[s]),
   }));
 
   const {

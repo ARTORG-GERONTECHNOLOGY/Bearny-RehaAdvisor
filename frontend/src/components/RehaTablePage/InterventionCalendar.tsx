@@ -113,11 +113,13 @@ const InterventionCalendar: React.FC<Props> = ({
 
       // normalize dates
       for (const d of dates) {
-        const start = safeDate(d.datetime);
+        // Completed sessions sit at when they were done; the rest at their planned slot, which drag also moves.
+        const at = d.status === 'completed' ? d.datetime : scheduledSlot(d);
+        const start = safeDate(at);
         if (!start) continue;
 
         out.push({
-          id: `${it._id}__${d.datetime}`,
+          id: `${it._id}__${at}`,
           title: displayTitle,
           start,
           end: addMinutes(start, durationMin),

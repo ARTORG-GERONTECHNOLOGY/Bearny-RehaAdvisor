@@ -18,15 +18,7 @@ import '@/assets/styles/RehabTable.css';
 import { RehabilitationPlanContentLoadingSkeleton } from '@/components/skeletons/TherapistPatientDetailSkeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { getInterventionDateStatusClass } from '@/utils/interventions';
-
-const STATUS_LEGEND = [
-  ['completed', 'Completed'],
-  ['accessed', 'Accessed'],
-  ['missed', 'Missed'],
-  ['today', 'today'],
-  ['upcoming', 'Upcoming'],
-] as const;
+import { DATE_STATUS_LABELS, getInterventionDateStatusClass } from '@/utils/interventions';
 
 interface RehabilitationPlanContentProps {
   patientId: string;
@@ -172,7 +164,7 @@ const RehabilitationPlanContent: React.FC<RehabilitationPlanContentProps> = obse
                 <CardTitle>{t('Reha Calendar')}</CardTitle>
                 <CardDescription className="flex flex-wrap items-center gap-1">
                   {t('Status')}:
-                  {STATUS_LEGEND.map(([status, label]) => (
+                  {Object.entries(DATE_STATUS_LABELS).map(([status, label]) => (
                     <Badge
                       key={status}
                       variant="dashboard"

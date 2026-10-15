@@ -335,6 +335,32 @@ describe('InterventionCalendar big-calendar wiring', () => {
     );
   });
 
+  it('draws a session that is not completed at its planned slot, a completed one at when it was done', () => {
+    const at = (h: number, m: number) => {
+      const d = new Date(TODAY.getTime() + 86400000);
+      d.setHours(h, m, 0, 0);
+      return d.toISOString();
+    };
+    const entry = (status: string) => ({ datetime: at(8, 13), scheduled: at(18, 0), status });
+    const { rerender } = render(
+      <InterventionCalendar
+        patientData={makePatientData(TODAY, null, entry('accessed')) as any}
+        onSelectIntervention={jest.fn()}
+        onSelectFeedback={jest.fn()}
+      />
+    );
+    expect(screen.getByText(/18:00 – 18:30/)).toBeInTheDocument();
+
+    rerender(
+      <InterventionCalendar
+        patientData={makePatientData(TODAY, null, entry('completed')) as any}
+        onSelectIntervention={jest.fn()}
+        onSelectFeedback={jest.fn()}
+      />
+    );
+    expect(screen.getByText(/08:13 – 08:43/)).toBeInTheDocument();
+  });
+
   it('colors a missed event', () => {
     render(
       <InterventionCalendar

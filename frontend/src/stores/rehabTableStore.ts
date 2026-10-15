@@ -63,32 +63,24 @@ const getContentType = (x: unknown): string => {
   return typeof v === 'string' ? v : '';
 };
 
-const getDates = (x: unknown): Array<{ datetime: string }> => {
+type DateEntryLike = { datetime?: unknown; scheduled?: unknown; status?: unknown };
+
+// Planned slot and status per session. `datetime` can be a log's createdAt, so `scheduled` wins when present.
+const getDates = (x: unknown): Array<{ slot: string; status: string }> => {
   if (!x || typeof x !== 'object') return [];
   const o = x as { dates?: unknown };
-  return Array.isArray(o.dates)
-    ? o.dates
-        .map((d) =>
-          d && typeof d === 'object' ? (d as { datetime?: unknown }).datetime : undefined
-        )
-        .filter((dt): dt is string => typeof dt === 'string')
-        .map((dt) => ({ datetime: dt }))
-    : [];
+  if (!Array.isArray(o.dates)) return [];
+  return o.dates.flatMap((d) => {
+    if (!d || typeof d !== 'object') return [];
+    const { datetime, scheduled, status } = d as DateEntryLike;
+    const slot = typeof scheduled === 'string' && scheduled ? scheduled : datetime;
+    return typeof slot === 'string' ? [{ slot, status: String(status || '') }] : [];
+  });
 };
 
 const isTruthy = (v: unknown): boolean => v === true || v === 'true' || v === 1 || v === '1';
 
 export const DATE_STATUS_FILTER_OPTIONS = ['completed', 'accessed', 'missed'] as const;
-
-const getDateStatuses = (x: unknown): string[] => {
-  if (!x || typeof x !== 'object') return [];
-  const o = x as { dates?: unknown };
-  return Array.isArray(o.dates)
-    ? o.dates.map((d) =>
-        d && typeof d === 'object' ? String((d as { status?: unknown }).status || '') : ''
-      )
-    : [];
-};
 
 // -------------------- Store --------------------
 
@@ -276,11 +268,29 @@ export class RehabTableStore {
     return map;
   }
 
+  private get planInterventionsByExternalId(): Map<string, unknown> {
+    const map = new Map<string, unknown>();
+    (this.patientData?.interventions || []).forEach((i) => {
+      const ext = (i as { external_id?: unknown }).external_id;
+      if (typeof ext === 'string' && ext && !map.has(ext)) map.set(ext, i);
+    });
+    return map;
+  }
+
+  // The catalog can list another language variant than the one assigned; external_id is shared.
+  private planItemFor(it: Intervention): unknown {
+    const ext = (it as { external_id?: unknown }).external_id;
+    return (
+      this.planInterventionsById.get(it._id) ??
+      (typeof ext === 'string' ? this.planInterventionsByExternalId.get(ext) : undefined)
+    );
+  }
+
   private hasFutureDates(interventionId: string) {
     const planItem = this.planInterventionsById.get(interventionId);
     const dates = getDates(planItem);
     const now = new Date();
-    return dates.some((d) => new Date(d.datetime) > now);
+    return dates.some((d) => new Date(d.slot) > now);
   }
 
   private get matchedPatientItems(): Intervention[] {
@@ -308,7 +318,7 @@ export class RehabTableStore {
     if (!statusFilter.length) return items;
     const viewed = statusFilter.includes('accessed') ? this.viewedInterventions : new Set<string>();
     return items.filter((it) => {
-      const statuses = getDateStatuses(this.planInterventionsById.get(it._id));
+      const statuses = getDates(this.planItemFor(it)).map((d) => d.status);
       if (statuses.some((st) => statusFilter.includes(st))) return true;
       const opened =
         viewed.has(it._id) ||
@@ -765,7 +775,7 @@ export class RehabTableStore {
 
     const assigned = this.selectedAssignment as unknown;
     const dates = getDates(assigned)
-      .map((d) => new Date(d.datetime))
+      .map((d) => new Date(d.slot))
       .filter((d) => !Number.isNaN(d.getTime()))
       .sort((a, b) => a.getTime() - b.getTime());
 

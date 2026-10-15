@@ -27,7 +27,7 @@ import pytest
 from bson import ObjectId
 from django.test import Client
 
-from core.models import Logs, Patient, Therapist, User
+from core.models import Intervention, Logs, Patient, Therapist, User
 
 client = Client()
 
@@ -56,6 +56,14 @@ def mongo_mock():
     )
     yield conn
     disconnect(alias)
+
+
+@pytest.fixture(autouse=True)
+def viewed_intervention(mongo_mock):
+    """View logs are only accepted for a real intervention; the tests open this one by its external_id."""
+    return Intervention(
+        title="Stretching", description="d", content_type="Video", external_id="abc123", language="en"
+    ).save()
 
 
 def create_patient():
@@ -149,10 +157,25 @@ def test_log_intervention_view_happy_path(mongo_mock):
 
     log = Logs.objects(action="INTERVENTION_VIEW").first()
     assert log is not None
-    assert "abc123" in (log.details or "")
+    # Stored by its id, whatever form the page's URL used.
+    assert f"intervention_id={Intervention.objects.first().id} " in (log.details or "")
     assert "seconds=45" in (log.details or "")
     assert log.userId.id == patient.userId.id
     assert resp.json()["id"] == str(log.id)
+
+
+@pytest.mark.parametrize("intervention_id", ["no-such-intervention", "abc123 date=2030-01-01"])
+def test_log_intervention_view_rejects_an_unknown_intervention(mongo_mock, intervention_id):
+    """Unknown or crafted ids never reach details, so they can't pad viewed_interventions or fake a date."""
+    patient = create_patient()
+    resp = client.post(
+        VIEW_URL.format(patient_id=str(patient.id)),
+        data=json.dumps({"intervention_id": intervention_id, "seconds_viewed": 5}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    assert Logs.objects(action="INTERVENTION_VIEW").count() == 0
 
 
 def test_log_intervention_view_caps_seconds_at_a_day(mongo_mock):
@@ -192,7 +215,7 @@ def test_log_intervention_view_update_sets_seconds_on_the_same_row(mongo_mock):
 
     assert Logs.objects(action="INTERVENTION_VIEW").count() == 1
     assert Logs.objects(action="INTERVENTION_VIEW").first().details == (
-        "intervention_id=abc123 date=2026-03-21 seconds=95"
+        f"intervention_id={Intervention.objects.first().id} date=2026-03-21 seconds=95"
     )
 
 
