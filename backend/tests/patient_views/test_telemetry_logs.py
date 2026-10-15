@@ -61,7 +61,7 @@ def mongo_mock():
 
 @pytest.fixture(autouse=True)
 def viewed_intervention(mongo_mock):
-    """View logs are only accepted for a real intervention; the tests open this one by its external_id."""
+    """View logs are only accepted for a real intervention; the tests open this one by its id (see _iv)."""
     return Intervention(
         title="Stretching", description="d", content_type="Video", external_id="abc123", language="en"
     ).save()
@@ -141,6 +141,10 @@ def test_add_manual_vitals_log_details_contain_bp(mongo_mock):
 # ---------------------------------------------------------------------------
 
 
+def _iv():
+    return str(Intervention.objects.first().id)
+
+
 def _open_view(patient, **body):
     return client.post(
         VIEW_URL.format(patient_id=str(patient.id)),
@@ -156,7 +160,7 @@ def test_log_intervention_view_happy_path(mongo_mock):
     patient leaves the page normally.
     """
     patient = create_patient()
-    resp = _open_view(patient, intervention_id="abc123", date="2026-03-21")
+    resp = _open_view(patient, intervention_id=_iv(), date="2026-03-21")
     assert resp.status_code == 200
     assert resp.json().get("ok") is True
 
@@ -168,7 +172,11 @@ def test_log_intervention_view_happy_path(mongo_mock):
     assert resp.json()["id"] == str(log.id)
 
 
-@pytest.mark.parametrize("intervention_id", ["no-such-intervention", "abc123 date=2030-01-01"])
+@pytest.mark.parametrize(
+    "intervention_id",
+    # Crafted text, a well-formed but unknown id, and an external_id (pages always link by id).
+    ["no-such-intervention", "abc123 date=2030-01-01", str(ObjectId()), "abc123"],
+)
 def test_log_intervention_view_rejects_an_unknown_intervention(mongo_mock, intervention_id):
     """Unknown or crafted ids never reach details, so they can't pad viewed_interventions or fake a date."""
     patient = create_patient()
@@ -194,7 +202,7 @@ def _update_view(patient, log_id, seconds):
 def test_log_intervention_view_leaving_sets_the_duration_on_the_same_row(mongo_mock):
     """One row per visit: the duration is filled in on leaving, capped at a day so one bogus value can't skew it."""
     patient = create_patient()
-    log_id = _open_view(patient, intervention_id="abc123", date="2026-03-21").json()["id"]
+    log_id = _open_view(patient, intervention_id=_iv(), date="2026-03-21").json()["id"]
 
     assert _update_view(patient, log_id, 95).status_code == 200
     assert Logs.objects(action="INTERVENTION_VIEW").count() == 1
@@ -210,7 +218,7 @@ def test_log_intervention_view_concurrent_second_write_does_not_overwrite(mongo_
     from mongoengine.queryset import QuerySet
 
     patient = create_patient()
-    log_id = _open_view(patient, intervention_id="abc123").json()["id"]
+    log_id = _open_view(patient, intervention_id=_iv()).json()["id"]
     stale = Logs.objects(id=log_id).first()
     assert _update_view(patient, log_id, 95).status_code == 200
 
@@ -226,7 +234,7 @@ def test_log_intervention_view_concurrent_second_write_does_not_overwrite(mongo_
 
 def test_log_intervention_view_duration_is_capped_at_a_day(mongo_mock):
     patient = create_patient()
-    log_id = _open_view(patient, intervention_id="abc123").json()["id"]
+    log_id = _open_view(patient, intervention_id=_iv()).json()["id"]
     _update_view(patient, log_id, 10**9)
     assert Logs.objects(id=log_id).first().details.endswith(" seconds=86400")
 
@@ -241,14 +249,14 @@ def test_log_intervention_view_keeps_an_old_app_versions_duration(mongo_mock, se
     an unusable value doesn't cost the open.
     """
     patient = create_patient()
-    resp = _open_view(patient, intervention_id="abc123", date="2026-03-21", seconds_viewed=seconds_viewed)
+    resp = _open_view(patient, intervention_id=_iv(), date="2026-03-21", seconds_viewed=seconds_viewed)
     assert resp.status_code == 200
     assert Logs.objects(action="INTERVENTION_VIEW").first().details.endswith(stored)
 
 
 def test_log_intervention_view_leaving_needs_a_duration(mongo_mock):
     patient = create_patient()
-    log_id = _open_view(patient, intervention_id="abc123").json()["id"]
+    log_id = _open_view(patient, intervention_id=_iv()).json()["id"]
     assert _update_view(patient, log_id, 0).status_code == 400
     assert Logs.objects(id=log_id).first().details.endswith(" seconds=")
 
@@ -284,7 +292,7 @@ def test_log_intervention_view_get_returns_405(mongo_mock):
         {"log_id": str(ObjectId()), "seconds_viewed": "lots"},
         {"log_id": 12345, "seconds_viewed": None},
         {"intervention_id": "x" * 201, "seconds_viewed": 5},
-        {"intervention_id": "abc123", "date": "2026-03-21" * 200, "seconds_viewed": 5},
+        {"intervention_id": str(ObjectId()), "date": "2026-03-21" * 200, "seconds_viewed": 5},
     ],
 )
 def test_log_intervention_view_malformed_or_oversized_body_is_a_400_not_a_500(mongo_mock, body):
@@ -302,7 +310,7 @@ def test_log_intervention_view_unknown_patient_returns_404(mongo_mock):
     fake_id = str(ObjectId())
     resp = client.post(
         VIEW_URL.format(patient_id=fake_id),
-        data=json.dumps({"intervention_id": "abc123", "seconds_viewed": 30}),
+        data=json.dumps({"intervention_id": str(ObjectId()), "seconds_viewed": 30}),
         content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",
     )

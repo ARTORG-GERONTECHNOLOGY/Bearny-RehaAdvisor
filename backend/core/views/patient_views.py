@@ -4298,8 +4298,6 @@ def vitals_exists_for_day(request, patient_id: str):
 
 
 _MAX_VIEW_SECONDS = 24 * 60 * 60
-# Custom external_ids embed a title slug; this keeps details far below its 1000-char limit.
-_MAX_VIEW_REF_LENGTH = 200
 
 
 @api_view(["POST"])
@@ -4331,7 +4329,8 @@ def log_intervention_view(request, patient_id: str):
 
     if log_id and seconds_viewed < 1:
         return JsonResponse({"ok": False}, status=400)
-    if not log_id and (not intervention_id or len(intervention_id) > _MAX_VIEW_REF_LENGTH):
+    # Every link to the detail page carries the intervention's id, never its external_id.
+    if not log_id and not ObjectId.is_valid(intervention_id):
         return JsonResponse({"ok": False}, status=400)
     if date:
         try:
@@ -4348,8 +4347,9 @@ def log_intervention_view(request, patient_id: str):
         return _forbidden_patient()
 
     if log_id:
+        # Queried with a parsed ObjectId, never the raw request string.
         log = (
-            Logs.objects(id=log_id, action="INTERVENTION_VIEW", patient=patient).first()
+            Logs.objects(id=ObjectId(log_id), action="INTERVENTION_VIEW", patient=patient).first()
             if ObjectId.is_valid(log_id)
             else None
         )
@@ -4361,11 +4361,8 @@ def log_intervention_view(request, patient_id: str):
             Logs.objects(id=log.id, details=log.details).update_one(set__details=log.details + str(seconds_viewed))
         return JsonResponse({"ok": True, "id": str(log.id)}, status=200)
 
-    # The page's URL may carry an id or an external_id. Storing the resolved id keeps unknown values out of
-    # viewed_interventions and keeps details parseable whatever the external_id contains.
-    intervention = (
-        Intervention.objects(id=intervention_id).only("id").first() if ObjectId.is_valid(intervention_id) else None
-    ) or Intervention.objects(external_id=intervention_id).only("id").first()
+    # Only a real intervention: unknown ids never reach viewed_interventions.
+    intervention = Intervention.objects(id=ObjectId(intervention_id)).only("id").first()
     if intervention is None:
         return JsonResponse({"error": "Intervention not found"}, status=400)
 
