@@ -1,10 +1,13 @@
 import json
-from datetime import datetime
+from datetime import datetime, time, timedelta
+from datetime import timezone as dt_timezone
+from unittest import mock
 
 import mongomock
 import pytest
 from bson import ObjectId
 from django.test import Client
+from django.utils import timezone
 
 from core.models import (
     AnswerOption,
@@ -28,6 +31,7 @@ from core.views.questionaires_view import (
     _is_oid,
     _render_frequency,
 )
+from utils.scheduling import _as_utc
 
 client = Client()
 
@@ -390,6 +394,34 @@ def test_assign_questionnaire_modify_merges_dates_from_effective_from():
     assert out[0]["dates"][2].startswith("2026-01-03T")
 
 
+def test_assign_questionnaire_modify_drops_an_early_morning_slot_on_the_cutoff_day():
+    th, p = make_patient_graph()
+    make_feedback_question(f"16_profile_{ObjectId()}")
+
+    def assign(effective_from):
+        body = {
+            "patientId": str(p.id),
+            "therapistId": str(th.id),
+            "questionnaireKey": "16_profile",
+            "effectiveFrom": effective_from,
+            "schedule": {"unit": "day", "interval": 1, "startTime": "00:30", "end": {"type": "count", "count": 2}},
+        }
+        r = client.post(
+            "/api/questionnaires/assign/",
+            data=json.dumps(body),
+            content_type="application/json",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+        assert r.status_code == 200
+
+    assign("2026-01-01")
+    assign("2026-01-02")
+
+    # 00:30 local on 2 Jan is stored as 1 Jan UTC; it must still be replaced, not kept twice.
+    days = [timezone.localdate(_as_utc(d)) for d in RehabilitationPlan.objects.get(patientId=p).questionnaires[0].dates]
+    assert [d.isoformat() for d in days] == ["2026-01-01", "2026-01-02", "2026-01-03"]
+
+
 def test_list_patient_questionnaires_includes_answered_entries_for_assigned_questions():
     th, p = make_patient_graph()
     q1 = FeedbackQuestion(
@@ -446,6 +478,130 @@ def test_list_patient_questionnaires_includes_answered_entries_for_assigned_ques
     assert answered["questionKey"] == q1.questionKey
     assert answered["answers"][0]["key"] == "2"
     assert answered["comment"] == "Felt better."
+
+
+def _plan_with_dates(dates, with_question=True):
+    th, p = make_patient_graph()
+    q1 = make_feedback_question(f"16_profile_{ObjectId()}")
+    hq = HealthQuestionnaire(key=f"k-{ObjectId()}", title="Q1", questions=[q1] if with_question else []).save()
+    RehabilitationPlan(
+        patientId=p,
+        therapistId=th,
+        startDate=datetime.now(),
+        endDate=datetime.now(),
+        status="active",
+        questionnaires=[QuestionnaireAssignment(questionnaireId=hq, frequency="Monthly", dates=dates)],
+    ).save()
+    return p, q1
+
+
+# Noon in Zurich, so the server and the tests agree on "today".
+FROZEN_NOW = datetime(2026, 10, 20, 10, 0, tzinfo=dt_timezone.utc)
+
+
+@pytest.fixture
+def frozen_now():
+    with mock.patch("django.utils.timezone.now", return_value=FROZEN_NOW):
+        yield
+
+
+def _local_day(offset_days):
+    return timezone.localdate(FROZEN_NOW) + timedelta(days=offset_days)
+
+
+def _slot(offset_days, hh=12, mm=0):
+    # Schedule dates are stored as naive UTC.
+    local = timezone.make_aware(datetime.combine(_local_day(offset_days), time(hh, mm)))
+    return local.astimezone(dt_timezone.utc).replace(tzinfo=None)
+
+
+def _answer(p, q1, offset_days, when=None):
+    # Ratings are stored as naive local midnight.
+    when = when or datetime.combine(_local_day(offset_days), time.min)
+    PatientICFRating(
+        questionId=q1,
+        patientId=p,
+        icfCode="d450",
+        date=when,
+        rating=2,
+        feedback_entries=[FeedbackEntry(questionId=q1, answerKey=[], date=when)],
+    ).save()
+
+
+def _list_one(p):
+    r = client.get(f"/api/questionnaires/patient/{p.id}/", HTTP_AUTHORIZATION="Bearer test")
+    assert r.status_code == 200
+    return r.json()[0]
+
+
+def test_list_patient_questionnaires_due_since_when_current_occurrence_unanswered(frozen_now):
+    p, q1 = _plan_with_dates([_slot(-60), _slot(-30), _slot(30)])
+    _answer(p, q1, -59)
+
+    out = _list_one(p)
+    assert out["due_since"] == _local_day(-30).isoformat()
+    assert out["next_date"] is None
+
+
+def test_list_patient_questionnaires_next_date_moves_after_answering(frozen_now):
+    p, q1 = _plan_with_dates([_slot(-30), _slot(0), _slot(30)])
+    _answer(p, q1, 0)
+
+    out = _list_one(p)
+    assert out["due_since"] is None
+    assert out["next_date"] == _local_day(30).isoformat()
+
+
+def test_list_patient_questionnaires_no_dates_once_schedule_ended_and_answered(frozen_now):
+    p, q1 = _plan_with_dates([_slot(-30)])
+    _answer(p, q1, -29)
+
+    out = _list_one(p)
+    assert out["due_since"] is None
+    assert out["next_date"] is None
+
+
+def test_list_patient_questionnaires_reads_an_early_morning_slot_on_its_local_day(frozen_now):
+    # 00:30 local tomorrow is stored as the previous UTC day.
+    p, _ = _plan_with_dates([_slot(1, hh=0, mm=30)])
+
+    out = _list_one(p)
+    assert out["due_since"] is None
+    assert out["next_date"] == _local_day(1).isoformat()
+
+
+def test_list_patient_questionnaires_no_badge_without_questions(frozen_now):
+    p, _ = _plan_with_dates([_slot(-1), _slot(30)], with_question=False)
+
+    out = _list_one(p)
+    assert out["due_since"] is None
+    assert out["next_date"] is None
+
+
+def test_list_patient_questionnaires_counts_a_rating_stored_as_utc_like_the_patient_app(frozen_now):
+    # Older ratings hold local midnight as a UTC instant, i.e. the evening before.
+    p, q1 = _plan_with_dates([_slot(-1), _slot(30)])
+    utc_midnight = timezone.make_aware(datetime.combine(_local_day(-1), time.min)).astimezone(dt_timezone.utc)
+    _answer(p, q1, -1, when=utc_midnight.replace(tzinfo=None))
+
+    out = _list_one(p)
+    assert out["due_since"] is None
+    assert out["next_date"] == _local_day(30).isoformat()
+
+
+def test_list_patient_questionnaires_groups_a_late_night_answer_under_its_local_day(frozen_now):
+    p, q1 = _plan_with_dates([_slot(0)])
+    # Submitted at 00:30 local, so entry.date holds the previous UTC day.
+    PatientICFRating(
+        questionId=q1,
+        patientId=p,
+        icfCode="d450",
+        date=datetime.combine(_local_day(0), time.min),
+        feedback_entries=[FeedbackEntry(questionId=q1, answerKey=[], date=_slot(0, hh=0, mm=30))],
+    ).save()
+
+    answered_at = _list_one(p)["answered_entries"][0]["answered_at"]
+    assert answered_at.startswith(_local_day(0).isoformat())
 
 
 # ── VERSIONING / SNAPSHOT TESTS ───────────────────────────────────────────────

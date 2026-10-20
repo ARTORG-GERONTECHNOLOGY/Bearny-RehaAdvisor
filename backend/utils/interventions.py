@@ -5,7 +5,6 @@ import os
 import re
 import time
 from datetime import datetime, timedelta
-from datetime import timezone as dt_timezone
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -34,7 +33,7 @@ from core.models import (
     Therapist,
 )
 from utils.config import config
-from utils.scheduling import _merge_date_and_time
+from utils.scheduling import _as_utc, _merge_date_and_time
 from utils.utils import generate_custom_id, get_labels, sanitize_text
 
 # Module-level cache since star question IDs rarely change; re-query at most every 10 minutes.
@@ -400,11 +399,6 @@ def _anchor_date_for_day(day_n: int) -> str:
     base = datetime.fromisoformat(f"{BASE_ANCHOR}T00:00:00")
     start = base + timedelta(days=max(1, day_n) - 1)
     return start.date().isoformat()
-
-
-def _as_utc(value: datetime) -> datetime:
-    """Assignment dates are stored as UTC instants, so a naive value is UTC and not local time."""
-    return value.replace(tzinfo=dt_timezone.utc) if value.tzinfo is None else value.astimezone(dt_timezone.utc)
 
 
 def _instant_key(value: datetime) -> datetime:

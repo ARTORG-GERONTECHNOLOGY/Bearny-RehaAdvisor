@@ -18,7 +18,8 @@ interface QuestionnaireAssignedCardProps {
     title: string;
     question_count?: number;
     frequency?: string;
-    dates?: string[];
+    due_since?: string | null;
+    next_date?: string | null;
     answered_entries?: unknown[];
   };
   onOpen: () => void;
@@ -26,6 +27,9 @@ interface QuestionnaireAssignedCardProps {
   onRemove: () => void;
   t: (key: string) => string;
 }
+
+// Backend sends Zurich calendar days; a time without zone is parsed as local, so no shift.
+const formatDay = (ymd: string) => formatLocaleDate(`${ymd}T00:00`);
 
 const QuestionnaireAssignedCard: React.FC<QuestionnaireAssignedCardProps> = ({
   a,
@@ -56,10 +60,16 @@ const QuestionnaireAssignedCard: React.FC<QuestionnaireAssignedCardProps> = ({
     </CardHeader>
     <CardContent className="flex gap-1 flex-wrap">
       {a.frequency && <Badge>{a.frequency}</Badge>}
-      {!!a.dates?.length && (
+      {a.due_since ? (
         <Badge>
-          {t('Next on')} {formatLocaleDate(a.dates[0])}
+          {t('Due since')} {formatDay(a.due_since)}
         </Badge>
+      ) : (
+        a.next_date && (
+          <Badge>
+            {t('Next on')} {formatDay(a.next_date)}
+          </Badge>
+        )
       )}
       {!!a.answered_entries?.length && (
         <Badge>

@@ -53,6 +53,7 @@ from utils.interventions import (
     _variant_ids_by_external_id,
     _variant_ids_for_external_id,
 )
+from utils.scheduling import due_day_start, split_occurrences
 from utils.utils import (
     _adherence,
     convert_to_serializable,
@@ -1312,7 +1313,6 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
     # -------------------- HEALTHSTATUS --------------------
     if questionaire_type == "Healthstatus":
         now = timezone.now()
-        today_local = timezone.localdate(now)
 
         # 0) Prefer due assigned Healthstatus questionnaires from RehabPlan.
         # Return these first so patients receive therapist-assigned questionnaires
@@ -1323,13 +1323,6 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
 
         if plan and getattr(plan, "questionnaires", None):
             seen_keys = set()
-
-            def _aware(dt):
-                if not dt:
-                    return None
-                if timezone.is_naive(dt):
-                    return timezone.make_aware(dt, timezone.get_current_timezone())
-                return dt
 
             for qa in plan.questionnaires or []:
                 qdoc = getattr(qa, "questionnaireId", None)
@@ -1342,21 +1335,15 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
 
                 q_ids = [q.id for q in questions]
 
-                due_date = None
-                qa_dates = sorted([_aware(d) for d in (getattr(qa, "dates", None) or []) if d])
-                if qa_dates:
-                    # Treat "today" as due even if scheduled time is later.
-                    past_or_today = [d for d in qa_dates if d and timezone.localdate(d) <= today_local]
-                    if not past_or_today:
-                        continue
-                    due_date = past_or_today[-1]
+                qa_dates = [d for d in (getattr(qa, "dates", None) or []) if d]
+                # Treat "today" as due even if scheduled time is later.
+                due_date, _ = split_occurrences(qa_dates, now)
+                if qa_dates and not due_date:
+                    continue
 
                 # If we have a due date, don't re-ask once answered on/after due date.
                 if due_date:
-                    due_date_start = timezone.make_aware(
-                        datetime.datetime.combine(timezone.localdate(due_date), datetime.time.min),
-                        timezone.get_current_timezone(),
-                    )
+                    due_date_start = due_day_start(due_date)
                     already_answered = (
                         PatientICFRating.objects(
                             patientId=patient,
