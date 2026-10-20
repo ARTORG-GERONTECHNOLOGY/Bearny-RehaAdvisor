@@ -36,8 +36,6 @@ type QAssigned = {
   description?: string;
   frequency?: string;
   dates?: string[];
-  due_since?: string | null;
-  next_date?: string | null;
   schedule?: {
     interval?: number;
     unit?: 'day' | 'week' | 'month';

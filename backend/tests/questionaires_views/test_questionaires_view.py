@@ -1,10 +1,12 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
+from datetime import timezone as dt_timezone
 
 import mongomock
 import pytest
 from bson import ObjectId
 from django.test import Client
+from django.utils import timezone
 
 from core.models import (
     AnswerOption,
@@ -448,10 +450,10 @@ def test_list_patient_questionnaires_includes_answered_entries_for_assigned_ques
     assert answered["comment"] == "Felt better."
 
 
-def _plan_with_dates(dates):
+def _plan_with_dates(dates, with_question=True):
     th, p = make_patient_graph()
     q1 = make_feedback_question(f"16_profile_{ObjectId()}")
-    hq = HealthQuestionnaire(key=f"k-{ObjectId()}", title="Q1", questions=[q1]).save()
+    hq = HealthQuestionnaire(key=f"k-{ObjectId()}", title="Q1", questions=[q1] if with_question else []).save()
     RehabilitationPlan(
         patientId=p,
         therapistId=th,
@@ -463,7 +465,19 @@ def _plan_with_dates(dates):
     return p, q1
 
 
-def _answer(p, q1, when):
+def _local_day(offset_days):
+    return timezone.localdate() + timedelta(days=offset_days)
+
+
+def _slot(offset_days, hh=12, mm=0):
+    # Schedule dates are stored as naive UTC.
+    local = timezone.make_aware(datetime.combine(_local_day(offset_days), time(hh, mm)))
+    return local.astimezone(dt_timezone.utc).replace(tzinfo=None)
+
+
+def _answer(p, q1, offset_days):
+    # Ratings are stored as naive local midnight.
+    when = datetime.combine(_local_day(offset_days), time.min)
     PatientICFRating(
         questionId=q1,
         patientId=p,
@@ -480,30 +494,48 @@ def _list_one(p):
     return r.json()[0]
 
 
+def _shown_day(iso):
+    return timezone.localdate(datetime.fromisoformat(iso))
+
+
 def test_list_patient_questionnaires_due_since_when_current_occurrence_unanswered():
-    today = datetime.now().replace(hour=0, minute=1, second=0, microsecond=0)
-    p, q1 = _plan_with_dates([today - timedelta(days=60), today - timedelta(days=30), today + timedelta(days=30)])
-    _answer(p, q1, today - timedelta(days=59))
+    p, q1 = _plan_with_dates([_slot(-60), _slot(-30), _slot(30)])
+    _answer(p, q1, -59)
 
     out = _list_one(p)
-    assert out["due_since"][:10] == (today - timedelta(days=30)).date().isoformat()
+    assert _shown_day(out["due_since"]) == _local_day(-30)
     assert out["next_date"] is None
 
 
 def test_list_patient_questionnaires_next_date_moves_after_answering():
-    today = datetime.now().replace(hour=0, minute=1, second=0, microsecond=0)
-    p, q1 = _plan_with_dates([today - timedelta(days=30), today, today + timedelta(days=30)])
-    _answer(p, q1, today)
+    p, q1 = _plan_with_dates([_slot(-30), _slot(0), _slot(30)])
+    _answer(p, q1, 0)
 
     out = _list_one(p)
     assert out["due_since"] is None
-    assert out["next_date"][:10] == (today + timedelta(days=30)).date().isoformat()
+    assert _shown_day(out["next_date"]) == _local_day(30)
 
 
 def test_list_patient_questionnaires_no_dates_once_schedule_ended_and_answered():
-    today = datetime.now().replace(hour=0, minute=1, second=0, microsecond=0)
-    p, q1 = _plan_with_dates([today - timedelta(days=30)])
-    _answer(p, q1, today - timedelta(days=29))
+    p, q1 = _plan_with_dates([_slot(-30)])
+    _answer(p, q1, -29)
+
+    out = _list_one(p)
+    assert out["due_since"] is None
+    assert out["next_date"] is None
+
+
+def test_list_patient_questionnaires_reads_an_early_morning_slot_on_its_local_day():
+    # 00:30 local tomorrow is stored as the previous UTC day.
+    p, _ = _plan_with_dates([_slot(1, hh=0, mm=30)])
+
+    out = _list_one(p)
+    assert out["due_since"] is None
+    assert _shown_day(out["next_date"]) == _local_day(1)
+
+
+def test_list_patient_questionnaires_no_badge_without_questions():
+    p, _ = _plan_with_dates([_slot(-1), _slot(30)], with_question=False)
 
     out = _list_one(p)
     assert out["due_since"] is None

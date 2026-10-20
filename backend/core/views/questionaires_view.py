@@ -36,6 +36,7 @@ from utils.scheduling import (
     _merge_date_and_time,
     _parse_yyyy_mm_dd,
     _to_aware,
+    split_occurrences,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,32 +74,6 @@ def _render_frequency(schedule: dict) -> str:
         return "Monthly" if interval == 1 else f"Every {interval} months"
 
     return ""
-
-
-def _answered_on_or_after(ratings: list, question_ids: set, day) -> bool:
-    for rating in ratings:
-        rating_date = getattr(rating, "date", None)
-        if not rating_date or timezone.localdate(_to_aware(rating_date)) < day:
-            continue
-        for entry in getattr(rating, "feedback_entries", None) or []:
-            qref = getattr(entry, "questionId", None)
-            if qref and str(getattr(qref, "id", qref)) in question_ids:
-                return True
-    return False
-
-
-def _next_occurrence(dts: list, ratings: list, question_ids: set, now: datetime):
-    """
-    Return (due_since, next_date) using the patient app's due rule: the latest
-    occurrence up to today stays open until answered on or after its day.
-    """
-    today = timezone.localdate(now)
-    dates = sorted(_to_aware(d) for d in dts if d)
-    past = [d for d in dates if timezone.localdate(d) <= today]
-    if past and not _answered_on_or_after(ratings, question_ids, timezone.localdate(past[-1])):
-        return past[-1], None
-    upcoming = [d for d in dates if timezone.localdate(d) > today]
-    return None, (upcoming[0] if upcoming else None)
 
 
 def _infer_frequency_from_dates(dts: list) -> str:
@@ -621,6 +596,7 @@ def list_patient_questionnaires(request, patient_id):
             question_ids = {str(qq.id) for qq in questions if getattr(qq, "id", None)}
 
             answered_entries = []
+            last_answer_day = None
             for rating in ratings:
                 rating_date = getattr(rating, "date", None)
                 for entry in getattr(rating, "feedback_entries", None) or []:
@@ -628,6 +604,9 @@ def list_patient_questionnaires(request, patient_id):
                     qid = str(getattr(qref, "id", qref)) if qref else ""
                     if qid not in question_ids:
                         continue
+                    # Ratings are newest first and stored as naive local midnight.
+                    if rating_date and last_answer_day is None:
+                        last_answer_day = timezone.localdate(_to_aware(rating_date))
 
                     q_trans = [
                         {"language": tr.language, "text": tr.text} for tr in (getattr(qref, "translations", None) or [])
@@ -654,7 +633,12 @@ def list_patient_questionnaires(request, patient_id):
                         }
                     )
 
-            due_since, next_date = _next_occurrence(a.dates or [], ratings, question_ids, now)
+            # The patient app only asks questionnaires that have questions, until answered on or after the due day.
+            due_since, next_date = split_occurrences(a.dates or [], now) if questions else (None, None)
+            if due_since and last_answer_day and last_answer_day >= timezone.localdate(due_since):
+                due_since = None
+            elif due_since:
+                next_date = None
 
             title_snapshot = getattr(a, "title_snapshot", None)
             description_snapshot = getattr(a, "description_snapshot", None)

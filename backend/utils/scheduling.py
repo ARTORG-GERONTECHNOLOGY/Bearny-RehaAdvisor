@@ -3,6 +3,7 @@ import json
 import logging
 import re
 from datetime import date, datetime, time, timedelta
+from datetime import timezone as dt_timezone
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
@@ -21,6 +22,15 @@ def _to_aware(dt: datetime) -> datetime:
     if dt.tzinfo is None:
         return timezone.make_aware(dt, timezone.get_current_timezone())
     return dt
+
+
+def split_occurrences(dts: list, now: datetime):
+    """Return (latest occurrence up to today, first one after today); stored naive dates are UTC."""
+    today = timezone.localdate(now)
+    dates = sorted(timezone.make_aware(d, dt_timezone.utc) if timezone.is_naive(d) else d for d in dts if d)
+    past = [d for d in dates if timezone.localdate(d) <= today]
+    upcoming = [d for d in dates if timezone.localdate(d) > today]
+    return (past[-1] if past else None), (upcoming[0] if upcoming else None)
 
 
 def _merge_date_and_time(date_dt: datetime, hhmm: Optional[str]) -> datetime:
