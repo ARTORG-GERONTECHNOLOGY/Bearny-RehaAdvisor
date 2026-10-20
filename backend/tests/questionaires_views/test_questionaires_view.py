@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import mongomock
 import pytest
@@ -446,6 +446,68 @@ def test_list_patient_questionnaires_includes_answered_entries_for_assigned_ques
     assert answered["questionKey"] == q1.questionKey
     assert answered["answers"][0]["key"] == "2"
     assert answered["comment"] == "Felt better."
+
+
+def _plan_with_dates(dates):
+    th, p = make_patient_graph()
+    q1 = make_feedback_question(f"16_profile_{ObjectId()}")
+    hq = HealthQuestionnaire(key=f"k-{ObjectId()}", title="Q1", questions=[q1]).save()
+    RehabilitationPlan(
+        patientId=p,
+        therapistId=th,
+        startDate=datetime.now(),
+        endDate=datetime.now(),
+        status="active",
+        questionnaires=[QuestionnaireAssignment(questionnaireId=hq, frequency="Monthly", dates=dates)],
+    ).save()
+    return p, q1
+
+
+def _answer(p, q1, when):
+    PatientICFRating(
+        questionId=q1,
+        patientId=p,
+        icfCode="d450",
+        date=when,
+        rating=2,
+        feedback_entries=[FeedbackEntry(questionId=q1, answerKey=[], date=when)],
+    ).save()
+
+
+def _list_one(p):
+    r = client.get(f"/api/questionnaires/patient/{p.id}/", HTTP_AUTHORIZATION="Bearer test")
+    assert r.status_code == 200
+    return r.json()[0]
+
+
+def test_list_patient_questionnaires_due_since_when_current_occurrence_unanswered():
+    today = datetime.now().replace(hour=0, minute=1, second=0, microsecond=0)
+    p, q1 = _plan_with_dates([today - timedelta(days=60), today - timedelta(days=30), today + timedelta(days=30)])
+    _answer(p, q1, today - timedelta(days=59))
+
+    out = _list_one(p)
+    assert out["due_since"][:10] == (today - timedelta(days=30)).date().isoformat()
+    assert out["next_date"] is None
+
+
+def test_list_patient_questionnaires_next_date_moves_after_answering():
+    today = datetime.now().replace(hour=0, minute=1, second=0, microsecond=0)
+    p, q1 = _plan_with_dates([today - timedelta(days=30), today, today + timedelta(days=30)])
+    _answer(p, q1, today)
+
+    out = _list_one(p)
+    assert out["due_since"] is None
+    assert out["next_date"][:10] == (today + timedelta(days=30)).date().isoformat()
+
+
+def test_list_patient_questionnaires_no_dates_once_schedule_ended_and_answered():
+    today = datetime.now().replace(hour=0, minute=1, second=0, microsecond=0)
+    p, q1 = _plan_with_dates([today - timedelta(days=30)])
+    _answer(p, q1, today - timedelta(days=29))
+
+    out = _list_one(p)
+    assert out["due_since"] is None
+    assert out["next_date"] is None
 
 
 # ── VERSIONING / SNAPSHOT TESTS ───────────────────────────────────────────────

@@ -75,6 +75,32 @@ def _render_frequency(schedule: dict) -> str:
     return ""
 
 
+def _answered_on_or_after(ratings: list, question_ids: set, day) -> bool:
+    for rating in ratings:
+        rating_date = getattr(rating, "date", None)
+        if not rating_date or timezone.localdate(_to_aware(rating_date)) < day:
+            continue
+        for entry in getattr(rating, "feedback_entries", None) or []:
+            qref = getattr(entry, "questionId", None)
+            if qref and str(getattr(qref, "id", qref)) in question_ids:
+                return True
+    return False
+
+
+def _next_occurrence(dts: list, ratings: list, question_ids: set, now: datetime):
+    """
+    Return (due_since, next_date) using the patient app's due rule: the latest
+    occurrence up to today stays open until answered on or after its day.
+    """
+    today = timezone.localdate(now)
+    dates = sorted(_to_aware(d) for d in dts if d)
+    past = [d for d in dates if timezone.localdate(d) <= today]
+    if past and not _answered_on_or_after(ratings, question_ids, timezone.localdate(past[-1])):
+        return past[-1], None
+    upcoming = [d for d in dates if timezone.localdate(d) > today]
+    return None, (upcoming[0] if upcoming else None)
+
+
 def _infer_frequency_from_dates(dts: list) -> str:
     """
     Very lightweight fallback if frequency wasn't stored:
@@ -628,6 +654,8 @@ def list_patient_questionnaires(request, patient_id):
                         }
                     )
 
+            due_since, next_date = _next_occurrence(a.dates or [], ratings, question_ids, now)
+
             title_snapshot = getattr(a, "title_snapshot", None)
             description_snapshot = getattr(a, "description_snapshot", None)
             out.append(
@@ -642,6 +670,8 @@ def list_patient_questionnaires(request, patient_id):
                     ),
                     "frequency": freq,
                     "dates": [d.isoformat() for d in (a.dates or [])],
+                    "due_since": due_since.isoformat() if due_since else None,
+                    "next_date": next_date.isoformat() if next_date else None,
                     "question_count": len(questions),
                     "questions": [_serialize_question_for_payload(qq) for qq in questions],
                     "answered_entries": answered_entries,

@@ -18,7 +18,8 @@ interface QuestionnaireAssignedCardProps {
     title: string;
     question_count?: number;
     frequency?: string;
-    dates?: string[];
+    due_since?: string | null;
+    next_date?: string | null;
     answered_entries?: unknown[];
   };
   onOpen: () => void;
@@ -56,10 +57,16 @@ const QuestionnaireAssignedCard: React.FC<QuestionnaireAssignedCardProps> = ({
     </CardHeader>
     <CardContent className="flex gap-1 flex-wrap">
       {a.frequency && <Badge>{a.frequency}</Badge>}
-      {!!a.dates?.length && (
+      {a.due_since ? (
         <Badge>
-          {t('Next on')} {formatLocaleDate(a.dates[0])}
+          {t('Due since')} {formatLocaleDate(a.due_since)}
         </Badge>
+      ) : (
+        a.next_date && (
+          <Badge>
+            {t('Next on')} {formatLocaleDate(a.next_date)}
+          </Badge>
+        )
       )}
       {!!a.answered_entries?.length && (
         <Badge>

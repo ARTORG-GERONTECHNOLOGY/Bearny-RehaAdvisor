@@ -1440,6 +1440,7 @@
   "assistanceAlone": "Alone",
   "assistanceWithHelp": "With help",
   "Next on": "Next on",
+  "Due since": "Due since",
   "Answered": "Answered",
   "Tags": "Tags",
   "daysAgoShort": "{{d}}d ago",
