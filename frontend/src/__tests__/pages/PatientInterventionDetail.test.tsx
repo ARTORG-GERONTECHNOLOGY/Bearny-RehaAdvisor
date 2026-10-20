@@ -916,6 +916,17 @@ describe('PatientInterventionDetail', () => {
   // --- Reschedule button + sheet (issue #426) ---
 
   describe('reschedule', () => {
+    // Pin "now" just before the fixture session: the backend refuses sessions whose time has passed.
+    const occurrence = new Date('2026-03-16').getTime();
+
+    beforeEach(() => {
+      jest.useFakeTimers({ advanceTimers: true }).setSystemTime(occurrence - 60_000);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     it('shows the Reschedule button when the occurrence is not completed', async () => {
       render(<PatientInterventionDetail />);
       await screen.findByText('Morning Stretch');
@@ -925,6 +936,15 @@ describe('PatientInterventionDetail', () => {
 
     it('hides the Reschedule button once the occurrence is completed', async () => {
       (patientInterventionsStore as any).isCompletedOn.mockReturnValue(true);
+
+      render(<PatientInterventionDetail />);
+      await screen.findByText('Morning Stretch');
+
+      expect(screen.queryByRole('button', { name: 'Reschedule' })).not.toBeInTheDocument();
+    });
+
+    it('hides the Reschedule button once the occurrence time has passed', async () => {
+      jest.setSystemTime(occurrence + 60_000);
 
       render(<PatientInterventionDetail />);
       await screen.findByText('Morning Stretch');

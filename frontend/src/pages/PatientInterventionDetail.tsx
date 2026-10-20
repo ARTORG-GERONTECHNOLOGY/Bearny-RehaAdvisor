@@ -603,7 +603,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
             {targetDate && (
               <div className="flex flex-wrap gap-2 justify-end">
-                {!completed && (
+                {!completed && targetOccurrenceDate && targetOccurrenceDate >= new Date() && (
                   <Button
                     variant="secondary"
                     className="bg-white text-zinc-400"

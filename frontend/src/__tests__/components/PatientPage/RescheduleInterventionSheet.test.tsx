@@ -3,7 +3,9 @@ import RescheduleInterventionSheet from '@/components/PatientPage/RescheduleInte
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
 
 describe('RescheduleInterventionSheet', () => {
-  const currentDate = new Date('2026-03-16T18:00:00+00:00');
+  // A year ahead so the date stays in the future whenever the suite runs.
+  const year = new Date().getFullYear() + 1;
+  const currentDate = new Date(`${year}-03-16T18:00:00+00:00`);
 
   const baseProps = {
     open: true,
@@ -34,14 +36,14 @@ describe('RescheduleInterventionSheet', () => {
     const dateInput = screen.getByLabelText('Date') as HTMLInputElement;
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    expect(dateInput.value).toBe('2026-03-16');
+    expect(dateInput.value).toBe(`${year}-03-16`);
     expect(dateInput.min).toBe(today);
   });
 
   it('submits a new date while preserving the original time of day', async () => {
     render(<RescheduleInterventionSheet {...baseProps} />);
 
-    fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-03-20' } });
+    fireEvent.change(screen.getByLabelText('Date'), { target: { value: `${year}-03-20` } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
@@ -49,7 +51,7 @@ describe('RescheduleInterventionSheet', () => {
     });
 
     const submittedDate: Date = baseProps.onSubmit.mock.calls[0][0];
-    expect(submittedDate.getUTCFullYear()).toBe(2026);
+    expect(submittedDate.getUTCFullYear()).toBe(year);
     expect(submittedDate.getUTCMonth()).toBe(2); // March
     expect(submittedDate.getUTCDate()).toBe(20);
     // Time of day carried over unchanged from currentDate (18:00 UTC).
