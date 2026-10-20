@@ -589,6 +589,21 @@ def test_list_patient_questionnaires_counts_a_rating_stored_as_utc_like_the_pati
     assert out["next_date"] == _local_day(30).isoformat()
 
 
+def test_list_patient_questionnaires_groups_a_late_night_answer_under_its_local_day(frozen_now):
+    p, q1 = _plan_with_dates([_slot(0)])
+    # Submitted at 00:30 local, so entry.date holds the previous UTC day.
+    PatientICFRating(
+        questionId=q1,
+        patientId=p,
+        icfCode="d450",
+        date=datetime.combine(_local_day(0), time.min),
+        feedback_entries=[FeedbackEntry(questionId=q1, answerKey=[], date=_slot(0, hh=0, mm=30))],
+    ).save()
+
+    answered_at = _list_one(p)["answered_entries"][0]["answered_at"]
+    assert answered_at.startswith(_local_day(0).isoformat())
+
+
 # ── VERSIONING / SNAPSHOT TESTS ───────────────────────────────────────────────
 
 

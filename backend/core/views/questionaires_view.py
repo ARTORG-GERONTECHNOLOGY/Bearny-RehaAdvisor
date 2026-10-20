@@ -614,7 +614,9 @@ def list_patient_questionnaires(request, patient_id):
                     answers = [_serialize_answer_option(ans) for ans in (getattr(entry, "answerKey", None) or [])]
                     audio_url = getattr(entry, "audio_url", None)
                     media_urls = [audio_url] if audio_url else []
-                    answered_at = getattr(entry, "date", None) or rating_date
+                    # entry.date is stored as UTC, rating.date as local midnight.
+                    entry_date = getattr(entry, "date", None)
+                    answered_at = timezone.localtime(_as_utc(entry_date)) if entry_date else rating_date
                     if answered_at and timezone.is_naive(answered_at):
                         answered_at = timezone.make_aware(answered_at, timezone.get_current_timezone())
                     if answered_at and answered_at > now:
