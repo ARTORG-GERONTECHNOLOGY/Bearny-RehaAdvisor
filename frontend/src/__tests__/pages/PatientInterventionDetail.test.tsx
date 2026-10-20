@@ -916,11 +916,11 @@ describe('PatientInterventionDetail', () => {
   // --- Reschedule button + sheet (issue #426) ---
 
   describe('reschedule', () => {
-    // Pin "today" to the fixture date: past days can no longer be rescheduled.
+    // Pin "now" just before the fixture session: the backend refuses sessions whose time has passed.
+    const occurrence = new Date('2026-03-16').getTime();
+
     beforeEach(() => {
-      jest
-        .useFakeTimers({ advanceTimers: true })
-        .setSystemTime(new Date('2026-03-16T08:00:00').getTime());
+      jest.useFakeTimers({ advanceTimers: true }).setSystemTime(occurrence - 60_000);
     });
 
     afterEach(() => {
@@ -943,8 +943,8 @@ describe('PatientInterventionDetail', () => {
       expect(screen.queryByRole('button', { name: 'Reschedule' })).not.toBeInTheDocument();
     });
 
-    it('hides the Reschedule button for an occurrence on a past day', async () => {
-      jest.setSystemTime(new Date('2026-03-17T08:00:00').getTime());
+    it('hides the Reschedule button once the occurrence time has passed', async () => {
+      jest.setSystemTime(occurrence + 60_000);
 
       render(<PatientInterventionDetail />);
       await screen.findByText('Morning Stretch');

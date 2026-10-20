@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { format, startOfToday } from 'date-fns';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
@@ -603,7 +603,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
             {targetDate && (
               <div className="flex flex-wrap gap-2 justify-end">
-                {!completed && targetDate >= startOfToday() && (
+                {!completed && targetOccurrenceDate && targetOccurrenceDate >= new Date() && (
                   <Button
                     variant="secondary"
                     className="bg-white text-zinc-400"
