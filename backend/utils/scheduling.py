@@ -38,6 +38,11 @@ def split_occurrences(dts: list, now: datetime):
     return (past[-1] if past else None), (upcoming[0] if upcoming else None)
 
 
+def due_day_start(due: datetime) -> datetime:
+    """Local midnight of the due day; an answer at or after this instant counts as answered."""
+    return timezone.make_aware(datetime.combine(timezone.localdate(due), time.min))
+
+
 def _merge_date_and_time(date_dt: datetime, hhmm: Optional[str]) -> datetime:
     hh, mm = (hhmm or "08:00").split(":")[:2]
     merged = datetime(date_dt.year, date_dt.month, date_dt.day, int(hh), int(mm), 0, 0)

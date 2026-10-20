@@ -53,7 +53,7 @@ from utils.interventions import (
     _variant_ids_by_external_id,
     _variant_ids_for_external_id,
 )
-from utils.scheduling import split_occurrences
+from utils.scheduling import due_day_start, split_occurrences
 from utils.utils import (
     _adherence,
     convert_to_serializable,
@@ -1259,7 +1259,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
 
                 q_ids = [q.id for q in questions]
 
-                qa_dates = getattr(qa, "dates", None) or []
+                qa_dates = [d for d in (getattr(qa, "dates", None) or []) if d]
                 # Treat "today" as due even if scheduled time is later.
                 due_date, _ = split_occurrences(qa_dates, now)
                 if qa_dates and not due_date:
@@ -1267,10 +1267,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
 
                 # If we have a due date, don't re-ask once answered on/after due date.
                 if due_date:
-                    due_date_start = timezone.make_aware(
-                        datetime.datetime.combine(timezone.localdate(due_date), datetime.time.min),
-                        timezone.get_current_timezone(),
-                    )
+                    due_date_start = due_day_start(due_date)
                     already_answered = (
                         PatientICFRating.objects(
                             patientId=patient,

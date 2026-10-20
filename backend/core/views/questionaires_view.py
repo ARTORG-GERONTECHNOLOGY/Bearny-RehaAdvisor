@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from collections import Counter
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
@@ -36,6 +36,7 @@ from utils.scheduling import (
     _expand_dates,
     _merge_date_and_time,
     _parse_yyyy_mm_dd,
+    due_day_start,
     split_occurrences,
 )
 
@@ -635,8 +636,7 @@ def list_patient_questionnaires(request, patient_id):
             # Same rule and Mongo-style instant comparison as get_feedback_questions; no badge without dates.
             due_since, next_date = split_occurrences(a.dates or [], now) if questions else (None, None)
             if due_since:
-                due_start = timezone.make_aware(datetime.combine(timezone.localdate(due_since), time.min))
-                if last_answered and _as_utc(last_answered) >= due_start:
+                if last_answered and _as_utc(last_answered) >= due_day_start(due_since):
                     due_since = None
                 else:
                     next_date = None

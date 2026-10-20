@@ -924,6 +924,30 @@ def test_fetch_healthstatus_questions_reads_an_early_morning_slot_on_its_local_d
     assert "93_early_q1" not in [q.get("questionKey") for q in questions]
 
 
+def test_fetch_healthstatus_questions_treats_null_only_dates_as_undated(mongo_mock):
+    patient, _, _, plan = setup_basic_plan()
+
+    q1 = FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey="92_nulldates_q1",
+        translations=[Translation(language="en", text="Null dates?")],
+        answer_type="text",
+    ).save()
+    hq = HealthQuestionnaire(key="92_nulldates", title="Null 92", questions=[q1]).save()
+
+    plan.questionnaires = [QuestionnaireAssignment(questionnaireId=hq, frequency="Monthly", dates=[None])]
+    plan.save(validate=False)
+
+    resp = client.get(
+        f"/api/patients/get-questions/Healthstatus/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    questions = body if isinstance(body, list) else body.get("questions", [])
+    assert "92_nulldates_q1" in [q.get("questionKey") for q in questions]
+
+
 def test_fetch_healthstatus_questions_hides_due_assignment_after_answered(mongo_mock):
     """
     Once the assigned questionnaire has been answered on/after its due date,
