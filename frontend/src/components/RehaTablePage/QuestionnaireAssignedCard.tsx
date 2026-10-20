@@ -28,6 +28,9 @@ interface QuestionnaireAssignedCardProps {
   t: (key: string) => string;
 }
 
+// Backend sends Zurich calendar days; a time without zone is parsed as local, so no shift.
+const formatDay = (ymd: string) => formatLocaleDate(`${ymd}T00:00`);
+
 const QuestionnaireAssignedCard: React.FC<QuestionnaireAssignedCardProps> = ({
   a,
   onOpen,
@@ -59,12 +62,12 @@ const QuestionnaireAssignedCard: React.FC<QuestionnaireAssignedCardProps> = ({
       {a.frequency && <Badge>{a.frequency}</Badge>}
       {a.due_since ? (
         <Badge>
-          {t('Due since')} {formatLocaleDate(a.due_since)}
+          {t('Due since')} {formatDay(a.due_since)}
         </Badge>
       ) : (
         a.next_date && (
           <Badge>
-            {t('Next on')} {formatLocaleDate(a.next_date)}
+            {t('Next on')} {formatDay(a.next_date)}
           </Badge>
         )
       )}

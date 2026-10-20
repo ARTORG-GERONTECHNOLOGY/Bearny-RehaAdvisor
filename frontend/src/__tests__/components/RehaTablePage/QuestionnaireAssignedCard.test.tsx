@@ -8,7 +8,7 @@ const baseA = {
   title: 'Profile (16)',
   question_count: 8,
   frequency: 'Monthly',
-  next_date: '2026-06-15T00:00:00Z',
+  next_date: '2026-06-15',
   answered_entries: [{ questionKey: 'q1' }, { questionKey: 'q2' }],
 };
 
@@ -38,14 +38,16 @@ describe('QuestionnaireAssignedCard', () => {
       />
     );
     expect(screen.getByText('Monthly')).toBeInTheDocument();
-    expect(screen.getByText(/Next on/)).toBeInTheDocument();
+    expect(screen.getByText(/Next on/)).toHaveTextContent(
+      new Date(2026, 5, 15).toLocaleDateString()
+    );
     expect(screen.getByText(/2 Answered/)).toBeInTheDocument();
   });
 
   it('shows due since instead of next on when the current occurrence is open', () => {
     render(
       <QuestionnaireAssignedCard
-        a={{ ...baseA, due_since: '2026-05-15T00:00:00Z', next_date: null }}
+        a={{ ...baseA, due_since: '2026-05-15', next_date: null }}
         onOpen={jest.fn()}
         onModify={jest.fn()}
         onRemove={jest.fn()}

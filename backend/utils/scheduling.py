@@ -24,10 +24,15 @@ def _to_aware(dt: datetime) -> datetime:
     return dt
 
 
+def _as_utc(value: datetime) -> datetime:
+    """Assignment dates are stored as UTC instants, so a naive value is UTC and not local time."""
+    return value.replace(tzinfo=dt_timezone.utc) if value.tzinfo is None else value.astimezone(dt_timezone.utc)
+
+
 def split_occurrences(dts: list, now: datetime):
-    """Return (latest occurrence up to today, first one after today); stored naive dates are UTC."""
+    """Return (latest stored occurrence up to today, first one after today)."""
     today = timezone.localdate(now)
-    dates = sorted(timezone.make_aware(d, dt_timezone.utc) if timezone.is_naive(d) else d for d in dts if d)
+    dates = sorted(_as_utc(d) for d in dts if d)
     past = [d for d in dates if timezone.localdate(d) <= today]
     upcoming = [d for d in dates if timezone.localdate(d) > today]
     return (past[-1] if past else None), (upcoming[0] if upcoming else None)
