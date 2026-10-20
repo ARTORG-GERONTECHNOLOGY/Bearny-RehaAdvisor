@@ -2830,10 +2830,10 @@ def reschedule_intervention_date(request):
             status=400,
         )
 
-    # By local day, not instant: today's sessions stay movable after their slot time has passed.
-    today_local = _as_aware_local(timezone.now()).date()
+    now_utc = timezone.now().astimezone(datetime.timezone.utc)
 
-    if _as_aware_local(new_dt_utc).date() < today_local:
+    # By local day, not instant: a session moved to today keeps its slot time, which may have passed.
+    if _as_aware_local(new_dt_utc).date() < _as_aware_local(now_utc).date():
         return JsonResponse(
             {
                 "success": False,
@@ -2879,7 +2879,7 @@ def reschedule_intervention_date(request):
 
     target, match_index, match_utc = match
 
-    if _as_aware_local(match_utc).date() < today_local:
+    if match_utc < now_utc:
         return JsonResponse(
             {
                 "success": False,

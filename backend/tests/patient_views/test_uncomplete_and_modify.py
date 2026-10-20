@@ -1530,33 +1530,6 @@ def test_reschedule_intervention_date_to_earlier_today(mongo_mock):
     assert resp.status_code == 200, resp.content.decode()
 
 
-def test_reschedule_intervention_date_from_earlier_today(mongo_mock):
-    """Today's session stays movable after its slot time has passed; only earlier days are locked."""
-    from zoneinfo import ZoneInfo
-
-    patient, _, intervention, plan = setup_patient_with_plan()
-    zurich = ZoneInfo("Europe/Zurich")
-    today_midnight = datetime.combine(datetime.now(zurich).date(), datetime.min.time(), tzinfo=zurich)
-    old_dt = today_midnight.astimezone(py_utc.utc).replace(tzinfo=None)
-    plan.interventions[0].dates[0] = old_dt
-    plan.save()
-
-    resp = client.post(
-        RESCHEDULE_URL,
-        data=json.dumps(
-            {
-                "patientId": str(patient.id),
-                "interventionId": str(intervention.id),
-                "oldDatetime": _as_utc_iso(old_dt),
-                "newDatetime": (datetime.now(py_utc.utc) + timedelta(days=10)).isoformat(),
-            }
-        ),
-        content_type="application/json",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
-    assert resp.status_code == 200, resp.content.decode()
-
-
 def test_reschedule_intervention_date_past_old_datetime(mongo_mock):
     """
     Attempting to move an occurrence that has already passed returns 400,
