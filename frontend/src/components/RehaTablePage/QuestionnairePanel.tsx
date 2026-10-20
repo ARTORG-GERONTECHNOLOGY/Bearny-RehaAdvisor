@@ -34,6 +34,8 @@ type QAssigned = {
   description?: string;
   frequency?: string;
   dates?: string[];
+  due_since?: string | null;
+  next_date?: string | null;
   question_count?: number;
   questions?: QuestionShape[];
   answered_entries?: Array<{

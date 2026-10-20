@@ -32,10 +32,12 @@ from core.permissions import (
     is_therapist_or_admin,
 )
 from utils.scheduling import (
+    _as_utc,
     _expand_dates,
     _merge_date_and_time,
     _parse_yyyy_mm_dd,
-    _to_aware,
+    due_day_start,
+    split_occurrences,
 )
 
 logger = logging.getLogger(__name__)
@@ -595,6 +597,7 @@ def list_patient_questionnaires(request, patient_id):
             question_ids = {str(qq.id) for qq in questions if getattr(qq, "id", None)}
 
             answered_entries = []
+            last_answered = None
             for rating in ratings:
                 rating_date = getattr(rating, "date", None)
                 for entry in getattr(rating, "feedback_entries", None) or []:
@@ -602,6 +605,8 @@ def list_patient_questionnaires(request, patient_id):
                     qid = str(getattr(qref, "id", qref)) if qref else ""
                     if qid not in question_ids:
                         continue
+                    if rating_date and last_answered is None:  # ratings are newest first
+                        last_answered = rating_date
 
                     q_trans = [
                         {"language": tr.language, "text": tr.text} for tr in (getattr(qref, "translations", None) or [])
@@ -609,7 +614,9 @@ def list_patient_questionnaires(request, patient_id):
                     answers = [_serialize_answer_option(ans) for ans in (getattr(entry, "answerKey", None) or [])]
                     audio_url = getattr(entry, "audio_url", None)
                     media_urls = [audio_url] if audio_url else []
-                    answered_at = getattr(entry, "date", None) or rating_date
+                    # entry.date is stored as UTC, rating.date as local midnight.
+                    entry_date = getattr(entry, "date", None)
+                    answered_at = timezone.localtime(_as_utc(entry_date)) if entry_date else rating_date
                     if answered_at and timezone.is_naive(answered_at):
                         answered_at = timezone.make_aware(answered_at, timezone.get_current_timezone())
                     if answered_at and answered_at > now:
@@ -628,6 +635,14 @@ def list_patient_questionnaires(request, patient_id):
                         }
                     )
 
+            # Same rule and Mongo-style instant comparison as get_feedback_questions; no badge without dates.
+            due_since, next_date = split_occurrences(a.dates or [], now) if questions else (None, None)
+            if due_since:
+                if last_answered and _as_utc(last_answered) >= due_day_start(due_since):
+                    due_since = None
+                else:
+                    next_date = None
+
             title_snapshot = getattr(a, "title_snapshot", None)
             description_snapshot = getattr(a, "description_snapshot", None)
             out.append(
@@ -642,6 +657,8 @@ def list_patient_questionnaires(request, patient_id):
                     ),
                     "frequency": freq,
                     "dates": [d.isoformat() for d in (a.dates or [])],
+                    "due_since": timezone.localdate(due_since).isoformat() if due_since else None,
+                    "next_date": timezone.localdate(next_date).isoformat() if next_date else None,
                     "question_count": len(questions),
                     "questions": [_serialize_question_for_payload(qq) for qq in questions],
                     "answered_entries": answered_entries,
@@ -768,7 +785,7 @@ def assign_questionnaire(request):
                     eff = _merge_date_and_time(eff_naive, schedule.get("startTime") or "08:00") if eff_naive else None
                     cutoff_date = eff.date() if eff else None
                     qa.dates = [
-                        d for d in (qa.dates or []) if (not cutoff_date or _to_aware(d).date() < cutoff_date)
+                        d for d in (qa.dates or []) if (not cutoff_date or timezone.localdate(_as_utc(d)) < cutoff_date)
                     ] + dates
                 else:
                     qa.dates = dates or qa.dates
