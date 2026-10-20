@@ -2832,7 +2832,8 @@ def reschedule_intervention_date(request):
 
     now_utc = timezone.now().astimezone(datetime.timezone.utc)
 
-    if new_dt_utc < now_utc:
+    # By local day, not instant: a session moved to today keeps its slot time, which may have passed.
+    if _as_aware_local(new_dt_utc).date() < _as_aware_local(now_utc).date():
         return JsonResponse(
             {
                 "success": False,

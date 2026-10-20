@@ -1502,6 +1502,34 @@ def test_reschedule_intervention_date_past_new_datetime(mongo_mock):
     assert "past" in resp.json().get("message", "")
 
 
+def test_reschedule_intervention_date_to_earlier_today(mongo_mock):
+    """
+    Moving a session up to today succeeds even when its time of day has already passed: the
+    patient sheet keeps the slot time, so "today" can land a few hours before now.
+    """
+    from zoneinfo import ZoneInfo
+
+    patient, _, intervention, plan = setup_patient_with_plan()
+    old_dt = plan.interventions[0].dates[1]
+    zurich = ZoneInfo("Europe/Zurich")
+    today_midnight = datetime.combine(datetime.now(zurich).date(), datetime.min.time(), tzinfo=zurich)
+
+    resp = client.post(
+        RESCHEDULE_URL,
+        data=json.dumps(
+            {
+                "patientId": str(patient.id),
+                "interventionId": str(intervention.id),
+                "oldDatetime": _as_utc_iso(old_dt),
+                "newDatetime": today_midnight.astimezone(py_utc.utc).isoformat(),
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+
+
 def test_reschedule_intervention_date_past_old_datetime(mongo_mock):
     """
     Attempting to move an occurrence that has already passed returns 400,
