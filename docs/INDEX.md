@@ -30,6 +30,7 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 | [15-STUDY_INTEGRATION.md](./15-STUDY_INTEGRATION.md) | REDCap connection, patient import, consent gate, wearables sync | Study Coordinators, DevOps | — |
 | [16-FITBIT_INTEGRATION.md](./16-FITBIT_INTEGRATION.md) | Fitbit OAuth flow, data models, sync paths, API endpoints, rate-limit guard | Backend Developers, DevOps | — |
 | [17-GOOGLE_HEALTH_INTEGRATION.md](./17-GOOGLE_HEALTH_INTEGRATION.md) | Google Health OAuth flow, data models, sync paths, coexistence with Fitbit | Backend Developers, DevOps | — |
+| [18-DATA_EXPORT_REFERENCE.md](./18-DATA_EXPORT_REFERENCE.md) | All UI exports: every file, every column explained | Admins, Study Coordinators, Researchers | — |
 | [13-CODE_STANDARDS.md](./13-CODE_STANDARDS.md) | Code style and best practices | Developers | 15 KB |
 | [14-CI_ENVIRONMENT_CONTRACT.md](./14-CI_ENVIRONMENT_CONTRACT.md) | CI test environment and security contract | DevOps, Backend Developers | 3 KB |
 
@@ -63,7 +64,8 @@ Complete technical documentation and guides for RehaAdvisor developers and users
 ### 📚 For Product Managers/Users
 1. [User Guide](./10-USER_GUIDE.md) - How to use the application
 2. [FAQ](./11-FAQ.md) - Common questions
-3. [API Documentation](./09-API_DOCUMENTATION.md) (for integrations)
+3. [Data Export Reference](./18-DATA_EXPORT_REFERENCE.md) - Every export file and column explained
+4. [API Documentation](./09-API_DOCUMENTATION.md) (for integrations)
 
 ### 🤝 For Contributors
 1. [Contributing Guidelines](./12-CONTRIBUTING.md)
