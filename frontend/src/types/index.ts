@@ -1,7 +1,3 @@
-export interface AnswerOption {
-  key: string;
-  translations: Translation[];
-}
 // types/InterventionType.ts
 export interface InterventionTypeTh {
   _id: string;
@@ -84,12 +80,6 @@ export interface PendingEntry {
   [key: string]: unknown; // ✅ unknown is allowed, unlike `any`
 }
 
-export interface InterventionLog {
-  datetime: string;
-  status: 'completed' | 'accessed' | 'missed' | 'today' | 'upcoming';
-  feedback?: FeedbackEntry[];
-}
-
 export interface InterventionAssignment {
   _id: string;
   title: string;
@@ -102,7 +92,7 @@ export interface InterventionAssignment {
   preview_img: string;
   media_url?: string;
   link?: string;
-  dates: InterventionLog[];
+  dates: InterventionDate[];
   currentTotalCount: number;
   completedCount: number;
 }
