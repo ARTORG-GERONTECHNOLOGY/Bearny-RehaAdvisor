@@ -475,24 +475,34 @@ const PatientInterventionDetail: React.FC = observer(() => {
     return null;
   }, [selectedRec, selectedLibraryItem]);
 
-  // Track time spent on this intervention detail page
-  const viewDateParam = searchParams.get('date') || '';
+  // Logged as opened after 2s; the duration is added on leaving, or stays empty if leaving is never seen.
+  // The date is read when sent (the backend checks it against the plan), so a reschedule here stays one visit.
+  const viewDateRef = useRef('');
+  viewDateRef.current = searchParams.get('date') || '';
   useEffect(() => {
+    if (!patientId || !interventionId) return;
+    const url = `/patients/vitals/intervention-view/${patientId}/`;
     const openedAt = Date.now();
+    let logId: Promise<string | null> | null = null;
+
+    const timer = setTimeout(() => {
+      logId = apiClient
+        .post(url, { intervention_id: interventionId, date: viewDateRef.current })
+        .then(({ data }) => (data?.id ? String(data.id) : null))
+        .catch(() => null);
+    }, 2000);
+
     return () => {
+      clearTimeout(timer);
       const seconds = Math.round((Date.now() - openedAt) / 1000);
-      if (seconds < 2 || !patientId || !interventionId) return;
-      apiClient
-        .post(`/patients/vitals/intervention-view/${patientId}/`, {
-          intervention_id: interventionId,
-          date: viewDateParam,
-          seconds_viewed: seconds,
-        })
-        .catch(() => {
+      void logId?.then((id) => {
+        if (!id) return;
+        apiClient.post(url, { log_id: id, seconds_viewed: seconds }).catch(() => {
           /* best-effort, no noise */
         });
+      });
     };
-  }, [patientId, interventionId, viewDateParam]);
+  }, [patientId, interventionId]);
 
   // keep translations in sync with effectiveItem
   useEffect(() => {
@@ -619,7 +629,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
                   aria-pressed={completed}
                   onClick={handleToggleCompleted}
                   variant={completed ? 'default' : 'secondary'}
-                  className={!completed && 'bg-white text-zinc-400'}
+                  className={!completed ? 'bg-white border border-brand text-brand' : undefined}
                 >
                   {(() => {
                     const isBehaviorChange =

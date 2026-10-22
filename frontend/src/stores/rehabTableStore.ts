@@ -63,17 +63,16 @@ const getContentType = (x: unknown): string => {
   return typeof v === 'string' ? v : '';
 };
 
-const getDates = (x: unknown): Array<{ datetime: string }> => {
+// Datetime and status per session.
+const getDates = (x: unknown): Array<{ datetime: string; status: string }> => {
   if (!x || typeof x !== 'object') return [];
   const o = x as { dates?: unknown };
-  return Array.isArray(o.dates)
-    ? o.dates
-        .map((d) =>
-          d && typeof d === 'object' ? (d as { datetime?: unknown }).datetime : undefined
-        )
-        .filter((dt): dt is string => typeof dt === 'string')
-        .map((dt) => ({ datetime: dt }))
-    : [];
+  if (!Array.isArray(o.dates)) return [];
+  return o.dates.flatMap((d) => {
+    if (!d || typeof d !== 'object') return [];
+    const { datetime, status } = d as { datetime?: unknown; status?: unknown };
+    return typeof datetime === 'string' ? [{ datetime, status: String(status || '') }] : [];
+  });
 };
 
 const isTruthy = (v: unknown): boolean => v === true || v === 'true' || v === 1 || v === '1';
@@ -113,6 +112,7 @@ export class RehabTableStore {
   tagFilter: string[] = [];
   benefitForFilter: string[] = [];
   languageFilter: string[] = [];
+  statusFilter: string[] = [];
 
   // filters (ACTIVE tab)
   activeSearchTerm = '';
@@ -121,6 +121,7 @@ export class RehabTableStore {
   activeTagFilter: string[] = [];
   activeBenefitForFilter: string[] = [];
   activeLanguageFilter: string[] = [];
+  activeStatusFilter: string[] = [];
 
   // filters (PAST tab)
   pastSearchTerm = '';
@@ -129,6 +130,7 @@ export class RehabTableStore {
   pastTagFilter: string[] = [];
   pastBenefitForFilter: string[] = [];
   pastLanguageFilter: string[] = [];
+  pastStatusFilter: string[] = [];
 
   // tag translation function (set from component)
   translateTag: ((tag: string) => string) | undefined = undefined;
@@ -261,6 +263,24 @@ export class RehabTableStore {
     return map;
   }
 
+  private get planInterventionsByExternalId(): Map<string, unknown> {
+    const map = new Map<string, unknown>();
+    (this.patientData?.interventions || []).forEach((i) => {
+      const ext = (i as { external_id?: unknown }).external_id;
+      if (typeof ext === 'string' && ext && !map.has(ext)) map.set(ext, i);
+    });
+    return map;
+  }
+
+  // The catalog can list another language variant than the one assigned; external_id is shared.
+  private planItemFor(it: Intervention): unknown {
+    const ext = (it as { external_id?: unknown }).external_id;
+    return (
+      this.planInterventionsById.get(it._id) ??
+      (typeof ext === 'string' ? this.planInterventionsByExternalId.get(ext) : undefined)
+    );
+  }
+
   private hasFutureDates(interventionId: string) {
     const planItem = this.planInterventionsById.get(interventionId);
     const dates = getDates(planItem);
@@ -281,8 +301,30 @@ export class RehabTableStore {
     return this.matchedPatientItems.filter((it) => !this.hasFutureDates(it._id));
   }
 
+  // External ids (or ids) of everything the patient opened, including unplanned library views.
+  private get viewedInterventions(): Set<string> {
+    const raw = this.patientData?.viewed_interventions;
+    return new Set(Array.isArray(raw) ? raw.map(String) : []);
+  }
+
+  // Keeps items with a session in a selected status. Beyond that, "accessed" matches an intervention the
+  // patient opened (planned or not) but never completed, and "not_seen" one they never opened or completed.
+  private filterByStatus(items: Intervention[], statusFilter: string[]): Intervention[] {
+    if (!statusFilter.length) return items;
+    const viewed = this.viewedInterventions;
+    return items.filter((it) => {
+      const statuses = getDates(this.planItemFor(it)).map((d) => d.status);
+      if (statuses.some((st) => statusFilter.includes(st))) return true;
+      if (statuses.includes('completed')) return false;
+      const opened =
+        viewed.has(it._id) ||
+        viewed.has(String((it as { external_id?: unknown }).external_id || ''));
+      return statusFilter.includes(opened ? 'accessed' : 'not_seen');
+    });
+  }
+
   // Shared by the three filtered* getters below — the only thing that differs
-  // per section is which six filter fields feed in.
+  // per section is which seven filter fields feed in.
   private filterSection(
     items: Intervention[],
     sectionFilters: {
@@ -291,19 +333,24 @@ export class RehabTableStore {
       contentTypeFilter: string;
       tagFilter: string[];
       benefitForFilter: string[];
+      statusFilter: string[];
       searchTerm: string;
     }
   ): Intervention[] {
-    return filterInterventions(items, this.titleMap, {
-      diagnosisFilter: sectionFilters.patientTypeFilter ? [sectionFilters.patientTypeFilter] : [],
-      languageFilter: sectionFilters.languageFilter.map((l) => l.toLowerCase()),
-      contentTypeFilter: sectionFilters.contentTypeFilter,
-      tagFilter: sectionFilters.tagFilter,
-      benefitForFilter: sectionFilters.benefitForFilter,
-      searchTerm: sectionFilters.searchTerm,
-      includeTagsInSearch: true,
-      getTagLabel: this.translateTag,
-    });
+    return filterInterventions(
+      this.filterByStatus(items, sectionFilters.statusFilter),
+      this.titleMap,
+      {
+        diagnosisFilter: sectionFilters.patientTypeFilter ? [sectionFilters.patientTypeFilter] : [],
+        languageFilter: sectionFilters.languageFilter.map((l) => l.toLowerCase()),
+        contentTypeFilter: sectionFilters.contentTypeFilter,
+        tagFilter: sectionFilters.tagFilter,
+        benefitForFilter: sectionFilters.benefitForFilter,
+        searchTerm: sectionFilters.searchTerm,
+        includeTagsInSearch: true,
+        getTagLabel: this.translateTag,
+      }
+    );
   }
 
   get filteredRecommendations(): Intervention[] {
@@ -313,6 +360,7 @@ export class RehabTableStore {
       contentTypeFilter: this.contentTypeFilter,
       tagFilter: this.tagFilter,
       benefitForFilter: this.benefitForFilter,
+      statusFilter: this.statusFilter,
       searchTerm: this.searchTerm,
     });
   }
@@ -324,6 +372,7 @@ export class RehabTableStore {
       contentTypeFilter: this.activeContentTypeFilter,
       tagFilter: this.activeTagFilter,
       benefitForFilter: this.activeBenefitForFilter,
+      statusFilter: this.activeStatusFilter,
       searchTerm: this.activeSearchTerm,
     });
   }
@@ -335,6 +384,7 @@ export class RehabTableStore {
       contentTypeFilter: this.pastContentTypeFilter,
       tagFilter: this.pastTagFilter,
       benefitForFilter: this.pastBenefitForFilter,
+      statusFilter: this.pastStatusFilter,
       searchTerm: this.pastSearchTerm,
     });
   }
@@ -394,6 +444,9 @@ export class RehabTableStore {
   setLanguageFilter(v: string[]) {
     this.languageFilter = Array.isArray(v) ? v : [];
   }
+  setStatusFilter(v: string[]) {
+    this.statusFilter = Array.isArray(v) ? v : [];
+  }
 
   resetAllFilters() {
     this.searchTerm = '';
@@ -402,6 +455,7 @@ export class RehabTableStore {
     this.tagFilter = [];
     this.benefitForFilter = [];
     this.languageFilter = [];
+    this.statusFilter = [];
   }
 
   setActiveSearchTerm(v: string) {
@@ -422,6 +476,9 @@ export class RehabTableStore {
   setActiveLanguageFilter(v: string[]) {
     this.activeLanguageFilter = Array.isArray(v) ? v : [];
   }
+  setActiveStatusFilter(v: string[]) {
+    this.activeStatusFilter = Array.isArray(v) ? v : [];
+  }
   resetActiveFilters() {
     this.activeSearchTerm = '';
     this.activePatientTypeFilter = '';
@@ -429,6 +486,7 @@ export class RehabTableStore {
     this.activeTagFilter = [];
     this.activeBenefitForFilter = [];
     this.activeLanguageFilter = [];
+    this.activeStatusFilter = [];
   }
 
   setPastSearchTerm(v: string) {
@@ -449,6 +507,9 @@ export class RehabTableStore {
   setPastLanguageFilter(v: string[]) {
     this.pastLanguageFilter = Array.isArray(v) ? v : [];
   }
+  setPastStatusFilter(v: string[]) {
+    this.pastStatusFilter = Array.isArray(v) ? v : [];
+  }
   resetPastFilters() {
     this.pastSearchTerm = '';
     this.pastPatientTypeFilter = '';
@@ -456,6 +517,7 @@ export class RehabTableStore {
     this.pastTagFilter = [];
     this.pastBenefitForFilter = [];
     this.pastLanguageFilter = [];
+    this.pastStatusFilter = [];
   }
 
   // ---------------------------------------------------------------------------

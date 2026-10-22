@@ -1765,5 +1765,9 @@
   "Daily at {{time}}": "Daily at {{time}}",
   "Weekly on {{day}} at {{time}}": "Weekly on {{day}} at {{time}}",
   "Every hour": "Every hour",
-  "Every {{hours}} hours": "Every {{hours}} hours"
+  "Every {{hours}} hours": "Every {{hours}} hours",
+  "Accessed": "Accessed",
+  "Opened, not completed": "Opened, not completed",
+  "Filter by Status": "Filter by Status",
+  "Not seen yet": "Not seen yet"
 }

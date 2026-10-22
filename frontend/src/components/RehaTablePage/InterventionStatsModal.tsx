@@ -11,7 +11,7 @@ import StarRating from './StarRating';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getInterventionDateStatusClass } from '@/utils/interventions';
+import { DATE_STATUS_LABELS, getInterventionDateStatusClass } from '@/utils/interventions';
 import { asArray } from '@/utils/typeGuards';
 
 type AnyObj = Record<string, any>;
@@ -39,6 +39,7 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
     const dates = asArray<any>(assigned?.dates);
 
     let completed = 0;
+    let accessed = 0;
     let missed = 0;
     let today = 0;
     let upcoming = 0;
@@ -49,6 +50,7 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
     dates.forEach((d: any) => {
       const st = String(d?.status || '').toLowerCase();
       if (st === 'completed') completed += 1;
+      else if (st === 'accessed') accessed += 1;
       else if (st === 'missed') missed += 1;
       else if (st === 'today') today += 1;
       else upcoming += 1;
@@ -78,6 +80,7 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
     return {
       total,
       completed,
+      accessed,
       missed,
       today,
       upcoming,
@@ -106,18 +109,15 @@ const InterventionStatsModal: React.FC<Props> = ({ show, onHide, intervention, p
           <Badge variant="dashboard">
             {safeT(t, 'Total')}: {stats.total}
           </Badge>
-          <Badge variant="dashboard" className={getInterventionDateStatusClass('completed')}>
-            {safeT(t, 'Completed')}: {stats.completed}
-          </Badge>
-          <Badge variant="dashboard" className={getInterventionDateStatusClass('missed')}>
-            {safeT(t, 'Missed')}: {stats.missed}
-          </Badge>
-          <Badge variant="dashboard" className={getInterventionDateStatusClass('today')}>
-            {safeT(t, 'Today')}: {stats.today}
-          </Badge>
-          <Badge variant="dashboard" className={getInterventionDateStatusClass('upcoming')}>
-            {safeT(t, 'Upcoming')}: {stats.upcoming}
-          </Badge>
+          {Object.entries(DATE_STATUS_LABELS).map(([status, label]) => (
+            <Badge
+              key={status}
+              variant="dashboard"
+              className={getInterventionDateStatusClass(status)}
+            >
+              {safeT(t, label)}: {stats[status as keyof typeof DATE_STATUS_LABELS]}
+            </Badge>
+          ))}
         </div>
 
         <Table>

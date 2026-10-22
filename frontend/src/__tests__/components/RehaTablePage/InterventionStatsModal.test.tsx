@@ -65,6 +65,11 @@ describe('InterventionStatsModal', () => {
               feedback: [],
             },
             {
+              status: 'accessed',
+              datetime: '2025-04-03T10:00:00Z',
+              feedback: [],
+            },
+            {
               status: 'upcoming',
               datetime: '2025-04-04T10:00:00Z',
               feedback: [],
@@ -94,6 +99,11 @@ describe('InterventionStatsModal', () => {
     expect(screen.getByText(/Completed:/)).toBeInTheDocument();
     expect(screen.getByText(/Missed:/)).toBeInTheDocument();
     expect(screen.getByText(/Upcoming:/)).toBeInTheDocument();
+    // Opened-but-not-completed sessions get their own count instead of falling into Upcoming.
+    expect(screen.getByText('Accessed: 1')).toBeInTheDocument();
+    expect(screen.getByText('Upcoming: 1')).toBeInTheDocument();
+    // Uses the translated "today" key (the old "Today" key had no translations).
+    expect(screen.getByText('today: 0')).toBeInTheDocument();
 
     // Check table rows
     expect(screen.getByText(/Average rating/)).toBeInTheDocument();

@@ -74,6 +74,17 @@ describe('ReconnectBanner — visibility', () => {
   });
 });
 
+describe('ReconnectBanner — layout', () => {
+  it("wraps its actions below long text and takes the caller's grid classes", () => {
+    setStore(true, 3);
+    const { container } = render(<ReconnectBanner className="lg:col-span-3" />);
+    const banner = container.firstChild as HTMLElement;
+    expect(banner).toHaveClass('flex-wrap', 'lg:col-span-3');
+    // The compact size; the default one is too large to sit next to the text.
+    expect(screen.getByRole('button', { name: 'Reconnect' })).toHaveClass('text-sm');
+  });
+});
+
 describe('ReconnectBanner — warning message (days remaining)', () => {
   it('shows the "expires in N day(s)" message when daysUntilExpiry >= 1', () => {
     setStore(true, 1);

@@ -53,6 +53,7 @@ from core.models import (
     HealthQuestionnaire,
     Intervention,
     InterventionAssignment,
+    Logs,
     Patient,
     PatientICFRating,
     PatientInterventionLogs,
@@ -758,6 +759,263 @@ def test_therapist_plan_upcoming_date_uses_scheduled_time(mongo_mock):
     assert len(dates) == 1
     assert dates[0]["status"] == "upcoming"
     assert "08:00" in dates[0]["datetime"]
+
+
+def _local_noon_utc(days_offset):
+    """Local noon N days from today as naive UTC, the way assignment dates come back from Mongo."""
+    day = timezone.localdate() + timedelta(days=days_offset)
+    noon = timezone.make_aware(datetime.combine(day, datetime.min.time()).replace(hour=12))
+    return noon.astimezone(dt_timezone.utc).replace(tzinfo=None), day
+
+
+def _log_view(patient, ref, day=None, timestamp=None):
+    Logs(
+        userId=patient.userId,
+        action="INTERVENTION_VIEW",
+        actor_role="Patient",
+        patient=patient,
+        details=f"intervention_id={ref} date={day.isoformat() if day else ''} seconds=12",
+        **({"timestamp": timestamp} if timestamp else {}),
+    ).save()
+
+
+def test_therapist_plan_marks_opened_but_not_completed_sessions_as_accessed(mongo_mock):
+    """
+    A session the patient opened but did not mark complete shows as ``accessed``; completion still wins,
+    and an unopened past session stays ``missed``. The view log may name the intervention by external_id.
+    """
+    patient, _, intervention, plan = setup_basic_plan()
+    (opened_dt, opened_day), (missed_dt, _), (done_dt, done_day) = (_local_noon_utc(d) for d in (-3, -2, -1))
+    plan.interventions[0].dates = [opened_dt, missed_dt, done_dt]
+    plan.save()
+
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(done_day, datetime.min.time()),
+        status=["completed"],
+    ).save()
+    _log_view(patient, intervention.external_id, opened_day)
+    _log_view(patient, str(intervention.id), done_day)
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    entry = resp.json()["interventions"][0]
+    assert [d["status"] for d in entry["dates"]] == ["accessed", "missed", "completed"]
+    assert entry["currentTotalCount"] == 3
+    assert entry["completedCount"] == 1
+
+
+def _log_reschedule(patient, ext_id, from_dt, to_dt, timestamp):
+    Logs(
+        userId=patient.userId,
+        action="INTERVENTION_RESCHEDULE",
+        actor_role="Patient",
+        patient=patient,
+        timestamp=timestamp,
+        details=f"from={from_dt.isoformat()}+00:00 to={to_dt.isoformat()}+00:00 intervention_id={ext_id} intervention=x",
+    ).save()
+
+
+def test_therapist_plan_carries_accessed_through_a_reschedule(mongo_mock):
+    """
+    Opening a session and then moving it keeps it ``accessed`` on its new day, across a chain of moves and when
+    the view log lands just after the move (the detail page logs on close). A view long after the move doesn't count.
+    """
+    patient, _, intervention, plan = setup_basic_plan()
+    (a_dt, a_day), (b_dt, _), (c_dt, _), (d_dt, d_day), (e_dt, _) = (_local_noon_utc(d) for d in (1, 2, 3, 4, 5))
+    plan.interventions[0].dates = [c_dt, e_dt]
+    plan.startDate = datetime.utcnow() - timedelta(days=7)
+    plan.save()
+    moved_at = datetime.utcnow() - timedelta(days=1)
+
+    # Opened on A, moved A -> B -> C: C stays accessed.
+    _log_view(patient, str(intervention.id), a_day, timestamp=moved_at - timedelta(hours=1))
+    _log_reschedule(patient, intervention.external_id, a_dt, b_dt, moved_at)
+    _log_reschedule(patient, intervention.external_id, b_dt, c_dt, moved_at + timedelta(hours=1))
+    # Moved D -> E, opened on D only a day later: E isn't carried.
+    _log_reschedule(patient, intervention.external_id, d_dt, e_dt, moved_at)
+    _log_view(patient, str(intervention.id), d_day, timestamp=moved_at + timedelta(days=1))
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert [d["status"] for d in resp.json()["interventions"][0]["dates"]] == ["accessed", "upcoming"]
+
+
+def test_therapist_plan_does_not_leave_the_vacated_day_accessed_after_a_reschedule(mongo_mock):
+    """The view moves with the session: a session later placed on the old day hasn't been opened."""
+    patient, _, intervention, plan = setup_basic_plan()
+    (a_dt, a_day), (b_dt, _) = _local_noon_utc(1), _local_noon_utc(2)
+    plan.interventions[0].dates = [a_dt, b_dt]
+    plan.startDate = datetime.utcnow() - timedelta(days=7)
+    plan.save()
+    moved_at = datetime.utcnow()
+    _log_view(patient, str(intervention.id), a_day, timestamp=moved_at - timedelta(minutes=5))
+    _log_reschedule(patient, intervention.external_id, a_dt, b_dt, moved_at)
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert [d["status"] for d in resp.json()["interventions"][0]["dates"]] == ["upcoming", "accessed"]
+
+
+def test_accessed_ignores_logs_from_before_the_plan_started(mongo_mock):
+    """Views older than the plan can't belong to its sessions, and reading them grew every plan load."""
+    patient, _, intervention, plan = setup_basic_plan()
+    plan.startDate = datetime.utcnow() - timedelta(days=2)
+    plan.save()
+    old_at, old_day = _local_noon_utc(-5)
+    _log_view(patient, str(intervention.id), old_day, timestamp=old_at)
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json()["viewed_interventions"] == []
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.json()[0]["accessed_dates"] == []
+
+
+def test_accessed_counts_a_view_from_after_plan_creation_but_before_its_start(mongo_mock):
+    """A plan can start in the future: opening its first session ahead of the start still counts."""
+    patient, _, intervention, plan = setup_basic_plan()
+    start_dt, start_day = _local_noon_utc(2)
+    plan.createdAt = datetime.utcnow() - timedelta(days=1)
+    plan.startDate = start_dt
+    plan.interventions[0].dates = [start_dt]
+    plan.save()
+    _log_view(patient, str(intervention.id), start_day)
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json()[0]["accessed_dates"] == [start_day.isoformat()]
+
+
+def test_therapist_plan_shows_a_non_completed_session_with_a_log_at_its_planned_slot(mongo_mock):
+    """Only a completed session moves to its log's createdAt; any other keeps the slot drag and remove rely on."""
+    patient, _, intervention, plan = setup_basic_plan()
+    scheduled_dt, day = _local_noon_utc(2)
+    plan.interventions[0].dates = [scheduled_dt]
+    plan.save()
+    # Kept after an uncomplete because it has a comment.
+    log = PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(day, datetime.min.time()),
+        status=[],
+        comments="note",
+    )
+    log.createdAt = datetime(2026, 1, 1, 9, 0)
+    log.save()
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    entry = resp.json()["interventions"][0]["dates"][0]
+    assert entry["status"] == "upcoming"
+    assert entry["datetime"] == scheduled_dt.replace(tzinfo=dt_timezone.utc).isoformat()
+
+
+def test_patient_plan_carries_accessed_to_the_new_day_but_not_a_view_logged_after_the_move(mongo_mock):
+    """Views are logged on open, so only one logged before the move belongs to the moved session."""
+    patient, _, intervention, plan = setup_basic_plan()
+    plan.startDate = datetime.utcnow() - timedelta(days=7)
+    plan.save()
+    (a_dt, a_day), (b_dt, b_day), (c_dt, c_day), (d_dt, d_day) = (_local_noon_utc(d) for d in (1, 2, 3, 4))
+    moved_at = datetime.utcnow()
+    _log_view(patient, str(intervention.id), a_day, timestamp=moved_at - timedelta(seconds=30))
+    _log_reschedule(patient, intervention.external_id, a_dt, b_dt, moved_at)
+    _log_reschedule(patient, intervention.external_id, c_dt, d_dt, moved_at)
+    _log_view(patient, str(intervention.id), c_day, timestamp=moved_at + timedelta(seconds=5))
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    accessed = resp.json()[0]["accessed_dates"]
+    assert b_day.isoformat() in accessed
+    assert d_day.isoformat() not in accessed
+
+
+def test_plans_load_for_a_patient_whose_user_record_is_gone(mongo_mock):
+    """Views are looked up by patient, so a dangling userId doesn't take both plan views down."""
+    patient, _, intervention, _ = setup_basic_plan()
+    _log_view(patient, str(intervention.id), timezone.localdate())
+    patient.userId.delete()
+
+    for role in ("patient", "therapist"):
+        resp = client.get(
+            f"/api/patients/rehabilitation-plan/{role}/{patient.id}/",
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+        assert resp.status_code == 200, (role, resp.content.decode())
+
+
+def test_therapist_plan_lists_every_viewed_intervention_including_unplanned(mongo_mock):
+    """
+    ``viewed_interventions`` holds everything the patient opened - library views of unplanned interventions too -
+    as external_ids, so the therapist's Accessed filter can match any catalog language variant.
+    """
+    patient, _, intervention, _ = setup_basic_plan()
+    unplanned_de = Intervention(
+        title="Atmung", description="d", content_type="Video", external_id="TEST-EXT-LIB", language="de"
+    ).save()
+    _log_view(patient, str(unplanned_de.id))
+    _log_view(patient, intervention.external_id, timezone.localdate())
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/therapist/{patient.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert resp.json()["viewed_interventions"] == ["TEST-EXT-001", "TEST-EXT-LIB"]
+
+
+def test_patient_plan_returns_accessed_dates_from_view_logs(mongo_mock):
+    """
+    ``accessed_dates`` lists the session days the patient opened from the plan. A library open (no ``date``) marks
+    no session, even one planned that day, and views of other interventions don't count.
+    """
+    patient, _, intervention, plan = setup_basic_plan()
+    plan.startDate = datetime.utcnow() - timedelta(days=7)
+    plan.save()
+    other = Intervention(
+        title="Other", description="d", content_type="Video", external_id="TEST-EXT-OTHER", language="en"
+    ).save()
+    _, scheduled_day = _local_noon_utc(1)
+
+    _log_view(patient, str(intervention.id), scheduled_day)
+    _log_view(patient, intervention.external_id)
+    _log_view(patient, str(other.id), timezone.localdate())
+
+    resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    rows = resp.json()
+    assert rows[0]["accessed_dates"] == [scheduled_day.isoformat()]
 
 
 # ===========================================================================

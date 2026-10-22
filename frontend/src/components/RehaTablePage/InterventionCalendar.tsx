@@ -23,7 +23,7 @@ type PatientPlan = { interventions: Intervention[] } & Record<string, any>;
 
 type DateEntry = {
   datetime: string;
-  status?: 'completed' | 'missed' | 'today' | 'upcoming' | string;
+  status?: 'completed' | 'accessed' | 'missed' | 'today' | 'upcoming' | string;
   feedback?: any[];
   video?: any;
 };
@@ -58,8 +58,11 @@ const addMinutes = (d: Date, minutes: number) => new Date(d.getTime() + minutes 
 
 const DnDCalendar = withDragAndDrop(Calendar);
 
+const DRAGGABLE_STATUSES = ['today', 'upcoming', 'accessed'];
+
+// Movable until its planned time, matching the backend, which refuses to move a session after that.
 const isEventDraggable = (event: CalendarEvent) =>
-  event.resource?.status === 'today' || event.resource?.status === 'upcoming';
+  DRAGGABLE_STATUSES.includes(event.resource?.status || '') && event.start > new Date();
 
 interface Props {
   patientData: PatientPlan;
@@ -138,6 +141,7 @@ const InterventionCalendar: React.FC<Props> = ({
     const status = event.resource?.status;
     const base = `!rounded-lg ${isEventDraggable(event) ? 'rbc-event--draggable cursor-grab active:cursor-grabbing' : ''}`;
     if (status === 'completed') return { className: `${base} !bg-ok/10 !text-ok` };
+    if (status === 'accessed') return { className: `${base} !bg-blue-500/10 !text-blue-500` };
     if (status === 'missed') return { className: `${base} !bg-pink/20 !text-pink` };
     if (status === 'today') return { className: `${base} !bg-yellow/15 !text-yellow` };
     if (status === 'upcoming') return { className: `${base} !bg-chartMuted/50 !text-zinc-500` };
@@ -232,11 +236,13 @@ const InterventionCalendar: React.FC<Props> = ({
                 const rowBg =
                   status === 'completed'
                     ? 'bg-ok/5 text-ok'
-                    : status === 'missed'
-                      ? 'bg-pink/5 text-pink'
-                      : status === 'today'
-                        ? 'bg-yellow/5 text-yellow'
-                        : '';
+                    : status === 'accessed'
+                      ? 'bg-blue-500/5 text-blue-500'
+                      : status === 'missed'
+                        ? 'bg-pink/5 text-pink'
+                        : status === 'today'
+                          ? 'bg-yellow/5 text-yellow'
+                          : '';
                 return (
                   <TableRow
                     key={ev.id}

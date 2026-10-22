@@ -321,28 +321,90 @@ describe('PatientInterventionDetail', () => {
     expect(await screen.findByText('Morning Stretch')).toBeInTheDocument();
   });
 
-  it('posts intervention view duration to backend on unmount', async () => {
-    (patientInterventionsStore as any).items = [buildRec()];
+  describe('view logging', () => {
+    const viewPosts = () =>
+      mockApiPost.mock.calls.filter(([url]) => String(url).includes('/intervention-view/'));
+    const advance = async (ms: number) => {
+      await act(async () => {
+        jest.advanceTimersByTime(ms);
+        for (let i = 0; i < 5; i++) await Promise.resolve();
+      });
+    };
 
-    const { unmount } = render(<PatientInterventionDetail />);
-    await screen.findByText('Morning Stretch');
-
-    // Advance real time so seconds_viewed > 0 (component reads Date.now())
-    jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 10_000);
-
-    unmount();
-
-    await waitFor(() => {
-      expect(mockApiPost).toHaveBeenCalledWith(
-        expect.stringContaining('/patients/vitals/intervention-view/'),
-        expect.objectContaining({
-          intervention_id: 'int-1',
-          seconds_viewed: expect.any(Number),
-        })
+    beforeEach(() => {
+      jest.useFakeTimers();
+      mockApiPost.mockImplementation((_url: string, body: any) =>
+        Promise.resolve(body?.log_id ? {} : { data: { id: 'log-1' } })
       );
+      (patientInterventionsStore as any).items = [buildRec()];
     });
 
-    jest.restoreAllMocks();
+    afterEach(() => {
+      jest.useRealTimers();
+      mockApiPost.mockReset().mockResolvedValue({});
+    });
+
+    const renderDetail = async () => {
+      const utils = render(<PatientInterventionDetail />);
+      await screen.findByText('Morning Stretch');
+      return utils;
+    };
+
+    it('logs the visit as opened once the page has been open for 2 seconds', async () => {
+      await renderDetail();
+      await advance(1_900);
+      expect(viewPosts()).toHaveLength(0);
+
+      await advance(100);
+      expect(viewPosts()).toEqual([
+        [
+          expect.stringContaining('/patients/vitals/intervention-view/'),
+          { intervention_id: 'int-1', date: '2026-03-16' },
+        ],
+      ]);
+    });
+
+    it('keeps a visit that changes ?date= (reschedule from this page) as one row', async () => {
+      const { rerender, unmount } = await renderDetail();
+      await advance(3_000);
+      mockSearchParams = new URLSearchParams('date=2026-03-20');
+      rerender(<PatientInterventionDetail />);
+      await advance(5_000);
+      unmount();
+      await advance(0);
+
+      expect(viewPosts().map(([, body]) => body)).toEqual([
+        { intervention_id: 'int-1', date: '2026-03-16' },
+        { log_id: 'log-1', seconds_viewed: 8 },
+      ]);
+    });
+
+    it('adds the duration to that same row when leaving', async () => {
+      const { unmount } = await renderDetail();
+      await advance(10_000);
+      unmount();
+      await advance(0);
+
+      expect(viewPosts()).toHaveLength(2);
+      expect(viewPosts()[1][1]).toEqual({ log_id: 'log-1', seconds_viewed: 10 });
+    });
+
+    it('does not log a visit shorter than 2 seconds', async () => {
+      const { unmount } = await renderDetail();
+      await advance(1_500);
+      unmount();
+      await advance(5_000);
+      expect(viewPosts()).toHaveLength(0);
+    });
+
+    it('leaves the duration out when the open could not be logged', async () => {
+      mockApiPost.mockRejectedValue(new Error('offline'));
+      const { unmount } = await renderDetail();
+      await advance(5_000);
+      unmount();
+      await advance(0);
+      expect(viewPosts()).toHaveLength(1);
+    });
   });
 
   // --- Tests for the Sentry removeChild fix ---
@@ -446,6 +508,21 @@ describe('PatientInterventionDetail', () => {
 
     expect(screen.getByRole('button', { name: /Mark as done/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Mark as viewed/i })).not.toBeInTheDocument();
+  });
+
+  it('outlines "Mark as done" in green until done, then fills it', async () => {
+    (patientInterventionsStore as any).items = [buildRec()];
+    const { unmount } = render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    const open = screen.getByRole('button', { name: /Mark as done/i });
+    expect(open).toHaveClass('border-brand', 'text-brand');
+    expect(open).not.toHaveClass('bg-brand');
+    unmount();
+
+    (patientInterventionsStore as any).isCompletedOn.mockReturnValue(true);
+    render(<PatientInterventionDetail />);
+    await screen.findByText('Morning Stretch');
+    expect(screen.getByRole('button', { name: /Done/i })).toHaveClass('bg-brand');
   });
 
   it('shows "Viewed" for a completed behavior change intervention', async () => {
