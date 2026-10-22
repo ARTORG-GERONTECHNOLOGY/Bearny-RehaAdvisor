@@ -130,7 +130,7 @@ export interface Intervention {
 
 export interface InterventionDate {
   datetime: string;
-  status: 'completed' | 'accessed' | 'missed' | 'today' | 'upcoming';
+  status?: 'completed' | 'accessed' | 'missed' | 'today' | 'upcoming';
   feedback?: FeedbackEntry[];
 }
 
