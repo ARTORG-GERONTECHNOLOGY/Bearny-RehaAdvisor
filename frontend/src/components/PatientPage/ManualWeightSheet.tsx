@@ -107,7 +107,7 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
           </div>
         </div>
 
-        {error && <Alert variant="destructive">{t(error)}</Alert>}
+        {error && <Alert variant="destructive">{error}</Alert>}
 
         <SheetFooter>
           <Button onClick={handleSave} disabled={isSubmitting}>

@@ -61,7 +61,7 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
       return;
     }
     if (bpDia >= bpSys) {
-      setError('diastolicNotBelowSystolic');
+      setError(t('diastolicNotBelowSystolic'));
       return;
     }
 
@@ -141,7 +141,7 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
           </div>
         </div>
 
-        {error && <Alert variant="destructive">{t(error)}</Alert>}
+        {error && <Alert variant="destructive">{error}</Alert>}
 
         <SheetFooter>
           <Button onClick={handleSave} disabled={isSubmitting}>
