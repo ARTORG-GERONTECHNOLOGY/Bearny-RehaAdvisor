@@ -2545,7 +2545,7 @@ def test_add_intervention_to_patient_returns_400_when_no_dates_generated(mongo_m
     instead of silently returning 200 with 'No new sessions to add'.
     """
     patient, therapist, intervention, plan = setup_patient_with_plan()
-    # startDate 200 days from now — beyond the 90-day auto-extension of plan_end,
+    # startDate 200 days from now — beyond the 6-month auto-extension of plan_end,
     # so _generate_dates_from returns [] and no sessions can be added.
     far_future = (datetime.now() + timedelta(days=200)).isoformat() + "Z"
     resp = client.post(
@@ -2662,7 +2662,7 @@ def test_add_intervention_to_patient_no_matching_weekday_does_not_blame_plan_end
 
 
 def test_add_intervention_to_patient_past_plan_end_names_stand_in_limit(mongo_mock):
-    """With the plan end passed, the 90-day stand-in window is named as a booking limit, not as the plan end."""
+    """With the plan end passed, the 6-month stand-in window is named as a booking limit, not as the plan end."""
     patient, therapist, intervention, plan = setup_patient_with_plan()
     plan.endDate = datetime.now() - timedelta(days=5)
     plan.save()

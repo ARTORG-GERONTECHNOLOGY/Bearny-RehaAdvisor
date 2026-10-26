@@ -811,7 +811,7 @@ def test_modify_intervention_no_matching_weekday_does_not_blame_plan_end(mongo_m
 
 
 def test_modify_intervention_past_plan_end_names_stand_in_limit(mongo_mock):
-    """With the plan end passed, the 90-day stand-in window is named as a booking limit, not as the plan end."""
+    """With the plan end passed, the 6-month stand-in window is named as a booking limit, not as the plan end."""
     patient, _, intervention, plan = setup_patient_with_plan()
     plan.endDate = datetime.now() - timedelta(days=5)
     plan.save()

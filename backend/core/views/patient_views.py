@@ -66,8 +66,8 @@ from utils.utils import (
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
-# How far ahead add and modify may book once a plan's end date has passed (or is missing).
-EXPIRED_PLAN_BOOKING_WINDOW = timedelta(days=90)
+# How far ahead add and modify may book once a plan's end date has passed (or is missing): about 6 months.
+EXPIRED_PLAN_BOOKING_WINDOW = timedelta(days=183)
 
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
@@ -2044,7 +2044,7 @@ def add_intervention_to_patient(request):
             therapistId=therapist,
             startDate=getattr(patient.userId, "createdAt", timezone.now()),
             # ✅ critical: never leave endDate None
-            endDate=patient.study_end_date or patient.reha_end_date or (timezone.now() + timedelta(days=90)),
+            endDate=patient.study_end_date or patient.reha_end_date or (timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW),
             status=payload.get("status", "active"),
             interventions=[],
             createdAt=timezone.now(),
