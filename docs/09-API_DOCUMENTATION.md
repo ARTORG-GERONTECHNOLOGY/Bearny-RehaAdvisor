@@ -1378,18 +1378,6 @@ Creates the patient's manual vitals record for that day, or updates it if one ex
 
 ---
 
-#### `GET /api/patients/vitals/exists/<patient_id>/`
-
-JWT required. Reports whether manually entered vitals exist for the day; wearable data is not counted.
-
-**Query params:** `date` (`YYYY-MM-DD`, required)
-
-**Response 200:** `{ "exists": true }` or `{ "exists": false }`
-
-**Errors:** 400 missing or invalid `date` · 403 · 404 patient not found
-
----
-
 #### `GET|POST|PATCH /api/patients/<patient_id>/thresholds/`
 
 JWT required.

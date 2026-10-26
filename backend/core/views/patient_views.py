@@ -4184,28 +4184,6 @@ def _parse_vital(body: dict, field: str) -> float | int | None:
     return number if field == "weight_kg" else round(number)
 
 
-def _parse_date_forgiving(s: str | None) -> datetime.date | None:
-    """Accept 'YYYY-MM-DD', 'YYYY-MM-DDTHH:MM[:SS][Z]', or 'YYYY/MM/DD' (with spaces)."""
-    if not s:
-        return None
-    s = s.strip()
-    # Fast path: ISO date at the start of the string
-    head10 = s[:10]
-    try:
-        return datetime.date.fromisoformat(head10)
-    except Exception:
-        pass
-    # Try with slashes or single-digit month/day
-    m = re.match(r"^\s*(\d{4})[-/](\d{1,2})[-/](\d{1,2})", s)
-    if m:
-        y, mo, d = map(int, m.groups())
-        try:
-            return datetime.date(y, mo, d)
-        except ValueError:
-            return None
-    return None
-
-
 def _resolve_patient(patient_id: str):
     """Try Patient.pk first; then Patient.userId."""
     try:
@@ -4215,33 +4193,6 @@ def _resolve_patient(patient_id: str):
             return Patient.objects.get(userId=ObjectId(patient_id))
         except Exception:
             return None
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def vitals_exists_for_day(request, patient_id: str):
-    """
-    GET /api/patients/vitals/exists/<patient_id>/?date=YYYY-MM-DD
-    Returns {"exists": true|false}
-    """
-
-    day = _parse_date_forgiving(request.GET.get("date"))
-    if not isinstance(day, datetime.date):
-        return JsonResponse({"error": "Invalid 'date'. Expected YYYY-MM-DD."}, status=400)
-
-    patient = _resolve_patient(patient_id)
-    if not patient:
-        return JsonResponse({"error": "Patient not found"}, status=404)
-
-    if not can_access_patient(request, patient, allow_self=True):
-        return _forbidden_patient()
-
-    # Day window (naive datetimes, consistent with your MongoEngine usage)
-    start_dt = datetime.datetime.combine(day, datetime.time.min)
-    end_dt = datetime.datetime.combine(day, datetime.time.max)
-
-    exists = PatientVitals.objects(patientId=patient, date__gte=start_dt, date__lte=end_dt).only("id").first()
-    return JsonResponse({"exists": exists is not None}, status=200)
 
 
 _MAX_VIEW_SECONDS = 24 * 60 * 60

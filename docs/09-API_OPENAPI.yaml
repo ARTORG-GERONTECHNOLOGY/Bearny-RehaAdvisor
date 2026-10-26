@@ -595,15 +595,6 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/OK' }
 
-  /api/patients/vitals/exists/{patient_id}/:
-    get:
-      tags: [Patients]
-      summary: Check if vitals exist for day
-      parameters:
-        - $ref: '#/components/parameters/patient_id'
-      responses:
-        '200': { $ref: '#/components/responses/OK' }
-
   /api/patients/{patient_id}/thresholds/:
     get:
       tags: [Patients]
