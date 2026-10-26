@@ -4160,7 +4160,7 @@ def add_manual_vitals(request, patient_id: str):
     return JsonResponse({"ok": True, "id": str(rec.id), "date": dt.isoformat()}, status=200)
 
 
-# Same ranges as the patient's ManualWeightSheet / ManualBloodPressureSheet inputs.
+# Must match VITAL_RANGES in frontend/src/utils/validation.ts (used by the manual entry sheets).
 _VITAL_RANGES = {"weight_kg": (25, 400), "bp_sys": (60, 250), "bp_dia": (40, 150)}
 
 
