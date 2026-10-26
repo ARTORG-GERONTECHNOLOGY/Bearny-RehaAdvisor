@@ -222,7 +222,7 @@ jobs:
 
   frontend-e2e:
     name: Frontend E2E (Playwright)
-    runs-on: ubuntu-22.04 # kernel <6.19: mongo 8 crashes on newer (SERVER-121912)
+    runs-on: ubuntu-latest
     timeout-minutes: 40
     needs: [frontend-tests, backend-tests]
 
