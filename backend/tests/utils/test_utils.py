@@ -437,3 +437,19 @@ def test_generate_repeat_dates_sessions_on_end_date_included():
     assert any(
         d.date() == today.date() for d in dates
     ), "Session on end date day was excluded — end-of-day boundary not applied"
+
+
+def test_generate_repeat_dates_utc_end_date_keeps_local_end_day():
+    """The client sends local midnight as UTC (Zurich 2030-01-31 00:00 is 2030-01-30T23:00Z)."""
+    from django.utils.timezone import localtime, make_aware
+
+    repeat_data = {
+        "interval": 1,
+        "unit": "day",
+        "start_date": make_aware(datetime(2030, 1, 29, 8, 0)),
+        "end_date": "2030-01-30T23:00:00Z",
+        "end_type": "date",
+    }
+    dates = generate_repeat_dates(make_aware(datetime(2030, 6, 1)), repeat_data)
+
+    assert [localtime(d).date().isoformat() for d in dates] == ["2030-01-29", "2030-01-30", "2030-01-31"]

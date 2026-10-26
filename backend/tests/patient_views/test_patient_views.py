@@ -2698,21 +2698,41 @@ def test_add_intervention_to_patient_books_session_on_plan_end_day(mongo_mock):
     assert end_day.date() in booked_days
 
 
-def test_add_intervention_to_patient_books_late_session_on_last_window_day(mongo_mock):
-    """On an expired plan, the stand-in window also runs to the end of its last day."""
+@pytest.mark.parametrize(
+    "day_offset, at, expected_status",
+    [(0, dtime(23, 30), 201), (1, dtime(0, 30), 400)],
+)
+def test_add_intervention_to_patient_window_ends_after_its_last_day(mongo_mock, day_offset, at, expected_status):
+    """On an expired plan, the stand-in window runs to the end of its last day and no further."""
     from core.views.patient_views import EXPIRED_PLAN_BOOKING_WINDOW
 
     patient, therapist, intervention, plan = setup_patient_with_plan()
     plan.endDate = datetime.now() - timedelta(days=5)
     plan.save()
-    last_day = timezone.localdate() + EXPIRED_PLAN_BOOKING_WINDOW
-    start = timezone.make_aware(datetime.combine(last_day, dtime(23, 30)))
+    day = timezone.localdate() + EXPIRED_PLAN_BOOKING_WINDOW + timedelta(days=day_offset)
+    start = timezone.make_aware(datetime.combine(day, at))
     resp = _post_add_schedule(
         patient,
         therapist,
         intervention,
         startDate=start.isoformat(),
-        startTime="23:30",
+        startTime=at.strftime("%H:%M"),
+        end={"type": "count", "date": None, "count": 1},
+    )
+    assert resp.status_code == expected_status, resp.content.decode()
+
+
+def test_add_intervention_to_patient_reads_plan_end_stored_as_utc(mongo_mock):
+    """A plan end saved from an aware local midnight is stored as the previous UTC day; its day stays bookable."""
+    patient, therapist, intervention, plan = setup_patient_with_plan()
+    end_day = timezone.localdate() + timedelta(days=10)
+    plan.endDate = timezone.make_aware(datetime.combine(end_day, dtime(0, 0)))
+    plan.save()
+    resp = _post_add_schedule(
+        patient,
+        therapist,
+        intervention,
+        startDate=timezone.make_aware(datetime.combine(end_day, dtime(8, 0))).isoformat(),
         end={"type": "count", "date": None, "count": 1},
     )
     assert resp.status_code == 201, resp.content.decode()

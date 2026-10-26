@@ -2230,8 +2230,8 @@ def _booking_limit(plan) -> tuple[datetime.datetime, bool]:
     """Last bookable moment and whether it is the stand-in window rather than the plan end."""
     now = _as_aware_local(timezone.now())
     if plan.endDate:
-        # The plan end is stored as midnight; sessions on that day are still bookable.
-        plan_end = _end_of_day(_as_aware_local(plan.endDate))
+        # Stored naive means UTC, as for assignment dates; the whole end day stays bookable.
+        plan_end = _end_of_day(timezone.localtime(_as_aware_utc(plan.endDate)))
         if plan_end >= now:
             return plan_end, False
     return _end_of_day(now + EXPIRED_PLAN_BOOKING_WINDOW), True
