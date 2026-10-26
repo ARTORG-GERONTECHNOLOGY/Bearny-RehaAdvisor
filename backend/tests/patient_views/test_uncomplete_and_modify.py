@@ -819,6 +819,7 @@ def test_modify_intervention_past_plan_end_names_stand_in_limit(mongo_mock):
     assert resp.status_code == 400, resp.content.decode()
     message = resp.json()["message"]
     assert "can only be booked up to" in message
+    assert "Study / After-Rehab Plan End Date or Rehabilitation End Date in the Information tab" in message
     assert "plan ends" not in message
 
 
@@ -838,17 +839,22 @@ def test_modify_intervention_expired_plan_books_up_to_shared_window(mongo_mock):
 
 
 @pytest.mark.parametrize(
-    "study_end, expected_field",
-    [(None, "Rehabilitation End Date"), (datetime(2030, 1, 1), "Study / After-Rehab Plan End Date")],
+    "study_end, expected_fields",
+    [
+        (None, "Study / After-Rehab Plan End Date or Rehabilitation End Date"),
+        (datetime(2030, 1, 1), "Study / After-Rehab Plan End Date in the Information tab"),
+    ],
 )
-def test_modify_intervention_plan_end_message_names_the_field_the_plan_follows(mongo_mock, study_end, expected_field):
+def test_modify_intervention_plan_end_message_names_the_fields_that_move_the_plan_end(
+    mongo_mock, study_end, expected_fields
+):
     """The plan follows the study end date when one is set, so the message must point there."""
     patient, _, intervention, plan = setup_patient_with_plan()
     patient.study_end_date = study_end
     patient.save()
     resp = _post_modify_schedule(patient, intervention, (plan.endDate + timedelta(days=1)).isoformat())
     assert resp.status_code == 400, resp.content.decode()
-    assert f"extend the patient's {expected_field}" in resp.json()["message"]
+    assert f"set a later {expected_fields}" in resp.json()["message"]
 
 
 def test_modify_intervention_missing_plan_end_is_not_reported_as_plan_end(mongo_mock):
@@ -859,6 +865,7 @@ def test_modify_intervention_missing_plan_end_is_not_reported_as_plan_end(mongo_
     assert resp.status_code == 400, resp.content.decode()
     message = resp.json()["message"]
     assert "can only be booked up to" in message
+    assert "Study / After-Rehab Plan End Date or Rehabilitation End Date in the Information tab" in message
     assert "plan ends" not in message
 
 

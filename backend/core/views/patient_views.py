@@ -2200,7 +2200,7 @@ def add_intervention_to_patient(request):
                         limit=plan_end,
                         limit_extended=plan_end_extended,
                         date_label="start date",
-                        end_field=_plan_end_field(patient),
+                        end_fields=_plan_end_fields(patient),
                     )
                 ),
                 "field_errors": field_errors,
@@ -2452,13 +2452,14 @@ def _generate_dates_from(
     return out
 
 
-def _plan_end_field(patient) -> str:
-    """Information-tab field the plan end follows: the study end date wins, as in the profile sync."""
-    return "Study / After-Rehab Plan End Date" if patient.study_end_date else "Rehabilitation End Date"
+def _plan_end_fields(patient) -> str:
+    """Information-tab fields that can move the plan end: the study end date wins, as in the profile sync."""
+    study_field = "Study / After-Rehab Plan End Date"
+    return study_field if patient.study_end_date else f"{study_field} or Rehabilitation End Date"
 
 
 def _empty_schedule_message(
-    *, plan_end_blocks: bool, limit: datetime.datetime, limit_extended: bool, date_label: str, end_field: str
+    *, plan_end_blocks: bool, limit: datetime.datetime, limit_extended: bool, date_label: str, end_fields: str
 ):
     """User-facing reason a schedule produced no sessions; names the limit only when it is the cause."""
     if not plan_end_blocks:
@@ -2469,10 +2470,13 @@ def _empty_schedule_message(
     limit_iso = _as_aware_local(limit).date().isoformat()
     if limit_extended:
         # The plan end has passed and a stand-in window applies; it is not the plan's real end date.
-        return f"No sessions could be scheduled: sessions can only be booked up to {limit_iso}. Choose an earlier {date_label}."
+        return (
+            f"No sessions could be scheduled: sessions can only be booked up to {limit_iso}. "
+            f"Choose an earlier {date_label}, or set a future {end_fields} in the Information tab."
+        )
     return (
         f"No sessions could be scheduled: the plan ends on {limit_iso}. "
-        f"Choose an earlier {date_label}, or extend the patient's {end_field} in the Information tab."
+        f"Choose an earlier {date_label}, or set a later {end_fields} in the Information tab."
     )
 
 
@@ -2727,7 +2731,7 @@ def modify_intervention_from_date(request):
                     limit=plan_end_local,
                     limit_extended=plan_end_extended,
                     date_label="effective date",
-                    end_field=_plan_end_field(patient),
+                    end_fields=_plan_end_fields(patient),
                 ),
                 "field_errors": {},
                 "non_field_errors": [],

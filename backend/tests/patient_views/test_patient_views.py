@@ -2611,6 +2611,7 @@ def test_add_intervention_to_patient_missing_plan_end_is_not_reported_as_plan_en
     assert resp.status_code == 400, resp.content.decode()
     message = resp.json()["message"]
     assert "can only be booked up to" in message
+    assert "Study / After-Rehab Plan End Date or Rehabilitation End Date in the Information tab" in message
     assert "plan ends" not in message
 
 
@@ -2674,7 +2675,27 @@ def test_add_intervention_to_patient_past_plan_end_names_stand_in_limit(mongo_mo
     assert resp.status_code == 400, resp.content.decode()
     message = resp.json()["message"]
     assert "can only be booked up to" in message
+    assert "Study / After-Rehab Plan End Date or Rehabilitation End Date in the Information tab" in message
     assert "plan ends" not in message
+
+
+def test_add_intervention_to_patient_past_study_end_names_only_study_end(mongo_mock):
+    """With a study end set, the rehab end has no effect, so the hint names only the study end."""
+    patient, therapist, intervention, plan = setup_patient_with_plan()
+    patient.study_end_date = datetime.now() - timedelta(days=5)
+    patient.save()
+    plan.endDate = patient.study_end_date
+    plan.save()
+    resp = _post_add_schedule(
+        patient,
+        therapist,
+        intervention,
+        startDate=(datetime.now() + timedelta(days=200)).isoformat() + "Z",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    message = resp.json()["message"]
+    assert "set a future Study / After-Rehab Plan End Date in the Information tab" in message
+    assert "Rehabilitation End Date" not in message
 
 
 # ===========================================================================
