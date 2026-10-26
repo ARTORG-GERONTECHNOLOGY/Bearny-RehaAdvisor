@@ -2231,10 +2231,14 @@ def _booking_limit(plan) -> tuple[datetime.datetime, bool]:
     now = _as_aware_local(timezone.now())
     if plan.endDate:
         # The plan end is stored as midnight; sessions on that day are still bookable.
-        plan_end = _as_aware_local(plan.endDate).replace(hour=23, minute=59, second=59, microsecond=999999)
+        plan_end = _end_of_day(_as_aware_local(plan.endDate))
         if plan_end >= now:
             return plan_end, False
-    return now + EXPIRED_PLAN_BOOKING_WINDOW, True
+    return _end_of_day(now + EXPIRED_PLAN_BOOKING_WINDOW), True
+
+
+def _end_of_day(d: datetime.datetime) -> datetime.datetime:
+    return d.replace(hour=23, minute=59, second=59, microsecond=999999)
 
 
 def _local_day(d: datetime.datetime):
@@ -2474,7 +2478,7 @@ def _empty_schedule_message(
         # The plan end has passed and a stand-in window applies; it is not the plan's real end date.
         return (
             f"No sessions could be scheduled: sessions can only be booked up to {limit_iso}. "
-            f"Choose an earlier {date_label}, or set a future {end_fields} in the Information tab."
+            f"Choose an earlier {date_label}, or set a later {end_fields} in the Information tab."
         )
     return (
         f"No sessions could be scheduled: the plan ends on {limit_iso}. "

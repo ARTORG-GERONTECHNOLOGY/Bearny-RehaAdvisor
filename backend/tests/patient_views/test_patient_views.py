@@ -2698,6 +2698,26 @@ def test_add_intervention_to_patient_books_session_on_plan_end_day(mongo_mock):
     assert end_day.date() in booked_days
 
 
+def test_add_intervention_to_patient_books_late_session_on_last_window_day(mongo_mock):
+    """On an expired plan, the stand-in window also runs to the end of its last day."""
+    from core.views.patient_views import EXPIRED_PLAN_BOOKING_WINDOW
+
+    patient, therapist, intervention, plan = setup_patient_with_plan()
+    plan.endDate = datetime.now() - timedelta(days=5)
+    plan.save()
+    last_day = timezone.localdate() + EXPIRED_PLAN_BOOKING_WINDOW
+    start = timezone.make_aware(datetime.combine(last_day, dtime(23, 30)))
+    resp = _post_add_schedule(
+        patient,
+        therapist,
+        intervention,
+        startDate=start.isoformat(),
+        startTime="23:30",
+        end={"type": "count", "date": None, "count": 1},
+    )
+    assert resp.status_code == 201, resp.content.decode()
+
+
 def test_add_intervention_to_patient_past_study_end_names_only_study_end(mongo_mock):
     """With a study end set, the rehab end has no effect, so the hint names only the study end."""
     patient, therapist, intervention, plan = setup_patient_with_plan()
@@ -2713,7 +2733,7 @@ def test_add_intervention_to_patient_past_study_end_names_only_study_end(mongo_m
     )
     assert resp.status_code == 400, resp.content.decode()
     message = resp.json()["message"]
-    assert "set a future Study / After-Rehab Plan End Date in the Information tab" in message
+    assert "set a later Study / After-Rehab Plan End Date in the Information tab" in message
     assert "Rehabilitation End Date" not in message
 
 
