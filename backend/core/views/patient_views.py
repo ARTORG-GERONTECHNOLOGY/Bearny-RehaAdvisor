@@ -2051,16 +2051,7 @@ def add_intervention_to_patient(request):
             updatedAt=timezone.now(),
         )
 
-    # Use plan end as authoritative fallback (also non-null)
-    plan_end_extended = plan.endDate is None
-    plan_end = plan.endDate or (timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW)
-    if timezone.is_naive(plan_end):
-        plan_end = timezone.make_aware(plan_end, timezone.get_current_timezone())
-    # If the plan end is in the past, open a booking window from now so future
-    # sessions can always be scheduled regardless of an outdated reha_end_date.
-    if plan_end < timezone.now():
-        plan_end = timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW
-        plan_end_extended = True
+    plan_end, plan_end_extended = _booking_limit(plan)
 
     plan_end_blocks = False
     already_scheduled = False
@@ -2233,6 +2224,17 @@ def _as_aware_local(d: datetime.datetime) -> datetime.datetime:
     if timezone.is_naive(d):
         return timezone.make_aware(d, _tz_local())
     return d.astimezone(_tz_local())
+
+
+def _booking_limit(plan) -> tuple[datetime.datetime, bool]:
+    """Last bookable moment and whether it is the stand-in window rather than the plan end."""
+    now = _as_aware_local(timezone.now())
+    if plan.endDate:
+        # The plan end is stored as midnight; sessions on that day are still bookable.
+        plan_end = _as_aware_local(plan.endDate).replace(hour=23, minute=59, second=59, microsecond=999999)
+        if plan_end >= now:
+            return plan_end, False
+    return now + EXPIRED_PLAN_BOOKING_WINDOW, True
 
 
 def _local_day(d: datetime.datetime):
@@ -2695,13 +2697,7 @@ def modify_intervention_from_date(request):
     # Generate NEW sessions
     # ----------------------
     try:
-        plan_end_extended = plan.endDate is None
-        plan_end = plan.endDate or (timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW)
-        plan_end_local = _as_aware_local(plan_end)
-        # If the plan's end date has passed, allow rescheduling within the booking window from now
-        if plan_end_local < _as_aware_local(timezone.now()):
-            plan_end_local = _as_aware_local(timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW)
-            plan_end_extended = True
+        plan_end_local, plan_end_extended = _booking_limit(plan)
 
         new_local = _generate_dates_from(schedule, eff_dt_local, plan_end_local)
         new_utc = [dt.astimezone(datetime.timezone.utc) for dt in new_local]

@@ -2679,6 +2679,25 @@ def test_add_intervention_to_patient_past_plan_end_names_stand_in_limit(mongo_mo
     assert "plan ends" not in message
 
 
+def test_add_intervention_to_patient_books_session_on_plan_end_day(mongo_mock):
+    """The plan end is stored as midnight, but a session later that day must still be bookable."""
+    patient, therapist, intervention, plan = setup_patient_with_plan()
+    end_day = (datetime.now() + timedelta(days=10)).replace(hour=0, minute=0, second=0, microsecond=0)
+    plan.endDate = end_day
+    plan.save()
+    resp = _post_add_schedule(
+        patient,
+        therapist,
+        intervention,
+        startDate=timezone.make_aware(end_day.replace(hour=8)).isoformat(),
+        end={"type": "count", "date": None, "count": 1},
+    )
+    assert resp.status_code == 201, resp.content.decode()
+    plan.reload()
+    booked_days = {timezone.localdate(_as_utc(d)) for a in plan.interventions for d in a.dates}
+    assert end_day.date() in booked_days
+
+
 def test_add_intervention_to_patient_past_study_end_names_only_study_end(mongo_mock):
     """With a study end set, the rehab end has no effect, so the hint names only the study end."""
     patient, therapist, intervention, plan = setup_patient_with_plan()

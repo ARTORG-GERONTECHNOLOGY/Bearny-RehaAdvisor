@@ -838,6 +838,19 @@ def test_modify_intervention_expired_plan_books_up_to_shared_window(mongo_mock):
     assert last.date() >= (datetime.now() + EXPIRED_PLAN_BOOKING_WINDOW - timedelta(days=2)).date()
 
 
+def test_modify_intervention_books_session_on_plan_end_day(mongo_mock):
+    """The plan end is stored as midnight, but a session later that day must still be bookable."""
+    patient, _, intervention, plan = setup_patient_with_plan()
+    end_day = (datetime.now() + timedelta(days=10)).replace(hour=0, minute=0, second=0, microsecond=0)
+    plan.endDate = end_day
+    plan.save()
+    resp = _post_modify_schedule(patient, intervention, (end_day - timedelta(days=1)).isoformat())
+    assert resp.status_code == 200, resp.content.decode()
+    plan.reload()
+    last = max(plan.interventions[0].dates).replace(tzinfo=py_utc.utc)
+    assert timezone.localdate(last) == end_day.date()
+
+
 @pytest.mark.parametrize(
     "study_end, expected_fields",
     [
