@@ -64,6 +64,10 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
         return;
       }
     }
+    if (bpDia >= bpSys) {
+      setError('diastolicNotBelowSystolic');
+      return;
+    }
 
     setError('');
     setIsSubmitting(true);

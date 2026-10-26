@@ -217,6 +217,8 @@ def test_add_manual_vitals_malformed_patient_id(mongo_mock):
         '{"weight_kg": 401}',
         '{"bp_sys": 1e20, "bp_dia": 80}',
         '{"bp_sys": 120, "bp_dia": 151}',
+        '{"bp_sys": 70, "bp_dia": 140}',
+        '{"bp_sys": 100, "bp_dia": 100}',
         '{"weight_kg": ' + "9" * 400 + "}",
         '{"weight_kg": true}',
         '{"weight_kg": "abc", "bp_sys": 120}',

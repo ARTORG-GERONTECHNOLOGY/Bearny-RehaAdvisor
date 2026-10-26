@@ -4114,6 +4114,8 @@ def add_manual_vitals(request, patient_id: str):
 
     if weight_kg is None and bp_sys is None and bp_dia is None:
         return JsonResponse({"error": "No vitals provided"}, status=400)
+    if bp_sys is not None and bp_dia is not None and bp_dia >= bp_sys:
+        return JsonResponse({"error": "'bp_dia' must be lower than 'bp_sys'."}, status=400)
 
     # Upsert for same day
     day_start = dt.replace(hour=0, minute=0, second=0, microsecond=0)
