@@ -1361,29 +1361,32 @@ JWT required.
 
 JWT required.
 
+Creates the patient's manual vitals record for that day, or updates it if one exists. At least one of `weight_kg`, `bp_sys`, `bp_dia` is required.
+
 **Request body:**
 
-| Field           | Type   | Required |
-|-----------------|--------|----------|
-| `heartRate`     | number | no       |
-| `bloodPressure` | string | no       | e.g. `"120/80"` |
-| `temperature`   | number | no       |
-| `notes`         | string | no       |
-| `date`          | string | no       | `YYYY-MM-DD`, defaults to today |
+| Field       | Type   | Required | Notes |
+|-------------|--------|----------|-------|
+| `weight_kg` | number | no       | 25–400 |
+| `bp_sys`    | number | no       | 60–250, rounded to an integer |
+| `bp_dia`    | number | no       | 40–150, rounded to an integer |
+| `date`      | string | no       | ISO 8601, defaults to now |
 
-**Response 201:** `{ "success": true }`
+**Response 200:** `{ "ok": true, "id": "<vitals id>", "date": "<ISO 8601>" }`
 
-**Errors:** 400 · 404 patient not found · 500
+**Errors:** 400 invalid JSON, invalid `date`, a vital that is not a number in its range, or no vitals provided · 403 · 404 patient not found
 
 ---
 
 #### `GET /api/patients/vitals/exists/<patient_id>/`
 
-JWT required.
+JWT required. Reports whether manually entered vitals exist for the day; wearable data is not counted.
 
-**Query params:** `date` (`YYYY-MM-DD`, optional, defaults to today)
+**Query params:** `date` (`YYYY-MM-DD`, required)
 
 **Response 200:** `{ "exists": true }` or `{ "exists": false }`
+
+**Errors:** 400 missing or invalid `date` · 403 · 404 patient not found
 
 ---
 

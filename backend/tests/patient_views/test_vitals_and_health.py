@@ -39,14 +39,13 @@ Therapist → Patient chain required by each endpoint.
 
 import json
 from datetime import datetime, timedelta
-from unittest.mock import patch
 
 import mongomock
 import pytest
 from bson import ObjectId
 from django.test import Client
 
-from core.models import FitbitData, Patient, PatientVitals, Therapist, User
+from core.models import FitbitData, Logs, Patient, PatientVitals, Therapist, User
 
 client = Client()
 
@@ -135,6 +134,21 @@ def test_add_manual_vitals_success_with_bp(mongo_mock):
     assert "id" in data
 
 
+def test_add_manual_vitals_rounds_blood_pressure(mongo_mock):
+    """Fractional blood pressure is rounded, not truncated, in both the record and the audit log."""
+    patient = create_patient()
+    resp = client.post(
+        VITALS_URL.format(patient_id=str(patient.id)),
+        data=json.dumps({"bp_sys": 120.6, "bp_dia": 79.7}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    rec = PatientVitals.objects(patientId=patient).first()
+    assert (rec.bp_sys, rec.bp_dia) == (121, 80)
+    assert Logs.objects(action="VITALS_SUBMIT").first().details == "bp_sys=121, bp_dia=80"
+
+
 def test_add_manual_vitals_success_with_weight(mongo_mock):
     """
     POST with a valid ``weight_kg`` returns 200 with ``ok: true``.  Weight is
@@ -180,6 +194,46 @@ def test_add_manual_vitals_patient_not_found(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 404
+
+
+def test_add_manual_vitals_malformed_patient_id(mongo_mock):
+    """A patient id that is not an ObjectId returns 404, not a 500."""
+    resp = client.post(
+        VITALS_URL.format(patient_id="not-an-id"),
+        data=json.dumps({"weight_kg": 70}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '{"weight_kg": NaN}',
+        '{"bp_sys": Infinity, "bp_dia": 80}',
+        '{"weight_kg": -70}',
+        '{"weight_kg": 24.9}',
+        '{"weight_kg": 401}',
+        '{"bp_sys": 1e20, "bp_dia": 80}',
+        '{"bp_sys": 120, "bp_dia": 151}',
+        '{"weight_kg": ' + "9" * 400 + "}",
+        '{"weight_kg": true}',
+        '{"weight_kg": "abc", "bp_sys": 120}',
+        "[1, 2]",
+    ],
+)
+def test_add_manual_vitals_rejects_invalid_values(mongo_mock, body):
+    """Non-numeric, non-finite or out-of-range vitals return 400 and store nothing."""
+    patient = create_patient()
+    resp = client.post(
+        VITALS_URL.format(patient_id=str(patient.id)),
+        data=body,
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    assert PatientVitals.objects(patientId=patient).count() == 0
 
 
 def test_add_manual_vitals_invalid_date(mongo_mock):
@@ -295,8 +349,8 @@ def test_vitals_exists_for_day_post_method_not_allowed(mongo_mock):
     assert resp.status_code == 405
 
 
-@patch("core.views.patient_views.PatientVitals.objects", side_effect=Exception("db down"))
-def test_vitals_exists_for_day_fallback_to_fitbit_data(_, mongo_mock):
+def test_vitals_exists_for_day_ignores_fitbit_data(mongo_mock):
+    """Only manually entered PatientVitals count; a synced Fitbit weight does not."""
     patient = create_patient()
     today_dt = datetime.now().replace(hour=9, minute=0, second=0, microsecond=0)
     FitbitData(user=patient.userId, date=today_dt, weight_kg=70.0).save()
@@ -306,7 +360,7 @@ def test_vitals_exists_for_day_fallback_to_fitbit_data(_, mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 200
-    assert resp.json()["exists"] is True
+    assert resp.json()["exists"] is False
 
 
 # ===========================================================================

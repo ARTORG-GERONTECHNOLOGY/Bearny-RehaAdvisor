@@ -6,6 +6,7 @@
   "Group": "Gruppe",
   "failedCheck": "Die heutigen Vitalwerte konnten nicht überprüft werden.",
   "failedSave": "Die heutigen Vitalwerte konnten nicht gespeichert werden. Bitte versuchen Sie es erneut.",
+  "vitalOutOfRange": "Bitte geben Sie einen Wert zwischen {{min}} und {{max}} ein.",
   "failedReschedule": "Verschieben fehlgeschlagen. Bitte versuchen Sie es erneut.",
   "successSave": "Die heutigen Vitalwerte wurden erfolgreich gespeichert.",
   "title": "Heutige Vitalwerte",

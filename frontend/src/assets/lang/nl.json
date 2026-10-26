@@ -6,6 +6,7 @@
   "Group": "Groep",
   "failedCheck": "Kon de vitale waarden van vandaag niet ophalen.",
   "failedSave": "Opslaan van de vitale waarden van vandaag mislukt. Probeer opnieuw.",
+  "vitalOutOfRange": "Voer een waarde in tussen {{min}} en {{max}}.",
   "failedReschedule": "Verzetten mislukt. Probeer opnieuw.",
   "successSave": "De vitale waarden van vandaag zijn opgeslagen.",
   "title": "Vitale waarden van vandaag",

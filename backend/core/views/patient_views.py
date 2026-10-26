@@ -2,6 +2,7 @@ import datetime
 import datetime as dt
 import json
 import logging
+import math
 import os
 import random
 import re
@@ -27,7 +28,6 @@ from core.models import (
     AnswerOption,
     FeedbackEntry,
     FeedbackQuestion,
-    FitbitData,
     GeneralFeedback,
     GoogleHealthData,
     Intervention,
@@ -4077,13 +4077,8 @@ def get_combined_health_data(request, patient_id):
 @permission_classes([IsAuthenticated])
 def add_manual_vitals(request, patient_id: str):
 
-    # Resolve patient
-    try:
-        try:
-            patient = Patient.objects.get(pk=patient_id)
-        except Exception:
-            patient = Patient.objects.get(userId=ObjectId(patient_id))
-    except Patient.DoesNotExist:
+    patient = _resolve_patient(patient_id)
+    if not patient:
         return JsonResponse({"error": "Patient not found"}, status=404)
 
     if not can_access_patient(request, patient, allow_self=True):
@@ -4093,6 +4088,8 @@ def add_manual_vitals(request, patient_id: str):
     try:
         body = json.loads(request.body or "{}")
     except Exception:
+        return JsonResponse({"error": "Invalid JSON body"}, status=400)
+    if not isinstance(body, dict):
         return JsonResponse({"error": "Invalid JSON body"}, status=400)
 
     # Parse date
@@ -4108,16 +4105,12 @@ def add_manual_vitals(request, patient_id: str):
     if timezone.is_naive(dt):
         dt = timezone.make_aware(dt, timezone.utc)
 
-    # Validate numeric input
-    def as_float(x):
-        try:
-            return float(x) if x is not None else None
-        except:
-            return None
-
-    weight_kg = as_float(body.get("weight_kg"))
-    bp_sys = as_float(body.get("bp_sys"))
-    bp_dia = as_float(body.get("bp_dia"))
+    try:
+        weight_kg = _parse_vital(body, "weight_kg")
+        bp_sys = _parse_vital(body, "bp_sys")
+        bp_dia = _parse_vital(body, "bp_dia")
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
     if weight_kg is None and bp_sys is None and bp_dia is None:
         return JsonResponse({"error": "No vitals provided"}, status=400)
@@ -4136,10 +4129,10 @@ def add_manual_vitals(request, patient_id: str):
         rec.weight_kg = weight_kg
 
     if bp_sys is not None:
-        rec.bp_sys = int(bp_sys)
+        rec.bp_sys = bp_sys
 
     if bp_dia is not None:
-        rec.bp_dia = int(bp_dia)
+        rec.bp_dia = bp_dia
 
     rec.save()
 
@@ -4165,46 +4158,24 @@ def add_manual_vitals(request, patient_id: str):
     return JsonResponse({"ok": True, "id": str(rec.id), "date": dt.isoformat()}, status=200)
 
 
-def _resolve_patient(patient_id: str) -> Patient:
-    """
-    Try to resolve Patient by primary key first; if that fails, by userId (ObjectId).
-    """
+# Same ranges as the patient's ManualWeightSheet / ManualBloodPressureSheet inputs.
+_VITAL_RANGES = {"weight_kg": (25, 400), "bp_sys": (60, 250), "bp_dia": (40, 150)}
+
+
+def _parse_vital(body: dict, field: str) -> float | int | None:
+    """body[field] within _VITAL_RANGES, BP rounded to int; None if absent, else ValueError naming the field."""
+    value = body.get(field)
+    if value is None:
+        return None
     try:
-        return Patient.objects.get(pk=patient_id)
-    except Exception:
-        try:
-            return Patient.objects.get(userId=ObjectId(patient_id))
-        except Exception:
-            raise Patient.DoesNotExist()
-
-
-def _has_weight(row) -> bool:
-    # Support several shapes/names
-    for attr in ("weight_kg", "weightKg", "weight", "body_weight"):
-        if hasattr(row, attr) and getattr(row, attr) is not None:
-            return True
-    w = getattr(row, "weight", None)
-    if isinstance(w, dict) and (w.get("kg") is not None or w.get("value") is not None):
-        return True
-    return False
-
-
-def _has_bp(row) -> bool:
-    # Nested document or dict on row.blood_pressure
-    bp = getattr(row, "blood_pressure", None)
-    if bp is not None:
-        try:
-            s = getattr(bp, "systolic", None)
-            d = getattr(bp, "diastolic", None)
-        except Exception:
-            s = bp.get("systolic") if isinstance(bp, dict) else None
-            d = bp.get("diastolic") if isinstance(bp, dict) else None
-        if s is not None or d is not None:
-            return True
-    # Flat fields as fallback
-    if getattr(row, "bp_sys", None) is not None or getattr(row, "bp_dia", None) is not None:
-        return True
-    return False
+        # bool is an int subclass, so true would otherwise pass as 1.0
+        number = math.nan if isinstance(value, bool) else float(value)
+    except (TypeError, ValueError, OverflowError):
+        number = math.nan
+    low, high = _VITAL_RANGES[field]
+    if not low <= number <= high:
+        raise ValueError(f"Invalid '{field}' (must be between {low} and {high}).")
+    return number if field == "weight_kg" else round(number)
 
 
 def _parse_date_forgiving(s: str | None) -> datetime.date | None:
@@ -4263,27 +4234,8 @@ def vitals_exists_for_day(request, patient_id: str):
     start_dt = datetime.datetime.combine(day, datetime.time.min)
     end_dt = datetime.datetime.combine(day, datetime.time.max)
 
-    exists = False
-
-    # 1) If you have a dedicated PatientVitals model, prefer that
-    try:
-        from core.models import PatientVitals  # optional
-
-        pv = PatientVitals.objects(patientId=patient, date__gte=start_dt, date__lte=end_dt).only("id").first()
-        if pv:
-            exists = True
-    except Exception:
-        # 2) Fallback: store/check inside FitbitData for the same day
-        fb = FitbitData.objects(user=patient.userId, date__gte=start_dt, date__lte=end_dt).first()
-        if fb:
-            # Adjust these field names to match your save_vitals implementation
-            weight_present = getattr(fb, "weight_kg", None) is not None
-            bp = getattr(fb, "blood_pressure", None)
-            systolic_present = getattr(bp, "systolic", None) is not None if bp else False
-            diastolic_present = getattr(bp, "diastolic", None) is not None if bp else False
-            exists = weight_present or systolic_present or diastolic_present
-
-    return JsonResponse({"exists": bool(exists)}, status=200)
+    exists = PatientVitals.objects(patientId=patient, date__gte=start_dt, date__lte=end_dt).only("id").first()
+    return JsonResponse({"exists": exists is not None}, status=200)
 
 
 _MAX_VIEW_SECONDS = 24 * 60 * 60

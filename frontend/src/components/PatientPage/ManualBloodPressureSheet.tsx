@@ -14,6 +14,10 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 
+// Must match _VITAL_RANGES in backend/core/views/patient_views.py.
+const SYS_RANGE = { min: 60, max: 250 };
+const DIA_RANGE = { min: 40, max: 150 };
+
 interface ManualBloodPressureSheetProps {
   open: boolean;
   dateLabel: string;
@@ -49,11 +53,22 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
     if (isSubmitting) return;
     if (bpSysInput.trim() === '' || isNaN(Number(bpSysInput))) return;
     if (bpDiaInput.trim() === '' || isNaN(Number(bpDiaInput))) return;
+    const bpSys = Number(bpSysInput);
+    const bpDia = Number(bpDiaInput);
+    for (const [value, range] of [
+      [bpSys, SYS_RANGE],
+      [bpDia, DIA_RANGE],
+    ] as const) {
+      if (value < range.min || value > range.max) {
+        setError(t('vitalOutOfRange', range));
+        return;
+      }
+    }
 
     setError('');
     setIsSubmitting(true);
     try {
-      await onSubmit(Number(bpSysInput), Number(bpDiaInput), entryDate);
+      await onSubmit(bpSys, bpDia, entryDate);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('failedSave'));
@@ -94,8 +109,8 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
                 type="number"
                 inputMode="numeric"
                 step="1"
-                min="60"
-                max="250"
+                min={SYS_RANGE.min}
+                max={SYS_RANGE.max}
                 placeholder="120"
                 onChange={(e) => setBpSysInput(e.target.value)}
                 className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
@@ -113,8 +128,8 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
                 type="number"
                 inputMode="numeric"
                 step="1"
-                min="40"
-                max="150"
+                min={DIA_RANGE.min}
+                max={DIA_RANGE.max}
                 placeholder="80"
                 onChange={(e) => setBpDiaInput(e.target.value)}
                 className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"

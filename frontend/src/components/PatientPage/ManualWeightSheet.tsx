@@ -14,6 +14,10 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 
+// Must match _VITAL_RANGES in backend/core/views/patient_views.py.
+const MIN_KG = 25;
+const MAX_KG = 400;
+
 interface ManualWeightSheetProps {
   open: boolean;
   dateLabel: string;
@@ -46,11 +50,16 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
   const handleSave = async () => {
     if (isSubmitting) return;
     if (weightInput.trim() === '' || isNaN(Number(weightInput))) return;
+    const weightKg = Number(weightInput);
+    if (weightKg < MIN_KG || weightKg > MAX_KG) {
+      setError(t('vitalOutOfRange', { min: MIN_KG, max: MAX_KG }));
+      return;
+    }
 
     setError('');
     setIsSubmitting(true);
     try {
-      await onSubmit(Number(weightInput), entryDate);
+      await onSubmit(weightKg, entryDate);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('failedSave'));
@@ -88,8 +97,8 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
                 type="number"
                 inputMode="decimal"
                 step="0.1"
-                min="25"
-                max="400"
+                min={MIN_KG}
+                max={MAX_KG}
                 placeholder="0"
                 onChange={(e) => setWeightInput(e.target.value)}
                 className="h-20 !w-40 rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
