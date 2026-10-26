@@ -2416,9 +2416,8 @@ def _generate_dates_from(
 
     hard_stop = plan_end
     if (end_cfg.get("type") == "date") and end_cfg.get("date"):
-        end_dt = _parse_iso(str(end_cfg["date"]))
         # Extend to end of day so sessions on the chosen end date are included
-        end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+        end_dt = _end_of_day(_parse_iso(str(end_cfg["date"])))
         hard_stop = min(hard_stop, end_dt)
 
     out = []
