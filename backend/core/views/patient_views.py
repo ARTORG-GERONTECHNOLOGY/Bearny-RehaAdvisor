@@ -4105,12 +4105,14 @@ def add_manual_vitals(request, patient_id: str):
     if timezone.is_naive(dt):
         dt = timezone.make_aware(dt, timezone.utc)
 
-    try:
-        weight_kg = _parse_vital(body, "weight_kg")
-        bp_sys = _parse_vital(body, "bp_sys")
-        bp_dia = _parse_vital(body, "bp_dia")
-    except ValueError as e:
-        return JsonResponse({"error": str(e)}, status=400)
+    # The message is built here, not from the exception, so no exception text reaches the client.
+    vitals = {}
+    for field, (low, high) in _VITAL_RANGES.items():
+        try:
+            vitals[field] = _parse_vital(body, field)
+        except ValueError:
+            return JsonResponse({"error": f"Invalid '{field}' (must be between {low} and {high})."}, status=400)
+    weight_kg, bp_sys, bp_dia = vitals["weight_kg"], vitals["bp_sys"], vitals["bp_dia"]
 
     if weight_kg is None and bp_sys is None and bp_dia is None:
         return JsonResponse({"error": "No vitals provided"}, status=400)
@@ -4167,7 +4169,7 @@ _VITAL_RANGES = {"weight_kg": (25, 400), "bp_sys": (60, 250), "bp_dia": (40, 150
 
 
 def _parse_vital(body: dict, field: str) -> float | int | None:
-    """body[field] within _VITAL_RANGES, BP rounded to int; None if absent, else ValueError naming the field."""
+    """body[field] within _VITAL_RANGES, BP rounded to int; None if absent, ValueError if invalid."""
     value = body.get(field)
     if value is None:
         return None
@@ -4178,7 +4180,7 @@ def _parse_vital(body: dict, field: str) -> float | int | None:
         number = math.nan
     low, high = _VITAL_RANGES[field]
     if not low <= number <= high:
-        raise ValueError(f"Invalid '{field}' (must be between {low} and {high}).")
+        raise ValueError(f"{field} out of range")
     return number if field == "weight_kg" else round(number)
 
 

@@ -196,6 +196,19 @@ def test_add_manual_vitals_patient_not_found(mongo_mock):
     assert resp.status_code == 404
 
 
+def test_add_manual_vitals_invalid_value_names_field_and_range(mongo_mock):
+    """The 400 names the field and its range."""
+    patient = create_patient()
+    resp = client.post(
+        VITALS_URL.format(patient_id=str(patient.id)),
+        data=json.dumps({"bp_sys": 300, "bp_dia": 80}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    assert resp.json() == {"error": "Invalid 'bp_sys' (must be between 60 and 250)."}
+
+
 def test_add_manual_vitals_malformed_patient_id(mongo_mock):
     """A patient id that is not an ObjectId returns 404, not a 500."""
     resp = client.post(
