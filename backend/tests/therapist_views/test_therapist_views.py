@@ -589,7 +589,8 @@ def test_adherence_uses_schedule_when_plan_exists():
         content_type="Video",
     ).save()
 
-    now = datetime.now()
+    # Noon, so reading plan dates as UTC never shifts them onto another local day.
+    now = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
     plan = RehabilitationPlan(
         patientId=patient,
         therapistId=therapist,
