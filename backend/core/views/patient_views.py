@@ -4114,7 +4114,9 @@ def add_manual_vitals(request, patient_id: str):
 
     if weight_kg is None and bp_sys is None and bp_dia is None:
         return JsonResponse({"error": "No vitals provided"}, status=400)
-    if bp_sys is not None and bp_dia is not None and bp_dia >= bp_sys:
+    if (bp_sys is None) != (bp_dia is None):
+        return JsonResponse({"error": "'bp_sys' and 'bp_dia' must be sent together."}, status=400)
+    if bp_sys is not None and bp_dia >= bp_sys:
         return JsonResponse({"error": "'bp_dia' must be lower than 'bp_sys'."}, status=400)
 
     # Upsert for same day

@@ -310,7 +310,7 @@ GET returns `{ requires_questionnaire: true|false }` based on whether demographi
 
 ## `add_manual_vitals`  —  `POST /api/patients/vitals/manual/<patient_id>/`
 
-Records blood pressure (``bp_sys``, ``bp_dia``) and/or weight (``weight_kg``).  Upserts for the same calendar day.  Accepts optional ISO 8601 ``date``.  Values must fall in the same ranges as the patient's entry sheets (weight 25–400 kg, systolic 60–250, diastolic 40–150); blood pressure is rounded to an integer, and diastolic must be lower than systolic when both are sent.
+Records blood pressure (``bp_sys``, ``bp_dia``) and/or weight (``weight_kg``).  Upserts for the same calendar day.  Accepts optional ISO 8601 ``date``.  Values must fall in the same ranges as the patient's entry sheets (weight 25–400 kg, systolic 60–250, diastolic 40–150); blood pressure is rounded to an integer. ``bp_sys`` and ``bp_dia`` must be sent together, and diastolic must be lower than systolic.
 
 ### Tests (`test_vitals_and_health.py`)
 
@@ -322,7 +322,7 @@ Records blood pressure (``bp_sys``, ``bp_dia``) and/or weight (``weight_kg``).  
 | `test_add_manual_vitals_no_vitals_provided` | Empty body | 400, 'No vitals provided' |
 | `test_add_manual_vitals_patient_not_found` | Unknown patient | 404 |
 | `test_add_manual_vitals_malformed_patient_id` | Patient id is not an ObjectId | 404 |
-| `test_add_manual_vitals_rejects_invalid_values` | NaN, Infinity, out of range, oversized number, boolean, non-numeric, non-object body, diastolic ≥ systolic | 400, nothing stored |
+| `test_add_manual_vitals_rejects_invalid_values` | NaN, Infinity, out of range, oversized number, boolean, non-numeric, non-object body, diastolic ≥ systolic, only one blood pressure value | 400, nothing stored |
 | `test_add_manual_vitals_invalid_date` | `date = "not-a-date"` | 400 |
 | `test_add_manual_vitals_get_method_not_allowed` | GET | 405 |
 

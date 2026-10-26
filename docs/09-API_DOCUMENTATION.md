@@ -1361,7 +1361,7 @@ JWT required.
 
 JWT required.
 
-Creates the patient's manual vitals record for that day, or updates it if one exists. At least one of `weight_kg`, `bp_sys`, `bp_dia` is required.
+Creates the patient's manual vitals record for that day, or updates it if one exists. Send `weight_kg`, the pair `bp_sys` + `bp_dia`, or both.
 
 **Request body:**
 
@@ -1374,7 +1374,7 @@ Creates the patient's manual vitals record for that day, or updates it if one ex
 
 **Response 200:** `{ "ok": true, "id": "<vitals id>", "date": "<ISO 8601>" }`
 
-**Errors:** 400 invalid JSON, invalid `date`, a vital that is not a number in its range, `bp_dia` not lower than `bp_sys`, or no vitals provided · 403 · 404 patient not found
+**Errors:** 400 invalid JSON, invalid `date`, a vital that is not a number in its range, only one of `bp_sys`/`bp_dia`, `bp_dia` not lower than `bp_sys`, or no vitals provided · 403 · 404 patient not found
 
 ---
 
