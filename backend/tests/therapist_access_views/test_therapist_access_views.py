@@ -22,11 +22,9 @@ from types import SimpleNamespace
 import mongomock
 import pytest
 from bson import ObjectId
-from django.test import override_settings
-from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
+from rest_framework.test import APIClient
 
 from core.models import Logs, Therapist, User
-from core.views.therapist_access_views import therapist_access
 
 client: APIClient = None  # type: ignore[assignment]
 
@@ -223,20 +221,20 @@ def test_access_put_success_updates_and_logs():
     assert Logs.objects(action="UPDATE_PROFILE").count() == 1
 
 
-@override_settings(TESTING=False)
 def test_access_put_rejects_non_admin():
-    # Direct call: with TESTING off, JWTAuthMiddleware would 401 before IsAdmin runs.
     th_user, therapist = create_therapist()
-    req = APIRequestFactory().put(
+    c = APIClient()
+    c.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(th_user.id)))
+
+    resp = c.put(
         "/api/admin/therapist/access/",
         data=json.dumps(
             {"therapistId": str(therapist.id), "clinics": ["Berner Reha Centrum"], "projects": ["COMPASS"]}
         ),
         content_type="application/json",
     )
-    force_authenticate(req, user=SimpleNamespace(is_authenticated=True, id=str(th_user.id)))
 
-    assert therapist_access(req).status_code == 403
+    assert resp.status_code == 403
     therapist.reload()
     assert therapist.clinics == ["Inselspital"]
     assert therapist.projects == ["COPAIN"]
