@@ -753,7 +753,7 @@ Schedule object fields:
 | `selectedDays` | array[string] | For weekly: `["Mon","Wed"]`                    |
 | `time`         | string        | `"HH:MM"` optional                             |
 
-Sessions are generated up to the plan's `endDate`. If that date has passed, sessions can be booked up to 90 days from today for this request; the stored `endDate` stays unchanged. When no sessions can be generated, the endpoint returns 400 with a `message` naming the cause.
+Sessions are generated up to and including the plan's `endDate`. If that date has passed, sessions can be booked up to and including the day 183 days (about 6 months) from today for this request; the stored `endDate` stays unchanged. When no sessions can be generated, the endpoint returns 400 with a `message` naming the cause.
 
 **Response 201:**
 
@@ -801,7 +801,7 @@ Schedule object fields:
 | `selectedDays` | array[string] | For weekly: `["Mon","Thu"]` |
 | `end`          | object        | `{ "type": "never" \| "date" \| "count", "date": ISO \| null, "count": int \| null }` |
 
-Sessions are generated up to the plan's `endDate`. If that date has passed, sessions can be booked up to 90 days from today for this request; the stored `endDate` stays unchanged.
+Sessions are generated up to and including the plan's `endDate`. If that date has passed, sessions can be booked up to and including the day 183 days (about 6 months) from today for this request; the stored `endDate` stays unchanged.
 
 **Response 200:** `{ "success": true, "message": "Updated schedule.", "updatedCount": 12, "field_errors": {}, "non_field_errors": [] }`
 
@@ -809,7 +809,7 @@ With `keep_current: true` the message is `"Updated schedule flags."`. `updatedCo
 
 **Errors:**
 
-- 400 — invalid JSON, missing fields, invalid `effectiveFrom`, missing or invalid `schedule`, or no sessions could be generated (`message` names the cause: the plan end date, the 90-day window, or the repeat settings). Existing sessions are left unchanged.
+- 400 — invalid JSON, missing fields, invalid `effectiveFrom`, missing or invalid `schedule`, or no sessions could be generated (`message` names the cause: the plan end date, the 6-month window, or the repeat settings). Existing sessions are left unchanged.
 - 403 — caller is not allowed to access this patient
 - 404 — patient, plan or intervention assignment not found
 - 500 — internal date conversion error

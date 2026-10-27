@@ -811,7 +811,7 @@ def test_modify_intervention_no_matching_weekday_does_not_blame_plan_end(mongo_m
 
 
 def test_modify_intervention_past_plan_end_names_stand_in_limit(mongo_mock):
-    """With the plan end passed, the 90-day stand-in window is named as a booking limit, not as the plan end."""
+    """With the plan end passed, the 6-month stand-in window is named as a booking limit, not as the plan end."""
     patient, _, intervention, plan = setup_patient_with_plan()
     plan.endDate = datetime.now() - timedelta(days=5)
     plan.save()
@@ -819,6 +819,7 @@ def test_modify_intervention_past_plan_end_names_stand_in_limit(mongo_mock):
     assert resp.status_code == 400, resp.content.decode()
     message = resp.json()["message"]
     assert "can only be booked up to" in message
+    assert "Study / After-Rehab Plan End Date or Rehabilitation End Date in the Information tab" in message
     assert "plan ends" not in message
 
 
@@ -837,18 +838,36 @@ def test_modify_intervention_expired_plan_books_up_to_shared_window(mongo_mock):
     assert last.date() >= (datetime.now() + EXPIRED_PLAN_BOOKING_WINDOW - timedelta(days=2)).date()
 
 
+def test_modify_intervention_books_session_on_plan_end_day(mongo_mock):
+    """The plan end is stored as midnight, but a session later that day must still be bookable."""
+    patient, _, intervention, plan = setup_patient_with_plan()
+    end_day = (datetime.now() + timedelta(days=10)).replace(hour=0, minute=0, second=0, microsecond=0)
+    plan.endDate = end_day
+    plan.save()
+    resp = _post_modify_schedule(patient, intervention, (end_day - timedelta(days=1)).isoformat())
+    assert resp.status_code == 200, resp.content.decode()
+    plan.reload()
+    last = max(plan.interventions[0].dates).replace(tzinfo=py_utc.utc)
+    assert timezone.localdate(last) == end_day.date()
+
+
 @pytest.mark.parametrize(
-    "study_end, expected_field",
-    [(None, "Rehabilitation End Date"), (datetime(2030, 1, 1), "Study / After-Rehab Plan End Date")],
+    "study_end, expected_fields",
+    [
+        (None, "Study / After-Rehab Plan End Date or Rehabilitation End Date"),
+        (datetime(2030, 1, 1), "Study / After-Rehab Plan End Date in the Information tab"),
+    ],
 )
-def test_modify_intervention_plan_end_message_names_the_field_the_plan_follows(mongo_mock, study_end, expected_field):
+def test_modify_intervention_plan_end_message_names_the_fields_that_move_the_plan_end(
+    mongo_mock, study_end, expected_fields
+):
     """The plan follows the study end date when one is set, so the message must point there."""
     patient, _, intervention, plan = setup_patient_with_plan()
     patient.study_end_date = study_end
     patient.save()
     resp = _post_modify_schedule(patient, intervention, (plan.endDate + timedelta(days=1)).isoformat())
     assert resp.status_code == 400, resp.content.decode()
-    assert f"extend the patient's {expected_field}" in resp.json()["message"]
+    assert f"set a later {expected_fields}" in resp.json()["message"]
 
 
 def test_modify_intervention_missing_plan_end_is_not_reported_as_plan_end(mongo_mock):
@@ -859,6 +878,7 @@ def test_modify_intervention_missing_plan_end_is_not_reported_as_plan_end(mongo_
     assert resp.status_code == 400, resp.content.decode()
     message = resp.json()["message"]
     assert "can only be booked up to" in message
+    assert "Study / After-Rehab Plan End Date or Rehabilitation End Date in the Information tab" in message
     assert "plan ends" not in message
 
 

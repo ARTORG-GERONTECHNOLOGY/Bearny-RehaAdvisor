@@ -2545,7 +2545,7 @@ def test_add_intervention_to_patient_returns_400_when_no_dates_generated(mongo_m
     instead of silently returning 200 with 'No new sessions to add'.
     """
     patient, therapist, intervention, plan = setup_patient_with_plan()
-    # startDate 200 days from now — beyond the 90-day auto-extension of plan_end,
+    # startDate 200 days from now — beyond the 6-month auto-extension of plan_end,
     # so _generate_dates_from returns [] and no sessions can be added.
     far_future = (datetime.now() + timedelta(days=200)).isoformat() + "Z"
     resp = client.post(
@@ -2611,6 +2611,7 @@ def test_add_intervention_to_patient_missing_plan_end_is_not_reported_as_plan_en
     assert resp.status_code == 400, resp.content.decode()
     message = resp.json()["message"]
     assert "can only be booked up to" in message
+    assert "Study / After-Rehab Plan End Date or Rehabilitation End Date in the Information tab" in message
     assert "plan ends" not in message
 
 
@@ -2661,7 +2662,7 @@ def test_add_intervention_to_patient_no_matching_weekday_does_not_blame_plan_end
 
 
 def test_add_intervention_to_patient_past_plan_end_names_stand_in_limit(mongo_mock):
-    """With the plan end passed, the 90-day stand-in window is named as a booking limit, not as the plan end."""
+    """With the plan end passed, the 6-month stand-in window is named as a booking limit, not as the plan end."""
     patient, therapist, intervention, plan = setup_patient_with_plan()
     plan.endDate = datetime.now() - timedelta(days=5)
     plan.save()
@@ -2674,7 +2675,86 @@ def test_add_intervention_to_patient_past_plan_end_names_stand_in_limit(mongo_mo
     assert resp.status_code == 400, resp.content.decode()
     message = resp.json()["message"]
     assert "can only be booked up to" in message
+    assert "Study / After-Rehab Plan End Date or Rehabilitation End Date in the Information tab" in message
     assert "plan ends" not in message
+
+
+def test_add_intervention_to_patient_books_session_on_plan_end_day(mongo_mock):
+    """The plan end is stored as midnight, but a session later that day must still be bookable."""
+    patient, therapist, intervention, plan = setup_patient_with_plan()
+    end_day = (datetime.now() + timedelta(days=10)).replace(hour=0, minute=0, second=0, microsecond=0)
+    plan.endDate = end_day
+    plan.save()
+    resp = _post_add_schedule(
+        patient,
+        therapist,
+        intervention,
+        startDate=timezone.make_aware(end_day.replace(hour=8)).isoformat(),
+        end={"type": "count", "date": None, "count": 1},
+    )
+    assert resp.status_code == 201, resp.content.decode()
+    plan.reload()
+    booked_days = {timezone.localdate(_as_utc(d)) for a in plan.interventions for d in a.dates}
+    assert end_day.date() in booked_days
+
+
+@pytest.mark.parametrize(
+    "day_offset, at, expected_status",
+    [(0, dtime(23, 30), 201), (1, dtime(0, 30), 400)],
+)
+def test_add_intervention_to_patient_window_ends_after_its_last_day(mongo_mock, day_offset, at, expected_status):
+    """On an expired plan, the stand-in window runs to the end of its last day and no further."""
+    from core.views.patient_views import EXPIRED_PLAN_BOOKING_WINDOW
+
+    patient, therapist, intervention, plan = setup_patient_with_plan()
+    plan.endDate = datetime.now() - timedelta(days=5)
+    plan.save()
+    day = timezone.localdate() + EXPIRED_PLAN_BOOKING_WINDOW + timedelta(days=day_offset)
+    start = timezone.make_aware(datetime.combine(day, at))
+    resp = _post_add_schedule(
+        patient,
+        therapist,
+        intervention,
+        startDate=start.isoformat(),
+        startTime=at.strftime("%H:%M"),
+        end={"type": "count", "date": None, "count": 1},
+    )
+    assert resp.status_code == expected_status, resp.content.decode()
+
+
+def test_add_intervention_to_patient_reads_plan_end_stored_as_utc(mongo_mock):
+    """A plan end saved from an aware local midnight is stored as the previous UTC day; its day stays bookable."""
+    patient, therapist, intervention, plan = setup_patient_with_plan()
+    end_day = timezone.localdate() + timedelta(days=10)
+    plan.endDate = timezone.make_aware(datetime.combine(end_day, dtime(0, 0)))
+    plan.save()
+    resp = _post_add_schedule(
+        patient,
+        therapist,
+        intervention,
+        startDate=timezone.make_aware(datetime.combine(end_day, dtime(8, 0))).isoformat(),
+        end={"type": "count", "date": None, "count": 1},
+    )
+    assert resp.status_code == 201, resp.content.decode()
+
+
+def test_add_intervention_to_patient_past_study_end_names_only_study_end(mongo_mock):
+    """With a study end set, the rehab end has no effect, so the hint names only the study end."""
+    patient, therapist, intervention, plan = setup_patient_with_plan()
+    patient.study_end_date = datetime.now() - timedelta(days=5)
+    patient.save()
+    plan.endDate = patient.study_end_date
+    plan.save()
+    resp = _post_add_schedule(
+        patient,
+        therapist,
+        intervention,
+        startDate=(datetime.now() + timedelta(days=200)).isoformat() + "Z",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    message = resp.json()["message"]
+    assert "set a later Study / After-Rehab Plan End Date in the Information tab" in message
+    assert "Rehabilitation End Date" not in message
 
 
 # ===========================================================================

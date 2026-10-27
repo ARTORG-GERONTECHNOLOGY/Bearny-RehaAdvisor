@@ -66,8 +66,8 @@ from utils.utils import (
 
 logger = logging.getLogger(__name__)  # Fallback to file-based logger if needed
 
-# How far ahead add and modify may book once a plan's end date has passed (or is missing).
-EXPIRED_PLAN_BOOKING_WINDOW = timedelta(days=90)
+# How far ahead add and modify may book once a plan's end date has passed (or is missing): about 6 months.
+EXPIRED_PLAN_BOOKING_WINDOW = timedelta(days=183)
 
 FILE_TYPE_FOLDERS = {
     "mp4": "videos",
@@ -2044,23 +2044,14 @@ def add_intervention_to_patient(request):
             therapistId=therapist,
             startDate=getattr(patient.userId, "createdAt", timezone.now()),
             # ✅ critical: never leave endDate None
-            endDate=patient.study_end_date or patient.reha_end_date or (timezone.now() + timedelta(days=90)),
+            endDate=patient.study_end_date or patient.reha_end_date or (timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW),
             status=payload.get("status", "active"),
             interventions=[],
             createdAt=timezone.now(),
             updatedAt=timezone.now(),
         )
 
-    # Use plan end as authoritative fallback (also non-null)
-    plan_end_extended = plan.endDate is None
-    plan_end = plan.endDate or (timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW)
-    if timezone.is_naive(plan_end):
-        plan_end = timezone.make_aware(plan_end, timezone.get_current_timezone())
-    # If the plan end is in the past, open a booking window from now so future
-    # sessions can always be scheduled regardless of an outdated reha_end_date.
-    if plan_end < timezone.now():
-        plan_end = timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW
-        plan_end_extended = True
+    plan_end, plan_end_extended = _booking_limit(plan)
 
     plan_end_blocks = False
     already_scheduled = False
@@ -2200,7 +2191,7 @@ def add_intervention_to_patient(request):
                         limit=plan_end,
                         limit_extended=plan_end_extended,
                         date_label="start date",
-                        end_field=_plan_end_field(patient),
+                        end_fields=_plan_end_fields(patient),
                     )
                 ),
                 "field_errors": field_errors,
@@ -2233,6 +2224,21 @@ def _as_aware_local(d: datetime.datetime) -> datetime.datetime:
     if timezone.is_naive(d):
         return timezone.make_aware(d, _tz_local())
     return d.astimezone(_tz_local())
+
+
+def _booking_limit(plan) -> tuple[datetime.datetime, bool]:
+    """Last bookable moment and whether it is the stand-in window rather than the plan end."""
+    now = _as_aware_local(timezone.now())
+    if plan.endDate:
+        # Stored naive means UTC, as for assignment dates; the whole end day stays bookable.
+        plan_end = _end_of_day(timezone.localtime(_as_aware_utc(plan.endDate)))
+        if plan_end >= now:
+            return plan_end, False
+    return _end_of_day(now + EXPIRED_PLAN_BOOKING_WINDOW), True
+
+
+def _end_of_day(d: datetime.datetime) -> datetime.datetime:
+    return d.replace(hour=23, minute=59, second=59, microsecond=999999)
 
 
 def _local_day(d: datetime.datetime):
@@ -2410,9 +2416,8 @@ def _generate_dates_from(
 
     hard_stop = plan_end
     if (end_cfg.get("type") == "date") and end_cfg.get("date"):
-        end_dt = _parse_iso(str(end_cfg["date"]))
         # Extend to end of day so sessions on the chosen end date are included
-        end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+        end_dt = _end_of_day(_parse_iso(str(end_cfg["date"])))
         hard_stop = min(hard_stop, end_dt)
 
     out = []
@@ -2452,13 +2457,14 @@ def _generate_dates_from(
     return out
 
 
-def _plan_end_field(patient) -> str:
-    """Information-tab field the plan end follows: the study end date wins, as in the profile sync."""
-    return "Study / After-Rehab Plan End Date" if patient.study_end_date else "Rehabilitation End Date"
+def _plan_end_fields(patient) -> str:
+    """Information-tab fields that can move the plan end: the study end date wins, as in the profile sync."""
+    study_field = "Study / After-Rehab Plan End Date"
+    return study_field if patient.study_end_date else f"{study_field} or Rehabilitation End Date"
 
 
 def _empty_schedule_message(
-    *, plan_end_blocks: bool, limit: datetime.datetime, limit_extended: bool, date_label: str, end_field: str
+    *, plan_end_blocks: bool, limit: datetime.datetime, limit_extended: bool, date_label: str, end_fields: str
 ):
     """User-facing reason a schedule produced no sessions; names the limit only when it is the cause."""
     if not plan_end_blocks:
@@ -2469,10 +2475,13 @@ def _empty_schedule_message(
     limit_iso = _as_aware_local(limit).date().isoformat()
     if limit_extended:
         # The plan end has passed and a stand-in window applies; it is not the plan's real end date.
-        return f"No sessions could be scheduled: sessions can only be booked up to {limit_iso}. Choose an earlier {date_label}."
+        return (
+            f"No sessions could be scheduled: sessions can only be booked up to {limit_iso}. "
+            f"Choose an earlier {date_label}, or set a later {end_fields} in the Information tab."
+        )
     return (
         f"No sessions could be scheduled: the plan ends on {limit_iso}. "
-        f"Choose an earlier {date_label}, or extend the patient's {end_field} in the Information tab."
+        f"Choose an earlier {date_label}, or set a later {end_fields} in the Information tab."
     )
 
 
@@ -2691,13 +2700,7 @@ def modify_intervention_from_date(request):
     # Generate NEW sessions
     # ----------------------
     try:
-        plan_end_extended = plan.endDate is None
-        plan_end = plan.endDate or (timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW)
-        plan_end_local = _as_aware_local(plan_end)
-        # If the plan's end date has passed, allow rescheduling within the booking window from now
-        if plan_end_local < _as_aware_local(timezone.now()):
-            plan_end_local = _as_aware_local(timezone.now() + EXPIRED_PLAN_BOOKING_WINDOW)
-            plan_end_extended = True
+        plan_end_local, plan_end_extended = _booking_limit(plan)
 
         new_local = _generate_dates_from(schedule, eff_dt_local, plan_end_local)
         new_utc = [dt.astimezone(datetime.timezone.utc) for dt in new_local]
@@ -2727,7 +2730,7 @@ def modify_intervention_from_date(request):
                     limit=plan_end_local,
                     limit_extended=plan_end_extended,
                     date_label="effective date",
-                    end_field=_plan_end_field(patient),
+                    end_fields=_plan_end_fields(patient),
                 ),
                 "field_errors": {},
                 "non_field_errors": [],
