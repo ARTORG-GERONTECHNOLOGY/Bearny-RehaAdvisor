@@ -30,6 +30,15 @@ describe('ManualWeightSheet', () => {
     });
   });
 
+  it('shows the range and does not submit an out-of-range weight', async () => {
+    render(<ManualWeightSheet {...baseProps} />);
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '500' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText('Please enter a value between 25 and 400.')).toBeInTheDocument();
+    expect(baseProps.onSubmit).not.toHaveBeenCalled();
+  });
+
   it('submits valid weight and closes', async () => {
     render(<ManualWeightSheet {...baseProps} />);
 

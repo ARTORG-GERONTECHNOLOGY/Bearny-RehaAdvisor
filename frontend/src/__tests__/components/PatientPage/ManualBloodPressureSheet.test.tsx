@@ -32,6 +32,20 @@ describe('ManualBloodPressureSheet', () => {
     });
   });
 
+  it.each([
+    ['260', '80', 'Please enter a value between 60 and 250.'],
+    ['120', '30', 'Please enter a value between 40 and 150.'],
+    ['90', '120', 'diastolicNotBelowSystolic'],
+  ])('shows an error and does not submit for sys=%s dia=%s', async (sys, dia, message) => {
+    render(<ManualBloodPressureSheet {...baseProps} />);
+    fireEvent.change(screen.getByPlaceholderText('120'), { target: { value: sys } });
+    fireEvent.change(screen.getByPlaceholderText('80'), { target: { value: dia } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(baseProps.onSubmit).not.toHaveBeenCalled();
+  });
+
   it('submits valid blood pressure values and closes', async () => {
     render(<ManualBloodPressureSheet {...baseProps} />);
 

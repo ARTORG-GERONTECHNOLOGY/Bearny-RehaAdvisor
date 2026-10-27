@@ -1,6 +1,7 @@
 import datetime as dt
 from types import SimpleNamespace
 
+import pytest
 from bson import ObjectId
 from django.utils import timezone
 
@@ -16,14 +17,12 @@ from core.views.patient_views import (
     _coerce_object_id,
     _completion_day_keys_from_logs,
     _generate_dates_from,
-    _has_bp,
-    _has_weight,
     _merge_dates,
     _normalize_dates_list,
     _normalize_intervention_id,
-    _parse_date_forgiving,
     _parse_iso,
     _parse_iso_maybe,
+    _parse_vital,
     _serialize_feedback_entry,
     _serialize_media_list,
     _status_for,
@@ -130,14 +129,13 @@ def test_patient_helpers_media_feedback_logs_and_parsers(monkeypatch):
     keys = _completion_day_keys_from_logs(logs)
     assert len(keys) >= 2
 
-    assert _has_weight(SimpleNamespace(weight_kg=70.0)) is True
-    assert _has_weight(SimpleNamespace(weight={"kg": 70.0})) is True
-    assert _has_bp(SimpleNamespace(bp_sys=120, bp_dia=80)) is True
-    assert _has_bp(SimpleNamespace(blood_pressure=SimpleNamespace(systolic=120, diastolic=80))) is True
-
-    assert _parse_date_forgiving("2026-01-02T10:00:00Z").isoformat() == "2026-01-02"
-    assert _parse_date_forgiving("2026/1/3").isoformat() == "2026-01-03"
-    assert _parse_date_forgiving("bad") is None
+    assert _parse_vital({}, "weight_kg") is None
+    assert _parse_vital({"weight_kg": 72.5}, "weight_kg") == 72.5
+    assert _parse_vital({"weight_kg": "80"}, "weight_kg") == 80.0
+    assert _parse_vital({"bp_sys": 120.6}, "bp_sys") == 121
+    for bad in (0, 24.9, 400.1, 10**400, float("nan"), float("inf"), True, "abc", [70]):
+        with pytest.raises(ValueError):
+            _parse_vital({"weight_kg": bad}, "weight_kg")
 
 
 def test_patient_schedule_generation_helpers_day_week_month():

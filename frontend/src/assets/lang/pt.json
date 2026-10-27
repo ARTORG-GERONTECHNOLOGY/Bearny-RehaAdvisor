@@ -6,6 +6,8 @@
   "Group": "Grupo",
   "failedCheck": "Falha ao verificar os dados vitais de hoje.",
   "failedSave": "Falha ao guardar os dados vitais de hoje. Por favor tente novamente.",
+  "vitalOutOfRange": "Por favor introduza um valor entre {{min}} e {{max}}.",
+  "diastolicNotBelowSystolic": "O valor inferior (diastólico) deve ser menor do que o valor superior (sistólico).",
   "failedReschedule": "Falha ao reagendar. Por favor tente novamente.",
   "successSave": "Os dados vitais de hoje foram guardados com sucesso.",
   "title": "Dados vitais de hoje",
