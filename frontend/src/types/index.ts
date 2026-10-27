@@ -1,7 +1,3 @@
-export interface AnswerOption {
-  key: string;
-  translations: Translation[];
-}
 // types/InterventionType.ts
 export interface InterventionTypeTh {
   _id: string;
@@ -37,43 +33,6 @@ export interface User {
   [key: string]: unknown; // optionally allow other properties
 }
 
-export interface Intervention {
-  _id: string;
-  title: string;
-  content_type: string;
-  media_url?: string;
-  link?: string;
-  patient_types: {
-    type: string;
-    diagnosis: string;
-    frequency: string;
-    include_option: boolean;
-  }[];
-  benefitFor: string[];
-  tags: string[];
-  dates?: InterventionDate[];
-}
-
-export interface InterventionDate {
-  datetime: string;
-  status?: string;
-  feedback?: FeedbackEntry[];
-}
-
-export interface FeedbackEntry {
-  question: {
-    id: string;
-    translations: { language: string; text: string }[];
-  };
-  answer: {
-    key: string;
-    translations: { language: string; text: string }[];
-  }[];
-  comment?: string;
-}
-
-// src/types/index.ts
-
 export interface PatientType {
   username: string;
   _id: string;
@@ -103,14 +62,6 @@ export interface AuthPayload {
   full_name: string;
   specialisation: string;
 }
-export interface FeedbackEntry {
-  question: {
-    id: string;
-    translations: Translation[];
-  };
-  comment: string;
-  answer: AnswerOption[];
-}
 // types/UserType.ts
 export interface UserType {
   email: string;
@@ -129,12 +80,6 @@ export interface PendingEntry {
   [key: string]: unknown; // ✅ unknown is allowed, unlike `any`
 }
 
-export interface InterventionLog {
-  datetime: string;
-  status: 'completed' | 'accessed' | 'missed' | 'today' | 'upcoming';
-  feedback?: FeedbackEntry[];
-}
-
 export interface InterventionAssignment {
   _id: string;
   title: string;
@@ -147,7 +92,7 @@ export interface InterventionAssignment {
   preview_img: string;
   media_url?: string;
   link?: string;
-  dates: InterventionLog[];
+  dates: InterventionDate[];
   currentTotalCount: number;
   completedCount: number;
 }
@@ -164,27 +109,14 @@ export interface RehabPlanResponse {
 export interface Intervention {
   _id: string;
   title: string;
-  description: string;
+  description?: string;
   content_type: string;
-  patient_types: {
+  patient_types?: {
     type: string;
     frequency: string;
     include_option: boolean;
     diagnosis: string;
   }[];
-  tags: string[];
-  benefitFor: string[];
-  link?: string;
-  media_url?: string;
-  preview_img?: string;
-  duration: number;
-}
-// types/index.ts
-
-export interface Intervention {
-  _id: string;
-  title: string;
-  content_type: string;
   media_url?: string;
   link?: string;
   preview_img?: string;
@@ -198,7 +130,7 @@ export interface Intervention {
 
 export interface InterventionDate {
   datetime: string;
-  status: 'completed' | 'accessed' | 'missed' | 'today' | 'upcoming';
+  status?: 'completed' | 'accessed' | 'missed' | 'today' | 'upcoming';
   feedback?: FeedbackEntry[];
 }
 
