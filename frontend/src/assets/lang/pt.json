@@ -1491,6 +1491,8 @@
   "hrScopeBannerReason": "A reconexão concede à aplicação acesso aos dados de zona de frequência cardíaca necessários para o rastreamento do tempo de uso.",
   "hrSyncBannerTitle": "Dados de frequência cardíaca indisponíveis — verificar permissões do Fitbit.",
   "hrSyncBannerReason": "O Fitbit pode não estar sincronizando frequência cardíaca com o Google Health. Em Configurações Android → Health Connect, confirme que o Fitbit tem acesso de escrita para Frequência cardíaca.",
+  "sleepScopeBannerTitle": "Dados de sono indisponíveis — reconectar o Google Health.",
+  "sleepScopeBannerReason": "A reconexão concede à aplicação acesso aos dados de sono necessários para o rastreamento do sono.",
   "1. Research Use": "1. Utilização para investigação",
   "2. Data Privacy": "2. Privacidade dos dados",
   "3. No Guarantees": "3. Sem garantias",

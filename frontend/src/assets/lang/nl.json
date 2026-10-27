@@ -1491,6 +1491,8 @@
   "hrScopeBannerReason": "Door opnieuw te verbinden krijgt de app toegang tot hartslagzonegegevens die nodig zijn voor het bijhouden van de draagduur.",
   "hrSyncBannerTitle": "Hartslaggegevens niet beschikbaar — Fitbit-rechten controleren.",
   "hrSyncBannerReason": "Fitbit synchroniseert mogelijk geen hartslag met Google Health. Controleer in Android-instellingen → Health Connect of Fitbit schrijftoegang heeft voor hartslag.",
+  "sleepScopeBannerTitle": "Slaapgegevens niet beschikbaar — verbind Google Health opnieuw.",
+  "sleepScopeBannerReason": "Door opnieuw te verbinden krijgt de app toegang tot slaapgegevens die nodig zijn voor slaapregistratie.",
   "1. Research Use": "1. Onderzoeksdoeleinden",
   "2. Data Privacy": "2. Gegevensprivacy",
   "3. No Guarantees": "3. Geen garanties",

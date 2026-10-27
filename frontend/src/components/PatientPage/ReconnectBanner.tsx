@@ -21,8 +21,12 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
 
   const hrScopeMissing = patientFitbitStore.hrScopeOk === false;
   const hrDataMissing = patientFitbitStore.hrDataMissing === true;
+  const sleepScopeMissing = patientFitbitStore.sleepScopeOk === false;
 
-  if (dismissed || (!patientFitbitStore.needsReconnect && !hrScopeMissing && !hrDataMissing))
+  if (
+    dismissed ||
+    (!patientFitbitStore.needsReconnect && !hrScopeMissing && !hrDataMissing && !sleepScopeMissing)
+  )
     return null;
 
   const days = patientFitbitStore.daysUntilExpiry;
@@ -65,16 +69,20 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
             ? t('hrSyncBannerTitle')
             : hrScopeMissing
               ? t('hrScopeBannerTitle')
-              : expired
-                ? t('reconnectBannerExpired')
-                : t('reconnectBannerWarning', { count: days })}
+              : sleepScopeMissing
+                ? t('sleepScopeBannerTitle')
+                : expired
+                  ? t('reconnectBannerExpired')
+                  : t('reconnectBannerWarning', { count: days })}
         </div>
         <div className="font-medium text-xs text-zinc-500 mt-0.5">
           {hrDataMissing
             ? t('hrSyncBannerReason')
             : hrScopeMissing
               ? t('hrScopeBannerReason')
-              : t('reconnectBannerReason')}
+              : sleepScopeMissing
+                ? t('sleepScopeBannerReason')
+                : t('reconnectBannerReason')}
         </div>
       </div>
 
