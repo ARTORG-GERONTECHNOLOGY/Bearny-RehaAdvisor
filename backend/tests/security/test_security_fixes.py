@@ -1350,6 +1350,35 @@ def test_xhrj_change_password_is_self_only(xhrj_world):
     assert resp.status_code == 403
 
 
+def test_xhrj_therapist_access_is_admin_only(xhrj_world):
+    from core.views.therapist_access_views import therapist_access
+
+    w = xhrj_world
+    payload = {"therapistId": str(w.th_a.id), "clinics": ["Inselspital"], "projects": ["COPAIN"]}
+    assert _call_as(w.th_user_a, therapist_access, "put", "/", payload).status_code == 403
+    assert list(w.th_a.reload().projects) == []
+    assert _call_as(w.admin, therapist_access, "put", "/", payload).status_code == 200
+    assert list(w.th_a.reload().projects) == ["COPAIN"]
+
+
+def test_xhrj_access_change_approve_is_admin_only(xhrj_world):
+    from core.models import TherapistAccessChangeRequest
+    from core.views.access_change_views import admin_access_change_requests
+
+    w = xhrj_world
+    req = TherapistAccessChangeRequest(
+        therapist=w.th_a, requested_clinics=["Inselspital"], requested_projects=["COPAIN"]
+    ).save()
+    payload = {"action": "approve"}
+    resp = _call_as(w.th_user_a, admin_access_change_requests, "put", "/", payload, str(req.id))
+    assert resp.status_code == 403
+    assert req.reload().status == "pending"
+    assert list(w.th_a.reload().projects) == []
+    resp = _call_as(w.admin, admin_access_change_requests, "put", "/", payload, str(req.id))
+    assert resp.status_code == 200
+    assert list(w.th_a.reload().projects) == ["COPAIN"]
+
+
 def test_xhrj_profile_password_change_is_self_only(xhrj_world):
     from core.views.user_views import user_profile_view
 
