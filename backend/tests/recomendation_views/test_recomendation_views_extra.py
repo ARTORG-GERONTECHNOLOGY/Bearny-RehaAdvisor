@@ -8,12 +8,7 @@ import pytest
 from bson import ObjectId
 from django.test import Client, RequestFactory
 
-from core.models import (
-    DefaultInterventions,
-    DiagnosisAssignmentSettings,
-    Therapist,
-    User,
-)
+from core.models import Therapist, User
 from core.views.recomendation_views import list_intervention_diagnoses
 
 client = Client()

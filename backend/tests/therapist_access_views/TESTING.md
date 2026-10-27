@@ -53,4 +53,4 @@ pytest tests/therapist_access_views/ -v
 ## Test infrastructure
 
 - `mongo_mock` autouse fixture gives each test a fresh in-memory mongomock DB.
-- Tests use Django `Client` and real URL routes (not direct function calls).
+- Tests use DRF `APIClient` with `force_authenticate` and real URL routes (not direct function calls).
