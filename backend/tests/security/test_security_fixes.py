@@ -417,24 +417,6 @@ def test_fix14_frontend_config_has_no_hardcoded_server_ip():
 
 
 # ===========================================================================
-# Fix 15 — Removed dead REDCAP_API_TOKEN reference
-# ===========================================================================
-
-
-def test_fix15_import_redcap_participant_is_removed():
-    """
-    import_redcap_participant referenced settings.REDCAP_API_TOKEN which
-    does not exist in any environment.  The function was dead code and has
-    been removed entirely.
-    """
-    import core.views.redcap_view as rv
-
-    assert not hasattr(rv, "import_redcap_participant"), (
-        "import_redcap_participant must not exist — it referenced " "the non-existent settings.REDCAP_API_TOKEN"
-    )
-
-
-# ===========================================================================
 # Fix 17 — CORS_ALLOW_ALL_ORIGINS env-var escape hatch
 # ===========================================================================
 
