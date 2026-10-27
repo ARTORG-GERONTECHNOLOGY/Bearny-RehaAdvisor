@@ -12,6 +12,7 @@ Coverage goals
 * Validate therapist access read/update paths.
 * Validate clinic/project normalization and compatibility checks.
 * Validate input validation and not-found behavior.
+* Validate that non-admin callers get 403 and change nothing.
 """
 
 import json
@@ -21,9 +22,11 @@ from types import SimpleNamespace
 import mongomock
 import pytest
 from bson import ObjectId
-from rest_framework.test import APIClient
+from django.test import override_settings
+from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 
 from core.models import Logs, Therapist, User
+from core.views.therapist_access_views import therapist_access
 
 client: APIClient = None  # type: ignore[assignment]
 
@@ -218,3 +221,22 @@ def test_access_put_success_updates_and_logs():
     assert therapist.clinics == ["Inselspital"]
     assert therapist.projects == ["COPAIN"]
     assert Logs.objects(action="UPDATE_PROFILE").count() == 1
+
+
+@override_settings(TESTING=False)
+def test_access_put_rejects_non_admin():
+    # Direct call: with TESTING off, JWTAuthMiddleware would 401 before IsAdmin runs.
+    th_user, therapist = create_therapist()
+    req = APIRequestFactory().put(
+        "/api/admin/therapist/access/",
+        data=json.dumps(
+            {"therapistId": str(therapist.id), "clinics": ["Berner Reha Centrum"], "projects": ["COMPASS"]}
+        ),
+        content_type="application/json",
+    )
+    force_authenticate(req, user=SimpleNamespace(is_authenticated=True, id=str(th_user.id)))
+
+    assert therapist_access(req).status_code == 403
+    therapist.reload()
+    assert therapist.clinics == ["Inselspital"]
+    assert therapist.projects == ["COPAIN"]

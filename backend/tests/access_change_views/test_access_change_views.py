@@ -27,6 +27,7 @@ Admin endpoints
   * PUT returns 400 for already-reviewed requests.
   * PUT returns 404 for unknown request ids.
   * PUT returns 400 for an unsupported action string.
+  * PUT returns 403 for a non-admin caller and changes nothing.
 
 Test setup
 ----------
@@ -44,9 +45,11 @@ from unittest.mock import patch
 import mongomock
 import pytest
 from bson import ObjectId
-from rest_framework.test import APIClient
+from django.test import override_settings
+from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 
 from core.models import Therapist, TherapistAccessChangeRequest, User
+from core.views.access_change_views import admin_access_change_requests
 
 # Minimal user that satisfies DRF's IsAuthenticated check.
 _AUTH_USER = SimpleNamespace(is_authenticated=True)
@@ -448,3 +451,29 @@ def test_admin_put_requires_request_id_in_url():
         content_type="application/json",
     )
     assert resp.status_code == 400
+
+
+@override_settings(TESTING=False)
+def test_admin_put_rejects_non_admin_approving_own_request():
+    # Direct call: with TESTING off, JWTAuthMiddleware would 401 before IsAdmin runs.
+    th_user, therapist = _make_therapist(clinics=["Inselspital"], projects=["COPAIN"])
+    req = TherapistAccessChangeRequest(
+        therapist=therapist,
+        requested_clinics=["Berner Reha Centrum"],
+        requested_projects=["COMPASS"],
+        status="pending",
+        created_at=datetime.now(),
+    ).save()
+    http_req = APIRequestFactory().put(
+        f"/api/admin/access-change-requests/{req.id}/",
+        data=json.dumps({"action": "approve"}),
+        content_type="application/json",
+    )
+    force_authenticate(http_req, user=SimpleNamespace(is_authenticated=True, id=str(th_user.id)))
+
+    assert admin_access_change_requests(http_req, str(req.id)).status_code == 403
+    req.reload()
+    assert req.status == "pending"
+    therapist.reload()
+    assert therapist.clinics == ["Inselspital"]
+    assert therapist.projects == ["COPAIN"]
