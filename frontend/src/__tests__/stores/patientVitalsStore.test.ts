@@ -11,13 +11,11 @@ import { patientVitalsStore } from '@/stores/patientVitalsStore';
 // ---- mocks ----------------------------------------------------------------
 
 const mockPost = jest.fn();
-const mockGet = jest.fn();
 
 jest.mock('@/api/client', () => ({
   __esModule: true,
   default: {
     post: (...args: unknown[]) => mockPost(...args),
-    get: (...args: unknown[]) => mockGet(...args),
   },
 }));
 
@@ -30,7 +28,6 @@ jest.mock('@sentry/react', () => ({
 // ---- helpers ---------------------------------------------------------------
 
 function resetStore() {
-  (patientVitalsStore as any).exists = false;
   (patientVitalsStore as any).error = '';
   (patientVitalsStore as any).successMsg = '';
   (patientVitalsStore as any).posting = false;
@@ -73,55 +70,12 @@ describe('patientVitalsStore.submit — Sentry capture', () => {
     expect(patientVitalsStore.error).toBe('Server busy');
   });
 
-  it('sets exists=true and clears error on success', async () => {
+  it('sets the success message and clears error on success', async () => {
     mockPost.mockResolvedValueOnce({ data: {} });
 
     await patientVitalsStore.submit('patient-1', { weight_kg: 70 });
 
-    expect(patientVitalsStore.exists).toBe(true);
+    expect(patientVitalsStore.successMsg).toBe("Today's vitals were saved successfully.");
     expect(patientVitalsStore.error).toBe('');
-  });
-});
-
-describe('patientVitalsStore.checkExists', () => {
-  it('sets exists from the API response and clears loading', async () => {
-    mockGet.mockResolvedValueOnce({ data: { exists: true } });
-
-    await patientVitalsStore.checkExists('patient-1');
-
-    expect(mockGet).toHaveBeenCalledWith(
-      '/patients/vitals/exists/patient-1/',
-      expect.objectContaining({ params: expect.objectContaining({ date: expect.any(String) }) })
-    );
-    expect(patientVitalsStore.exists).toBe(true);
-    expect(patientVitalsStore.loading).toBe(false);
-  });
-
-  it('defaults exists to false when the response omits it', async () => {
-    mockGet.mockResolvedValueOnce({ data: {} });
-
-    await patientVitalsStore.checkExists('patient-1');
-
-    expect(patientVitalsStore.exists).toBe(false);
-  });
-
-  it('sets a generic error message when the check fails', async () => {
-    mockGet.mockRejectedValueOnce(new Error('down'));
-
-    await patientVitalsStore.checkExists('patient-1');
-
-    expect(patientVitalsStore.error).toBe("Failed to check today's vitals.");
-    expect(patientVitalsStore.loading).toBe(false);
-  });
-
-  it('clears prior messages before checking', async () => {
-    (patientVitalsStore as any).error = 'stale error';
-    (patientVitalsStore as any).successMsg = 'stale success';
-    mockGet.mockResolvedValueOnce({ data: { exists: false } });
-
-    await patientVitalsStore.checkExists('patient-1');
-
-    expect(patientVitalsStore.error).toBe('');
-    expect(patientVitalsStore.successMsg).toBe('');
   });
 });

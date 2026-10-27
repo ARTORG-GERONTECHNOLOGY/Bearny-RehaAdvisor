@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { isInRange, VITAL_RANGES } from '@/utils/validation';
 import {
   Sheet,
   SheetContent,
@@ -49,11 +50,25 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
     if (isSubmitting) return;
     if (bpSysInput.trim() === '' || isNaN(Number(bpSysInput))) return;
     if (bpDiaInput.trim() === '' || isNaN(Number(bpDiaInput))) return;
+    const bpSys = Number(bpSysInput);
+    const bpDia = Number(bpDiaInput);
+    if (!isInRange(bpSys, VITAL_RANGES.bpSys)) {
+      setError(t('vitalOutOfRange', VITAL_RANGES.bpSys));
+      return;
+    }
+    if (!isInRange(bpDia, VITAL_RANGES.bpDia)) {
+      setError(t('vitalOutOfRange', VITAL_RANGES.bpDia));
+      return;
+    }
+    if (bpDia >= bpSys) {
+      setError(t('diastolicNotBelowSystolic'));
+      return;
+    }
 
     setError('');
     setIsSubmitting(true);
     try {
-      await onSubmit(Number(bpSysInput), Number(bpDiaInput), entryDate);
+      await onSubmit(bpSys, bpDia, entryDate);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('failedSave'));
@@ -94,8 +109,8 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
                 type="number"
                 inputMode="numeric"
                 step="1"
-                min="60"
-                max="250"
+                min={VITAL_RANGES.bpSys.min}
+                max={VITAL_RANGES.bpSys.max}
                 placeholder="120"
                 onChange={(e) => setBpSysInput(e.target.value)}
                 className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
@@ -113,8 +128,8 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
                 type="number"
                 inputMode="numeric"
                 step="1"
-                min="40"
-                max="150"
+                min={VITAL_RANGES.bpDia.min}
+                max={VITAL_RANGES.bpDia.max}
                 placeholder="80"
                 onChange={(e) => setBpDiaInput(e.target.value)}
                 className="h-20 !w-[200px] rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
@@ -126,7 +141,7 @@ const ManualBloodPressureSheet: React.FC<ManualBloodPressureSheetProps> = ({
           </div>
         </div>
 
-        {error && <Alert variant="destructive">{t(error)}</Alert>}
+        {error && <Alert variant="destructive">{error}</Alert>}
 
         <SheetFooter>
           <Button onClick={handleSave} disabled={isSubmitting}>

@@ -6,6 +6,8 @@
   "Group": "Groupe",
   "failedCheck": "Impossible de vérifier les constantes d’aujourd’hui.",
   "failedSave": "Échec de l’enregistrement des constantes d’aujourd’hui. Veuillez réessayer.",
+  "vitalOutOfRange": "Veuillez saisir une valeur entre {{min}} et {{max}}.",
+  "diastolicNotBelowSystolic": "La valeur inférieure (diastolique) doit être plus petite que la valeur supérieure (systolique).",
   "failedReschedule": "Échec de la reprogrammation. Veuillez réessayer.",
   "successSave": "Les constantes d’aujourd’hui ont été enregistrées avec succès.",
   "title": "Constantes du jour",

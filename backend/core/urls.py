@@ -284,11 +284,6 @@ urlpatterns = [
         name="add_manual_vitals",
     ),
     path(
-        "api/patients/vitals/exists/<str:patient_id>/",
-        patient_views.vitals_exists_for_day,
-        name="vitals_exists_for_day",
-    ),
-    path(
         "api/patients/vitals/intervention-view/<str:patient_id>/",
         patient_views.log_intervention_view,
         name="log_intervention_view",

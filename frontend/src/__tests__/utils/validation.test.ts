@@ -1,4 +1,4 @@
-import { isValidEmail, isValidPhone } from '@/utils/validation';
+import { isInRange, isValidEmail, isValidPhone, VITAL_RANGES } from '@/utils/validation';
 
 describe('Validation Utilities', () => {
   describe('isValidEmail', () => {
@@ -29,6 +29,20 @@ describe('Validation Utilities', () => {
       expect(isValidPhone('+1-800-555-0199')).toBe(false); // contains hyphens
       expect(isValidPhone('abc1234567')).toBe(false); // letters
       expect(isValidPhone('')).toBe(false);
+    });
+  });
+
+  describe('isInRange', () => {
+    it('includes both bounds', () => {
+      expect(isInRange(60, VITAL_RANGES.bpSys)).toBe(true);
+      expect(isInRange(250, VITAL_RANGES.bpSys)).toBe(true);
+      expect(isInRange(120, VITAL_RANGES.bpSys)).toBe(true);
+    });
+
+    it('rejects values outside the range and NaN', () => {
+      expect(isInRange(59.9, VITAL_RANGES.bpSys)).toBe(false);
+      expect(isInRange(250.1, VITAL_RANGES.bpSys)).toBe(false);
+      expect(isInRange(Number.NaN, VITAL_RANGES.bpSys)).toBe(false);
     });
   });
 });

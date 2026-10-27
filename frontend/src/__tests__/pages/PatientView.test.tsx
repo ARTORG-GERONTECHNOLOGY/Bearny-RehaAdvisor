@@ -94,9 +94,7 @@ jest.mock('@/stores/patientFitbitStore', () => ({
 
 jest.mock('@/stores/patientVitalsStore', () => ({
   patientVitalsStore: {
-    loading: false,
     error: '',
-    checkExists: jest.fn(),
     submit: jest.fn(),
   },
 }));
