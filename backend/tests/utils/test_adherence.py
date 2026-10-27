@@ -87,9 +87,9 @@ def test_adherence_reads_plan_dates_as_utc_instants(mongo_mock):
     UTC offset of midnight onto the previous day, so the adherence figure on the therapist
     dashboard disagreed with the session table beside it about which day the session fell on.
     """
-    # 22:30 UTC is 00:30 local the *next* day in Europe/Zurich.
+    # 23:30 UTC is the *next* local day in Europe/Zurich in both winter (00:30) and summer (01:30).
     scheduled_utc = datetime.combine(dj_tz.localdate() - timedelta(days=2), datetime.min.time()).replace(
-        hour=22, minute=30
+        hour=23, minute=30
     )
     scheduled_local_day = dj_tz.localtime(scheduled_utc.replace(tzinfo=dt_timezone.utc)).date()
     assert scheduled_local_day != scheduled_utc.date(), "fixture must straddle local midnight"
