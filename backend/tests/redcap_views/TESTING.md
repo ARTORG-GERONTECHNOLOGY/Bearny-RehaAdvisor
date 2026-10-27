@@ -50,7 +50,7 @@ Service-layer dependencies are mocked in tests to isolate view behavior.
 | `test_redcap_patient_no_allowed_projects` | Therapist has no REDCap projects | 403 |
 | `test_redcap_patient_forbidden_project` | Requested project not allowed | 403 with `allowedProjects` |
 | `test_redcap_patient_not_found_when_no_rows` | Upstream returns no rows | 404 not found payload |
-| `test_redcap_patient_returns_502_when_all_projects_error` | Upstream errors for all searched projects | 502 with errors list |
+| `test_redcap_patient_returns_502_when_all_projects_error` | Upstream errors for all searched projects | 502 with errors list; REDCap error text not in response |
 | `test_redcap_patient_success_with_partial_errors` | One project succeeds, one errors | 200 with both `matches` and `errors` |
 
 ---

@@ -229,7 +229,7 @@ def test_access_put_rejects_non_admin():
     resp = c.put(
         "/api/admin/therapist/access/",
         data=json.dumps(
-            {"therapistId": str(therapist.id), "clinics": ["Berner Reha Centrum"], "projects": ["COMPASS"]}
+            {"therapistId": str(therapist.id), "clinics": ["Inselspital"], "projects": ["COPAIN", "COMPASS"]}
         ),
         content_type="application/json",
     )
