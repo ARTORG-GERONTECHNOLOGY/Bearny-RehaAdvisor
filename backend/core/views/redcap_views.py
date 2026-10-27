@@ -1,6 +1,4 @@
 # core/views/redcap_views.py
-import logging
-
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -9,8 +7,6 @@ from core.services.redcap_access import (
     get_allowed_redcap_projects_for_therapist,
     get_therapist_for_user,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @api_view(["GET"])
