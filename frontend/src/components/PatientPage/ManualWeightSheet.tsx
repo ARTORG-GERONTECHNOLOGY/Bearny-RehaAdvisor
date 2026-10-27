@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { isInRange, VITAL_RANGES } from '@/utils/validation';
 import {
   Sheet,
   SheetContent,
@@ -46,11 +47,16 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
   const handleSave = async () => {
     if (isSubmitting) return;
     if (weightInput.trim() === '' || isNaN(Number(weightInput))) return;
+    const weightKg = Number(weightInput);
+    if (!isInRange(weightKg, VITAL_RANGES.weightKg)) {
+      setError(t('vitalOutOfRange', VITAL_RANGES.weightKg));
+      return;
+    }
 
     setError('');
     setIsSubmitting(true);
     try {
-      await onSubmit(Number(weightInput), entryDate);
+      await onSubmit(weightKg, entryDate);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('failedSave'));
@@ -88,8 +94,8 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
                 type="number"
                 inputMode="decimal"
                 step="0.1"
-                min="25"
-                max="400"
+                min={VITAL_RANGES.weightKg.min}
+                max={VITAL_RANGES.weightKg.max}
                 placeholder="0"
                 onChange={(e) => setWeightInput(e.target.value)}
                 className="h-20 !w-40 rounded-3xl border-none bg-zinc-100 py-1 px-6 font-medium !text-4xl placeholder:text-zinc-300 shadow-none"
@@ -101,7 +107,7 @@ const ManualWeightSheet: React.FC<ManualWeightSheetProps> = ({
           </div>
         </div>
 
-        {error && <Alert variant="destructive">{t(error)}</Alert>}
+        {error && <Alert variant="destructive">{error}</Alert>}
 
         <SheetFooter>
           <Button onClick={handleSave} disabled={isSubmitting}>

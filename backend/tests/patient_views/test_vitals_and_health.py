@@ -5,29 +5,26 @@ Vitals and health-history endpoint tests
 Endpoints covered
 -----------------
 ``POST /api/patients/vitals/manual/<patient_id>/``        → ``add_manual_vitals``
-``GET  /api/patients/vitals/exists/<patient_id>/``        → ``vitals_exists_for_day``
 ``GET  /api/patients/healthstatus-history/<patient_id>/`` → ``get_patient_healthstatus_history``
 
 Coverage goals
 --------------
 Happy-path
   * Recording blood-pressure and weight measurements.
-  * Checking whether a vitals record already exists for a given date.
   * Fetching the empty health-status history for a new patient.
 
 Input validation (400)
   * Missing vitals fields (no weight, bp_sys, or bp_dia provided).
-  * Missing or malformed ``date`` query / body parameter.
+  * Malformed ``date`` body parameter.
 
 Resource not found (404)
-  * Unknown patient ObjectId for all three endpoints.
+  * Unknown patient ObjectId for both endpoints.
 
 HTTP method enforcement (405)
   * Each endpoint refuses wrong HTTP verbs.
 
 Response shape verification
   * ``add_manual_vitals`` returns ``ok: true`` and the new record ``id``.
-  * ``vitals_exists_for_day`` returns ``{"exists": true|false}``.
   * ``get_patient_healthstatus_history`` returns ``{"history": [...]}``.
 
 Test setup
@@ -38,15 +35,14 @@ Therapist → Patient chain required by each endpoint.
 """
 
 import json
-from datetime import datetime, timedelta
-from unittest.mock import patch
+from datetime import datetime
 
 import mongomock
 import pytest
 from bson import ObjectId
 from django.test import Client
 
-from core.models import FitbitData, Patient, PatientVitals, Therapist, User
+from core.models import Logs, Patient, PatientVitals, Therapist, User
 
 client = Client()
 
@@ -107,7 +103,6 @@ def create_patient():
 
 
 VITALS_URL = "/api/patients/vitals/manual/{patient_id}/"
-EXISTS_URL = "/api/patients/vitals/exists/{patient_id}/"
 HISTORY_URL = "/api/patients/healthstatus-history/{patient_id}/"
 
 
@@ -133,6 +128,21 @@ def test_add_manual_vitals_success_with_bp(mongo_mock):
     data = resp.json()
     assert data.get("ok") is True
     assert "id" in data
+
+
+def test_add_manual_vitals_rounds_blood_pressure(mongo_mock):
+    """Fractional blood pressure is rounded, not truncated, in both the record and the audit log."""
+    patient = create_patient()
+    resp = client.post(
+        VITALS_URL.format(patient_id=str(patient.id)),
+        data=json.dumps({"bp_sys": 120.6, "bp_dia": 79.7}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    rec = PatientVitals.objects(patientId=patient).first()
+    assert (rec.bp_sys, rec.bp_dia) == (121, 80)
+    assert Logs.objects(action="VITALS_SUBMIT").first().details == "bp_sys=121, bp_dia=80"
 
 
 def test_add_manual_vitals_success_with_weight(mongo_mock):
@@ -182,6 +192,63 @@ def test_add_manual_vitals_patient_not_found(mongo_mock):
     assert resp.status_code == 404
 
 
+def test_add_manual_vitals_invalid_value_names_field_and_range(mongo_mock):
+    """The 400 names the field and its range."""
+    patient = create_patient()
+    resp = client.post(
+        VITALS_URL.format(patient_id=str(patient.id)),
+        data=json.dumps({"bp_sys": 300, "bp_dia": 80}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400
+    assert resp.json() == {"error": "Invalid 'bp_sys' (must be between 60 and 250)."}
+
+
+def test_add_manual_vitals_malformed_patient_id(mongo_mock):
+    """A patient id that is not an ObjectId returns 404, not a 500."""
+    resp = client.post(
+        VITALS_URL.format(patient_id="not-an-id"),
+        data=json.dumps({"weight_kg": 70}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '{"weight_kg": NaN}',
+        '{"bp_sys": Infinity, "bp_dia": 80}',
+        '{"weight_kg": -70}',
+        '{"weight_kg": 24.9}',
+        '{"weight_kg": 401}',
+        '{"bp_sys": 1e20, "bp_dia": 80}',
+        '{"bp_sys": 120, "bp_dia": 151}',
+        '{"bp_sys": 70, "bp_dia": 140}',
+        '{"bp_sys": 100, "bp_dia": 100}',
+        '{"bp_sys": 120}',
+        '{"bp_dia": 80, "weight_kg": 70}',
+        '{"weight_kg": ' + "9" * 400 + "}",
+        '{"weight_kg": true}',
+        '{"weight_kg": "abc", "bp_sys": 120}',
+        "[1, 2]",
+    ],
+)
+def test_add_manual_vitals_rejects_invalid_values(mongo_mock, body):
+    """Non-numeric, non-finite or out-of-range vitals return 400 and store nothing."""
+    patient = create_patient()
+    resp = client.post(
+        VITALS_URL.format(patient_id=str(patient.id)),
+        data=body,
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 400, resp.content.decode()
+    assert PatientVitals.objects(patientId=patient).count() == 0
+
+
 def test_add_manual_vitals_invalid_date(mongo_mock):
     """
     Supplying a ``date`` value that cannot be parsed as ISO 8601 returns 400.
@@ -207,106 +274,6 @@ def test_add_manual_vitals_get_method_not_allowed(mongo_mock):
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 405
-
-
-# ===========================================================================
-# vitals_exists_for_day  —  GET /api/patients/vitals/exists/<patient_id>/
-# ===========================================================================
-
-
-def test_vitals_exists_for_day_false_when_no_data(mongo_mock):
-    """
-    GET when no vitals have been recorded returns 200 with ``exists: false``.
-    The frontend uses this flag to decide whether to show the data-entry form.
-    """
-    patient = create_patient()
-    today = datetime.now().strftime("%Y-%m-%d")
-    resp = client.get(
-        EXISTS_URL.format(patient_id=str(patient.id)) + f"?date={today}",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
-    assert resp.status_code == 200
-    assert resp.json()["exists"] is False
-
-
-def test_vitals_exists_for_day_true_after_adding_vitals(mongo_mock):
-    """
-    After a PatientVitals record is written for today, ``exists`` returns true.
-    Confirms the round-trip: record created → check → ``exists: true``.
-    """
-    patient = create_patient()
-    today = datetime.now().strftime("%Y-%m-%d")
-    today_dt = datetime.now().replace(hour=8, minute=0, second=0, microsecond=0)
-
-    # Write a vitals entry directly (naive datetime, consistent with how
-    # vitals_exists_for_day queries: naive day-boundary window)
-    PatientVitals(
-        user=patient.userId,
-        patientId=patient,
-        date=today_dt,
-        weight_kg=75.0,
-    ).save()
-
-    resp = client.get(
-        EXISTS_URL.format(patient_id=str(patient.id)) + f"?date={today}",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
-    assert resp.status_code == 200
-    assert resp.json()["exists"] is True
-
-
-def test_vitals_exists_for_day_patient_not_found(mongo_mock):
-    """
-    Supplying an unknown patient ObjectId returns 404.
-    """
-    today = datetime.now().strftime("%Y-%m-%d")
-    resp = client.get(
-        EXISTS_URL.format(patient_id=str(ObjectId())) + f"?date={today}",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
-    assert resp.status_code == 404
-
-
-def test_vitals_exists_for_day_missing_date(mongo_mock):
-    """
-    Omitting the ``date`` query parameter returns 400.  The endpoint needs an
-    explicit date to know which day's window to search.
-    """
-    patient = create_patient()
-    resp = client.get(
-        EXISTS_URL.format(patient_id=str(patient.id)),
-        HTTP_AUTHORIZATION="Bearer test",
-    )
-    assert resp.status_code == 400
-
-
-def test_vitals_exists_for_day_post_method_not_allowed(mongo_mock):
-    """
-    POST to the vitals-exists endpoint returns 405.  Only GET is accepted.
-    """
-    patient = create_patient()
-    today = datetime.now().strftime("%Y-%m-%d")
-    resp = client.post(
-        EXISTS_URL.format(patient_id=str(patient.id)) + f"?date={today}",
-        data="{}",
-        content_type="application/json",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
-    assert resp.status_code == 405
-
-
-@patch("core.views.patient_views.PatientVitals.objects", side_effect=Exception("db down"))
-def test_vitals_exists_for_day_fallback_to_fitbit_data(_, mongo_mock):
-    patient = create_patient()
-    today_dt = datetime.now().replace(hour=9, minute=0, second=0, microsecond=0)
-    FitbitData(user=patient.userId, date=today_dt, weight_kg=70.0).save()
-
-    resp = client.get(
-        EXISTS_URL.format(patient_id=str(patient.id)) + f"?date={today_dt.strftime('%Y-%m-%d')}",
-        HTTP_AUTHORIZATION="Bearer test",
-    )
-    assert resp.status_code == 200
-    assert resp.json()["exists"] is True
 
 
 # ===========================================================================

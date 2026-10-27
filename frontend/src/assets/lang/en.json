@@ -6,6 +6,8 @@
   "Group": "Group",
   "failedCheck": "Failed to check today’s vitals.",
   "failedSave": "Failed to save today’s vitals. Please try again.",
+  "vitalOutOfRange": "Please enter a value between {{min}} and {{max}}.",
+  "diastolicNotBelowSystolic": "The lower value (diastolic) must be smaller than the upper value (systolic).",
   "failedReschedule": "Failed to reschedule. Please try again.",
   "successSave": "Today’s vitals were saved successfully.",
   "title": "Today’s vitals",

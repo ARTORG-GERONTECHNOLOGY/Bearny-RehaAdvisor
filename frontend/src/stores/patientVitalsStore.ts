@@ -1,19 +1,12 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import * as Sentry from '@sentry/react';
 import apiClient from '@/api/client';
-import { toLocalYMD } from '@/utils/dateFormat';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 
-type ExistsResp = { exists: boolean };
-
 class PatientVitalsStore {
-  loading = false;
-  exists = false;
   error = '';
   successMsg = '';
   posting = false;
-
-  today = toLocalYMD(new Date());
 
   constructor() {
     makeAutoObservable(this);
@@ -22,28 +15,6 @@ class PatientVitalsStore {
   clearMessages() {
     this.error = '';
     this.successMsg = '';
-  }
-
-  async checkExists(userId: string) {
-    this.loading = true;
-    this.clearMessages();
-
-    try {
-      const r = await apiClient.get<ExistsResp>(`/patients/vitals/exists/${userId}/`, {
-        params: { date: this.today },
-      });
-      runInAction(() => {
-        this.exists = !!r.data?.exists;
-      });
-    } catch {
-      runInAction(() => {
-        this.error = "Failed to check today's vitals.";
-      });
-    } finally {
-      runInAction(() => {
-        this.loading = false;
-      });
-    }
   }
 
   async submit(
@@ -63,7 +34,6 @@ class PatientVitalsStore {
 
       runInAction(() => {
         this.successMsg = "Today's vitals were saved successfully.";
-        this.exists = true; // hide prompt after saving
       });
     } catch (e: any) {
       Sentry.captureException(e, { extra: { context: 'patientVitalsStore.submit', userId } });

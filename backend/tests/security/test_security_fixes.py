@@ -959,7 +959,6 @@ def _xhrj_sweep_cases(w):
         ),
         ("combined-health", patient_views.get_combined_health_data, "get", "/", None, (pa,), intruder),
         ("manual-vitals", patient_views.add_manual_vitals, "post", "/", {"weight_kg": 70}, (pa,), intruder),
-        ("vitals-exists", patient_views.vitals_exists_for_day, "get", "/?date=2030-01-01", None, (pa,), intruder),
         (
             "intervention-view",
             patient_views.log_intervention_view,
