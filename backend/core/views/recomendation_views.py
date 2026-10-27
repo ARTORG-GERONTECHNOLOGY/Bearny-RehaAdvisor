@@ -395,50 +395,6 @@ def template_plan_preview(request, therapist_id):
 
 
 # --------------------------------------------------------------------
-# VIEW: get_intervention_by_external_id
-# --------------------------------------------------------------------
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_intervention_by_external_id(request, external_id: str):
-    lang = (request.GET.get("lang") or "").lower().strip()
-    preferred = lang or "en"
-
-    docs = list(
-        Intervention.objects.filter(
-            Q(is_private=False) | Q(is_private__exists=False),
-            external_id=external_id,
-        )
-    )
-    if not docs:
-        return JsonResponse({"error": "Intervention not found"}, status=404)
-
-    chosen, langs = _pick_variant(docs, preferred, fallback_order=["en", "de"])
-
-    data = {
-        "_id": str(chosen.id),
-        "external_id": chosen.external_id,
-        "language": chosen.language,
-        "available_languages": langs,
-        "provider": getattr(chosen, "provider", None),
-        "title": chosen.title,
-        "description": chosen.description,
-        "content_type": chosen.content_type,
-        "duration": getattr(chosen, "duration", None),
-        "where": getattr(chosen, "where", []) or [],
-        "setting": getattr(chosen, "setting", []) or [],
-        "media": [_serialize_media(m) for m in (getattr(chosen, "media", None) or [])],
-        "preview_img": (_abs_media_url(chosen.preview_img) if getattr(chosen, "preview_img", None) else ""),
-        "is_private": bool(getattr(chosen, "is_private", False)),
-        "private_patient_id": (
-            str(chosen.private_patient_id.id) if getattr(chosen, "private_patient_id", None) else None
-        ),
-    }
-    return JsonResponse({"recommendation": data}, status=200)
-
-
-# --------------------------------------------------------------------
 # VIEW: add_new_intervention (UPDATED for contentType normalization)
 # --------------------------------------------------------------------
 @api_view(["POST"])

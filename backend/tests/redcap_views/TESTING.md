@@ -14,9 +14,8 @@ This document describes tests in
 |---|---|---|---|
 | `/api/redcap/projects/` | GET | `redcap_projects` | 3 |
 | `/api/redcap/patient/` | GET | `redcap_patient` | 7 |
-| `/api/redcap/record/` *(direct view tests)* | GET | `redcap_record` | 8 |
 
-**Total: 18 tests**
+**Total: 10 tests**
 
 ---
 
@@ -70,16 +69,3 @@ pytest tests/redcap_views/ -v
 - `mongo_mock` autouse fixture: fresh in-memory mongomock DB per test.
 - `unittest.mock.patch` is used to stub REDCap service calls and therapist resolution.
 
-
-### `redcap_record` (direct view tests)
-
-| Test | Scenario | Expected |
-|---|---|---|
-| `test_redcap_record_method_not_allowed` | POST instead of GET | 405 |
-| `test_redcap_record_requires_pat_id` | Missing `pat_id` | 400 |
-| `test_redcap_record_requires_project` | Missing `project` | 400 |
-| `test_redcap_record_therapist_not_found` | No therapist resolved | 404 |
-| `test_redcap_record_forbidden_project` | Project not in allowed set | 403 with `allowedProjects` |
-| `test_redcap_record_success` | Upstream returns rows | 200 with `count` and `rows` |
-| `test_redcap_record_returns_502_on_redcap_error` | Upstream raises `RedcapError` | 502 with `detail` payload |
-| `test_redcap_record_returns_500_on_unexpected_error` | Upstream raises generic exception | 500 |

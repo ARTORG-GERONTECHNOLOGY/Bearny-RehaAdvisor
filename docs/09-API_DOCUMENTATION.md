@@ -1642,33 +1642,6 @@ JWT required.
 
 ---
 
-#### `GET /api/redcap/record/`
-
-JWT required.
-
-**Query params:**
-
-| Param     | Type   | Required |
-|-----------|--------|----------|
-| `pat_id`  | string | yes      |
-| `project` | string | yes      |
-
-**Response 200:**
-
-```json
-{
-  "ok": true,
-  "project": "COMPASS",
-  "pat_id": "P001",
-  "count": 3,
-  "rows": [ { ... } ]
-}
-```
-
-**Errors:** 400 missing params · 403 not allowed for project · 404 therapist not found · 502 REDCap API error · 500
-
----
-
 #### `GET /api/redcap/available-patients/`
 
 JWT required.
