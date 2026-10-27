@@ -14,7 +14,6 @@ Coverage goals
   upstream REDCap errors, and partial success scenarios.
 """
 
-import json
 from unittest.mock import patch
 
 import mongomock
