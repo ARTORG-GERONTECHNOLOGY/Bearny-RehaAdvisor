@@ -169,6 +169,8 @@ def test_redcap_patient_returns_502_when_all_projects_error(mock_get_th, mock_al
     body = resp.json()
     assert "Failed to retrieve REDCap records" in body["error"]
     assert len(body["errors"]) == 1
+    assert "upstream" not in resp.content.decode()
+    assert "timeout" not in resp.content.decode()
 
 
 @patch(
