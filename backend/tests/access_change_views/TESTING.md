@@ -13,9 +13,9 @@ This document describes tests in
 | `/api/therapist/access-change-request/` | GET | `submit_access_change_request` | 3 |
 | `/api/therapist/access-change-request/` | POST | `submit_access_change_request` | 5 |
 | `/api/admin/access-change-requests/` | GET | `admin_access_change_requests` | 3 |
-| `/api/admin/access-change-requests/<id>/` | PUT | `admin_access_change_requests` | 5 |
+| `/api/admin/access-change-requests/<id>/` | PUT | `admin_access_change_requests` | 7 |
 
-**Total: 16 tests**
+**Total: 18 tests**
 
 ---
 
@@ -69,6 +69,7 @@ Admin PUT       →  approve: update Therapist.clinics/projects + email therapis
 | `test_admin_put_returns_404_for_unknown_id` | Non-existent request ID | 404 |
 | `test_admin_put_returns_400_for_invalid_action` | `action=delete` (unsupported) | 400 |
 | `test_admin_put_requires_request_id_in_url` | PUT to base URL (no `<id>`) | 400 |
+| `test_admin_put_rejects_non_admin_approving_own_request` | Therapist tries to approve their own request | 403, request stays `pending`, access unchanged |
 
 ---
 

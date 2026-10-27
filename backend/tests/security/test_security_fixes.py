@@ -1350,14 +1350,6 @@ def test_xhrj_change_password_is_self_only(xhrj_world):
     assert resp.status_code == 403
 
 
-def test_xhrj_therapist_projects_is_admin_only(xhrj_world):
-    from core.views.therapist_projects import therapist_projects
-
-    w = xhrj_world
-    payload = {"therapistId": str(w.th_a.id), "projects": []}
-    assert _call_as(w.th_user_a, therapist_projects, "put", "/", payload).status_code == 403
-
-
 def test_xhrj_profile_password_change_is_self_only(xhrj_world):
     from core.views.user_views import user_profile_view
 

@@ -12,6 +12,7 @@ Coverage goals
 * Validate therapist access read/update paths.
 * Validate clinic/project normalization and compatibility checks.
 * Validate input validation and not-found behavior.
+* Validate that non-admin callers get 403 and change nothing.
 """
 
 import json
@@ -218,3 +219,22 @@ def test_access_put_success_updates_and_logs():
     assert therapist.clinics == ["Inselspital"]
     assert therapist.projects == ["COPAIN"]
     assert Logs.objects(action="UPDATE_PROFILE").count() == 1
+
+
+def test_access_put_rejects_non_admin():
+    th_user, therapist = create_therapist()
+    c = APIClient()
+    c.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(th_user.id)))
+
+    resp = c.put(
+        "/api/admin/therapist/access/",
+        data=json.dumps(
+            {"therapistId": str(therapist.id), "clinics": ["Inselspital"], "projects": ["COPAIN", "COMPASS"]}
+        ),
+        content_type="application/json",
+    )
+
+    assert resp.status_code == 403
+    therapist.reload()
+    assert therapist.clinics == ["Inselspital"]
+    assert therapist.projects == ["COPAIN"]

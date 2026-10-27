@@ -32,7 +32,7 @@ The results are merged back into the serialized items as:
 
 ---
 
-## `apply_template_to_patient`, `get_intervention_by_external_id`, `add_new_intervention`, `list_intervention_diagnoses`
+## `apply_template_to_patient`, `template_plan_preview`, `add_new_intervention`, `list_intervention_diagnoses`
 
 See [`test_recomendation_views_extra.py`](test_recomendation_views_extra.py) for validation-branch coverage.
 

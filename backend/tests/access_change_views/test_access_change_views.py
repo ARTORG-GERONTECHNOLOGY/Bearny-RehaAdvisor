@@ -27,6 +27,7 @@ Admin endpoints
   * PUT returns 400 for already-reviewed requests.
   * PUT returns 404 for unknown request ids.
   * PUT returns 400 for an unsupported action string.
+  * PUT returns 403 for a non-admin caller and changes nothing.
 
 Test setup
 ----------
@@ -448,3 +449,29 @@ def test_admin_put_requires_request_id_in_url():
         content_type="application/json",
     )
     assert resp.status_code == 400
+
+
+def test_admin_put_rejects_non_admin_approving_own_request():
+    th_user, therapist = _make_therapist(clinics=["Inselspital"], projects=["COPAIN"])
+    req = TherapistAccessChangeRequest(
+        therapist=therapist,
+        requested_clinics=["Berner Reha Centrum"],
+        requested_projects=["COMPASS"],
+        status="pending",
+        created_at=datetime.now(),
+    ).save()
+    c = APIClient()
+    c.force_authenticate(user=SimpleNamespace(is_authenticated=True, id=str(th_user.id)))
+
+    resp = c.put(
+        f"/api/admin/access-change-requests/{req.id}/",
+        data=json.dumps({"action": "approve"}),
+        content_type="application/json",
+    )
+
+    assert resp.status_code == 403
+    req.reload()
+    assert req.status == "pending"
+    therapist.reload()
+    assert therapist.clinics == ["Inselspital"]
+    assert therapist.projects == ["COPAIN"]

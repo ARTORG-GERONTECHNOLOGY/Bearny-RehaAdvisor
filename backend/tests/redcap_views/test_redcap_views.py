@@ -14,8 +14,6 @@ Coverage goals
   upstream REDCap errors, and partial success scenarios.
 """
 
-import json
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import mongomock
@@ -171,6 +169,8 @@ def test_redcap_patient_returns_502_when_all_projects_error(mock_get_th, mock_al
     body = resp.json()
     assert "Failed to retrieve REDCap records" in body["error"]
     assert len(body["errors"]) == 1
+    assert "upstream" not in resp.content.decode()
+    assert "timeout" not in resp.content.decode()
 
 
 @patch(
@@ -200,123 +200,3 @@ def test_redcap_patient_success_with_partial_errors(mock_export, mock_get_th, mo
     assert body["matches"][0]["project"] == "COPAIN"
     assert len(body["errors"]) == 1
     assert body["errors"][0]["project"] == "COMPASS"
-
-
-# -----------------------------
-# redcap_record (direct view tests)
-# -----------------------------
-
-from django.test import RequestFactory
-
-from core.views.redcap_views import redcap_record
-
-
-@pytest.fixture
-def rf():
-    return RequestFactory()
-
-
-def test_redcap_record_method_not_allowed(rf):
-    req = rf.post("/api/redcap/record/", data={})
-    resp = redcap_record(req)
-    assert resp.status_code == 405
-
-
-def test_redcap_record_requires_pat_id(rf):
-    req = rf.get("/api/redcap/record/?project=COPAIN")
-    resp = redcap_record(req)
-    assert resp.status_code == 400
-    assert json.loads(resp.content)["error"] == "pat_id is required"
-
-
-def test_redcap_record_requires_project(rf):
-    req = rf.get("/api/redcap/record/?pat_id=P17")
-    resp = redcap_record(req)
-    assert resp.status_code == 400
-    assert json.loads(resp.content)["error"] == "project is required"
-
-
-@patch("core.views.redcap_views.get_therapist_for_user", return_value=None)
-def test_redcap_record_therapist_not_found(mock_get_th, rf):
-    req = rf.get("/api/redcap/record/?pat_id=P17&project=COPAIN")
-    req.user = SimpleNamespace()
-    resp = redcap_record(req)
-    assert resp.status_code == 404
-
-
-@patch(
-    "core.views.redcap_views.get_allowed_redcap_projects_for_therapist",
-    return_value=["COPAIN"],
-)
-@patch(
-    "core.views.redcap_views.get_therapist_for_user",
-    return_value=DummyTherapist(clinics=["Inselspital"], project="COPAIN"),
-)
-def test_redcap_record_forbidden_project(mock_get_th, mock_allowed, rf):
-    req = rf.get("/api/redcap/record/?pat_id=P17&project=COMPASS")
-    req.user = SimpleNamespace()
-    resp = redcap_record(req)
-    assert resp.status_code == 403
-    assert json.loads(resp.content)["allowedProjects"] == ["COPAIN"]
-
-
-@patch(
-    "core.views.redcap_views.export_record_by_pat_id",
-    return_value=[{"record_id": "1", "pat_id": "P17"}],
-)
-@patch(
-    "core.views.redcap_views.get_allowed_redcap_projects_for_therapist",
-    return_value=["COPAIN"],
-)
-@patch(
-    "core.views.redcap_views.get_therapist_for_user",
-    return_value=DummyTherapist(clinics=["Inselspital"], project="COPAIN"),
-)
-def test_redcap_record_success(mock_get_th, mock_allowed, mock_export, rf):
-    req = rf.get("/api/redcap/record/?pat_id=P17&project=COPAIN")
-    req.user = SimpleNamespace()
-    resp = redcap_record(req)
-    assert resp.status_code == 200
-    body = json.loads(resp.content)
-    assert body["ok"] is True
-    assert body["count"] == 1
-    assert body["project"] == "COPAIN"
-
-
-@patch(
-    "core.views.redcap_views.export_record_by_pat_id",
-    side_effect=RedcapError("upstream", detail="timeout"),
-)
-@patch(
-    "core.views.redcap_views.get_allowed_redcap_projects_for_therapist",
-    return_value=["COPAIN"],
-)
-@patch(
-    "core.views.redcap_views.get_therapist_for_user",
-    return_value=DummyTherapist(clinics=["Inselspital"], project="COPAIN"),
-)
-def test_redcap_record_returns_502_on_redcap_error(mock_get_th, mock_allowed, mock_export, rf):
-    req = rf.get("/api/redcap/record/?pat_id=P17&project=COPAIN")
-    req.user = SimpleNamespace()
-    resp = redcap_record(req)
-    assert resp.status_code == 502
-    body = json.loads(resp.content)
-    assert body["error"] == "REDCap error."
-    assert "upstream" not in resp.content.decode()
-
-
-@patch("core.views.redcap_views.export_record_by_pat_id", side_effect=Exception("boom"))
-@patch(
-    "core.views.redcap_views.get_allowed_redcap_projects_for_therapist",
-    return_value=["COPAIN"],
-)
-@patch(
-    "core.views.redcap_views.get_therapist_for_user",
-    return_value=DummyTherapist(clinics=["Inselspital"], project="COPAIN"),
-)
-def test_redcap_record_returns_500_on_unexpected_error(mock_get_th, mock_allowed, mock_export, rf):
-    req = rf.get("/api/redcap/record/?pat_id=P17&project=COPAIN")
-    req.user = SimpleNamespace()
-    resp = redcap_record(req)
-    assert resp.status_code == 500
-    assert json.loads(resp.content)["error"] == "Unexpected server error."

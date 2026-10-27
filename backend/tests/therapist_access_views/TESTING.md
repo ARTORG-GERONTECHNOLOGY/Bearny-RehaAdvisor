@@ -11,9 +11,9 @@ This document describes tests in
 | Endpoint | HTTP verb | View function | Tests |
 |---|---|---|---|
 | `/api/admin/therapist/access/<therapistId>/` | GET | `therapist_access` | 3 |
-| `/api/admin/therapist/access/` | PUT | `therapist_access` | 6 |
+| `/api/admin/therapist/access/` | PUT | `therapist_access` | 7 |
 
-**Total: 9 tests**
+**Total: 10 tests**
 
 ---
 
@@ -37,6 +37,7 @@ This document describes tests in
 | `test_access_put_invalid_clinic_value` | Clinic not in configured list | 400 with `invalid` key |
 | `test_access_put_rejects_project_not_allowed_for_selected_clinic` | Project not compatible with selected clinic | 400 with `allowedProjects` |
 | `test_access_put_success_updates_and_logs` | Valid deduplicated payload | 200, DB updated, one `UPDATE_PROFILE` log |
+| `test_access_put_rejects_non_admin` | Therapist tries to change their own access | 403, clinics and projects unchanged |
 
 ---
 
@@ -52,4 +53,4 @@ pytest tests/therapist_access_views/ -v
 ## Test infrastructure
 
 - `mongo_mock` autouse fixture gives each test a fresh in-memory mongomock DB.
-- Tests use Django `Client` and real URL routes (not direct function calls).
+- Tests use DRF `APIClient` with `force_authenticate` and real URL routes (not direct function calls).
