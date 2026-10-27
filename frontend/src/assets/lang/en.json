@@ -1489,6 +1489,8 @@
   "reconnectBannerReason": "App verification requires periodic re-authorisation.",
   "hrScopeBannerTitle": "Heart rate data unavailable — please reconnect Google Health.",
   "hrScopeBannerReason": "Reconnecting grants the app access to heart rate zone data needed for wear time tracking.",
+  "hrSyncBannerTitle": "Heart rate data unavailable — check Fitbit permissions.",
+  "hrSyncBannerReason": "Fitbit may not be syncing heart rate to Google Health. In Android Settings → Health Connect, confirm Fitbit has write access for Heart rate.",
   "1. Research Use": "1. Research Use",
   "2. Data Privacy": "2. Data Privacy",
   "3. No Guarantees": "3. No Guarantees",

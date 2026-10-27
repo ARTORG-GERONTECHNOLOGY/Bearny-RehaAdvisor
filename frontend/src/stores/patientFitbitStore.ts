@@ -66,6 +66,7 @@ class PatientFitbitStore {
   needsReconnect = false;
   daysUntilExpiry: number | null = null;
   hrScopeOk: boolean | null = null;
+  hrDataMissing: boolean | null = null;
 
   summary: FitbitSummary | null = null;
   summaryLoading = false;
@@ -126,6 +127,7 @@ class PatientFitbitStore {
           this.needsReconnect = !!ghData?.needs_reconnect;
           this.daysUntilExpiry = ghData?.days_until_expiry ?? null;
           this.hrScopeOk = ghData?.hr_scope_ok ?? null;
+          this.hrDataMissing = ghData?.hr_data_missing ?? null;
         });
       } else {
         // Fitbit (or omron/none): fall through to Fitbit status for accurate connected state

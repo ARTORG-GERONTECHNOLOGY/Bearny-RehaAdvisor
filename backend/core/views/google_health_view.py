@@ -54,7 +54,7 @@ def _parse_sleep_end(sleep_end_raw, day_start_dt):
     return sleep_end_dt, max(0, min(1440, wake_minute))
 
 
-from core.views.google_health_sync import queue_google_health_today_sync
+from core.views.google_health_sync import get_valid_google_access_token, queue_google_health_today_sync
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +239,39 @@ def _first_data_date(user) -> str | None:
     return str(min(dates)) if dates else None
 
 
+def _probe_hr_scope(access_token: str) -> bool | None:
+    """
+    Make a single time-in-heart-rate-zone dailyRollUp request to verify whether the
+    health_metrics_and_measurements scope is granted on this token.
+
+    Returns:
+      True  — HTTP 200 (scope present; data may still be absent for the day)
+      False — HTTP 403 / PERMISSION_DENIED (scope not granted)
+      None  — network error or unexpected status (caller should not update banner state)
+    """
+    import datetime as _dt
+
+    yesterday = (_dt.date.today() - _dt.timedelta(days=1)).isoformat()
+    today = _dt.date.today().isoformat()
+    url = f"{_BASE}/dataTypes/time-in-heart-rate-zone/dataPoints:dailyRollUp"
+    try:
+        resp = requests.post(
+            url,
+            json={"range": {"start": yesterday, "end": today}, "windowSizeDays": 1},
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return True
+        if resp.status_code in (403, 401):
+            return False
+        logger.warning("[gh_probe] unexpected status %s probing hr scope", resp.status_code)
+        return None
+    except Exception:
+        logger.warning("[gh_probe] network error probing hr scope", exc_info=True)
+        return None
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def google_health_status(request, patient_id):
@@ -263,13 +296,42 @@ def google_health_status(request, patient_id):
     except Exception:
         pass
 
-    # Detect missing health_metrics_and_measurements scope: if recent active days
-    # all have wear_time_minutes=None, the HR zone rollup is not returning data.
+    # Detect whether the health_metrics_and_measurements scope is granted.
+    #
+    # Primary check: look at the last 7 days with steps. If any day has wear_time_minutes > 0
+    # the scope is clearly working. If none do, we need to distinguish two cases:
+    #   a) Scope truly missing (token granted without health_metrics_and_measurements)
+    #   b) Scope present but Fitbit not syncing HR to Health Connect, OR token just reconnected
+    #      and Celery hasn't synced yet — both produce wear_time=0 despite scope being fine.
+    #
+    # Secondary check: when stored data says false, make a live probe. A 200 response (even
+    # with empty rollupDataPoints) means the scope is granted; 403 means it is not.
+    # This lets the banner clear immediately after a successful reconnect without waiting
+    # for the next Celery sync cycle (up to 4 hours).
     hr_scope_ok = None
+    hr_data_missing = None  # True = scope OK but Fitbit HR not syncing to Health Connect
     if connected:
         active_days = list(GoogleHealthData.objects(user=user, steps__gt=0).order_by("-date").limit(7))
         if active_days:
-            hr_scope_ok = any((d.wear_time_minutes or 0) > 0 for d in active_days)
+            stored_ok = any((d.wear_time_minutes or 0) > 0 for d in active_days)
+            if stored_ok:
+                hr_scope_ok = True
+            else:
+                # Stored data alone can't distinguish missing scope from sync issues.
+                # Make a live probe to determine which case this is.
+                try:
+                    access_token = get_valid_google_access_token(user)
+                    probe = _probe_hr_scope(access_token)
+                    if probe is True:
+                        # Scope is fine — Fitbit is not syncing HR (or token just reconnected).
+                        hr_scope_ok = True
+                        hr_data_missing = True
+                    elif probe is False:
+                        # Scope genuinely missing — show reconnect banner.
+                        hr_scope_ok = False
+                    # probe is None → network error; leave hr_scope_ok = None (no banner change)
+                except Exception:
+                    logger.warning("[gh_status] could not probe hr scope for user %s", user.id)
 
     return JsonResponse(
         {
@@ -280,6 +342,7 @@ def google_health_status(request, patient_id):
             "days_until_expiry": days_until_expiry,
             "wearable_device": getattr(patient, "wearable_device", "fitbit") or "fitbit",
             "hr_scope_ok": hr_scope_ok,
+            "hr_data_missing": hr_data_missing,
             "first_data_date": _first_data_date(user),
         }
     )
