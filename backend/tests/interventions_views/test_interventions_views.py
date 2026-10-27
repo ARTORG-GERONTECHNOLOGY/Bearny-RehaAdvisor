@@ -572,13 +572,13 @@ def test_add_new_intervention_direct_list_fields_are_capped(mongo_mock):
         "duration": "30",
         "media": _MEDIA_URL,
         "topic": "Balance, Strength",
-        "keywords": json.dumps([f"kw{i}" for i in range(40)] + ["x" * 100]),
+        "keywords": json.dumps(["x" * 100] + [f"kw{i}" for i in range(40)]),
     }
     resp = client.post("/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test")
     assert resp.status_code == 200, resp.content.decode()
     iv = Intervention.objects(title="Direct fields").first()
     assert iv.topic == ["Balance", "Strength"]
-    assert iv.keywords == [f"kw{i}" for i in range(30)]
+    assert iv.keywords == ["x" * 80] + [f"kw{i}" for i in range(29)]
 
 
 @patch("core.views.recomendation_views.default_storage.save")
@@ -604,26 +604,27 @@ def test_add_new_intervention_unknown_extension_uses_content_type(mock_save, mon
 
 
 @patch("core.views.recomendation_views.default_storage.save")
-def test_add_new_intervention_media_entry_unknown_extension(mock_save, mongo_mock):
+def test_add_new_intervention_media_entry_unknown_extension_uses_entry_type(mock_save, mongo_mock):
     """
-    The same fallback applies to a file referenced from the ``media`` JSON,
-    which must not be reported as invalid JSON.
+    A file referenced from the ``media`` JSON with an unrecognised extension
+    keeps the media_type chosen for that entry, not the content type, and is
+    not reported as invalid JSON.
     """
-    mock_save.return_value = "others/notes.docx"
+    mock_save.return_value = "others/track.flac"
     resp = client.post(
         "/api/interventions/add/",
         data={
-            "title": "Worksheet entry",
-            "description": "A printable worksheet",
+            "title": "Breathing track",
+            "description": "Guided breathing",
             "contentType": "text",
             "duration": "10",
-            "media": json.dumps([{"kind": "file", "media_type": "text", "file_field": "upload_0"}]),
-            "upload_0": make_upload(name="notes.docx", content_type="application/msword"),
+            "media": json.dumps([{"kind": "file", "media_type": "audio", "file_field": "upload_0"}]),
+            "upload_0": make_upload(name="track.flac", content_type="audio/flac"),
         },
         HTTP_AUTHORIZATION="Bearer test",
     )
     assert resp.status_code == 200, resp.content.decode()
-    assert Intervention.objects(title="Worksheet entry").first().media[0].media_type == "text"
+    assert Intervention.objects(title="Breathing track").first().media[0].media_type == "audio"
 
 
 # ===========================================================================

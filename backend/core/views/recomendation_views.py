@@ -48,6 +48,7 @@ from core.permissions import (
 )
 from utils.config import config
 from utils.interventions import (
+    _MEDIA_TYPES,
     BASE_ANCHOR,
     _abs_media_url,
     _anchor_date_for_day,
@@ -691,16 +692,7 @@ def add_new_intervention(request):
                         field_errors.setdefault(f"media[{i}].kind", []).append("Must be 'external' or 'file'.")
                         continue
 
-                    if mt not in {
-                        "audio",
-                        "video",
-                        "image",
-                        "pdf",
-                        "website",
-                        "app",
-                        "streaming",
-                        "text",
-                    }:
+                    if mt not in _MEDIA_TYPES:
                         field_errors.setdefault(f"media[{i}].media_type", []).append("Invalid media_type.")
                         continue
 
@@ -740,7 +732,7 @@ def add_new_intervention(request):
                             detected_mime = (
                                 getattr(upload, "content_type", None) or mimetypes.guess_type(upload.name)[0]
                             )
-                            detected_type = _detect_file_media_type(ext, content_type) or mt
+                            detected_type = _detect_file_media_type(ext, mt)
 
                             media_items.append(
                                 InterventionMedia(
