@@ -112,8 +112,6 @@ ALLOWED_CONTENT_TYPES = set(config["RecomendationInfo"]["types"])
 
 
 MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024  # 1GB
-MAX_LIST_ITEMS = 30
-MAX_ITEM_LEN = 80
 
 
 def _can_see_private(request, intervention, allow_self: bool = False) -> bool:

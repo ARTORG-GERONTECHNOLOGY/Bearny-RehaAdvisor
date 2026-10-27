@@ -560,6 +560,72 @@ def test_add_new_intervention_primary_diagnosis_single_string_still_works(mongo_
     assert "Stroke" in iv.primary_diagnosis
 
 
+def test_add_new_intervention_direct_list_fields_are_capped(mongo_mock):
+    """
+    Taxonomy lists sent as direct POST fields (no ``taxonomy`` blob) are
+    parsed, capped at 30 items, and each item truncated to 80 characters.
+    """
+    payload = {
+        "title": "Direct fields",
+        "description": "Legacy form fields",
+        "contentType": "video",
+        "duration": "30",
+        "media": _MEDIA_URL,
+        "topic": "Balance, Strength",
+        "keywords": json.dumps([f"kw{i}" for i in range(40)] + ["x" * 100]),
+    }
+    resp = client.post("/api/interventions/add/", data=payload, HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200, resp.content.decode()
+    iv = Intervention.objects(title="Direct fields").first()
+    assert iv.topic == ["Balance", "Strength"]
+    assert iv.keywords == [f"kw{i}" for i in range(30)]
+
+
+@patch("core.views.recomendation_views.default_storage.save")
+def test_add_new_intervention_unknown_extension_uses_content_type(mock_save, mongo_mock):
+    """
+    A ``media_file`` with an extension that implies no media type falls back
+    to the intervention's content type.
+    """
+    mock_save.return_value = "others/notes.docx"
+    resp = client.post(
+        "/api/interventions/add/",
+        data={
+            "title": "Worksheet",
+            "description": "A printable worksheet",
+            "contentType": "website",
+            "duration": "10",
+            "media_file": make_upload(name="notes.docx", content_type="application/msword"),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert Intervention.objects(title="Worksheet").first().media[0].media_type == "website"
+
+
+@patch("core.views.recomendation_views.default_storage.save")
+def test_add_new_intervention_media_entry_unknown_extension(mock_save, mongo_mock):
+    """
+    The same fallback applies to a file referenced from the ``media`` JSON,
+    which must not be reported as invalid JSON.
+    """
+    mock_save.return_value = "others/notes.docx"
+    resp = client.post(
+        "/api/interventions/add/",
+        data={
+            "title": "Worksheet entry",
+            "description": "A printable worksheet",
+            "contentType": "text",
+            "duration": "10",
+            "media": json.dumps([{"kind": "file", "media_type": "text", "file_field": "upload_0"}]),
+            "upload_0": make_upload(name="notes.docx", content_type="application/msword"),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200, resp.content.decode()
+    assert Intervention.objects(title="Worksheet entry").first().media[0].media_type == "text"
+
+
 # ===========================================================================
 # get_intervention_detail  —  GET /api/interventions/<id>/
 # ===========================================================================

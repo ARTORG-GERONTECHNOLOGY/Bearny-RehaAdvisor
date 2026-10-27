@@ -1,44 +1,36 @@
 import json
 import logging
-import mimetypes
 import os
-import re
 import time
+import unicodedata
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from bson import ObjectId
 from django.conf import settings
 from django.core.files.storage import default_storage
-from django.http import JsonResponse
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
 from mongoengine.errors import DoesNotExist
-from mongoengine.queryset.visitor import Q
-from rest_framework.decorators import permission_classes
-from rest_framework.permissions import IsAuthenticated
 
-from core.models import Logs  # Ensure this includes action, userId, userAgent, details
 from core.models import (
-    DefaultInterventions,
     DiagnosisAssignmentSettings,
     FeedbackQuestion,
     Intervention,
     InterventionAssignment,
     InterventionMedia,
-    Patient,
-    PatientInterventionLogs,
-    PatientType,
-    Therapist,
 )
 from utils.config import config
-from utils.scheduling import _as_utc, _merge_date_and_time
-from utils.utils import generate_custom_id, get_labels, sanitize_text
+from utils.scheduling import _as_utc
+from utils.utils import sanitize_text
 
 # Module-level cache since star question IDs rarely change; re-query at most every 10 minutes.
 _star_q_ids_cache: dict = {"ids": None, "ts": 0.0}
 _STAR_Q_CACHE_TTL = 600  # seconds
+
+MAX_LIST_ITEMS = 30
+MAX_ITEM_LEN = 80
+_MEDIA_TYPES = set(InterventionMedia.media_type.choices)
 
 
 def _get_star_q_ids() -> list:
@@ -77,41 +69,7 @@ def _star_rating_value(question_id, answer_keys, star_q_ids) -> Optional[int]:
     return None
 
 
-DIRECT_AUDIO_EXT = {"mp3", "wav", "m4a", "aac", "ogg", "opus", "flac"}
-DIRECT_VIDEO_EXT = {"mp4", "webm", "mov", "m4v", "mkv"}
-
-EMBED_HINTS = [
-    r"/embed(?:/|$)",
-    r"player\.",
-    r"/iframe(?:/|$)",
-    r"[?&]embed=1\b",
-]
-
-
 logger = logging.getLogger(__name__)
-
-
-def _url_ext(u: str) -> str:
-    try:
-        path = urlparse((u or "").strip()).path or ""
-        m = re.search(r"\.([a-zA-Z0-9]{2,5})$", path)
-        return m.group(1).lower() if m else ""
-    except Exception:
-        return ""
-
-
-def _is_direct_media(u: str) -> Optional[str]:
-    ext = _url_ext(u)
-    if ext in DIRECT_AUDIO_EXT:
-        return "audio"
-    if ext in DIRECT_VIDEO_EXT:
-        return "video"
-    return None
-
-
-def _looks_like_embed(u: str) -> bool:
-    s = (u or "").strip().lower()
-    return any(re.search(p, s) for p in EMBED_HINTS)
 
 
 def _lang_fallback_chain(user_lang: str) -> List[str]:
@@ -203,52 +161,6 @@ def _canonical_assignment_for(plan, intervention):
     """
     matches = _plan_assignments_for(plan, intervention)
     return matches[0] if matches else None
-
-
-def _serialize_intervention_basic(item):
-    """
-    Use your existing serialize(item) body or call it from here if you prefer.
-    This helper is optional; you can inline it.
-    """
-
-    def serialize_media(m):
-        out = {
-            "kind": getattr(m, "kind", None),
-            "media_type": getattr(m, "media_type", None),
-            "provider": getattr(m, "provider", None),
-            "title": getattr(m, "title", None),
-            "url": getattr(m, "url", None),
-            "embed_url": getattr(m, "embed_url", None),
-            "file_path": getattr(m, "file_path", None),
-            "mime": getattr(m, "mime", None),
-            "thumbnail": getattr(m, "thumbnail", None),
-        }
-        if out["kind"] == "file" and out.get("file_path"):
-            out["file_url"] = _abs_media_url(out["file_path"])
-        return out
-
-    return {
-        "_id": str(item.pk),
-        "external_id": getattr(item, "external_id", None),
-        "language": getattr(item, "language", None),
-        "provider": getattr(item, "provider", None),
-        "title": getattr(item, "title", None),
-        "description": getattr(item, "description", None),
-        "content_type": getattr(item, "content_type", None),
-        "media": [serialize_media(m) for m in (getattr(item, "media", None) or [])],
-        "preview_img": (_abs_media_url(item.preview_img) if getattr(item, "preview_img", None) else ""),
-        "duration": getattr(item, "duration", None),
-        "patient_types": [
-            {
-                "type": pt.type,
-                "frequency": pt.frequency,
-                "include_option": getattr(pt, "include_option", False),
-                "diagnosis": getattr(pt, "diagnosis", None),
-            }
-            for pt in (getattr(item, "patient_types", None) or [])
-        ],
-        "is_private": bool(getattr(item, "is_private", False)),
-    }
 
 
 def _pick_variant(docs, preferred: str, fallback_order=None):
@@ -474,38 +386,17 @@ def normalize_content_type(raw: str) -> str:
     return settings.CONTENT_TYPE_CANONICAL_MAP.get(k, k.lower())
 
 
-import unicodedata
-from urllib.parse import urlparse
-
-
-def _safe_title_slug(s: str) -> str:
-    """
-    Safe filename-ish slug, max 80 chars.
-    """
-    s = (s or "").strip().lower().replace(" ", "_")
-    s = "".join(c for c in s if c.isalnum() or c in ("_", "-"))
-    return s[:80] or "intervention"
-
-
 def _strip_invisible(s: str) -> str:
     # remove control/format chars (Cc/Cf), keeps normal chars
     return "".join(ch for ch in (s or "") if unicodedata.category(ch) not in ("Cc", "Cf"))
 
 
 def _is_valid_url(u: str) -> bool:
-    u0 = u
-    u = _strip_invisible((u or "").strip())
-
     try:
-        p = urlparse(u)
-    except Exception as e:
-        print("[_is_valid_url] urlparse exception")
+        p = urlparse(_strip_invisible((u or "").strip()))
+    except ValueError:
         return False
-
-    ok = (p.scheme in ("http", "https")) and bool(p.netloc)
-
-    print(ok)
-    return ok
+    return p.scheme in ("http", "https") and bool(p.netloc)
 
 
 def _safe_title_slug(s: str) -> str:
@@ -574,50 +465,6 @@ def _save_file(file_obj, folder: str, title: str) -> str:
     return default_storage.save(f"{folder}/{filename}", file_obj)
 
 
-def spotify_embed(url: str) -> Optional[str]:
-    if not url:
-        return None
-    m = re.search(r"open\.spotify\.com/(track|playlist|album|episode|show)/([A-Za-z0-9]+)", url)
-    if not m:
-        return None
-    typ, sid = m.group(1), m.group(2)
-    return f"https://open.spotify.com/embed/{typ}/{sid}"
-
-
-def youtube_embed(url: str) -> Optional[str]:
-    if not url:
-        return None
-    m = re.search(r"(?:youtu\.be/|v=)([A-Za-z0-9_-]{6,})", url)
-    if not m:
-        return None
-    vid = m.group(1)
-    return f"https://www.youtube.com/embed/{vid}"
-
-
-def _guess_provider(url: str) -> Optional[str]:
-    raw = (url or "").strip()
-    if not raw:
-        return "website"
-
-    parsed = urlparse(raw)
-    host = (parsed.hostname or "").lower()
-
-    # Fallback for URLs without scheme (for example: "youtube.com/watch?v=...")
-    if not host:
-        parsed = urlparse(f"https://{raw}")
-        host = (parsed.hostname or "").lower()
-
-    if host == "spotify.com" or host.endswith(".spotify.com"):
-        return "spotify"
-    if host == "youtube.com" or host.endswith(".youtube.com") or host == "youtu.be":
-        return "youtube"
-    if host == "soundcloud.com" or host.endswith(".soundcloud.com"):
-        return "soundcloud"
-    if host == "vimeo.com" or host.endswith(".vimeo.com"):
-        return "vimeo"
-    return "website"
-
-
 def _detect_file_media_type(ext: str, content_type_hint: str = "") -> str:
     e = (ext or "").lower().lstrip(".")
     if e in ("mp3", "wav", "m4a", "ogg", "webm"):
@@ -630,69 +477,7 @@ def _detect_file_media_type(ext: str, content_type_hint: str = "") -> str:
         return "image"
     # fallback from contentType
     hint = (content_type_hint or "").lower()
-    if hint in ALLOWED_CONTENT_TYPES:
-        return hint
-    return "text"
-
-
-def _build_external_media(url: str, title: Optional[str] = None, media_type: Optional[str] = None) -> InterventionMedia:
-    clean_url = (url or "").strip()
-    prov = _guess_provider(clean_url)
-
-    direct = _is_direct_media(clean_url)
-    embed = None
-
-    # If it's already an embed URL (generic), keep it as embed_url
-    if _looks_like_embed(clean_url):
-        embed = clean_url
-
-    # Provider-specific embed builders (optional)
-    if prov == "spotify":
-        embed = spotify_embed(clean_url) or embed
-    elif prov == "youtube":
-        embed = youtube_embed(clean_url) or embed
-    elif prov == "ard":
-        embed = ard_embed(clean_url) or embed
-        # normalize stored url if user pasted embed
-        if "/embed/episode/" in clean_url:
-            clean_url = clean_url.replace("/embed/episode/", "/episode/", 1)
-
-    # Decide media_type
-    # 1) explicit override from caller wins
-    # 2) direct audio/video file -> audio/video
-    # 3) has embed_url -> streaming
-    # 4) fallback -> website
-    if media_type:
-        mt = media_type.lower()
-    elif direct:
-        mt = direct
-    elif embed:
-        mt = "streaming"
-    else:
-        mt = "website"
-
-    return InterventionMedia(
-        kind="external",
-        media_type=mt,
-        provider=prov,
-        title=title,
-        url=clean_url,
-        embed_url=embed,
-    )
-
-
-def _build_file_media(file_path: str, mime: Optional[str], title: Optional[str], media_type: str) -> InterventionMedia:
-    return InterventionMedia(
-        kind="file",
-        media_type=media_type,
-        provider=None,
-        title=title,
-        url=None,
-        embed_url=None,
-        file_path=file_path,
-        mime=mime,
-        thumbnail=None,
-    )
+    return hint if hint in _MEDIA_TYPES else "text"
 
 
 # -------------------------
@@ -784,48 +569,6 @@ def _split_taglist_into_fields(tag_list: List[str]) -> Dict[str, Any]:
     out["setting"] = dedup(out["setting"])
     out["keywords"] = dedup(out["keywords"])
     return out
-
-
-def ard_embed(url: str) -> str | None:
-    """
-    Accepts either:
-      - https://www.ardaudiothek.de/episode/urn:ard:section:...
-      - https://www.ardaudiothek.de/embed/episode/urn:ard:publication:...
-    Returns the embed URL.
-    """
-    u = (url or "").strip()
-    if not u:
-        return None
-
-    # If already embed, keep it
-    if "/embed/episode/" in u:
-        return u
-
-    # Turn /episode/... into /embed/episode/...
-    if "/episode/" in u:
-        return u.replace("/episode/", "/embed/episode/", 1)
-
-    return None
-
-
-def _guess_provider(url: str) -> str | None:
-    u = (url or "").strip()
-    if not u:
-        return "website"
-
-    host = (urlparse(u).hostname or "").lower()
-
-    if host == "ardaudiothek.de" or host.endswith(".ardaudiothek.de"):
-        return "ard"
-    if host == "spotify.com" or host.endswith(".spotify.com"):
-        return "spotify"
-    if host == "youtube.com" or host.endswith(".youtube.com") or host == "youtu.be" or host.endswith(".youtu.be"):
-        return "youtube"
-    if host == "soundcloud.com" or host.endswith(".soundcloud.com"):
-        return "soundcloud"
-    if host == "vimeo.com" or host.endswith(".vimeo.com"):
-        return "vimeo"
-    return "website"
 
 
 def _as_str_or_none(v):
