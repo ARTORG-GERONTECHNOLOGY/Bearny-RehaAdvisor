@@ -125,6 +125,18 @@ def submit_patient_feedback(request):
         else:
             target_day = timezone.localdate()
 
+        # The rest of the library checks need the day and the intervention; still before any upload is stored.
+        if from_library:
+            if target_day > timezone.localdate():
+                return JsonResponse({"error": "Library feedback can't be for a future day."}, status=400)
+            library_intervention = (
+                Intervention.objects(id=ObjectId(intervention_id)).first()
+                if ObjectId.is_valid(intervention_id)
+                else None
+            )
+            if library_intervention is None or _hidden_from_library(library_intervention, patient):
+                return JsonResponse({"error": "Intervention not found."}, status=404)
+
         # Naive local day bounds, matching how PatientInterventionLogs store dates (see
         # mark_intervention_completed). Converting to UTC here shifts the window off the stored values.
         day_start = datetime.datetime.combine(target_day, datetime.time.min)
@@ -250,8 +262,6 @@ def submit_patient_feedback(request):
                 return JsonResponse({"error": "Intervention not found."}, status=404)
 
             if from_library:
-                if _hidden_from_library(intervention, patient):
-                    return JsonResponse({"error": "Intervention not found."}, status=404)
                 log = _library_log_for_day(patient, intervention, target_day)
                 canonical_intervention = log.interventionId
             else:
@@ -544,6 +554,9 @@ def _set_library_completion(request, patient, intervention, date_str, completed:
             return JsonResponse({"error": "Invalid date. Expected YYYY-MM-DD."}, status=400)
     else:
         day = timezone.localdate()
+    # Undoing stays possible for any day, so a wrong entry can still be removed.
+    if completed and day > timezone.localdate():
+        return JsonResponse({"error": "A library completion can't be for a future day."}, status=400)
 
     if completed:
         log = _library_log_for_day(patient, intervention, day)

@@ -4011,18 +4011,99 @@ def test_submit_feedback_from_library_refuses_another_patients_private_intervent
         questionSubject="Intervention", questionKey="open_feedback", answer_type="text", translations=[]
     )
 
+    with patch("core.views.patient_views.default_storage") as storage:
+        resp = client.post(
+            "/api/patients/feedback/questionaire/",
+            data={
+                "userId": str(patient.userId.id),
+                "interventionId": str(private.id),
+                "source": "library",
+                "open_feedback": "fine",
+                "open_feedback_audio": SimpleUploadedFile("a.wav", b"x", content_type="audio/wav"),
+            },
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    assert resp.status_code == 404
+    storage.save.assert_not_called()
+    assert LibraryInterventionLogs.objects.count() == 0
+
+
+@pytest.mark.parametrize("intervention_id", [str(ObjectId()), "not-an-id"])
+def test_submit_feedback_from_library_unknown_intervention_stores_no_upload(mongo_mock, intervention_id):
+    patient, _, _, _ = setup_patient_with_plan()
+
+    with patch("core.views.patient_views.default_storage") as storage:
+        resp = client.post(
+            "/api/patients/feedback/questionaire/",
+            data={
+                "userId": str(patient.userId.id),
+                "interventionId": intervention_id,
+                "source": "library",
+                "open_feedback_audio": SimpleUploadedFile("a.wav", b"x", content_type="audio/wav"),
+            },
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    assert resp.status_code == 404
+    storage.save.assert_not_called()
+
+
+def test_submit_feedback_from_library_refuses_a_future_day_before_storing_uploads(mongo_mock):
+    patient, _, intervention, _ = setup_patient_with_plan()
+
+    with patch("core.views.patient_views.default_storage") as storage:
+        resp = client.post(
+            "/api/patients/feedback/questionaire/",
+            data={
+                "userId": str(patient.userId.id),
+                "interventionId": str(intervention.id),
+                "source": "library",
+                "date": (timezone.localdate() + timedelta(days=1)).isoformat(),
+                "open_feedback_audio": SimpleUploadedFile("a.wav", b"x", content_type="audio/wav"),
+            },
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    assert resp.status_code == 400
+    storage.save.assert_not_called()
+    assert LibraryInterventionLogs.objects.count() == 0
+
+
+def test_mark_completed_from_library_refuses_a_future_day(mongo_mock):
+    patient, _, intervention, _ = setup_patient_with_plan()
+
+    resp = _post_complete(
+        patient, intervention, source="library", date=(timezone.localdate() + timedelta(days=1)).isoformat()
+    )
+
+    assert resp.status_code == 400
+    assert LibraryInterventionLogs.objects.count() == 0
+
+
+def test_unmark_library_completion_still_works_for_a_future_day(mongo_mock):
+    """An entry wrongly dated ahead can still be removed."""
+    patient, _, intervention, _ = setup_patient_with_plan()
+    future = timezone.localdate() + timedelta(days=3)
+    LibraryInterventionLogs(
+        userId=patient, interventionId=intervention, date=datetime.combine(future, dtime.min), status=["completed"]
+    ).save()
+
     resp = client.post(
-        "/api/patients/feedback/questionaire/",
-        data={
-            "userId": str(patient.userId.id),
-            "interventionId": str(private.id),
-            "source": "library",
-            "open_feedback": "fine",
-        },
+        "/api/interventions/uncomplete/",
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+                "date": future.isoformat(),
+                "source": "library",
+            }
+        ),
+        content_type="application/json",
         HTTP_AUTHORIZATION="Bearer test",
     )
 
-    assert resp.status_code == 404
+    assert resp.status_code == 200
     assert LibraryInterventionLogs.objects.count() == 0
 
 
