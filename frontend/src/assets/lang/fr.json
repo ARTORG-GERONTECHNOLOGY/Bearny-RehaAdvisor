@@ -1781,7 +1781,7 @@
   "Done via library": "Fait via la bibliothèque",
   "Also done via library": "Aussi fait via la bibliothèque",
   "From library": "Depuis la bibliothèque",
-  "lastDoneOn": "Dernière fois : {{date}}"
+  "lastDoneOn": "Dernière fois : {{date}}",
   "ICF Access": "Accès ICF",
   "Add email address": "Ajouter une adresse e-mail",
   "Note (optional)": "Note (facultatif)",

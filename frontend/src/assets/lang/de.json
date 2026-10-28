@@ -1781,7 +1781,7 @@
   "Done via library": "Über Bibliothek erledigt",
   "Also done via library": "Zusätzlich über Bibliothek erledigt",
   "From library": "Aus der Bibliothek",
-  "lastDoneOn": "Zuletzt erledigt: {{date}}"
+  "lastDoneOn": "Zuletzt erledigt: {{date}}",
   "ICF Access": "ICF-Zugang",
   "Add email address": "E-Mail-Adresse hinzufügen",
   "Note (optional)": "Notiz (optional)",

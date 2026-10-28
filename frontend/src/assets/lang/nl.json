@@ -1781,7 +1781,7 @@
   "Done via library": "Gedaan via bibliotheek",
   "Also done via library": "Ook gedaan via bibliotheek",
   "From library": "Uit de bibliotheek",
-  "lastDoneOn": "Laatst gedaan: {{date}}"
+  "lastDoneOn": "Laatst gedaan: {{date}}",
   "ICF Access": "ICF-toegang",
   "Add email address": "E-mailadres toevoegen",
   "Note (optional)": "Opmerking (optioneel)",

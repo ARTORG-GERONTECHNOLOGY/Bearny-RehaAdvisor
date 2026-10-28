@@ -1781,7 +1781,7 @@
   "Done via library": "Done via library",
   "Also done via library": "Also done via library",
   "From library": "From library",
-  "lastDoneOn": "Last done: {{date}}"
+  "lastDoneOn": "Last done: {{date}}",
   "ICF Access": "ICF Access",
   "Add email address": "Add email address",
   "Note (optional)": "Note (optional)",
