@@ -16,6 +16,7 @@ intervention_feedback.csv — per-intervention FeedbackEntry answers
 health_vitals.csv       — manually-entered PatientVitals (weight, BP)
 health_fitbit.csv       — wearable health data (FitbitData or GoogleHealthData per patient)
 questionnaire_answers.csv — PatientICFRating health-status questionnaire answers
+question_dictionary.csv  — lookup table: question_key → text in all 6 languages
 thresholds.csv          — current PatientThresholds per patient
 threshold_history.csv   — PatientThresholdsSnapshot change history
 activity_logs.csv       — Logs (platform activity events)
@@ -32,6 +33,7 @@ from django.http import HttpResponse, JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 
 from core.models import (
+    FeedbackQuestion,
     FitbitData,
     GeneralFeedback,
     GoogleHealthData,
@@ -578,6 +580,44 @@ def _csv_activity_logs(patient_map):
     return _make_csv(headers, rows)
 
 
+def _csv_question_dictionary():
+    """One row per FeedbackQuestion — a lookup table for question_key → text.
+
+    Exported alongside questionnaire_answers.csv and intervention_feedback.csv so
+    researchers can VLOOKUP on question_key to get the full question text.
+    """
+    headers = [
+        "question_key",
+        "question_subject",
+        "answer_type",
+        "icf_code",
+        "text_en",
+        "text_de",
+        "text_fr",
+        "text_it",
+        "text_nl",
+        "text_pt",
+    ]
+    rows = []
+    for q in FeedbackQuestion.objects.order_by("questionKey"):
+        translations = {tr.language: tr.text for tr in (q.translations or [])}
+        rows.append(
+            {
+                "question_key": q.questionKey or "",
+                "question_subject": q.questionSubject or "",
+                "answer_type": q.answer_type or "",
+                "icf_code": q.icfCode or "",
+                "text_en": translations.get("en", ""),
+                "text_de": translations.get("de", ""),
+                "text_fr": translations.get("fr", ""),
+                "text_it": translations.get("it", ""),
+                "text_nl": translations.get("nl", ""),
+                "text_pt": translations.get("pt", ""),
+            }
+        )
+    return _make_csv(headers, rows)
+
+
 # ---------------------------------------------------------------------------
 # View functions
 # ---------------------------------------------------------------------------
@@ -625,6 +665,7 @@ def admin_export_patients(request):
             ("health_vitals.csv", _csv_health_vitals(patient_map)),
             ("health_fitbit.csv", _csv_health_fitbit(patients, user_map)),
             ("questionnaire_answers.csv", _csv_questionnaire_answers(patient_map)),
+            ("question_dictionary.csv", _csv_question_dictionary()),
             ("thresholds.csv", _csv_thresholds(patients)),
             ("threshold_history.csv", _csv_threshold_history(patients)),
             ("activity_logs.csv", _csv_activity_logs(patient_map)),
