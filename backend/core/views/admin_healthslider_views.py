@@ -32,6 +32,16 @@ def _normalize_and_validate_email(value):
     return normalized
 
 
+def _sanitize_nosql_scalar(value):
+    if not isinstance(value, str):
+        raise ValidationError("Invalid query value type")
+    if not value:
+        raise ValidationError("Invalid query value")
+    if value.startswith("$") or "\x00" in value:
+        raise ValidationError("Invalid query value")
+    return value
+
+
 def _serialize_entry(entry):
     return {
         "email": entry.email,
@@ -69,7 +79,12 @@ def admin_healthslider_allowlist(request):
             note = (data.get("note") or "").strip() or None
             added_by = getattr(request.user, "email", None) or getattr(request.user, "username", None) or ""
 
-            if HealthSliderEmailAllowlist.objects(email=normalized).first():
+            try:
+                safe_email = _sanitize_nosql_scalar(normalized)
+            except ValidationError:
+                return JsonResponse({"error": "Invalid email format"}, status=400)
+
+            if HealthSliderEmailAllowlist.objects(email=safe_email).first():
                 return JsonResponse({"error": "Email already in allowlist"}, status=409)
 
             HealthSliderEmailAllowlist(email=normalized, added_by=added_by, note=note).save()
@@ -87,7 +102,12 @@ def admin_healthslider_allowlist(request):
                 return JsonResponse({"error": "Invalid email format"}, status=400)
             if not normalized:
                 return JsonResponse({"error": "email is required"}, status=400)
-            entry = HealthSliderEmailAllowlist.objects(email=normalized).first()
+            try:
+                safe_email = _sanitize_nosql_scalar(normalized)
+            except ValidationError:
+                return JsonResponse({"error": "Invalid email format"}, status=400)
+
+            entry = HealthSliderEmailAllowlist.objects(email=safe_email).first()
             if not entry:
                 return JsonResponse({"error": "Email not found in allowlist"}, status=404)
             entry.delete()
