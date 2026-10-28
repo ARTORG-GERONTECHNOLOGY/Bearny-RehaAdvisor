@@ -222,8 +222,7 @@ jobs:
 
   frontend-e2e:
     name: Frontend E2E (Playwright)
-    # mongo:8.0 refuses to start on kernel 6.19+, see SERVER-121912
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 40
     needs: [frontend-tests, backend-tests]
 
@@ -249,12 +248,12 @@ jobs:
       # The service itself starts without credentials; the app connects using
       # the username/password from the loaded env file.
       mongo:
-        image: mongo:8.0
+        image: mongo:7.0
         options: >-
           --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
         ports:
           - 27017:27017
 
