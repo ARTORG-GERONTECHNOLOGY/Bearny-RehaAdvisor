@@ -18,6 +18,7 @@ ZIP export (patients endpoint)
   * health_fitbit.csv: FitbitData rows resolved via user_id → patient.
   * questionnaire_answers.csv: PatientICFRating rows with question_key and rating.
   * question_dictionary.csv: one row per FeedbackQuestion with text in all languages.
+  * intervention_library.csv: one row per external_id with titles in all languages and metadata.
   * thresholds.csv: current PatientThresholds per patient.
   * threshold_history.csv: PatientThresholdsSnapshot history rows.
   * activity_logs.csv: Logs documents linked to patients.
@@ -116,6 +117,7 @@ EXPECTED_CSV_FILES = {
     "health_fitbit.csv",
     "questionnaire_answers.csv",
     "question_dictionary.csv",
+    "intervention_library.csv",
     "thresholds.csv",
     "threshold_history.csv",
     "activity_logs.csv",
@@ -848,6 +850,88 @@ def test_question_dictionary_csv_is_empty_when_no_questions(mongo_mock):
     with _open_zip(client.get(EXPORT_URL)) as zf:
         rows = _read_csv_from_zip(zf, "question_dictionary.csv")
     assert rows == []
+
+
+# ===========================================================================
+# intervention_library.csv
+# ===========================================================================
+
+
+def test_intervention_library_csv_contains_all_interventions(mongo_mock):
+    Intervention(
+        external_id="ex_walk_001",
+        language="en",
+        title="Walking exercise",
+        description="A walk",
+        content_type="Exercise",
+        provider="Insel",
+        topic=["balance", "gait"],
+        duration=20,
+        duration_bucket="15-30 min",
+    ).save()
+    Intervention(
+        external_id="ex_walk_001",
+        language="de",
+        title="Gehübung",
+        description="Ein Spaziergang",
+        content_type="Exercise",
+        provider="Insel",
+        topic=["balance", "gait"],
+        duration=20,
+        duration_bucket="15-30 min",
+    ).save()
+    Intervention(
+        external_id="ex_breathe_002",
+        language="en",
+        title="Breathing",
+        description="Breathe deep",
+        content_type="Relaxation",
+    ).save()
+
+    with _open_zip(client.get(EXPORT_URL)) as zf:
+        rows = _read_csv_from_zip(zf, "intervention_library.csv")
+
+    assert len(rows) == 2  # 2 external_ids, not 3 documents
+    by_id = {r["external_id"]: r for r in rows}
+
+    walk = by_id["ex_walk_001"]
+    assert walk["title_en"] == "Walking exercise"
+    assert walk["title_de"] == "Gehübung"
+    assert walk["title_fr"] == ""
+    assert walk["provider"] == "Insel"
+    assert walk["content_type"] == "Exercise"
+    assert walk["topic"] == "balance; gait"
+    assert walk["duration"] == "20"
+    assert walk["duration_bucket"] == "15-30 min"
+
+    breathe = by_id["ex_breathe_002"]
+    assert breathe["title_en"] == "Breathing"
+    assert breathe["provider"] == ""
+
+
+def test_intervention_library_csv_excludes_private_interventions(mongo_mock):
+    Intervention(
+        external_id="pub_001",
+        language="en",
+        title="Public",
+        description="d",
+        content_type="Exercise",
+        is_private=False,
+    ).save()
+    Intervention(
+        external_id="priv_001",
+        language="en",
+        title="Private",
+        description="d",
+        content_type="Exercise",
+        is_private=True,
+    ).save()
+
+    with _open_zip(client.get(EXPORT_URL)) as zf:
+        rows = _read_csv_from_zip(zf, "intervention_library.csv")
+
+    assert len(rows) == 1
+    assert rows[0]["external_id"] == "pub_001"
 
 
 # ===========================================================================
