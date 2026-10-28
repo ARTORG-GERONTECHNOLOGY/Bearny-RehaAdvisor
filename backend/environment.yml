@@ -5,7 +5,7 @@ channels:
 dependencies:
   - python=3.12.4
   - asgiref=3.8.1
-  - black=26.5.1
+  - black=26.10.1
   - bzip2=1.0.8
   - ca-certificates=2024.9.24
   - cffi=1.16.0
@@ -28,7 +28,7 @@ dependencies:
   - ncurses=6.4
   - openssl=3.0.15
   - packaging=24.1
-  - pathspec=0.10.3
+  - pathspec=1.1.1
   - pip=26.2.1
   - platformdirs=3.10.0
   - pluggy=1.5.0
@@ -42,7 +42,7 @@ dependencies:
   - pytest-cov=5.0.0
   - pytest-django=4.9.0
   - readline=8.2
-  - setuptools=84.0.0
+  - setuptools=84.1.0
   - sqlite=3.45.3
   - tk=8.6.14
   - toml=0.10.2
@@ -56,7 +56,7 @@ dependencies:
       - django==5.2.17
       - django-cors-headers==4.4.0
       - django-environ==0.8.1
-      - djangorestframework==3.18.1
+      - djangorestframework==3.18.2
       - djangorestframework-simplejwt==5.5.1
       - djongo==1.2.31
       - gunicorn==23.0.0
@@ -65,4 +65,4 @@ dependencies:
       - pytz==2024.2
       - sqlparse==0.6.0
       - django-celery-beat==2.8.1
-      - dnspython==2.8.0
+      - dnspython==2.9.0
