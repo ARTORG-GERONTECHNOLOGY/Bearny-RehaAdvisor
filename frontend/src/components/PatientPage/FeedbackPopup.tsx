@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import ErrorAlert from '@/components/common/ErrorAlert';
 import { Badge } from '@/components/ui/badge';
 import authStore from '@/stores/authStore';
+import type { FeedbackSource } from '@/stores/patientQuestionnairesStore';
 
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 
@@ -74,6 +75,7 @@ type Props = {
   onClose: () => void;
   date?: string; // YYYY-MM-DD
   description?: string;
+  source?: FeedbackSource;
 };
 
 const FeedbackPopup: React.FC<Props> = ({
@@ -83,6 +85,7 @@ const FeedbackPopup: React.FC<Props> = ({
   onClose,
   date,
   description,
+  source = 'plan',
 }) => {
   const { t, i18n } = useTranslation();
   const currentLang = normalizeLang(i18n.language);
@@ -367,6 +370,7 @@ const FeedbackPopup: React.FC<Props> = ({
       formData.append('userId', userId);
       formData.append('interventionId', interventionId || '');
       if (date) formData.append('date', date);
+      if (source === 'library') formData.append('source', source);
 
       normalizedQuestions.forEach((q) => {
         const key = q.questionKey;

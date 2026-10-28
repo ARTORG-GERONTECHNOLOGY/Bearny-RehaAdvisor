@@ -5,6 +5,7 @@ import authStore from '@/stores/authStore';
 import { filterInterventions } from '@/utils/filterUtils';
 import { translateText } from '@/utils/translate';
 import { toLocalYMD } from '@/utils/dateFormat';
+import { findLibraryCompletion, indexLibraryCompletions } from '@/utils/interventions';
 import { extractApiError, toStr } from '@/utils/apiErrorMessages';
 import config from '@/config/config.json';
 import type { Intervention } from '@/types';
@@ -64,6 +65,11 @@ const getContentType = (x: unknown): string => {
 };
 
 // Datetime and status per session.
+const getRawDates = (x: unknown): Array<Record<string, unknown>> => {
+  const dates = x && typeof x === 'object' ? (x as { dates?: unknown }).dates : undefined;
+  return Array.isArray(dates) ? dates.filter((d) => d && typeof d === 'object') : [];
+};
+
 const getDates = (x: unknown): Array<{ datetime: string; status: string }> => {
   if (!x || typeof x !== 'object') return [];
   const o = x as { dates?: unknown };
@@ -299,6 +305,10 @@ export class RehabTableStore {
 
   get pastPatientItems(): Intervention[] {
     return this.matchedPatientItems.filter((it) => !this.hasFutureDates(it._id));
+  }
+
+  get libraryCompletions() {
+    return indexLibraryCompletions(this.patientData?.library_completions);
   }
 
   // External ids (or ids) of everything the patient opened, including unplanned library views.
@@ -747,7 +757,17 @@ export class RehabTableStore {
 
     // use merged plan item if possible (dates + feedback are there)
     const planItem = this.selectedExerciseFromPlan || null;
-    this.feedbackBrowserIntervention = planItem || (intervention as Intervention);
+    const base = planItem || (intervention as Intervention);
+    // Shown next to the plan's sessions in the popup only; the plan's own dates stay untouched.
+    const library = findLibraryCompletion(this.libraryCompletions, intervention);
+    this.feedbackBrowserIntervention = library
+      ? ({
+          ...base,
+          dates: [...getRawDates(base), ...library.dates].sort((a, b) =>
+            String(a.datetime || '').localeCompare(String(b.datetime || ''))
+          ),
+        } as unknown as Intervention)
+      : base;
     this.feedbackInitialDatetime = datetime ?? null;
     this.showFeedbackBrowser = true;
   }

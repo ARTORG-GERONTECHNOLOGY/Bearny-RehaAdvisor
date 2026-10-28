@@ -65,11 +65,15 @@ const normalizeQuestion = (q: RawQuestion): NormalizedQuestion => {
   };
 };
 
+// Library feedback is stored apart from the plan, so it never completes a planned session.
+export type FeedbackSource = 'plan' | 'library';
+
 class PatientQuestionnairesStore {
   // ---- Intervention feedback modal ----
   showFeedbackPopup = false;
   feedbackInterventionId = '';
   feedbackDateKey = ''; // YYYY-MM-DD
+  feedbackSource: FeedbackSource = 'plan';
   feedbackQuestions: NormalizedQuestion[] = [];
 
   // ---- Health questionnaire modal ----
@@ -92,6 +96,7 @@ class PatientQuestionnairesStore {
     this.showFeedbackPopup = false;
     this.feedbackInterventionId = '';
     this.feedbackDateKey = '';
+    this.feedbackSource = 'plan';
     this.feedbackQuestions = [];
     this.loadingFeedback = false;
     this.feedbackError = '';
@@ -112,7 +117,8 @@ class PatientQuestionnairesStore {
     patientId: string,
     interventionId: string,
     dateKey: string,
-    lang: string
+    lang: string,
+    source: FeedbackSource = 'plan'
   ) {
     runInAction(() => {
       this.loadingFeedback = true;
@@ -120,12 +126,13 @@ class PatientQuestionnairesStore {
       this.showFeedbackPopup = false;
       this.feedbackInterventionId = interventionId || '';
       this.feedbackDateKey = dateKey || '';
+      this.feedbackSource = source;
       this.feedbackQuestions = [];
     });
 
     try {
       const res = await apiClient.get(`patients/get-questions/Intervention/${patientId}/`, {
-        params: { interventionId },
+        params: source === 'library' ? { interventionId, source } : { interventionId },
         headers: lang ? { 'Accept-Language': lang } : undefined,
       });
 

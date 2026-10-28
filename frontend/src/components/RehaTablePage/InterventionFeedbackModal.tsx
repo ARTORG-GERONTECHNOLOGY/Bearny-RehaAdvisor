@@ -43,6 +43,9 @@ const formatDateTime = (iso: string) => {
   });
 };
 
+// Completed or rated by the patient from the library, not a planned session.
+const isFromLibrary = (d: unknown) => (d as { source?: unknown } | null)?.source === 'library';
+
 // very defensive language pick
 const pickTranslation = (translations: any[], preferredLang: string) => {
   const arr = asArray<any>(translations);
@@ -82,17 +85,18 @@ const InterventionFeedbackModal: React.FC<Props> = ({
     }
   }, [show, intervention?._id, initialDatetime]);
 
-  // counts
-  const totalScheduled = allDates.length;
+  // counts: plan sessions only; library entries are listed alongside but were never scheduled
+  const planDates = useMemo(() => allDates.filter((d) => !isFromLibrary(d)), [allDates]);
+  const totalScheduled = planDates.length;
 
   const answeredCount = useMemo(() => {
-    return allDates.reduce((acc: number, d: any) => {
+    return planDates.reduce((acc: number, d: any) => {
       const fbCount = asArray<any>(d?.feedback).length;
       const hasVideo = !!d?.video?.video_url;
       // treat either Q-feedback or video feedback as "answered"
       return acc + (fbCount > 0 || hasVideo ? 1 : 0);
     }, 0);
-  }, [allDates]);
+  }, [planDates]);
 
   const visibleDates = useMemo(() => {
     if (!onlyWithFeedback) return allDates;
@@ -124,7 +128,7 @@ const InterventionFeedbackModal: React.FC<Props> = ({
           </DialogTitle>
         </DialogHeader>
 
-        {!totalScheduled ? (
+        {!allDates.length ? (
           <Alert variant="info" className="mb-0">
             {safeT(t, 'No scheduled events found')}
           </Alert>
@@ -132,7 +136,8 @@ const InterventionFeedbackModal: React.FC<Props> = ({
           <>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div className="text-muted-foreground">
-                {t('answeredFeedbackSummary', { answered: answeredCount, total: totalScheduled })}.
+                {totalScheduled > 0 &&
+                  `${t('answeredFeedbackSummary', { answered: answeredCount, total: totalScheduled })}.`}
               </div>
 
               <div className="flex items-center gap-2">
@@ -179,6 +184,9 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                           </span>
 
                           <span className="flex gap-1 items-center">
+                            {isFromLibrary(d) ? (
+                              <Badge variant="dashboard">{safeT(t, 'From library')}</Badge>
+                            ) : null}
                             {st ? (
                               <Badge
                                 variant="dashboard"
@@ -223,7 +231,10 @@ const InterventionFeedbackModal: React.FC<Props> = ({
                         </div>
                       ) : null}
 
-                      <div className="font-semibold mb-2">{safeT(t, 'Answers')}</div>
+                      <div className="font-semibold mb-2">
+                        {safeT(t, 'Answers')}
+                        {isFromLibrary(selected) ? ` (${safeT(t, 'From library')})` : ''}
+                      </div>
 
                       {!feedback.length ? (
                         <Alert>{safeT(t, 'No feedback available')}</Alert>

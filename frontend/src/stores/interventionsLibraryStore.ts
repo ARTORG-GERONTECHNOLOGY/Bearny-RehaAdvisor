@@ -8,6 +8,44 @@ import type { InterventionTypeTh } from '@/types';
 
 export type LibraryMode = 'patient' | 'therapist';
 
+// What the patient has done with library items, keyed by external_id (or _id when there is none).
+export type LibraryStatus = {
+  completed: string[];
+  viewed: string[];
+  last_completed: Record<string, string>; // ref -> YYYY-MM-DD of the latest completion, library or plan
+  last_library_completed: Record<string, string>; // ref -> YYYY-MM-DD of the latest library completion
+};
+
+const EMPTY_STATUS: LibraryStatus = {
+  completed: [],
+  viewed: [],
+  last_completed: {},
+  last_library_completed: {},
+};
+
+const asDayMap = (v: unknown): Record<string, string> =>
+  isRecord(v) ? Object.fromEntries(Object.entries(v).map(([k, d]) => [k, asString(d, '')])) : {};
+
+const asStringList = (v: unknown): string[] =>
+  Array.isArray(v) ? v.map((x) => asString(x)).filter(Boolean) : [];
+
+export const libraryRef = (item: unknown): string => {
+  if (!isRecord(item)) return '';
+  return asString(item.external_id, '') || asString(item._id ?? item.id, '');
+};
+
+// Completed wins over viewed: the backend lists an item in at most one, but a stale cache could hold both.
+export const libraryItemStatus = (
+  status: LibraryStatus,
+  item: unknown
+): 'completed' | 'viewed' | null => {
+  const ref = libraryRef(item);
+  if (!ref) return null;
+  if (status.completed.includes(ref)) return 'completed';
+  if (status.viewed.includes(ref)) return 'viewed';
+  return null;
+};
+
 type FetchOptions = {
   mode: LibraryMode;
 
@@ -130,6 +168,7 @@ export class InterventionsLibraryStore {
   items: InterventionTypeTh[] = [];
   loading = false;
   error = '';
+  status: LibraryStatus = EMPTY_STATUS;
 
   lastMode: LibraryMode | null = null;
   lastFetch: FetchOptions | null = null;
@@ -183,6 +222,48 @@ export class InterventionsLibraryStore {
     this.error = '';
     this.lastMode = null;
     this.lastFetch = null;
+    this.status = EMPTY_STATUS;
+  }
+
+  lastCompletedOf(item: unknown): string | null {
+    return this.status.last_completed[libraryRef(item)] || null;
+  }
+
+  lastLibraryCompletedOf(item: unknown): string | null {
+    return this.status.last_library_completed[libraryRef(item)] || null;
+  }
+
+  async fetchStatus(patientId: string) {
+    try {
+      const res = await apiClient.get(`patients/library-status/${patientId}/`);
+      const data = isRecord(res.data) ? res.data : {};
+      runInAction(() => {
+        this.status = {
+          completed: asStringList(data.completed),
+          viewed: asStringList(data.viewed),
+          last_completed: asDayMap(data.last_completed),
+          last_library_completed: asDayMap(data.last_library_completed),
+        };
+      });
+    } catch {
+      // Status is decoration on the list; the library stays usable without it.
+    }
+  }
+
+  // Completes or un-completes a library item for one day, apart from the plan.
+  async setLibraryCompleted(
+    patientId: string,
+    interventionId: string,
+    dateKey: string,
+    completed: boolean
+  ) {
+    await apiClient.post(completed ? 'interventions/complete/' : 'interventions/uncomplete/', {
+      patient_id: patientId,
+      intervention_id: interventionId,
+      date: dateKey,
+      source: 'library',
+    });
+    await this.fetchStatus(patientId);
   }
 
   /**

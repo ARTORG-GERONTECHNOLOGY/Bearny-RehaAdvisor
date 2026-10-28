@@ -33,6 +33,10 @@ type PatientLibraryDesktopFiltersProps = {
   ratingFilterIndices: [number, number];
   setRatingFilterIndices: React.Dispatch<React.SetStateAction<[number, number]>>;
   ratingLabels: string[];
+  hideViewed: boolean;
+  setHideViewed: React.Dispatch<React.SetStateAction<boolean>>;
+  hideCompleted: boolean;
+  setHideCompleted: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 type FilterSectionProps = {
@@ -83,6 +87,10 @@ const PatientLibraryDesktopFilters: React.FC<PatientLibraryDesktopFiltersProps> 
   ratingFilterIndices,
   setRatingFilterIndices,
   ratingLabels,
+  hideViewed,
+  setHideViewed,
+  hideCompleted,
+  setHideCompleted,
 }) => {
   const { t } = useTranslation();
 
@@ -216,6 +224,34 @@ const PatientLibraryDesktopFilters: React.FC<PatientLibraryDesktopFiltersProps> 
                     <span key={i}>{label}</span>
                   ))}
                 </div>
+              </div>
+            </FilterSection>
+            <FilterSection title={t('Status')}>
+              <div className="flex flex-col gap-3">
+                {[
+                  {
+                    id: 'desktop-hide-viewed',
+                    label: t('Hide viewed'),
+                    checked: hideViewed,
+                    set: setHideViewed,
+                  },
+                  {
+                    id: 'desktop-hide-completed',
+                    label: t('Hide completed'),
+                    checked: hideCompleted,
+                    set: setHideCompleted,
+                  },
+                ].map((row) => (
+                  <div key={row.id} className="flex items-center justify-between">
+                    <label
+                      htmlFor={row.id}
+                      className="font-bold text-lg leading-6 text-zinc-800 cursor-pointer"
+                    >
+                      {row.label}
+                    </label>
+                    <Switch id={row.id} checked={row.checked} onCheckedChange={row.set} />
+                  </div>
+                ))}
               </div>
             </FilterSection>
           </div>

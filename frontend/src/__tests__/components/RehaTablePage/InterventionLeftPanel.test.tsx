@@ -585,4 +585,75 @@ describe('InterventionLeftPanel', () => {
     // the mocked react-select doesn't expose the passed options for direct assertion.
     expect(screen.getByTestId('language-select')).toBeInTheDocument();
   });
+
+  // ------------------------------------------------------------------
+  // Completed by the patient from the library
+  // ------------------------------------------------------------------
+  describe('library completions', () => {
+    const libraryCompletion = (overrides: Record<string, any> = {}) => ({
+      _id: 'lib-variant',
+      external_id: 'EXT-1',
+      dates: [{ datetime: '2026-10-27T09:00:00+00:00', status: 'completed', source: 'library' }],
+      completedCount: 1,
+      ...overrides,
+    });
+
+    it.each([
+      ['All interventions', 'visibleItems'],
+      ['Active interventions', 'activeItems'],
+      ['Past interventions', 'pastItems'],
+    ])(
+      'marks a planned card in %s the patient also completed from the library',
+      (section, list) => {
+        const intervention = makeIntervention({ _id: 'assigned-1', external_id: 'EXT-1' });
+        renderPanel({
+          data: { [list]: [intervention] },
+          patientData: {
+            interventions: [{ _id: 'assigned-1', dates: [] }],
+            library_completions: [libraryCompletion()],
+          },
+        });
+        openSection(section);
+        expect(screen.getByText('Also done via library')).toBeInTheDocument();
+        expect(screen.queryByText('Done via library')).not.toBeInTheDocument();
+      }
+    );
+
+    it('offers the feedback popup, but no statistics, for an unplanned library completion', () => {
+      const intervention = makeIntervention({ _id: 'catalog-en', external_id: 'EXT-1' });
+      const { actions } = renderPanel({
+        data: { visibleItems: [intervention] },
+        patientData: { interventions: [], library_completions: [libraryCompletion()] },
+      });
+      openSection('All interventions');
+      expect(screen.getByText('Done via library')).toBeInTheDocument();
+      expect(screen.queryByText('Also done via library')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Statistics')).not.toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText('Feedback'));
+      expect(actions.openFeedbackBrowser).toHaveBeenCalledWith(intervention);
+    });
+
+    it('shows no badge for a library rating without a completion', () => {
+      renderPanel({
+        data: { visibleItems: [makeIntervention({ external_id: 'EXT-1' })] },
+        patientData: {
+          interventions: [],
+          library_completions: [libraryCompletion({ completedCount: 0 })],
+        },
+      });
+      openSection('All interventions');
+      expect(screen.queryByText(/done via library/i)).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Feedback')).toBeInTheDocument();
+    });
+
+    it('shows no badge for other interventions', () => {
+      renderPanel({
+        data: { visibleItems: [makeIntervention({ external_id: 'EXT-2' })] },
+        patientData: { interventions: [], library_completions: [libraryCompletion()] },
+      });
+      openSection('All interventions');
+      expect(screen.queryByText(/done via library/i)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Feedback')).not.toBeInTheDocument();
+    });
+  });
 });

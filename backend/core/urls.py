@@ -199,6 +199,11 @@ urlpatterns = [
         name="get_feedback_questions",
     ),
     path(
+        "api/patients/library-status/<str:patient_id>/",
+        patient_views.get_library_status,
+        name="get_library_status",
+    ),
+    path(
         "api/users/<str:patient_id>/initial-questionaire/",
         patient_views.initial_patient_questionaire,
         name="initial_questionaire",

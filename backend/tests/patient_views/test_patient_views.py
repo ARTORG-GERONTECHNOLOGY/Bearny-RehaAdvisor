@@ -86,6 +86,7 @@ from core.models import (
     HealthQuestionnaire,
     Intervention,
     InterventionAssignment,
+    LibraryInterventionLogs,
     Logs,
     Patient,
     PatientICFRating,
@@ -3749,3 +3750,157 @@ def test_video_feedback_note_reflects_a_second_different_video_in_the_same_minut
     assert stored.video_url and stored.video_url.endswith("second.mp4"), "the second video must be the one stored"
     assert (stored.comments or "").count("Video uploaded at") == 1, "only the current video's note should remain"
     assert "Knee felt stiff today." in stored.comments, "unrelated comment text must survive the replacement"
+
+
+# ---------------------------------------------------------------------------
+# Library completions (source=library) stay out of the plan
+# ---------------------------------------------------------------------------
+
+
+def _post_complete(patient, intervention, **extra):
+    return client.post(
+        "/api/interventions/complete/",
+        data=json.dumps({"patient_id": str(patient.userId.id), "intervention_id": str(intervention.id), **extra}),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+
+def test_mark_completed_from_library_never_reaches_the_plan(mongo_mock):
+    """A library completion of a planned intervention on a session day leaves that session open."""
+    patient, _, intervention, _ = setup_patient_with_plan()
+
+    resp = _post_complete(patient, intervention, source="library", date=timezone.localdate().isoformat())
+
+    assert resp.status_code == 200, resp.content.decode()
+    assert PatientInterventionLogs.objects(userId=patient).count() == 0
+    log = LibraryInterventionLogs.objects(userId=patient).get()
+    assert log.status == ["completed"]
+    assert log.date == datetime.combine(timezone.localdate(), dtime.min)
+
+    plan_resp = client.get(
+        f"/api/patients/rehabilitation-plan/patient/{patient.userId.id}/", HTTP_AUTHORIZATION="Bearer test"
+    )
+    assert plan_resp.json()[0]["completion_dates"] == []
+
+    activity = Logs.objects(action="INTERVENTION_COMPLETE").get()
+    assert activity.details.endswith(" source=library")
+
+
+def test_mark_completed_from_library_needs_no_plan(mongo_mock):
+    """Patients without a plan can still complete library interventions."""
+    patient, _, intervention, plan = setup_patient_with_plan()
+    plan.delete()
+
+    resp = _post_complete(patient, intervention, source="library")
+
+    assert resp.status_code == 200
+    assert LibraryInterventionLogs.objects(userId=patient, status="completed").count() == 1
+
+
+def test_mark_completed_from_library_twice_on_one_day_keeps_one_log(mongo_mock):
+    patient, _, intervention, _ = setup_patient_with_plan()
+    day = timezone.localdate().isoformat()
+
+    _post_complete(patient, intervention, source="library", date=day)
+    _post_complete(patient, intervention, source="library", date=day)
+
+    assert LibraryInterventionLogs.objects(userId=patient).count() == 1
+
+
+def test_mark_completed_from_library_on_another_day_adds_a_log(mongo_mock):
+    patient, _, intervention, _ = setup_patient_with_plan()
+    today = timezone.localdate()
+
+    _post_complete(patient, intervention, source="library", date=(today - timedelta(days=1)).isoformat())
+    _post_complete(patient, intervention, source="library", date=today.isoformat())
+
+    assert LibraryInterventionLogs.objects(userId=patient, status="completed").count() == 2
+
+
+def test_mark_completed_from_library_invalid_date(mongo_mock):
+    patient, _, intervention, _ = setup_patient_with_plan()
+
+    resp = _post_complete(patient, intervention, source="library", date="31-12-2026")
+
+    assert resp.status_code == 400
+    assert LibraryInterventionLogs.objects.count() == 0
+
+
+def test_mark_completed_from_library_refuses_anyone_but_the_patient(mongo_mock):
+    """A therapist's call would record a self-selected completion the patient never made."""
+    from types import SimpleNamespace
+
+    from django.test import override_settings
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.patient_views import mark_intervention_completed
+
+    patient, therapist, intervention, _ = setup_patient_with_plan()
+    patient.update(clinic="Inselspital")  # the therapist covers this patient
+
+    def _as_therapist(**extra):
+        request = APIRequestFactory().post(
+            "/api/interventions/complete/",
+            data=json.dumps({"patient_id": str(patient.userId.id), "intervention_id": str(intervention.id), **extra}),
+            content_type="application/json",
+        )
+        force_authenticate(request, user=SimpleNamespace(is_authenticated=True, id=str(therapist.userId.id)))
+        with override_settings(TESTING=False):
+            return mark_intervention_completed(request)
+
+    assert _as_therapist().status_code == 200, "the therapist may still complete plan sessions"
+    assert _as_therapist(source="library").status_code == 403
+    assert LibraryInterventionLogs.objects.count() == 0
+
+
+def test_submit_feedback_from_library_lands_on_the_library_log(mongo_mock):
+    patient, _, intervention, _ = setup_patient_with_plan()
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention",
+        questionKey="rating_stars_video",
+        answer_type="select",
+        translations=[Translation(language="en", text="Rate it")],
+        possibleAnswers=[AnswerOption(key="4", translations=[Translation(language="en", text="4")])],
+    )
+    _post_complete(patient, intervention, source="library")
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(intervention.id),
+            "date": timezone.localdate().isoformat(),
+            "source": "library",
+            "rating_stars_video": json.dumps(["4"]),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200, resp.content.decode()
+    assert PatientInterventionLogs.objects(userId=patient).count() == 0
+    log = LibraryInterventionLogs.objects(userId=patient).get()
+    assert log.status == ["completed"]
+    assert [a.key for fb in log.feedback for a in fb.answerKey] == ["4"]
+
+
+def test_submit_feedback_from_library_drops_a_video(mongo_mock):
+    patient, _, intervention, _ = setup_patient_with_plan()
+
+    with patch("core.views.patient_views.default_storage") as storage:
+        storage.save.return_value = "video_feedback/x.mp4"
+        storage.url.return_value = "/media/video_feedback/x.mp4"
+        resp = client.post(
+            "/api/patients/feedback/questionaire/",
+            data={
+                "userId": str(patient.userId.id),
+                "interventionId": str(intervention.id),
+                "source": "library",
+                "video_example": SimpleUploadedFile("v.mp4", b"x", content_type="video/mp4"),
+            },
+            HTTP_AUTHORIZATION="Bearer test",
+        )
+
+    assert resp.status_code == 200
+    assert PatientInterventionLogs.objects(userId=patient).count() == 0
+    assert LibraryInterventionLogs.objects(userId=patient).get().feedback == []

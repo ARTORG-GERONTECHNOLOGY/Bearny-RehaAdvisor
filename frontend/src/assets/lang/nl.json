@@ -1775,5 +1775,11 @@
   "Accessed": "Geopend",
   "Opened, not completed": "Geopend, niet voltooid",
   "Filter by Status": "Filteren op status",
-  "Not seen yet": "Nog niet gezien"
+  "Not seen yet": "Nog niet gezien",
+  "Hide viewed": "Bekeken verbergen",
+  "Hide completed": "Voltooide verbergen",
+  "Done via library": "Gedaan via bibliotheek",
+  "Also done via library": "Ook gedaan via bibliotheek",
+  "From library": "Uit de bibliotheek",
+  "lastDoneOn": "Laatst gedaan: {{date}}"
 }

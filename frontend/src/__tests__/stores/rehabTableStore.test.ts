@@ -1261,3 +1261,77 @@ describe('openRemoveModal / closeRemoveModal', () => {
     expect(store.showRemoveModal).toBe(false);
   });
 });
+
+describe('library completions stay out of the plan', () => {
+  const libraryEntry = {
+    datetime: '2026-10-27T09:00:00+00:00',
+    status: 'completed',
+    source: 'library',
+    feedback: [{ question: { id: 'q1', translations: [] }, answer: [{ key: '5' }] }],
+  };
+  const library_completions = [
+    { _id: 'lib-de', external_id: 'ext-plan', dates: [libraryEntry], completedCount: 1 },
+    { _id: 'lib-only', external_id: 'ext-lib', dates: [libraryEntry], completedCount: 1 },
+  ];
+  const planDate = { datetime: '2026-10-28T09:00:00+00:00', status: 'upcoming', feedback: [] };
+
+  const storeWithLibrary = () => {
+    const store = makeStore();
+    (store as any).allInterventions = [
+      { _id: 'plan-1', external_id: 'ext-plan', title: 'Planned' },
+      { _id: 'lib-only', external_id: 'ext-lib', title: 'Library only' },
+    ];
+    (store as any).patientData = {
+      interventions: [{ _id: 'plan-1', external_id: 'ext-plan', dates: [planDate] }],
+      library_completions,
+    };
+    return store;
+  };
+
+  it('keeps library-only interventions out of the active and past lists', () => {
+    const store = storeWithLibrary();
+    const listed = [...store.activePatientItems, ...store.pastPatientItems].map((x) => x._id);
+    expect(listed).toEqual(['plan-1']);
+  });
+
+  it('leaves the plan dates untouched when opening the feedback popup', () => {
+    const store = storeWithLibrary();
+    store.openFeedbackBrowser({ _id: 'plan-1', external_id: 'ext-plan' });
+
+    expect((store.patientData.interventions[0] as any).dates).toEqual([planDate]);
+    expect((store.feedbackBrowserIntervention as any).dates).toEqual([libraryEntry, planDate]);
+  });
+
+  it('shows library feedback for an intervention that was never planned', () => {
+    const store = storeWithLibrary();
+    store.openFeedbackBrowser({ _id: 'lib-only', external_id: 'ext-lib', title: 'Library only' });
+
+    expect(store.feedbackBrowserIntervention).toEqual({
+      _id: 'lib-only',
+      external_id: 'ext-lib',
+      title: 'Library only',
+      dates: [libraryEntry],
+    });
+  });
+
+  it('opens plan feedback as before when there are no library completions', () => {
+    const store = makeStore();
+    (store as any).patientData = { interventions: [{ _id: 'i1', title: 'Plan Item' }] };
+    store.openFeedbackBrowser({ _id: 'i1' });
+    expect(store.feedbackBrowserIntervention).toEqual({ _id: 'i1', title: 'Plan Item' });
+  });
+
+  it('keeps library_completions from the plan response', async () => {
+    const mockApiClient = require('@/api/client').default;
+    const store = makeStore();
+    store.explicitPatientId = 'p1';
+    (store as any).allInterventions = [{ _id: 'plan-1' }];
+    mockApiClient.get.mockResolvedValueOnce({
+      data: { interventions: [{ _id: 'plan-1', dates: [planDate] }], library_completions },
+    });
+
+    await store.fetchAll(jest.fn((k: string) => k));
+
+    expect(store.libraryCompletions.get('ext-lib')?._id).toBe('lib-only');
+  });
+});

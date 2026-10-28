@@ -1,4 +1,4 @@
-import { InterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
+import { InterventionsLibraryStore, libraryItemStatus } from '@/stores/interventionsLibraryStore';
 import apiClient from '@/api/client';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
@@ -320,6 +320,105 @@ describe('InterventionsLibraryStore', () => {
       expect(apiClient.get).toHaveBeenCalledWith('interventions/all/p1/', {
         params: { lang: 'de' },
       });
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // library status (completed / viewed / last done)
+  // ------------------------------------------------------------------
+  describe('library status', () => {
+    const status = {
+      completed: ['EXT-1'],
+      viewed: ['EXT-2', 'raw-id'],
+      last_completed: { 'EXT-1': '2026-10-27', 'EXT-2': '2026-10-26' },
+      last_library_completed: { 'EXT-1': '2026-10-27' },
+    };
+
+    it('loads the patient status', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.fetchStatus('p1');
+      expect(apiClient.get).toHaveBeenCalledWith('patients/library-status/p1/');
+      expect(store.status).toEqual(status);
+      expect(store.lastCompletedOf({ external_id: 'EXT-1' })).toBe('2026-10-27');
+      expect(store.lastCompletedOf({ external_id: 'EXT-2' })).toBe('2026-10-26');
+      expect(store.lastLibraryCompletedOf({ external_id: 'EXT-1' })).toBe('2026-10-27');
+      expect(store.lastLibraryCompletedOf({ external_id: 'EXT-2' })).toBeNull();
+    });
+
+    it('keeps the library usable when the status request fails', async () => {
+      (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('boom'));
+      await store.fetchStatus('p1');
+      expect(store.status).toEqual({
+        completed: [],
+        viewed: [],
+        last_completed: {},
+        last_library_completed: {},
+      });
+      expect(store.error).toBe('');
+    });
+
+    it('drops malformed status fields', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: {
+          completed: 'EXT-1',
+          viewed: [null, 'EXT-2'],
+          last_completed: [],
+          last_library_completed: 'x',
+        },
+      });
+      await store.fetchStatus('p1');
+      expect(store.status).toEqual({
+        completed: [],
+        viewed: ['EXT-2'],
+        last_completed: {},
+        last_library_completed: {},
+      });
+    });
+
+    it('marks a library completion with source=library and reloads the status', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({});
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.setLibraryCompleted('p1', 'iv-1', '2026-10-28', true);
+      expect(apiClient.post).toHaveBeenCalledWith('interventions/complete/', {
+        patient_id: 'p1',
+        intervention_id: 'iv-1',
+        date: '2026-10-28',
+        source: 'library',
+      });
+      expect(apiClient.get).toHaveBeenCalledWith('patients/library-status/p1/');
+    });
+
+    it('undoes a library completion through the uncomplete endpoint', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({});
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.setLibraryCompleted('p1', 'iv-1', '2026-10-28', false);
+      expect((apiClient.post as jest.Mock).mock.calls[0][0]).toBe('interventions/uncomplete/');
+      expect((apiClient.post as jest.Mock).mock.calls[0][1].source).toBe('library');
+    });
+
+    it('reset clears the status', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.fetchStatus('p1');
+      store.reset();
+      expect(store.status.completed).toEqual([]);
+    });
+
+    it('libraryItemStatus matches by external_id, then by id', () => {
+      expect(libraryItemStatus(status, { external_id: 'EXT-1', _id: 'x' })).toBe('completed');
+      expect(libraryItemStatus(status, { external_id: 'EXT-2' })).toBe('viewed');
+      expect(libraryItemStatus(status, { _id: 'raw-id' })).toBe('viewed');
+      expect(libraryItemStatus(status, { external_id: 'EXT-3' })).toBeNull();
+      expect(libraryItemStatus(status, {})).toBeNull();
+    });
+
+    it('libraryItemStatus prefers completed when an item is listed in both', () => {
+      const both = {
+        completed: ['EXT-1'],
+        viewed: ['EXT-1'],
+        last_completed: {},
+        last_library_completed: {},
+      };
+      expect(libraryItemStatus(both, { external_id: 'EXT-1' })).toBe('completed');
     });
   });
 });

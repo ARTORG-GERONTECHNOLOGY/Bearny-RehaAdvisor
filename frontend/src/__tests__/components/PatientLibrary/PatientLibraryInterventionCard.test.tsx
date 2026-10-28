@@ -141,4 +141,49 @@ describe('PatientLibraryInterventionCard', () => {
     expect(screen.queryByText('undefined')).not.toBeInTheDocument();
     expect(screen.getByText('15min')).toBeInTheDocument();
   });
+
+  const renderCard = (
+    props: Partial<React.ComponentProps<typeof PatientLibraryInterventionCard>>
+  ) =>
+    render(
+      <PatientLibraryInterventionCard
+        item={{ duration: 15, content_type: 'Video' }}
+        displayTitle="Morning Stretch"
+        Icon={MockMainIcon}
+        contentTypeIcon={MockContentTypeIcon}
+        containerClassName="w-full"
+        onClick={jest.fn()}
+        {...props}
+      />
+    );
+
+  it('shows the number of ratings next to the average', () => {
+    renderCard({
+      item: { duration: 15, content_type: 'Video', avg_rating: 4.2, rating_count: 17 },
+    });
+    expect(screen.getByText('4.2 (17)')).toBeInTheDocument();
+  });
+
+  it('shows the average alone when the count is missing', () => {
+    renderCard({ item: { duration: 15, content_type: 'Video', avg_rating: 4 } });
+    expect(screen.getByText('4.0')).toBeInTheDocument();
+  });
+
+  it('marks a completed intervention', () => {
+    renderCard({ status: 'completed' });
+    expect(screen.getByRole('img', { name: 'Completed' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Viewed' })).not.toBeInTheDocument();
+  });
+
+  it('marks a viewed intervention apart from a completed one', () => {
+    renderCard({ status: 'viewed' });
+    expect(screen.getByRole('img', { name: 'Viewed' })).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Completed' })).not.toBeInTheDocument();
+  });
+
+  it('shows no status for an intervention never opened', () => {
+    renderCard({});
+    expect(screen.queryByRole('img', { name: 'Viewed' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Completed' })).not.toBeInTheDocument();
+  });
 });

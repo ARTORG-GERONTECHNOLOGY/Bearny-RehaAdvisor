@@ -439,6 +439,23 @@ class PatientInterventionLogs(Document):
     assistance = StringField(max_length=20, required=False, null=True)  # "alone" or "with_help"
 
 
+# Completions and ratings from the patient's library, kept apart so plan, calendar and adherence never see them
+class LibraryInterventionLogs(Document):
+    meta = {
+        "collection": "LibraryInterventionLogs",
+        "indexes": [
+            ("userId", "interventionId", "-date"),
+        ],
+    }
+    userId = ReferenceField("Patient", required=True)
+    interventionId = ReferenceField("Intervention", required=True)
+    date = DateTimeField(required=True)
+    status = ListField(StringField(choices=["completed"]))
+    feedback = ListField(EmbeddedDocumentField(FeedbackEntry))
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+
+
 class InterventionAssignment(EmbeddedDocument):
     interventionId = ReferenceField(Intervention, required=True)  # References 'interventions' collection
     frequency = StringField()  # Frequency details (e.g., "3 times per week")

@@ -21,6 +21,7 @@ It also includes [`test_helpers.py`](test_helpers.py) for pure helper logic in
 | `/api/patients/rehabilitation-plan/patient/<id>/` | GET | `get_patient_plan` | 16 |
 | `/api/patients/rehabilitation-plan/therapist/<id>/` | GET | `get_patient_plan_for_therapist` | 4 |
 | `/api/patients/get-questions/<type>/<id>/` | GET | `get_feedback_questions` | 12 |
+| `/api/patients/library-status/<id>/` | GET | `get_library_status` | 5 |
 | `/api/users/<id>/initial-questionaire/` | GET, POST | `initial_patient_questionaire` | 7 |
 | `/api/patients/vitals/manual/<id>/` | POST | `add_manual_vitals` | 10 |
 | `/api/patients/healthstatus-history/<id>/` | GET | `get_patient_healthstatus_history` | 3 |

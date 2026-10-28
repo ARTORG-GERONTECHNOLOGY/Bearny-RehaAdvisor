@@ -18,6 +18,7 @@ Star-rating aggregation
     average.
   * Private interventions are included in the aggregation lookup.
   * Missing / malformed answer keys do not crash the endpoint.
+  * Ratings given from the library (LibraryInterventionLogs) count alongside plan ratings.
 
 Test setup
 ----------
@@ -37,6 +38,7 @@ from core.models import (
     AnswerOption,
     FeedbackQuestion,
     Intervention,
+    LibraryInterventionLogs,
     Patient,
     PatientInterventionLogs,
     RehabilitationPlan,
@@ -616,3 +618,25 @@ def test_list_all_interventions_star_entry_with_multiple_answer_keys_uses_valid_
     assert rated is not None
     assert rated["rating_count"] == 2, f"Multi-item answerKey was dropped: {rated['rating_count']}"
     assert rated["avg_rating"] == 4.0, f"Expected (5+3)/2=4.0, got {rated['avg_rating']}"
+
+
+def test_list_all_interventions_counts_library_ratings_with_plan_ratings(mongo_mock):
+    from core.models import FeedbackEntry
+
+    iv = _make_intervention()
+    star_q = _make_star_question()
+    patient = _make_patient()
+    _submit_star_rating(patient, iv, star_q, star_value=5)
+    LibraryInterventionLogs(
+        userId=patient,
+        interventionId=iv,
+        date=datetime.now(),
+        status=["completed"],
+        feedback=[FeedbackEntry(questionId=star_q, answerKey=[AnswerOption(key="2")])],
+    ).save()
+
+    resp = client.get("/api/interventions/all/", HTTP_AUTHORIZATION="Bearer test")
+
+    rated = next(x for x in resp.json() if x["_id"] == str(iv.id))
+    assert rated["rating_count"] == 2
+    assert rated["avg_rating"] == 3.5

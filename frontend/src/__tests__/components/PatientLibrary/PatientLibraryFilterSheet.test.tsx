@@ -56,6 +56,10 @@ const baseProps = {
   ratingFilterIndices: [0, 4] as [number, number],
   setRatingFilterIndices: jest.fn(),
   ratingLabels: ['1', '2', '3', '4', '5'],
+  hideViewed: false,
+  setHideViewed: jest.fn(),
+  hideCompleted: false,
+  setHideCompleted: jest.fn(),
   onResetFilters: jest.fn(),
 };
 
@@ -213,6 +217,34 @@ describe('PatientLibraryFilterSheet', () => {
       render(<PatientLibraryFilterSheet {...baseProps} onOpenChange={onOpenChange} />);
       fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
       expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+  });
+
+  describe('status switches', () => {
+    const switchFor = (label: string) =>
+      within(screen.getByText(label).parentElement as HTMLElement).getByRole('button', {
+        name: 'switch',
+      });
+
+    it('hides viewed interventions when its switch is turned on', () => {
+      const setHideViewed = jest.fn();
+      render(<PatientLibraryFilterSheet {...baseProps} setHideViewed={setHideViewed} />);
+      fireEvent.click(switchFor('Hide viewed'));
+      expect(setHideViewed).toHaveBeenCalledWith(true);
+    });
+
+    it('shows completed interventions again when its switch is turned off', () => {
+      const setHideCompleted = jest.fn();
+      render(
+        <PatientLibraryFilterSheet
+          {...baseProps}
+          hideCompleted
+          setHideCompleted={setHideCompleted}
+        />
+      );
+      expect(switchFor('Hide completed')).toHaveAttribute('aria-pressed', 'true');
+      fireEvent.click(switchFor('Hide completed'));
+      expect(setHideCompleted).toHaveBeenCalledWith(false);
     });
   });
 });

@@ -18,6 +18,7 @@ from rest_framework.decorators import api_view, permission_classes
 from core.models import (
     Intervention,
     InterventionTemplate,
+    LibraryInterventionLogs,
     PatientInterventionLogs,
     RehabilitationPlan,
     Therapist,
@@ -170,8 +171,9 @@ def _delete_intervention(request, intervention_id):
                 plan.interventions = new_assignments
                 plan.save()
 
-        # 5. Delete PatientInterventionLogs referencing this intervention
+        # 5. Delete plan and library logs referencing this intervention
         PatientInterventionLogs.objects(interventionId=intervention_ref_id).delete()
+        LibraryInterventionLogs.objects(interventionId=intervention_ref_id).delete()
 
         # 6. Delete the Intervention document
         intervention.delete()

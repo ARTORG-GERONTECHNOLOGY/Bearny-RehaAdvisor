@@ -11,8 +11,8 @@ ZIP contents
 ------------
 patients.csv            — demographics
 rehab_calendar.csv      — scheduled intervention dates from RehabilitationPlans
-intervention_logs.csv   — PatientInterventionLogs execution records
-intervention_feedback.csv — per-intervention FeedbackEntry answers
+intervention_logs.csv   — PatientInterventionLogs and LibraryInterventionLogs execution records (source: plan|library)
+intervention_feedback.csv — per-intervention FeedbackEntry answers (source: plan|library)
 health_vitals.csv       — manually-entered PatientVitals (weight, BP)
 health_fitbit.csv       — wearable health data (FitbitData or GoogleHealthData per patient)
 questionnaire_answers.csv — PatientICFRating health-status questionnaire answers
@@ -38,6 +38,7 @@ from core.models import (
     GeneralFeedback,
     GoogleHealthData,
     Intervention,
+    LibraryInterventionLogs,
     Logs,
     Patient,
     PatientICFRating,
@@ -244,6 +245,14 @@ def _csv_rehab_calendar(patients, patient_map):
     return _make_csv(headers, rows)
 
 
+def _plan_and_library_logs(pt_ids):
+    """(source, log) for every plan log, then every library log, of these patients."""
+    for log in PatientInterventionLogs.objects(userId__in=pt_ids):
+        yield "plan", log
+    for log in LibraryInterventionLogs.objects(userId__in=pt_ids):
+        yield "library", log
+
+
 def _csv_intervention_logs(patient_map):
     headers = [
         "clinic",
@@ -254,11 +263,11 @@ def _csv_intervention_logs(patient_map):
         "status",
         "comments",
         "created_at",
+        "source",
     ]
     rows = []
     pt_ids = list(patient_map.keys())
-    logs = list(PatientInterventionLogs.objects(userId__in=pt_ids))
-    for log in logs:
+    for source, log in _plan_and_library_logs(pt_ids):
         try:
             pt_id = str(log.userId.id) if hasattr(log.userId, "id") else str(log.userId)
         except Exception:
@@ -277,6 +286,7 @@ def _csv_intervention_logs(patient_map):
                 "status": _join(getattr(log, "status", None)),
                 "comments": getattr(log, "comments", "") or "",
                 "created_at": _fmt_datetime(getattr(log, "createdAt", None)),
+                "source": source,
             }
         )
     return _make_csv(headers, rows)
@@ -293,11 +303,11 @@ def _csv_intervention_feedback(patient_map):
         "question_key",
         "answer_keys",
         "comment",
+        "source",
     ]
     rows = []
     pt_ids = list(patient_map.keys())
-    logs = list(PatientInterventionLogs.objects(userId__in=pt_ids))
-    for log in logs:
+    for source, log in _plan_and_library_logs(pt_ids):
         try:
             pt_id = str(log.userId.id) if hasattr(log.userId, "id") else str(log.userId)
         except Exception:
@@ -317,6 +327,7 @@ def _csv_intervention_feedback(patient_map):
                     "question_key": _question_key(entry),
                     "answer_keys": _answer_keys(entry),
                     "comment": getattr(entry, "comment", "") or "",
+                    "source": source,
                 }
             )
     return _make_csv(headers, rows)

@@ -1775,5 +1775,11 @@
   "Accessed": "Geöffnet",
   "Opened, not completed": "Geöffnet, nicht abgeschlossen",
   "Filter by Status": "Nach Status filtern",
-  "Not seen yet": "Noch nicht gesehen"
+  "Not seen yet": "Noch nicht gesehen",
+  "Hide viewed": "Angesehene ausblenden",
+  "Hide completed": "Erledigte ausblenden",
+  "Done via library": "Über Bibliothek erledigt",
+  "Also done via library": "Zusätzlich über Bibliothek erledigt",
+  "From library": "Aus der Bibliothek",
+  "lastDoneOn": "Zuletzt erledigt: {{date}}"
 }

@@ -835,27 +835,57 @@ JWT required.
 
 #### `POST /api/interventions/complete/`
 
-JWT required.
+JWT required. Marks an intervention as done for one day.
 
 **Request body:**
 
-| Field            | Type   | Required |
-|------------------|--------|----------|
-| `patientId`      | string | yes      |
-| `interventionId` | string | yes      |
-| `date`           | string | yes      | `YYYY-MM-DD` |
+| Field             | Type   | Required | Notes |
+|-------------------|--------|----------|-------|
+| `patient_id`      | string | yes      | The patient's user id |
+| `intervention_id` | string | yes      | |
+| `date`            | string | no       | `YYYY-MM-DD`; defaults to today |
+| `assistance`      | string | no       | `alone` or `with_help` (plan completions only) |
+| `source`          | string | no       | `library` for a completion from the patient library |
 
-**Response 200:** `{ "success": true }`
+Without `source`, the completion belongs to the patient's rehabilitation plan and counts towards the plan, calendar and adherence.
 
-**Errors:** 404 · 500
+With `source: "library"`, the completion is stored in `LibraryInterventionLogs`, apart from the plan. It needs no plan, never completes a planned session and never counts towards adherence. Only the patient can record one. One completion is kept per intervention and day.
+
+**Response 200:** `{ "message": "Marked as completed successfully" }`
+
+**Errors:** 400 missing fields or invalid date · 403 · 404 patient, intervention or plan not found · 500
 
 ---
 
 #### `POST /api/interventions/uncomplete/`
 
-JWT required. Same body as complete.
+JWT required. Same body as complete, but `date` is required. Removes that day's completion. With `source: "library"`, it removes only the library completion; a rating given that day is kept.
 
-**Response 200:** `{ "success": true }`
+**Response 200:** `{ "message": "Unmarked successfully" }`
+
+---
+
+#### `GET /api/patients/library-status/<patient_id>/`
+
+JWT required (the patient, their therapist, or an admin). What the patient has done with library interventions, keyed by `external_id` (or by id for an intervention without one).
+
+**Response 200:**
+
+```json
+{
+  "completed": ["EXT-1", "EXT-2"],
+  "viewed": ["EXT-3"],
+  "last_completed": { "EXT-1": "2026-10-20", "EXT-2": "2026-10-27" },
+  "last_library_completed": { "EXT-2": "2026-10-27" }
+}
+```
+
+- `completed`: completed at least once, from the library or from the plan
+- `viewed`: opened from anywhere but never completed
+- `last_completed`: the day of the latest completion, from the library or from the plan. For a plan session, this is the session's day.
+- `last_library_completed`: the day of the latest library completion. The patient app uses it to show whether today's library completion is done.
+
+**Errors:** 403 · 404 patient not found · 500
 
 ---
 

@@ -311,4 +311,67 @@ describe('InterventionFeedbackModal', () => {
     expect(screen.getByText('Yes indeed')).toBeInTheDocument();
     expect(document.querySelector('audio')).toBeInTheDocument();
   });
+
+  describe('library entries', () => {
+    const answer = (text: string) => [
+      {
+        question: { translations: [{ language: 'en', text: 'How was it?' }] },
+        answer: [{ key: text, translations: [{ language: 'en', text }] }],
+      },
+    ];
+    const planDate = {
+      status: 'completed',
+      datetime: '2026-10-20T10:00:00Z',
+      feedback: answer('Plan answer'),
+    };
+    const libraryDate = {
+      status: 'completed',
+      source: 'library',
+      datetime: '2026-10-27T10:00:00Z',
+      feedback: answer('Library answer'),
+    };
+
+    it('labels library entries and counts only planned sessions as scheduled', () => {
+      render(
+        <InterventionFeedbackModal
+          show
+          onHide={jest.fn()}
+          intervention={{ _id: 'i1', title: 'Walk', dates: [planDate, libraryDate] }}
+        />
+      );
+
+      expect(
+        screen.getByText(/Answered feedback for 1 out of 1 scheduled events/)
+      ).toBeInTheDocument();
+      expect(screen.getAllByText('From library')).toHaveLength(1);
+    });
+
+    it('marks the answers of a selected library entry as coming from the library', () => {
+      render(
+        <InterventionFeedbackModal
+          show
+          onHide={jest.fn()}
+          intervention={{ _id: 'i1', title: 'Walk', dates: [planDate, libraryDate] }}
+          initialDatetime={libraryDate.datetime}
+        />
+      );
+
+      expect(screen.getByText('Answers (From library)')).toBeInTheDocument();
+      expect(screen.getByText('Library answer')).toBeInTheDocument();
+    });
+
+    it('shows library feedback for an intervention that was never planned', () => {
+      render(
+        <InterventionFeedbackModal
+          show
+          onHide={jest.fn()}
+          intervention={{ _id: 'i1', title: 'Walk', dates: [libraryDate] }}
+        />
+      );
+
+      expect(screen.queryByText(/No scheduled events found/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/scheduled events/)).not.toBeInTheDocument();
+      expect(screen.getByText('Library answer')).toBeInTheDocument();
+    });
+  });
 });

@@ -38,6 +38,10 @@ type PatientLibraryFilterSheetProps = {
   ratingFilterIndices: [number, number];
   setRatingFilterIndices: React.Dispatch<React.SetStateAction<[number, number]>>;
   ratingLabels: string[];
+  hideViewed: boolean;
+  setHideViewed: React.Dispatch<React.SetStateAction<boolean>>;
+  hideCompleted: boolean;
+  setHideCompleted: React.Dispatch<React.SetStateAction<boolean>>;
   onResetFilters: () => void;
 };
 
@@ -60,6 +64,10 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
   ratingFilterIndices,
   setRatingFilterIndices,
   ratingLabels,
+  hideViewed,
+  setHideViewed,
+  hideCompleted,
+  setHideCompleted,
   onResetFilters,
 }) => {
   const { t } = useTranslation();
@@ -183,6 +191,36 @@ const PatientLibraryFilterSheet: React.FC<PatientLibraryFilterSheetProps> = ({
             <div className="flex justify-between font-medium text-sm text-zinc-400 px-0.5">
               {ratingLabels.map((label, i) => (
                 <span key={i}>{label}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="font-medium text-lg text-zinc-600">{t('Status')}</div>
+            <div className="flex flex-col gap-3">
+              {[
+                {
+                  id: 'sheet-hide-viewed',
+                  label: t('Hide viewed'),
+                  checked: hideViewed,
+                  set: setHideViewed,
+                },
+                {
+                  id: 'sheet-hide-completed',
+                  label: t('Hide completed'),
+                  checked: hideCompleted,
+                  set: setHideCompleted,
+                },
+              ].map((row) => (
+                <div key={row.id} className="flex items-center justify-between">
+                  <label
+                    htmlFor={row.id}
+                    className="font-bold text-lg leading-6 text-zinc-800 cursor-pointer"
+                  >
+                    {row.label}
+                  </label>
+                  <Switch id={row.id} checked={row.checked} onCheckedChange={row.set} />
+                </div>
               ))}
             </div>
           </div>

@@ -34,6 +34,7 @@ from core.models import (
     Intervention,
     InterventionAssignment,
     InterventionMedia,
+    LibraryInterventionLogs,
     Logs,
     Patient,
     PatientInterventionLogs,
@@ -1075,7 +1076,6 @@ def list_all_interventions(request, patient_id=None):
                 ObjectId(vid) for ids in variant_ids_by_item_id.values() for vid in ids if ObjectId.is_valid(vid)
             ]
             if all_variant_ids:
-                logs_col = PatientInterventionLogs._get_collection()
                 pipeline = [
                     {"$match": {"interventionId": {"$in": all_variant_ids}}},
                     {"$unwind": "$feedback"},
@@ -1092,18 +1092,19 @@ def list_all_interventions(request, patient_id=None):
                 ratings_by_variant = {}
                 # Parsed in Python (not $toInt/$regex) so this shares _parse_star_key with
                 # _star_rating_value() instead of a parallel Mongo-side validation rule.
-                for row in logs_col.aggregate(pipeline):
-                    values = []
-                    for keys in row["answer_key_lists"]:
-                        # One rating per feedback entry: first valid 1-5 key wins.
-                        value = next((v for v in (_parse_star_key(k) for k in keys) if v is not None), None)
-                        if value is not None:
-                            values.append(value)
-                    if values:
-                        ratings_by_variant[str(row["_id"])] = {
-                            "rating_sum": sum(values),
-                            "rating_count": len(values),
-                        }
+                # Ratings given from the library count too.
+                for logs_model in (PatientInterventionLogs, LibraryInterventionLogs):
+                    for row in logs_model._get_collection().aggregate(pipeline):
+                        values = []
+                        for keys in row["answer_key_lists"]:
+                            # One rating per feedback entry: first valid 1-5 key wins.
+                            value = next((v for v in (_parse_star_key(k) for k in keys) if v is not None), None)
+                            if value is not None:
+                                values.append(value)
+                        if values:
+                            agg = ratings_by_variant.setdefault(str(row["_id"]), {"rating_sum": 0, "rating_count": 0})
+                            agg["rating_sum"] += sum(values)
+                            agg["rating_count"] += len(values)
                 for item in all_serialized:
                     rows = [
                         ratings_by_variant[vid]

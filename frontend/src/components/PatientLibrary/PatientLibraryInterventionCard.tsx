@@ -2,6 +2,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import ClockIcon from '@/assets/icons/interventions/clock.svg?react';
 import StarsIcon from '@/assets/icons/interventions/stars.svg?react';
+import CircleCheckFill from '@/assets/icons/circle-check-fill.svg?react';
+import CircleHalfDottedCheckFill from '@/assets/icons/circle-half-dotted-check-fill.svg?react';
 import { Badge } from '@/components/ui/badge';
 import Card from '@/components/Card';
 
@@ -9,7 +11,10 @@ type PatientLibraryInterventionCardItem = {
   duration?: string | number;
   content_type?: string;
   avg_rating?: number | null;
+  rating_count?: number;
 };
+
+export type PatientLibraryItemStatus = 'completed' | 'viewed' | null;
 
 type PatientLibraryInterventionCardProps = {
   item: PatientLibraryInterventionCardItem;
@@ -18,6 +23,7 @@ type PatientLibraryInterventionCardProps = {
   contentTypeIcon: React.ComponentType<{ className?: string }> | null;
   containerClassName: string;
   onClick: () => void;
+  status?: PatientLibraryItemStatus;
 };
 
 const PatientLibraryInterventionCard: React.FC<PatientLibraryInterventionCardProps> = ({
@@ -27,6 +33,7 @@ const PatientLibraryInterventionCard: React.FC<PatientLibraryInterventionCardPro
   contentTypeIcon: ContentTypeIcon,
   containerClassName,
   onClick,
+  status = null,
 }) => {
   const { t } = useTranslation();
 
@@ -39,7 +46,19 @@ const PatientLibraryInterventionCard: React.FC<PatientLibraryInterventionCardPro
       }}
       className={`${containerClassName} flex flex-col gap-6`}
     >
-      <Icon className="shrink-0 w-8 h-8" />
+      <div className="flex justify-between items-start">
+        <Icon className="shrink-0 w-8 h-8" />
+        {status === 'completed' && (
+          <CircleCheckFill className="w-8 h-8 text-ok" role="img" aria-label={t('Completed')} />
+        )}
+        {status === 'viewed' && (
+          <CircleHalfDottedCheckFill
+            className="w-7 h-7 m-0.5 text-zinc-300"
+            role="img"
+            aria-label={t('Viewed')}
+          />
+        )}
+      </div>
       <div className="flex-1 flex flex-col gap-2 justify-between">
         <div className="font-bold text-lg leading-6 text-zinc-800">{displayTitle || '-'}</div>
         <div className="flex gap-1">
@@ -54,7 +73,10 @@ const PatientLibraryInterventionCard: React.FC<PatientLibraryInterventionCardPro
           {item.avg_rating != null && (
             <Badge variant="card">
               <StarsIcon className="w-4 h-4" />
-              <div>{item.avg_rating.toFixed(1)}</div>
+              <div>
+                {item.avg_rating.toFixed(1)}
+                {item.rating_count ? ` (${item.rating_count})` : ''}
+              </div>
             </Badge>
           )}
         </div>

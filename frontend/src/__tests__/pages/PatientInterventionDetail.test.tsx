@@ -106,6 +106,10 @@ jest.mock('@/stores/interventionsLibraryStore', () => ({
   patientInterventionsLibraryStore: {
     visibleItemsForPatient: [],
     fetchAll: jest.fn(async () => {}),
+    fetchStatus: jest.fn(async () => {}),
+    lastCompletedOf: jest.fn(() => null),
+    lastLibraryCompletedOf: jest.fn(() => null),
+    setLibraryCompleted: jest.fn(async () => {}),
   },
 }));
 
@@ -1086,6 +1090,140 @@ describe('PatientInterventionDetail', () => {
 
       expect(await screen.findByText('A session already exists on that day.')).toBeInTheDocument();
       expect(mockNavigate).not.toHaveBeenCalledWith(expect.stringContaining('2026-03-20'));
+    });
+  });
+
+  describe('library completion (opened without a plan session)', () => {
+    const todayKey = () => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    const libraryStore = patientInterventionsLibraryStore as any;
+
+    beforeEach(() => {
+      mockSearchParams = new URLSearchParams('');
+      libraryStore.lastCompletedOf.mockReturnValue(null);
+      libraryStore.lastLibraryCompletedOf.mockReturnValue(null);
+    });
+
+    it('loads the library status for the patient', async () => {
+      render(<PatientInterventionDetail />);
+      await screen.findByText('Morning Stretch');
+      expect(libraryStore.fetchStatus).toHaveBeenCalledWith('patient-1');
+    });
+
+    it('marks it done for today from the library and asks for library feedback', async () => {
+      render(<PatientInterventionDetail />);
+
+      fireEvent.click(await screen.findByRole('button', { name: /Mark as done/i }));
+
+      await waitFor(() => {
+        expect(libraryStore.setLibraryCompleted).toHaveBeenCalledWith(
+          'patient-1',
+          'int-1',
+          todayKey(),
+          true
+        );
+      });
+      expect((patientInterventionsStore as any).toggleCompleted).not.toHaveBeenCalled();
+      expect((patientQuestionnairesStore as any).openInterventionFeedback).toHaveBeenCalledWith(
+        'patient-1',
+        'int-1',
+        todayKey(),
+        'en',
+        'library'
+      );
+    });
+
+    it('shows Done when completed today and undoes it without asking for feedback', async () => {
+      libraryStore.lastCompletedOf.mockReturnValue(todayKey());
+      libraryStore.lastLibraryCompletedOf.mockReturnValue(todayKey());
+      render(<PatientInterventionDetail />);
+
+      const done = await screen.findByRole('button', { name: /Done/ });
+      expect(done).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.queryByText(/Last done/)).not.toBeInTheDocument();
+      fireEvent.click(done);
+
+      await waitFor(() => {
+        expect(libraryStore.setLibraryCompleted).toHaveBeenCalledWith(
+          'patient-1',
+          'int-1',
+          todayKey(),
+          false
+        );
+      });
+      expect((patientQuestionnairesStore as any).openInterventionFeedback).not.toHaveBeenCalled();
+    });
+
+    it('shows when it was last done on an earlier day', async () => {
+      libraryStore.lastCompletedOf.mockReturnValue('2026-10-24');
+      render(<PatientInterventionDetail />);
+
+      expect(await screen.findByText('Last done: 24 Oct 2026')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Mark as done/i })).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      );
+    });
+
+    it('shows a plan completion as last done but leaves the library button open', async () => {
+      // Done today in the plan, never from the library.
+      libraryStore.lastCompletedOf.mockReturnValue(todayKey());
+      render(<PatientInterventionDetail />);
+
+      expect(await screen.findByText(/^Last done: /)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Mark as done/i })).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      );
+    });
+
+    it('looks up the status by the intervention id when it has no external_id', async () => {
+      render(<PatientInterventionDetail />);
+      await screen.findByText('Morning Stretch');
+      expect(libraryStore.lastCompletedOf).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'int-1' })
+      );
+      expect(libraryStore.lastLibraryCompletedOf).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'int-1' })
+      );
+    });
+
+    it('shows Done on the English version after it was completed in German', async () => {
+      mockInterventionId = 'int-en';
+      (patientInterventionsStore as any).items = [];
+      libraryStore.visibleItemsForPatient = [
+        { _id: 'int-en', external_id: 'EXT-1', title: 'Breathing', aims: ['Exercise'], media: [] },
+      ];
+      // The status is keyed by external_id, whichever language version was completed.
+      libraryStore.lastLibraryCompletedOf.mockImplementation((item: { external_id?: string }) =>
+        item.external_id === 'EXT-1' ? todayKey() : null
+      );
+
+      render(<PatientInterventionDetail />);
+
+      expect(await screen.findByRole('button', { name: /Done/ })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+    });
+
+    it('keeps the plan button for a plan session and offers no library completion', async () => {
+      mockSearchParams = new URLSearchParams('date=2026-03-16');
+      libraryStore.lastCompletedOf.mockReturnValue('2026-10-24');
+      render(<PatientInterventionDetail />);
+
+      const markDone = await screen.findByRole('button', { name: /Mark as done/i });
+      expect(screen.getAllByRole('button', { name: /Mark as done/i })).toHaveLength(1);
+      expect(screen.queryByText(/Last done/)).not.toBeInTheDocument();
+
+      fireEvent.click(markDone);
+
+      await waitFor(() => {
+        expect((patientInterventionsStore as any).toggleCompleted).toHaveBeenCalled();
+      });
+      expect(libraryStore.setLibraryCompleted).not.toHaveBeenCalled();
     });
   });
 });

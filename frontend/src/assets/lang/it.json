@@ -1775,5 +1775,11 @@
   "Accessed": "Visualizzato",
   "Opened, not completed": "Aperto, non completato",
   "Filter by Status": "Filtra per stato",
-  "Not seen yet": "Non ancora visto"
+  "Not seen yet": "Non ancora visto",
+  "Hide viewed": "Nascondi visti",
+  "Hide completed": "Nascondi completati",
+  "Done via library": "Svolto dalla biblioteca",
+  "Also done via library": "Svolto anche dalla biblioteca",
+  "From library": "Dalla biblioteca",
+  "lastDoneOn": "Ultima volta: {{date}}"
 }

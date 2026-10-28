@@ -535,6 +535,33 @@ describe('FeedbackPopup - dropdown, submission, and confirmClose', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it.each([
+    ['library', 'library'],
+    [undefined, null],
+  ])('sends source=%s only for library feedback', async (source, expected) => {
+    (apiClient.post as jest.Mock).mockResolvedValue({ data: { success: true } });
+
+    render(
+      <FeedbackPopup
+        show
+        interventionId="int1"
+        questions={dropdownAndTextQuestions as any}
+        onClose={jest.fn()}
+        date="2026-10-28"
+        source={source as 'library' | undefined}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'A' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByText('Q2');
+    fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => expect(apiClient.post).toHaveBeenCalled());
+    const formData = (apiClient.post as jest.Mock).mock.calls[0][1] as FormData;
+    expect(formData.get('source')).toBe(expected);
+  });
+
   it('confirmClose asks when answers exist', async () => {
     const onClose = jest.fn();
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
