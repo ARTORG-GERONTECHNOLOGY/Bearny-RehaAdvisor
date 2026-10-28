@@ -3184,6 +3184,18 @@ def _therapist_feedback(log, questions_by_id, star_q_ids):
     return entries, ratings
 
 
+def _feedback_questions_by_id(logs) -> dict:
+    """The FeedbackQuestions these logs' feedback answers, fetched in one query."""
+    ids = {
+        getattr(fb.questionId, "id", None)
+        for lg in logs
+        for fb in (getattr(lg, "feedback", None) or [])
+        if getattr(fb, "questionId", None) is not None
+    }
+    ids.discard(None)
+    return {q.id: q for q in FeedbackQuestion.objects(id__in=ids)}
+
+
 def _library_completions_for_therapist(library_logs, questions_by_id, star_q_ids) -> list:
     """Library logs grouped per intervention (by external_id), each entry shaped like a plan date."""
     refs = _intervention_refs({lg.interventionId.id for lg in library_logs})
@@ -3276,11 +3288,17 @@ def get_patient_plan_for_therapist(request, patient_id):
             logger.info(
                 "[get_patient_plan_for_therapist] No rehab plan found for resolved patient (identifier redacted)"
             )
+            # The library needs no plan, so what the patient did there is still shown.
+            library_logs = list(LibraryInterventionLogs.objects(userId=patient).no_dereference())
             return JsonResponse(
                 {
                     "success": False,
                     "message": "No rehabilitation plan found",
                     "rehab_plan": [],
+                    "viewed_interventions": _viewed_intervention_refs(_accessed_logs(patient)),
+                    "library_completions": _library_completions_for_therapist(
+                        library_logs, _feedback_questions_by_id(library_logs), set(_get_star_q_ids())
+                    ),
                 },
                 status=200,
             )
@@ -3348,14 +3366,7 @@ def get_patient_plan_for_therapist(request, patient_id):
 
         # Never merged into the plan's dates: library completions are listed apart (library_completions).
         _library_logs = list(LibraryInterventionLogs.objects(userId=patient).no_dereference())
-        _question_ids = {
-            getattr(fb.questionId, "id", None)
-            for _log in _all_logs + _library_logs
-            for fb in (getattr(_log, "feedback", None) or [])
-            if getattr(fb, "questionId", None) is not None
-        }
-        _question_ids.discard(None)
-        _questions_by_id = {q.id: q for q in FeedbackQuestion.objects(id__in=_question_ids)}
+        _questions_by_id = _feedback_questions_by_id(_all_logs + _library_logs)
         accessed_logs = _accessed_logs(patient, since=_accessed_since(plan))
         plan_data["viewed_interventions"] = _viewed_intervention_refs(accessed_logs)
         plan_data["library_completions"] = _library_completions_for_therapist(

@@ -602,7 +602,12 @@ export class RehabTableStore {
 
       if (success === false && typeof message === 'string' && !raw.interventions) {
         runInAction(() => {
-          this.patientData = EMPTY_PLAN;
+          // No plan, but what the patient did in the library still shows on the cards.
+          this.patientData = {
+            ...EMPTY_PLAN,
+            library_completions: raw.library_completions,
+            viewed_interventions: raw.viewed_interventions,
+          };
           this.error = message;
         });
         return;

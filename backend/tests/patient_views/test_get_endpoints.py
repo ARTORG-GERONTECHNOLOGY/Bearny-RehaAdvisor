@@ -2262,6 +2262,26 @@ def test_therapist_plan_counts_a_day_once_even_with_a_duplicate_library_log(mong
     assert resp.json()["library_completions"][0]["completedCount"] == 2
 
 
+def test_therapist_view_shows_library_completions_for_a_patient_without_a_plan(mongo_mock):
+    """The library needs no plan, so its completions and ratings still reach the therapist."""
+    patient, _, intervention, _ = setup_basic_plan(with_plan=False)
+    question = _star_question()
+    _library_log(patient, intervention, timezone.localdate(), rating=4, question=question)
+    _log_view(patient, str(intervention.id))
+
+    resp = client.get(f"/api/patients/rehabilitation-plan/therapist/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
+
+    body = resp.json()
+    assert body["success"] is False
+    assert body["viewed_interventions"] == ["TEST-EXT-001"]
+    [completion] = body["library_completions"]
+    assert (completion["external_id"], completion["completedCount"], completion["ratingCount"]) == (
+        "TEST-EXT-001",
+        1,
+        1,
+    )
+
+
 def test_therapist_plan_has_no_library_completions_by_default(mongo_mock):
     patient, _, _, _ = setup_basic_plan()
 

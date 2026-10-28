@@ -396,6 +396,44 @@ describe('InterventionsLibraryStore', () => {
       expect((apiClient.post as jest.Mock).mock.calls[0][1].source).toBe('library');
     });
 
+    it("clears another patient's status as soon as a new patient's request starts", async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.fetchStatus('p1');
+
+      let resolveNext: (v: unknown) => void = () => {};
+      (apiClient.get as jest.Mock).mockReturnValueOnce(new Promise((r) => (resolveNext = r)));
+      const pending = store.fetchStatus('p2');
+      expect(store.status.completed).toEqual([]);
+
+      resolveNext({ data: { completed: ['EXT-9'], viewed: [] } });
+      await pending;
+      expect(store.status.completed).toEqual(['EXT-9']);
+    });
+
+    it("keeps the same patient's status while it reloads", async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.fetchStatus('p1');
+
+      (apiClient.get as jest.Mock).mockReturnValueOnce(new Promise(() => {}));
+      void store.fetchStatus('p1');
+      expect(store.status.completed).toEqual(['EXT-1']);
+    });
+
+    it('ignores an older response that arrives after a newer one', async () => {
+      let resolveOld: (v: unknown) => void = () => {};
+      (apiClient.get as jest.Mock)
+        .mockReturnValueOnce(new Promise((r) => (resolveOld = r)))
+        .mockResolvedValueOnce({ data: { completed: ['EXT-NEW'], viewed: [] } });
+
+      const older = store.fetchStatus('p1');
+      await store.fetchStatus('p1');
+      resolveOld({ data: { completed: [], viewed: ['EXT-OLD'] } });
+      await older;
+
+      expect(store.status.completed).toEqual(['EXT-NEW']);
+      expect(store.status.viewed).toEqual([]);
+    });
+
     it('reset clears the status', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
       await store.fetchStatus('p1');

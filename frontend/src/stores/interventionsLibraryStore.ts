@@ -171,6 +171,8 @@ export class InterventionsLibraryStore {
   loading = false;
   error = '';
   status: LibraryStatus = EMPTY_STATUS;
+  private statusPatientId = '';
+  private statusRequest = 0;
 
   lastMode: LibraryMode | null = null;
   lastFetch: FetchOptions | null = null;
@@ -225,6 +227,7 @@ export class InterventionsLibraryStore {
     this.lastMode = null;
     this.lastFetch = null;
     this.status = EMPTY_STATUS;
+    this.statusPatientId = '';
   }
 
   lastCompletedOf(item: unknown): string | null {
@@ -236,8 +239,16 @@ export class InterventionsLibraryStore {
   }
 
   async fetchStatus(patientId: string) {
+    const request = ++this.statusRequest;
+    // Stores outlive a logout, so the previous patient's status never shows while this one loads.
+    if (patientId !== this.statusPatientId) {
+      this.status = EMPTY_STATUS;
+      this.statusPatientId = patientId;
+    }
     try {
       const res = await apiClient.get(`patients/library-status/${patientId}/`);
+      // A slower, older response must not overwrite a newer one (e.g. the reload after a tap).
+      if (request !== this.statusRequest) return;
       const data = isRecord(res.data) ? res.data : {};
       runInAction(() => {
         this.status = {

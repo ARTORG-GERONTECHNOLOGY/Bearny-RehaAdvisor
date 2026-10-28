@@ -838,6 +838,28 @@ describe('fetchAll', () => {
     expect(store.patientData.interventions).toHaveLength(1);
   });
 
+  it('keeps library completions and views for a patient without a plan', async () => {
+    const store = makeStore();
+    store.explicitPatientId = 'p1';
+    mockApiClient.get.mockResolvedValueOnce({
+      data: {
+        success: false,
+        message: 'No rehabilitation plan found',
+        viewed_interventions: ['ext-lib'],
+        library_completions: [
+          { _id: 'lib-1', external_id: 'ext-lib', dates: [], completedCount: 1 },
+        ],
+      },
+    });
+
+    await store.fetchAll(jest.fn((k: string) => k));
+
+    expect(store.error).toBe('No rehabilitation plan found');
+    expect(store.patientData.interventions).toEqual([]);
+    expect(store.libraryCompletions.get('ext-lib')?.completedCount).toBe(1);
+    expect(store.patientData.viewed_interventions).toEqual(['ext-lib']);
+  });
+
   it('treats a success:false envelope (with no interventions key) as an error', async () => {
     const store = makeStore();
     store.explicitPatientId = 'p1';
