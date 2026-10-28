@@ -180,6 +180,38 @@ One row per question in the question library. Use this as a lookup table to reso
 
 ---
 
+### `intervention_library.csv` — Intervention Lookup Table
+
+One row per intervention (grouped by `external_id`). Use this as a lookup table to resolve `intervention_external_id` values in `intervention_feedback.csv`, `intervention_logs.csv`, and `rehab_calendar.csv` — VLOOKUP or merge on `external_id`.
+
+Only interventions from the shared library are included; patient-specific private interventions are excluded.
+
+| Column | Description |
+|---|---|
+| `external_id` | Stable intervention identifier, matches `intervention_external_id` in the feedback and log sheets |
+| `provider` | Organisation or source that created the intervention (e.g. "Inselspital") |
+| `content_type` | Type of intervention (e.g. "Exercise", "Video", "App") |
+| `aim` | Primary therapeutic aim |
+| `duration` | Estimated duration in minutes |
+| `duration_bucket` | Duration range label (e.g. "5-10 min", "15-30 min") |
+| `cognitive_level` | Cognitive demand level |
+| `physical_level` | Physical demand level |
+| `topic` | Semicolon-separated list of topic tags (e.g. "balance; gait") |
+| `primary_diagnosis` | Semicolon-separated list of target diagnoses |
+| `setting` | Semicolon-separated list of settings (e.g. "Individual; Group") |
+| `where` | Semicolon-separated list of locations (e.g. "Home; Outside") |
+| `keywords` | Semicolon-separated list of keywords |
+| `title_en` | Intervention title in English |
+| `title_de` | Intervention title in German |
+| `title_fr` | Intervention title in French |
+| `title_it` | Intervention title in Italian |
+| `title_nl` | Intervention title in Dutch |
+| `title_pt` | Intervention title in Portuguese |
+
+> Metadata columns (`provider`, `content_type`, `aim`, etc.) are language-agnostic and taken from the first available language variant. Title columns are blank when no translation exists for that language.
+
+---
+
 ### `thresholds.csv` — Current Alert Thresholds
 
 One row per patient showing the thresholds currently configured for their health metrics. These thresholds drive the green/yellow/red traffic-light indicators in the therapist view.

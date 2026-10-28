@@ -17,6 +17,7 @@ health_vitals.csv       — manually-entered PatientVitals (weight, BP)
 health_fitbit.csv       — wearable health data (FitbitData or GoogleHealthData per patient)
 questionnaire_answers.csv — PatientICFRating health-status questionnaire answers
 question_dictionary.csv  — lookup table: question_key → text in all 6 languages
+intervention_library.csv — lookup table: external_id → titles (all 6 languages) + metadata
 thresholds.csv          — current PatientThresholds per patient
 threshold_history.csv   — PatientThresholdsSnapshot change history
 activity_logs.csv       — Logs (platform activity events)
@@ -629,6 +630,66 @@ def _csv_question_dictionary():
     return _make_csv(headers, rows)
 
 
+def _csv_intervention_library():
+    """One row per external_id — lookup table for intervention metadata and titles.
+
+    Each Intervention document is language-specific (one doc per external_id+language
+    pair). This builder groups by external_id and emits one row with title columns for
+    all six languages plus shared metadata (type, provider, topics, etc.).
+    Only non-private interventions (the shared library) are included.
+    """
+    headers = [
+        "external_id",
+        "provider",
+        "content_type",
+        "aim",
+        "duration",
+        "duration_bucket",
+        "cognitive_level",
+        "physical_level",
+        "topic",
+        "primary_diagnosis",
+        "setting",
+        "where",
+        "keywords",
+        "title_en",
+        "title_de",
+        "title_fr",
+        "title_it",
+        "title_nl",
+        "title_pt",
+    ]
+    rows = {}  # external_id → dict; metadata taken from first document seen per external_id
+    for iv in Intervention.objects(is_private=False).order_by("external_id", "language"):
+        eid = iv.external_id
+        if eid not in rows:
+            rows[eid] = {
+                "external_id": eid,
+                "provider": iv.provider or "",
+                "content_type": iv.content_type or "",
+                "aim": iv.aim or "",
+                "duration": iv.duration if iv.duration is not None else "",
+                "duration_bucket": iv.duration_bucket or "",
+                "cognitive_level": iv.cognitive_level or "",
+                "physical_level": iv.physical_level or "",
+                "topic": "; ".join(iv.topic or []),
+                "primary_diagnosis": "; ".join(iv.primary_diagnosis or []),
+                "setting": "; ".join(iv.setting or []),
+                "where": "; ".join(getattr(iv, "where", None) or []),
+                "keywords": "; ".join(iv.keywords or []),
+                "title_en": "",
+                "title_de": "",
+                "title_fr": "",
+                "title_it": "",
+                "title_nl": "",
+                "title_pt": "",
+            }
+        lang = iv.language
+        if lang in ("en", "de", "fr", "it", "nl", "pt"):
+            rows[eid][f"title_{lang}"] = iv.title or ""
+    return _make_csv(headers, list(rows.values()))
+
+
 # ---------------------------------------------------------------------------
 # View functions
 # ---------------------------------------------------------------------------
@@ -677,6 +738,7 @@ def admin_export_patients(request):
             ("health_fitbit.csv", _csv_health_fitbit(patients, user_map)),
             ("questionnaire_answers.csv", _csv_questionnaire_answers(patient_map)),
             ("question_dictionary.csv", _csv_question_dictionary()),
+            ("intervention_library.csv", _csv_intervention_library()),
             ("thresholds.csv", _csv_thresholds(patients)),
             ("threshold_history.csv", _csv_threshold_history(patients)),
             ("activity_logs.csv", _csv_activity_logs(patient_map)),
