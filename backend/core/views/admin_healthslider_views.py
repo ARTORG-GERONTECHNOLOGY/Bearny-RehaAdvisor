@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_and_validate_email(value):
-    normalized = (value or "").strip().lower()
+    if not isinstance(value, str):
+        raise ValidationError("Email must be a string")
+    normalized = value.strip().lower()
     if not normalized:
         return ""
     validate_email(normalized)
@@ -61,7 +63,7 @@ def admin_healthslider_allowlist(request):
             try:
                 normalized = _normalize_and_validate_email(data.get("email"))
             except ValidationError:
-                return JsonResponse({"error": "invalid email"}, status=400)
+                return JsonResponse({"error": "Invalid email format"}, status=400)
             if not normalized:
                 return JsonResponse({"error": "email is required"}, status=400)
             note = (data.get("note") or "").strip() or None
@@ -82,7 +84,7 @@ def admin_healthslider_allowlist(request):
             try:
                 normalized = _normalize_and_validate_email(data.get("email"))
             except ValidationError:
-                return JsonResponse({"error": "invalid email"}, status=400)
+                return JsonResponse({"error": "Invalid email format"}, status=400)
             if not normalized:
                 return JsonResponse({"error": "email is required"}, status=400)
             entry = HealthSliderEmailAllowlist.objects(email=normalized).first()

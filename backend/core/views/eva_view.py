@@ -42,8 +42,10 @@ from datetime import timezone as dt_timezone
 
 from django.conf import settings
 from django.core import signing
+from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.core.mail import EmailMultiAlternatives
+from django.core.validators import validate_email
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -93,6 +95,10 @@ def healthslider_download_auth(request):
             return JsonResponse({"error": "Email required"}, status=400)
 
         normalized_email = email.lower()
+        try:
+            validate_email(normalized_email)
+        except ValidationError:
+            return JsonResponse({"error": "Invalid email format"}, status=400)
         if not HealthSliderEmailAllowlist.objects(email=normalized_email).first():
             return JsonResponse(
                 {
