@@ -48,7 +48,7 @@ from django.http import FileResponse, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
-from core.models import HealthSliderEntry, SMSVerification
+from core.models import HealthSliderAccessLog, HealthSliderEmailAllowlist, HealthSliderEntry, SMSVerification
 from utils.utils import check_verify_rate_limit, increment_verify_attempt, reset_verify_attempts
 
 logger = logging.getLogger(__name__)
@@ -57,6 +57,7 @@ logger = logging.getLogger(__name__)
 # Download-only auth constants
 # ---------------------------------------------------------------------------
 _DL_SALT = "healthslider_dl"
+_EMAIL_PAT = r"^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$"
 _DL_TOKEN_MAX_AGE = 28800  # 8 hours
 
 
@@ -92,9 +93,25 @@ def healthslider_download_auth(request):
         if not email:
             return JsonResponse({"error": "Email required"}, status=400)
 
+        m = re.fullmatch(_EMAIL_PAT, email.lower())
+        if not m:
+            return JsonResponse({"error": "Invalid email format"}, status=400)
+        normalized_email = m.group(0)
+        # Fetch the allowlist without user-supplied filter values so no tainted data
+        # reaches the MongoDB query.  Membership check happens in pure Python.
+        allowed_emails = {e.email for e in HealthSliderEmailAllowlist.objects.only("email")}
+        if normalized_email not in allowed_emails:
+            return JsonResponse(
+                {
+                    "error": "This email address is not authorised for ICF Monitor downloads. "
+                    "Contact your study coordinator."
+                },
+                status=403,
+            )
+
         code = "".join(secrets.choice(string.digits) for _ in range(6))
         expires_at = timezone.now() + timedelta(minutes=10)
-        SMSVerification(userId="healthslider_download", code=code, expires_at=expires_at).save()
+        SMSVerification(userId="healthslider_download", code=code, expires_at=expires_at, email=normalized_email).save()
 
         msg = EmailMultiAlternatives(
             subject="ICF Monitor Download Code",
@@ -152,9 +169,16 @@ def healthslider_download_verify(request):
             verification.delete()
             return JsonResponse({"error": "Code expired"}, status=400)
 
+        researcher_email = getattr(verification, "email", None) or ""
         verification.delete()
         reset_verify_attempts(_rl_key)
-        token = signing.dumps({"ok": True}, salt=_DL_SALT)
+
+        HealthSliderAccessLog(
+            email=researcher_email,
+            ip_address=request.META.get("REMOTE_ADDR", ""),
+        ).save()
+
+        token = signing.dumps({"ok": True, "email": researcher_email}, salt=_DL_SALT)
         return JsonResponse({"token": token}, status=200)
     except Exception:
         logger.exception("healthslider_download_verify failed")

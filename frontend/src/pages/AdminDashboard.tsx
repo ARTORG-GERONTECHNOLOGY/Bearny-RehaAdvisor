@@ -262,6 +262,93 @@ const AdminDashboard: React.FC = observer(() => {
   }, [questionnaires, questionnaireSearch]);
 
   // -------------------------
+  // ICF Access tab
+  // -------------------------
+  type AllowlistEntry = {
+    email: string;
+    added_by: string;
+    added_at: string;
+    note: string;
+  };
+  type AccessLogEntry = {
+    email: string;
+    logged_at: string;
+    ip_address: string;
+  };
+
+  const [allowlist, setAllowlist] = useState<AllowlistEntry[]>([]);
+  const [recentAccess, setRecentAccess] = useState<AccessLogEntry[]>([]);
+  const [icfLoading, setIcfLoading] = useState(false);
+  const [icfError, setIcfError] = useState<string | null>(null);
+  const [icfNewEmail, setIcfNewEmail] = useState('');
+  const [icfNewNote, setIcfNewNote] = useState('');
+  const [icfAddLoading, setIcfAddLoading] = useState(false);
+  const [icfBulkOpen, setIcfBulkOpen] = useState(false);
+  const [icfBulkText, setIcfBulkText] = useState('');
+  const [icfBulkLoading, setIcfBulkLoading] = useState(false);
+
+  const fetchIcfAllowlist = useCallback(async () => {
+    setIcfLoading(true);
+    setIcfError(null);
+    try {
+      const res = await apiClient.get('/admin/healthslider-allowlist/');
+      setAllowlist(Array.isArray(res.data?.allowlist) ? res.data.allowlist : []);
+      setRecentAccess(Array.isArray(res.data?.recent_access) ? res.data.recent_access : []);
+    } catch (e: any) {
+      setIcfError(getApiErrorMessage(e, 'Failed to load allowlist.'));
+    } finally {
+      setIcfLoading(false);
+    }
+  }, []);
+
+  const addIcfEmail = async () => {
+    const email = icfNewEmail.trim();
+    if (!email) return;
+    setIcfAddLoading(true);
+    setIcfError(null);
+    try {
+      await apiClient.post('/admin/healthslider-allowlist/', { email, note: icfNewNote.trim() });
+      setIcfNewEmail('');
+      setIcfNewNote('');
+      await fetchIcfAllowlist();
+    } catch (e: any) {
+      setIcfError(getApiErrorMessage(e, 'Failed to add email.'));
+    } finally {
+      setIcfAddLoading(false);
+    }
+  };
+
+  const removeIcfEmail = async (email: string) => {
+    setIcfError(null);
+    try {
+      await apiClient.delete('/admin/healthslider-allowlist/', { data: { email } });
+      await fetchIcfAllowlist();
+    } catch (e: any) {
+      setIcfError(getApiErrorMessage(e, 'Failed to remove email.'));
+    }
+  };
+
+  const bulkAddIcfEmails = async () => {
+    const emails = icfBulkText
+      .split('\n')
+      .map((e) => e.trim())
+      .filter(Boolean);
+    if (!emails.length) return;
+    setIcfBulkLoading(true);
+    setIcfError(null);
+    try {
+      await apiClient.post('/admin/healthslider-allowlist/bulk/', { emails });
+      setIcfBulkText('');
+      setIcfBulkOpen(false);
+      await fetchIcfAllowlist();
+    } catch (e: any) {
+      setIcfError(getApiErrorMessage(e, 'Bulk import failed.'));
+    } finally {
+      setIcfBulkLoading(false);
+    }
+  };
+
+  // -------------------------
   // Access change requests tab
   // -------------------------
   type AccessChangeRequest = {
@@ -402,6 +489,7 @@ const AdminDashboard: React.FC = observer(() => {
     fetchInterventions();
     fetchQuestionnaires();
     fetchExportClinics();
+    fetchIcfAllowlist();
   }, [
     isAllowed,
     store,
@@ -410,6 +498,7 @@ const AdminDashboard: React.FC = observer(() => {
     fetchInterventions,
     fetchQuestionnaires,
     fetchExportClinics,
+    fetchIcfAllowlist,
   ]);
 
   const getTherapistIdFromEntry = (entry: any) => {
@@ -582,6 +671,7 @@ const AdminDashboard: React.FC = observer(() => {
           <TabsTrigger value="analytics" onClick={fetchAnalytics}>
             {t('Analytics')}
           </TabsTrigger>
+          <TabsTrigger value="icf-access">{t('ICF Access')}</TabsTrigger>
           <TabsTrigger value="system">{t('System')}</TabsTrigger>
         </TabsList>
 
@@ -1110,7 +1200,159 @@ const AdminDashboard: React.FC = observer(() => {
           {!analyticsLoading && <ActiveUsersCard />}
         </TabsContent>
 
-        {/* ── Tab 7: system status ── */}
+        {/* ── Tab 7: ICF Access allowlist ── */}
+        <TabsContent value="icf-access">
+          {icfError && <ErrorAlert message={icfError} onClose={() => setIcfError(null)} />}
+
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-3">{t('Add email address')}</h3>
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-48">
+                <Label className="text-xs mb-1 block">{t('Email')}</Label>
+                <Input
+                  type="email"
+                  placeholder="researcher@institution.ch"
+                  value={icfNewEmail}
+                  onChange={(e) => setIcfNewEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addIcfEmail()}
+                  className="h-9"
+                />
+              </div>
+              <div className="flex-1 min-w-32">
+                <Label className="text-xs mb-1 block">{t('Note (optional)')}</Label>
+                <Input
+                  placeholder={t('e.g. Study coordinator')}
+                  value={icfNewNote}
+                  onChange={(e) => setIcfNewNote(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              <Button
+                size="dashboard"
+                onClick={addIcfEmail}
+                disabled={icfAddLoading || !icfNewEmail.trim()}
+              >
+                {icfAddLoading ? t('Adding...') : t('Add')}
+              </Button>
+              <Button
+                size="dashboard"
+                variant="secondary"
+                onClick={() => setIcfBulkOpen((v) => !v)}
+              >
+                {t('Bulk import')}
+              </Button>
+            </div>
+
+            {icfBulkOpen && (
+              <div className="mt-3 border rounded-xl p-3">
+                <Label className="text-xs mb-1 block">{t('One email per line')}</Label>
+                <textarea
+                  className="w-full border rounded-lg p-2 text-sm font-mono h-28 resize-none"
+                  placeholder={'researcher1@unibe.ch\nresearcher2@bfh.ch'}
+                  value={icfBulkText}
+                  onChange={(e) => setIcfBulkText(e.target.value)}
+                />
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    size="dashboard"
+                    onClick={bulkAddIcfEmails}
+                    disabled={icfBulkLoading || !icfBulkText.trim()}
+                  >
+                    {icfBulkLoading ? t('Importing...') : t('Import')}
+                  </Button>
+                  <Button
+                    size="dashboard"
+                    variant="secondary"
+                    onClick={() => {
+                      setIcfBulkOpen(false);
+                      setIcfBulkText('');
+                    }}
+                  >
+                    {t('Cancel')}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold mb-2">{t('Authorised emails')}</h3>
+            {icfLoading ? (
+              <div className="text-center my-4">
+                <Spinner />
+              </div>
+            ) : allowlist.length === 0 ? (
+              <p className="text-muted-foreground text-sm">{t('No emails in allowlist yet.')}</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('Email')}</TableHead>
+                    <TableHead>{t('Added by')}</TableHead>
+                    <TableHead>{t('Date added')}</TableHead>
+                    <TableHead>{t('Note')}</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allowlist.map((entry) => (
+                    <TableRow key={entry.email}>
+                      <TableCell className="font-mono text-sm">{entry.email}</TableCell>
+                      <TableCell className="text-sm">{entry.added_by || '—'}</TableCell>
+                      <TableCell className="text-sm">
+                        {entry.added_at ? formatLocaleDate(entry.added_at) : '—'}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {entry.note || '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="dashboard"
+                          className="bg-red-500 hover:bg-red-600 text-white"
+                          onClick={() => removeIcfEmail(entry.email)}
+                        >
+                          {t('Remove')}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold mb-2">{t('Recent access log')}</h3>
+            {recentAccess.length === 0 ? (
+              <p className="text-muted-foreground text-sm">{t('No logins recorded yet.')}</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('Email')}</TableHead>
+                    <TableHead>{t('Logged in at')}</TableHead>
+                    <TableHead>{t('IP address')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentAccess.map((log, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono text-sm">{log.email}</TableCell>
+                      <TableCell className="text-sm">
+                        {log.logged_at ? formatLocaleDateTime(log.logged_at) : '—'}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {log.ip_address || '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── Tab 8: system status ── */}
         <TabsContent value="system">
           <SystemStatusTab />
         </TabsContent>
