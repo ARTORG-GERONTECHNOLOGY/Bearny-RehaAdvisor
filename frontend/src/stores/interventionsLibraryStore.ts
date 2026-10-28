@@ -34,16 +34,18 @@ export const libraryRef = (item: unknown): string => {
   return asString(item.external_id, '') || asString(item._id ?? item.id, '');
 };
 
-// Completed wins over viewed: the backend lists an item in at most one, but a stale cache could hold both.
-export const libraryItemStatus = (
-  status: LibraryStatus,
-  item: unknown
-): 'completed' | 'viewed' | null => {
-  const ref = libraryRef(item);
-  if (!ref) return null;
-  if (status.completed.includes(ref)) return 'completed';
-  if (status.viewed.includes(ref)) return 'viewed';
-  return null;
+// Built once per status, so each card is a set lookup. Completed wins over viewed: the backend lists an
+// item in at most one, but a stale cache could hold both.
+export const libraryStatusLookup = (status: LibraryStatus) => {
+  const completed = new Set(status.completed);
+  const viewed = new Set(status.viewed);
+  return (item: unknown): 'completed' | 'viewed' | null => {
+    const ref = libraryRef(item);
+    if (!ref) return null;
+    if (completed.has(ref)) return 'completed';
+    if (viewed.has(ref)) return 'viewed';
+    return null;
+  };
 };
 
 type FetchOptions = {

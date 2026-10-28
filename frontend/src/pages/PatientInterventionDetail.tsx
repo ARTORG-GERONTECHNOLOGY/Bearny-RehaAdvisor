@@ -396,6 +396,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
       }
     } catch (err) {
       console.error('Toggle completed failed:', err);
+      setError(String(t('Something went wrong.')));
     } finally {
       setBusyKey(null);
     }
@@ -435,6 +436,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
       }
     } catch (err) {
       console.error('Toggle library completed failed:', err);
+      setError(String(t('Something went wrong.')));
     } finally {
       setBusyKey(null);
     }

@@ -10,7 +10,7 @@ import PageHeader from '@/components/PageHeader';
 
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import {
-  libraryItemStatus,
+  libraryStatusLookup,
   patientInterventionsLibraryStore,
 } from '@/stores/interventionsLibraryStore';
 import authStore from '@/stores/authStore';
@@ -263,10 +263,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   }, [isAllowed]);
 
   const libraryStatus = patientInterventionsLibraryStore.status;
-  const statusOf = useCallback(
-    (item: InterventionCardItem) => libraryItemStatus(libraryStatus, item),
-    [libraryStatus]
-  );
+  const statusOf = useMemo(() => libraryStatusLookup(libraryStatus), [libraryStatus]);
 
   const sourceItems = patientInterventionsLibraryStore.visibleItemsForPatient;
   const storeError = patientInterventionsLibraryStore.error;

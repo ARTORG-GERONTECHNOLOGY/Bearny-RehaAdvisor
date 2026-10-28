@@ -289,6 +289,9 @@ def submit_patient_feedback(request):
 
             for qkey, answer_val in answers.items():
                 # keep your special video handling
+                # Library logs carry no video; a hand-made video answer is dropped, not attached.
+                if qkey == "video_example" and from_library:
+                    continue
                 if qkey == "video_example" and isinstance(answer_val, dict) and "video_url" in answer_val:
                     log.video_url = answer_val["video_url"]
                     log.video_expired = False

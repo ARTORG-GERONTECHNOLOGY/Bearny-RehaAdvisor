@@ -1209,6 +1209,28 @@ describe('PatientInterventionDetail', () => {
       );
     });
 
+    it('tells the patient when saving a library completion fails', async () => {
+      libraryStore.setLibraryCompleted.mockRejectedValueOnce(new Error('offline'));
+      render(<PatientInterventionDetail />);
+
+      fireEvent.click(await screen.findByRole('button', { name: /Mark as done/i }));
+
+      expect(await screen.findByText('Something went wrong.')).toBeInTheDocument();
+      expect((patientQuestionnairesStore as any).openInterventionFeedback).not.toHaveBeenCalled();
+    });
+
+    it('tells the patient when saving a plan completion fails', async () => {
+      mockSearchParams = new URLSearchParams('date=2026-03-16');
+      (patientInterventionsStore as any).toggleCompleted.mockRejectedValueOnce(
+        new Error('offline')
+      );
+      render(<PatientInterventionDetail />);
+
+      fireEvent.click(await screen.findByRole('button', { name: /Mark as done/i }));
+
+      expect(await screen.findByText('Something went wrong.')).toBeInTheDocument();
+    });
+
     it('keeps the plan button for a plan session and offers no library completion', async () => {
       mockSearchParams = new URLSearchParams('date=2026-03-16');
       libraryStore.lastCompletedOf.mockReturnValue('2026-10-24');

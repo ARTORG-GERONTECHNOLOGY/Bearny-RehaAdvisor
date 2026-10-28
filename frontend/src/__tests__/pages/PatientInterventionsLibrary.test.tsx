@@ -114,7 +114,7 @@ jest.mock('@/stores/authStore', () => ({
 
 jest.mock('@/stores/interventionsLibraryStore', () => ({
   patientInterventionsLibraryStore: mockStore,
-  libraryItemStatus: jest.requireActual('@/stores/interventionsLibraryStore').libraryItemStatus,
+  libraryStatusLookup: jest.requireActual('@/stores/interventionsLibraryStore').libraryStatusLookup,
 }));
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));

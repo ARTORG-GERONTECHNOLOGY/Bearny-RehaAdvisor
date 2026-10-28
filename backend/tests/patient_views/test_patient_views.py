@@ -3911,6 +3911,31 @@ def test_submit_feedback_from_library_never_stores_a_video(mongo_mock):
     assert [a.key for fb in log.feedback for a in fb.answerKey] == ["felt good"]
 
 
+def test_submit_feedback_from_library_drops_a_hand_made_video_answer(mongo_mock):
+    """A video_example text field must not reach the plan's video handling for a library log."""
+    patient, _, intervention, _ = setup_patient_with_plan()
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention", questionKey="open_feedback", answer_type="text", translations=[]
+    )
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(intervention.id),
+            "source": "library",
+            "open_feedback": "fine",
+            "video_example": json.dumps({"video_url": "https://example.com/x.mp4"}),
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 200, resp.content.decode()
+    log = LibraryInterventionLogs.objects(userId=patient).get()
+    assert not hasattr(log, "video_url")
+    assert [a.key for fb in log.feedback for a in fb.answerKey] == ["fine"]
+
+
 def test_submit_feedback_from_library_refuses_a_therapist_before_storing_uploads(mongo_mock):
     """A refused caller must not leave files behind or spend transcription quota."""
     from types import SimpleNamespace

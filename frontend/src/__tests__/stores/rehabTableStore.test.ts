@@ -778,6 +778,39 @@ describe.each([
     store[setter](['completed', 'missed']);
     expect(filteredIds(store)).toEqual(['done', 'skipped']);
   });
+  it('counts an intervention done via the library as completed, not as opened', () => {
+    const store = setup();
+    store.patientData = {
+      ...store.patientData,
+      viewed_interventions: ['skipped', 'unassigned'],
+      library_completions: [
+        { _id: 'skipped', external_id: '', dates: [], completedCount: 1 },
+        { _id: 'unassigned', external_id: '', dates: [], completedCount: 1 },
+      ],
+    };
+
+    store[setter](['completed']);
+    expect(filteredIds(store)).toContain('skipped');
+    if (source === 'recommendations') expect(filteredIds(store)).toContain('unassigned');
+
+    store[setter](['accessed']);
+    expect(filteredIds(store)).not.toContain('skipped');
+    expect(filteredIds(store)).not.toContain('unassigned');
+
+    store[setter](['not_seen']);
+    expect(filteredIds(store)).not.toContain('unassigned');
+  });
+
+  it('does not count a library rating without a completion', () => {
+    const store = setup();
+    store.patientData = {
+      ...store.patientData,
+      library_completions: [{ _id: 'skipped', external_id: '', dates: [], completedCount: 0 }],
+    };
+
+    store[setter](['completed']);
+    expect(filteredIds(store)).not.toContain('skipped');
+  });
 });
 
 // ---------------------------------------------------------------------------

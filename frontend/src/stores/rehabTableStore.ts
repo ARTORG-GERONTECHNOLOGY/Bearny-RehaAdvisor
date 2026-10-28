@@ -319,11 +319,14 @@ export class RehabTableStore {
 
   // Keeps items with a session in a selected status. Beyond that, "accessed" matches an intervention the
   // patient opened (planned or not) but never completed, and "not_seen" one they never opened or completed.
+  // Done via the library counts as completed, like its badge.
   private filterByStatus(items: Intervention[], statusFilter: string[]): Intervention[] {
     if (!statusFilter.length) return items;
     const viewed = this.viewedInterventions;
+    const library = this.libraryCompletions;
     return items.filter((it) => {
       const statuses = getDates(this.planItemFor(it)).map((d) => d.status);
+      if ((findLibraryCompletion(library, it)?.completedCount || 0) > 0) statuses.push('completed');
       if (statuses.some((st) => statusFilter.includes(st))) return true;
       if (statuses.includes('completed')) return false;
       const opened =

@@ -1,4 +1,4 @@
-import { InterventionsLibraryStore, libraryItemStatus } from '@/stores/interventionsLibraryStore';
+import { InterventionsLibraryStore, libraryStatusLookup } from '@/stores/interventionsLibraryStore';
 import apiClient from '@/api/client';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
@@ -403,22 +403,23 @@ describe('InterventionsLibraryStore', () => {
       expect(store.status.completed).toEqual([]);
     });
 
-    it('libraryItemStatus matches by external_id, then by id', () => {
-      expect(libraryItemStatus(status, { external_id: 'EXT-1', _id: 'x' })).toBe('completed');
-      expect(libraryItemStatus(status, { external_id: 'EXT-2' })).toBe('viewed');
-      expect(libraryItemStatus(status, { _id: 'raw-id' })).toBe('viewed');
-      expect(libraryItemStatus(status, { external_id: 'EXT-3' })).toBeNull();
-      expect(libraryItemStatus(status, {})).toBeNull();
+    it('libraryStatusLookup matches by external_id, then by id', () => {
+      const statusOf = libraryStatusLookup(status);
+      expect(statusOf({ external_id: 'EXT-1', _id: 'x' })).toBe('completed');
+      expect(statusOf({ external_id: 'EXT-2' })).toBe('viewed');
+      expect(statusOf({ _id: 'raw-id' })).toBe('viewed');
+      expect(statusOf({ external_id: 'EXT-3' })).toBeNull();
+      expect(statusOf({})).toBeNull();
     });
 
-    it('libraryItemStatus prefers completed when an item is listed in both', () => {
+    it('libraryStatusLookup prefers completed when an item is listed in both', () => {
       const both = {
         completed: ['EXT-1'],
         viewed: ['EXT-1'],
         last_completed: {},
         last_library_completed: {},
       };
-      expect(libraryItemStatus(both, { external_id: 'EXT-1' })).toBe('completed');
+      expect(libraryStatusLookup(both)({ external_id: 'EXT-1' })).toBe('completed');
     });
   });
 });

@@ -862,16 +862,18 @@ def get_intervention_detail(request, intervention_id):
         patient_filter = accessible_patient_filter(request)
         if patient_filter is not None:
             log_filter["userId__in"] = list(Patient.objects(**patient_filter).scalar("id"))
-        patient_logs = PatientInterventionLogs.objects.filter(**log_filter)
-        for log in patient_logs:
-            for entry in log.feedback or []:
-                feedbacks.append(
-                    {
-                        "date": (entry.date.isoformat() if getattr(entry, "date", None) else None),
-                        "comment": getattr(entry, "comment", None),
-                        "rating": getattr(entry, "rating", None),
-                    }
-                )
+        # Library feedback too, like the library card's rating; source tells the two apart.
+        for source, logs_model in (("plan", PatientInterventionLogs), ("library", LibraryInterventionLogs)):
+            for log in logs_model.objects.filter(**log_filter):
+                for entry in log.feedback or []:
+                    feedbacks.append(
+                        {
+                            "date": (entry.date.isoformat() if getattr(entry, "date", None) else None),
+                            "comment": getattr(entry, "comment", None),
+                            "rating": getattr(entry, "rating", None),
+                            "source": source,
+                        }
+                    )
 
         data = {
             "_id": str(intervention.id),
