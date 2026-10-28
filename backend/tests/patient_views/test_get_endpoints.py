@@ -2249,6 +2249,19 @@ def test_therapist_plan_lists_library_completions_with_their_ratings(mongo_mock)
     assert by_ref["TEST-EXT-LIB"]["dates"][0]["status"] == ""
 
 
+def test_therapist_plan_counts_a_day_once_even_with_a_duplicate_library_log(mongo_mock):
+    """Two writes racing on one day can leave two logs; the therapist still sees one completed day."""
+    patient, _, intervention, _ = setup_basic_plan()
+    today = timezone.localdate()
+    _library_log(patient, intervention, today)
+    _library_log(patient, intervention, today)
+    _library_log(patient, intervention, today - timedelta(days=1))
+
+    resp = client.get(f"/api/patients/rehabilitation-plan/therapist/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
+
+    assert resp.json()["library_completions"][0]["completedCount"] == 2
+
+
 def test_therapist_plan_has_no_library_completions_by_default(mongo_mock):
     patient, _, _, _ = setup_basic_plan()
 

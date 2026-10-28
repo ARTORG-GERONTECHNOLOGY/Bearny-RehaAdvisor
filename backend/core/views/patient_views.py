@@ -110,6 +110,10 @@ def submit_patient_feedback(request):
             return JsonResponse({"error": "Patient not found."}, status=404)
         if not can_access_patient(request, patient, allow_self=True):
             return _forbidden_patient()
+        # Library feedback is what the patient chose to do themselves; refused before any upload is stored.
+        from_library = bool(intervention_id) and request.POST.get("source") == "library"
+        if from_library and not is_self(request, patient.userId.id):
+            return _forbidden_patient()
 
         # --- Resolve target day (date-only) ---
         # If FE didn't send it, fallback to "today"
@@ -139,6 +143,9 @@ def submit_patient_feedback(request):
 
             # --- Video (unchanged) ---
             if ct.startswith("video/"):
+                # Never stored for the library: no log there would point to it, so it could never expire.
+                if from_library:
+                    continue
                 ext = upload.name.rsplit(".", 1)[-1].lower()
                 fname = f"{ts}_{upload.name}"
                 path = default_storage.save(f"video_feedback/{fname}", upload)
@@ -242,10 +249,7 @@ def submit_patient_feedback(request):
             if not intervention:
                 return JsonResponse({"error": "Intervention not found."}, status=404)
 
-            from_library = request.POST.get("source") == "library"
             if from_library:
-                if not is_self(request, patient.userId.id):
-                    return _forbidden_patient()
                 log = _library_log_for_day(patient, intervention, target_day)
                 canonical_intervention = log.interventionId
             else:
@@ -284,9 +288,6 @@ def submit_patient_feedback(request):
                     )
 
             for qkey, answer_val in answers.items():
-                # Library logs carry no video: it is only ever requested for a plan session.
-                if qkey == "video_example" and from_library:
-                    continue
                 # keep your special video handling
                 if qkey == "video_example" and isinstance(answer_val, dict) and "video_url" in answer_val:
                     log.video_url = answer_val["video_url"]
@@ -3188,11 +3189,13 @@ def _library_completions_for_therapist(library_logs, questions_by_id, star_q_ids
         raw_id = str(lg.interventionId.id)
         group = groups.setdefault(
             refs[raw_id],
-            {"_id": raw_id, "external_id": refs[raw_id], "dates": [], "completedCount": 0, "ratings": []},
+            {"_id": raw_id, "external_id": refs[raw_id], "dates": [], "completed_days": set(), "ratings": []},
         )
         feedback, ratings = _therapist_feedback(lg, questions_by_id, star_q_ids)
         completed = "completed" in (lg.status or [])
-        group["completedCount"] += int(completed)
+        if completed:
+            # Days, not logs: two writes racing on one day can leave a duplicate log.
+            group["completed_days"].add(lg.date.date())
         group["ratings"].extend(ratings)
         group["dates"].append(
             {
@@ -3206,6 +3209,7 @@ def _library_completions_for_therapist(library_logs, questions_by_id, star_q_ids
     out = []
     for group in groups.values():
         ratings = group.pop("ratings")
+        group["completedCount"] = len(group.pop("completed_days"))
         group["dates"].sort(key=lambda d: d["datetime"])
         group["ratingCount"] = len(ratings)
         group["averageRating"] = round(sum(ratings) / len(ratings), 1) if ratings else 0

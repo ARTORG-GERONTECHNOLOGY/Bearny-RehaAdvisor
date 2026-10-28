@@ -7,7 +7,7 @@ from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from core.models import GeneralFeedback, PatientInterventionLogs
+from core.models import GeneralFeedback, LibraryInterventionLogs, PatientInterventionLogs
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class Command(BaseCommand):
     help = (
         "Deletes old feedback media files (videos and audios) older than --days days.\n"
         "Videos: PatientInterventionLogs.video_url — marked with video_expired=True.\n"
-        "Audios: FeedbackEntry.audio_url in PatientInterventionLogs and GeneralFeedback\n"
+        "Audios: FeedbackEntry.audio_url in PatientInterventionLogs, LibraryInterventionLogs and GeneralFeedback\n"
         "        — audio_url cleared to '' after deletion.\n"
         "Controlled by ENABLE_MEDIA_AUTO_DELETE env var when run via Celery.\n"
         "Default cutoff is 14 days based on updatedAt/createdAt/date (best available)."
@@ -229,7 +229,7 @@ class Command(BaseCommand):
             # If legacy structure doesn't exist anymore, we just ignore it.
             pass
 
-        # --- AUDIO: FeedbackEntry.audio_url in PatientInterventionLogs ---
+        # --- AUDIO: FeedbackEntry.audio_url in plan logs, library logs and general feedback ---
         # FeedbackEntry embeds a `date` field — use that as the age proxy.
         # After deletion the audio_url field is cleared to "" so the record is not revisited.
         audio_deleted = 0
@@ -237,6 +237,7 @@ class Command(BaseCommand):
 
         for doc_class, list_field in [
             (PatientInterventionLogs, "feedback"),
+            (LibraryInterventionLogs, "feedback"),
             (GeneralFeedback, "feedback_entries"),
         ]:
             try:

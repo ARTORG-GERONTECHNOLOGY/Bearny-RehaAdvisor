@@ -3884,23 +3884,59 @@ def test_submit_feedback_from_library_lands_on_the_library_log(mongo_mock):
     assert [a.key for fb in log.feedback for a in fb.answerKey] == ["4"]
 
 
-def test_submit_feedback_from_library_drops_a_video(mongo_mock):
+def test_submit_feedback_from_library_never_stores_a_video(mongo_mock):
+    """No library log would point to the file, so it could never expire."""
     patient, _, intervention, _ = setup_patient_with_plan()
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention", questionKey="open_feedback", answer_type="text", translations=[]
+    )
 
     with patch("core.views.patient_views.default_storage") as storage:
-        storage.save.return_value = "video_feedback/x.mp4"
-        storage.url.return_value = "/media/video_feedback/x.mp4"
         resp = client.post(
             "/api/patients/feedback/questionaire/",
             data={
                 "userId": str(patient.userId.id),
                 "interventionId": str(intervention.id),
                 "source": "library",
+                "open_feedback": "felt good",
                 "video_example": SimpleUploadedFile("v.mp4", b"x", content_type="video/mp4"),
             },
             HTTP_AUTHORIZATION="Bearer test",
         )
 
-    assert resp.status_code == 200
+    assert resp.status_code == 200, resp.content.decode()
+    storage.save.assert_not_called()
     assert PatientInterventionLogs.objects(userId=patient).count() == 0
-    assert LibraryInterventionLogs.objects(userId=patient).get().feedback == []
+    log = LibraryInterventionLogs.objects(userId=patient).get()
+    assert [a.key for fb in log.feedback for a in fb.answerKey] == ["felt good"]
+
+
+def test_submit_feedback_from_library_refuses_a_therapist_before_storing_uploads(mongo_mock):
+    """A refused caller must not leave files behind or spend transcription quota."""
+    from types import SimpleNamespace
+
+    from django.test import override_settings
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.patient_views import submit_patient_feedback
+
+    patient, therapist, intervention, _ = setup_patient_with_plan()
+    patient.update(clinic="Inselspital")  # the therapist covers this patient
+    request = APIRequestFactory().post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(intervention.id),
+            "source": "library",
+            "open_feedback_audio": SimpleUploadedFile("a.wav", b"x", content_type="audio/wav"),
+        },
+        format="multipart",
+    )
+    force_authenticate(request, user=SimpleNamespace(is_authenticated=True, id=str(therapist.userId.id)))
+
+    with patch("core.views.patient_views.default_storage") as storage, override_settings(TESTING=False):
+        resp = submit_patient_feedback(request)
+
+    assert resp.status_code == 403
+    storage.save.assert_not_called()
+    assert LibraryInterventionLogs.objects.count() == 0

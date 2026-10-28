@@ -64,7 +64,7 @@ One row per scheduled session date per intervention per rehabilitation plan. A p
 
 One row per completed or skipped session. Only sessions that were acted on by the patient appear here; future scheduled sessions do not.
 
-Interventions the patient completed on their own from the library are included as well, with `source` set to `library`. They were not planned by the therapist, so they have no matching row in `rehab_calendar.csv`, and `date` is the day the patient completed them.
+Interventions the patient did on their own from the library are included as well, with `source` set to `library`. They were not planned by the therapist, so they have no matching row in `rehab_calendar.csv`, and `date` is the day the patient did them. A library row with an empty `status` holds only a rating: the patient rated the intervention, then undid the completion.
 
 | Column | Description |
 |---|---|
