@@ -55,7 +55,7 @@ from django.core import signing
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, RequestFactory
 
-from core.models import HealthSliderEntry, SMSVerification
+from core.models import HealthSliderEmailAllowlist, HealthSliderEntry, SMSVerification
 from core.views.eva_view import (
     _DL_SALT,
     _guess_ext,
@@ -249,7 +249,8 @@ def test_download_auth_wrong_password():
     assert "Invalid password" in r.json()["error"]
 
 
-def test_download_auth_correct_password_sends_code():
+def test_download_auth_correct_password_sends_code(mongo_mock):
+    HealthSliderEmailAllowlist(email="researcher@example.com").save()
     with (
         patch.dict("os.environ", {"HEALTHSLIDER_DOWNLOAD_PASSWORD": "secret123"}),
         patch("core.views.eva_view.EmailMultiAlternatives.send"),
@@ -274,7 +275,7 @@ def test_download_verify_invalid_code():
     assert "Invalid code" in r.json()["error"]
 
 
-def test_download_verify_valid_code_returns_token():
+def test_download_verify_valid_code_returns_token(mongo_mock):
     from datetime import timedelta
 
     from django.utils import timezone
@@ -283,6 +284,7 @@ def test_download_verify_valid_code_returns_token():
         userId="healthslider_download",
         code="123456",
         expires_at=timezone.now() + timedelta(minutes=10),
+        email="researcher@example.com",
     ).save()
     r = client.post(
         "/api/healthslider/auth/verify/",
@@ -292,8 +294,9 @@ def test_download_verify_valid_code_returns_token():
     assert r.status_code == 200
     token = r.json()["token"]
     assert token
-    # Token must be valid for the download endpoints
-    assert signing.loads(token, salt=_DL_SALT) == {"ok": True}
+    payload = signing.loads(token, salt=_DL_SALT)
+    assert payload["ok"] is True
+    assert payload["email"] == "researcher@example.com"
 
 
 def test_download_session_zip_requires_participant_and_no_files():

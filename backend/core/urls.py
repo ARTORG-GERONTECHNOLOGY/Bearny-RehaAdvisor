@@ -22,6 +22,7 @@ from core.views.admin_export_views import (
     admin_export_clinics,
     admin_export_patients,
 )
+from core.views.admin_healthslider_views import admin_healthslider_allowlist, admin_healthslider_allowlist_bulk
 from core.views.admin_intervention_views import admin_interventions
 from core.views.admin_questionnaire_views import admin_questionnaires
 from core.views.admin_system_status_views import admin_system_status
@@ -349,6 +350,9 @@ urlpatterns = [
         name="google_health_disconnect",
     ),
     path("api/auth/get-user-info/<str:user_id>/", auth_views.get_user_info),
+    # ICF/EVA Healthslider — admin allowlist management
+    path("api/admin/healthslider-allowlist/", admin_healthslider_allowlist),
+    path("api/admin/healthslider-allowlist/bulk/", admin_healthslider_allowlist_bulk),
     # ICF/EVA Healthslider
     path("api/healthslider/auth/", healthslider_download_auth),
     path("api/healthslider/auth/verify/", healthslider_download_verify),

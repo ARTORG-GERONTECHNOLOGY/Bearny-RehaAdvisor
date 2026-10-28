@@ -34,6 +34,7 @@ class SMSVerification(Document):
     code = StringField(max_length=6, required=True)
     created_at = DateTimeField(default=timezone.now)
     expires_at = DateTimeField(required=True)
+    email = StringField(required=False, null=True)  # used by healthslider flow (step 1 → step 2)
 
     def __str__(self):
         return f"{self.userId} (User)"
@@ -910,6 +911,28 @@ class HealthSliderEntry(Document):
             ("answered_at",),
         ]
     }
+
+
+class HealthSliderEmailAllowlist(Document):
+    """Pre-approved email addresses that may receive an ICF Monitor download code."""
+
+    meta = {"collection": "healthslider_email_allowlist"}
+    email = StringField(required=True, unique=True)  # stored lowercase
+    added_by = StringField(required=False, null=True)  # admin email who added it
+    added_at = DateTimeField(default=timezone.now)
+    note = StringField(required=False, null=True)
+
+
+class HealthSliderAccessLog(Document):
+    """Records each successful ICF Monitor download login."""
+
+    meta = {
+        "collection": "healthslider_access_log",
+        "indexes": ["-logged_at"],
+    }
+    email = StringField(required=True)
+    logged_at = DateTimeField(default=timezone.now)
+    ip_address = StringField(required=False, null=True)
 
 
 class TaskRun(Document):
