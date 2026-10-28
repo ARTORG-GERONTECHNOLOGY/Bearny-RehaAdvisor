@@ -1775,5 +1775,20 @@
   "Accessed": "Accessed",
   "Opened, not completed": "Opened, not completed",
   "Filter by Status": "Filter by Status",
-  "Not seen yet": "Not seen yet"
+  "Not seen yet": "Not seen yet",
+  "ICF Access": "ICF Access",
+  "Add email address": "Add email address",
+  "Note (optional)": "Note (optional)",
+  "e.g. Study coordinator": "e.g. Study coordinator",
+  "Bulk import": "Bulk import",
+  "One email per line": "One email per line",
+  "Authorised emails": "Authorised emails",
+  "No emails in allowlist yet.": "No emails in allowlist yet.",
+  "Added by": "Added by",
+  "Date added": "Date added",
+  "Logged in at": "Logged in at",
+  "IP address": "IP address",
+  "Recent access log": "Recent access log",
+  "Note": "Note",
+  "No logins recorded yet.": "No logins recorded yet."
 }

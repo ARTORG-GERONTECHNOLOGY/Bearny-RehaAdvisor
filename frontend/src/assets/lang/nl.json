@@ -1775,5 +1775,20 @@
   "Accessed": "Geopend",
   "Opened, not completed": "Geopend, niet voltooid",
   "Filter by Status": "Filteren op status",
-  "Not seen yet": "Nog niet gezien"
+  "Not seen yet": "Nog niet gezien",
+  "ICF Access": "ICF-toegang",
+  "Add email address": "E-mailadres toevoegen",
+  "Note (optional)": "Opmerking (optioneel)",
+  "e.g. Study coordinator": "bijv. Studiecoördinator",
+  "Bulk import": "Bulk importeren",
+  "One email per line": "Één e-mail per regel",
+  "Authorised emails": "Geautoriseerde e-mailadressen",
+  "No emails in allowlist yet.": "Nog geen e-mailadressen in de toegangslijst.",
+  "Added by": "Toegevoegd door",
+  "Date added": "Datum toegevoegd",
+  "Logged in at": "Ingelogd op",
+  "IP address": "IP-adres",
+  "Recent access log": "Recent toegangslog",
+  "Note": "Opmerking",
+  "No logins recorded yet.": "Nog geen aanmeldingen geregistreerd."
 }

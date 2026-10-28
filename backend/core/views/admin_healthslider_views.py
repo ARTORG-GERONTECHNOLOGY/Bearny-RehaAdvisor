@@ -88,7 +88,7 @@ def admin_healthslider_allowlist(request):
             if not entry:
                 return JsonResponse({"error": "Email not found in allowlist"}, status=404)
             entry.delete()
-            return JsonResponse({"ok": True, "email": normalized})
+            return JsonResponse({"ok": True, "email": safe_email})
         except Exception:
             logger.exception("admin_healthslider_allowlist DELETE failed")
             return JsonResponse({"error": "Internal server error"}, status=500)

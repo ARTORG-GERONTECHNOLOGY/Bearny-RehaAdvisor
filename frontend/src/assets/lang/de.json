@@ -1775,5 +1775,20 @@
   "Accessed": "Geöffnet",
   "Opened, not completed": "Geöffnet, nicht abgeschlossen",
   "Filter by Status": "Nach Status filtern",
-  "Not seen yet": "Noch nicht gesehen"
+  "Not seen yet": "Noch nicht gesehen",
+  "ICF Access": "ICF-Zugang",
+  "Add email address": "E-Mail-Adresse hinzufügen",
+  "Note (optional)": "Notiz (optional)",
+  "e.g. Study coordinator": "z.B. Studienkoordinator",
+  "Bulk import": "Massenimport",
+  "One email per line": "Eine E-Mail pro Zeile",
+  "Authorised emails": "Autorisierte E-Mail-Adressen",
+  "No emails in allowlist yet.": "Noch keine E-Mail-Adressen in der Erlaubnisliste.",
+  "Added by": "Hinzugefügt von",
+  "Date added": "Datum hinzugefügt",
+  "Logged in at": "Angemeldet um",
+  "IP address": "IP-Adresse",
+  "Recent access log": "Letzte Zugriffe",
+  "Note": "Notiz",
+  "No logins recorded yet.": "Noch keine Anmeldungen aufgezeichnet."
 }
