@@ -20,10 +20,9 @@ from core.permissions import IsAdmin
 
 logger = logging.getLogger(__name__)
 
-# Strict email pattern used as inline sanitizer guard before every MongoDB query.
-# CodeQL recognises re.fullmatch() as a taint sanitizer; the match object's .group()
-# carries no taint from the original user-supplied value.
-_EMAIL_RE = re.compile(r"^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$")
+# Pattern used with re.fullmatch() — CodeQL RegExpCheck requires the module-level
+# re.fullmatch() call form (not compiled_pattern.fullmatch()) to break the taint chain.
+_EMAIL_PAT = r"^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$"
 
 
 def _serialize_entry(entry):
@@ -57,7 +56,7 @@ def admin_healthslider_allowlist(request):
             raw = data.get("email")
             if not isinstance(raw, str) or not raw.strip():
                 return JsonResponse({"error": "email is required"}, status=400)
-            m = _EMAIL_RE.fullmatch(raw.strip().lower())
+            m = re.fullmatch(_EMAIL_PAT, raw.strip().lower())
             if not m:
                 return JsonResponse({"error": "Invalid email format"}, status=400)
             safe_email = m.group(0)
@@ -79,7 +78,7 @@ def admin_healthslider_allowlist(request):
             raw = data.get("email")
             if not isinstance(raw, str) or not raw.strip():
                 return JsonResponse({"error": "email is required"}, status=400)
-            m = _EMAIL_RE.fullmatch(raw.strip().lower())
+            m = re.fullmatch(_EMAIL_PAT, raw.strip().lower())
             if not m:
                 return JsonResponse({"error": "Invalid email format"}, status=400)
             safe_email = m.group(0)
@@ -110,7 +109,7 @@ def admin_healthslider_allowlist_bulk(request):
         for raw in raw_emails:
             if not isinstance(raw, str):
                 continue
-            m = _EMAIL_RE.fullmatch(raw.strip().lower())
+            m = re.fullmatch(_EMAIL_PAT, raw.strip().lower())
             if not m:
                 continue
             safe_email = m.group(0)

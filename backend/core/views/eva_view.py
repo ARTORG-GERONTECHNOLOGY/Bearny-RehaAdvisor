@@ -34,7 +34,6 @@ import logging
 import mimetypes
 import os
 import re
-import re as _re
 import secrets
 import string
 import zipfile
@@ -58,7 +57,7 @@ logger = logging.getLogger(__name__)
 # Download-only auth constants
 # ---------------------------------------------------------------------------
 _DL_SALT = "healthslider_dl"
-_EMAIL_RE = _re.compile(r"^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$")
+_EMAIL_PAT = r"^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$"
 _DL_TOKEN_MAX_AGE = 28800  # 8 hours
 
 
@@ -94,7 +93,7 @@ def healthslider_download_auth(request):
         if not email:
             return JsonResponse({"error": "Email required"}, status=400)
 
-        m = _EMAIL_RE.fullmatch(email.lower())
+        m = re.fullmatch(_EMAIL_PAT, email.lower())
         if not m:
             return JsonResponse({"error": "Invalid email format"}, status=400)
         normalized_email = m.group(0)
