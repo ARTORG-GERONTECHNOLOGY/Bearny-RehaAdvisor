@@ -153,6 +153,29 @@ One row per question per submission. Covers the ICF-based health-status question
 
 ---
 
+### `question_dictionary.csv` — Question Lookup Table
+
+One row per question in the question library. Use this as a lookup table to resolve `question_key` values in `questionnaire_answers.csv` and `intervention_feedback.csv` — VLOOKUP or merge on `question_key`.
+
+| Column | Description |
+|---|---|
+| `question_key` | Stable identifier, matches the `question_key` column in the feedback sheets |
+| `question_subject` | Short subject label (e.g. "Exercise", "Pain") |
+| `answer_type` | Response format: `stars`, `select`, `scale`, `text` |
+| `icf_code` | ICF classification code, if applicable (e.g. `b455`) |
+| `text_en` | Question text in English |
+| `text_de` | Question text in German |
+| `text_fr` | Question text in French |
+| `text_it` | Question text in Italian |
+| `text_nl` | Question text in Dutch |
+| `text_pt` | Question text in Portuguese |
+
+**Key format:**
+- Built-in questions use human-readable slugs: `rating_stars_education`, `difficulty_scale`
+- Admin-created questions encode the questionnaire title: `custom_<title_slug>_<8hex>_<index>_<6hex>` — e.g. `custom_evaluation_des_digitalen_wochenprogramms_fim_aim_iam_46942b67_12_942b7e` → questionnaire "Evaluation des digitalen Wochenprogramms (FIM/AIM/IAM)", question 12
+
+---
+
 ### `thresholds.csv` — Current Alert Thresholds
 
 One row per patient showing the thresholds currently configured for their health metrics. These thresholds drive the green/yellow/red traffic-light indicators in the therapist view.

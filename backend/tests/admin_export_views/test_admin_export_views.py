@@ -17,6 +17,7 @@ ZIP export (patients endpoint)
   * health_vitals.csv: PatientVitals rows, correct fields.
   * health_fitbit.csv: FitbitData rows resolved via user_id → patient.
   * questionnaire_answers.csv: PatientICFRating rows with question_key and rating.
+  * question_dictionary.csv: one row per FeedbackQuestion with text in all languages.
   * thresholds.csv: current PatientThresholds per patient.
   * threshold_history.csv: PatientThresholdsSnapshot history rows.
   * activity_logs.csv: Logs documents linked to patients.
@@ -62,6 +63,7 @@ from core.models import (
     PatientVitals,
     RehabilitationPlan,
     Therapist,
+    Translation,
     User,
 )
 
@@ -113,6 +115,7 @@ EXPECTED_CSV_FILES = {
     "health_vitals.csv",
     "health_fitbit.csv",
     "questionnaire_answers.csv",
+    "question_dictionary.csv",
     "thresholds.csv",
     "threshold_history.csv",
     "activity_logs.csv",
@@ -799,6 +802,52 @@ def test_questionnaire_answers_csv_contains_icf_ratings(mongo_mock):
     assert rows[0]["icf_code"] == "d450"
     assert rows[0]["question_key"] == "mobility_icf"
     assert rows[0]["rating"] == "2"
+
+
+# ===========================================================================
+# question_dictionary.csv
+# ===========================================================================
+
+
+def test_question_dictionary_csv_contains_all_questions(mongo_mock):
+    FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_exercise",
+        answer_type="select",
+        icfCode="b455",
+        translations=[
+            Translation(language="en", text="How difficult was the exercise?"),
+            Translation(language="de", text="Wie schwierig war die Übung?"),
+        ],
+    ).save()
+    FeedbackQuestion(
+        questionSubject="Healthstatus",
+        questionKey="custom_weekly_check_abc123_0_def456",
+        answer_type="text",
+    ).save()
+
+    with _open_zip(client.get(EXPORT_URL)) as zf:
+        rows = _read_csv_from_zip(zf, "question_dictionary.csv")
+
+    assert len(rows) == 2
+    by_key = {r["question_key"]: r for r in rows}
+
+    seed = by_key["rating_stars_exercise"]
+    assert seed["question_subject"] == "Intervention"
+    assert seed["answer_type"] == "select"
+    assert seed["icf_code"] == "b455"
+    assert seed["text_en"] == "How difficult was the exercise?"
+    assert seed["text_de"] == "Wie schwierig war die Übung?"
+    assert seed["text_fr"] == ""
+
+    custom = by_key["custom_weekly_check_abc123_0_def456"]
+    assert custom["text_en"] == ""
+
+
+def test_question_dictionary_csv_is_empty_when_no_questions(mongo_mock):
+    with _open_zip(client.get(EXPORT_URL)) as zf:
+        rows = _read_csv_from_zip(zf, "question_dictionary.csv")
+    assert rows == []
 
 
 # ===========================================================================
