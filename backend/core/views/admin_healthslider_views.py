@@ -11,6 +11,8 @@ Routes registered in urls.py:
 import json
 import logging
 
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 
@@ -18,6 +20,14 @@ from core.models import HealthSliderAccessLog, HealthSliderEmailAllowlist
 from core.permissions import IsAdmin
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_and_validate_email(value):
+    normalized = (value or "").strip().lower()
+    if not normalized:
+        return ""
+    validate_email(normalized)
+    return normalized
 
 
 def _serialize_entry(entry):
@@ -48,10 +58,12 @@ def admin_healthslider_allowlist(request):
     if request.method == "POST":
         try:
             data = json.loads(request.body or "{}")
-            raw_email = (data.get("email") or "").strip()
-            if not raw_email:
+            try:
+                normalized = _normalize_and_validate_email(data.get("email"))
+            except ValidationError:
+                return JsonResponse({"error": "invalid email"}, status=400)
+            if not normalized:
                 return JsonResponse({"error": "email is required"}, status=400)
-            normalized = raw_email.lower()
             note = (data.get("note") or "").strip() or None
             added_by = getattr(request.user, "email", None) or getattr(request.user, "username", None) or ""
 
@@ -67,10 +79,12 @@ def admin_healthslider_allowlist(request):
     if request.method == "DELETE":
         try:
             data = json.loads(request.body or "{}")
-            raw_email = (data.get("email") or "").strip()
-            if not raw_email:
+            try:
+                normalized = _normalize_and_validate_email(data.get("email"))
+            except ValidationError:
+                return JsonResponse({"error": "invalid email"}, status=400)
+            if not normalized:
                 return JsonResponse({"error": "email is required"}, status=400)
-            normalized = raw_email.lower()
             entry = HealthSliderEmailAllowlist.objects(email=normalized).first()
             if not entry:
                 return JsonResponse({"error": "Email not found in allowlist"}, status=404)
@@ -95,7 +109,10 @@ def admin_healthslider_allowlist_bulk(request):
         skipped = []
 
         for raw in raw_emails:
-            normalized = (raw or "").strip().lower()
+            try:
+                normalized = _normalize_and_validate_email(raw)
+            except ValidationError:
+                continue
             if not normalized:
                 continue
             if HealthSliderEmailAllowlist.objects(email=normalized).first():
