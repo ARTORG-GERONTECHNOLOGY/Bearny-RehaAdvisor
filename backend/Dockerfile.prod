@@ -1,4 +1,4 @@
-FROM anaconda/miniconda:26.7.1
+FROM anaconda/miniconda:26.9.4
 WORKDIR /app
 
 ENV PATH=/opt/miniconda3/bin:$PATH \
