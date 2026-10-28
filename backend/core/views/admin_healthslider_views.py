@@ -25,6 +25,18 @@ logger = logging.getLogger(__name__)
 _EMAIL_PAT = r"^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$"
 
 
+def _sanitize_nosql_scalar(value):
+    """
+    Defensive NoSQL sanitizer for scalar values used in query filters.
+    Keeps behavior simple: reject suspicious Mongo operator/key characters.
+    """
+    if not isinstance(value, str):
+        raise ValueError("Invalid value type")
+    if "$" in value:
+        raise ValueError("Invalid value")
+    return value
+
+
 def _serialize_entry(entry):
     return {
         "email": entry.email,
@@ -113,11 +125,15 @@ def admin_healthslider_allowlist_bulk(request):
             if not m:
                 continue
             safe_email = m.group(0)
-            if HealthSliderEmailAllowlist.objects(email=safe_email).first():
-                skipped.append(safe_email)
+            try:
+                query_email = _sanitize_nosql_scalar(safe_email)
+            except ValueError:
+                continue
+            if HealthSliderEmailAllowlist.objects(email=query_email).first():
+                skipped.append(query_email)
             else:
-                HealthSliderEmailAllowlist(email=safe_email, added_by=added_by).save()
-                added.append(safe_email)
+                HealthSliderEmailAllowlist(email=query_email, added_by=added_by).save()
+                added.append(query_email)
 
         return JsonResponse({"ok": True, "added": added, "skipped": skipped}, status=201)
     except Exception:
