@@ -34,6 +34,7 @@ import logging
 import mimetypes
 import os
 import re
+import re as _re
 import secrets
 import string
 import zipfile
@@ -42,10 +43,8 @@ from datetime import timezone as dt_timezone
 
 from django.conf import settings
 from django.core import signing
-from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.core.mail import EmailMultiAlternatives
-from django.core.validators import validate_email
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -59,6 +58,7 @@ logger = logging.getLogger(__name__)
 # Download-only auth constants
 # ---------------------------------------------------------------------------
 _DL_SALT = "healthslider_dl"
+_EMAIL_RE = _re.compile(r"^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$")
 _DL_TOKEN_MAX_AGE = 28800  # 8 hours
 
 
@@ -94,11 +94,10 @@ def healthslider_download_auth(request):
         if not email:
             return JsonResponse({"error": "Email required"}, status=400)
 
-        normalized_email = email.lower()
-        try:
-            validate_email(normalized_email)
-        except ValidationError:
+        m = _EMAIL_RE.fullmatch(email.lower())
+        if not m:
             return JsonResponse({"error": "Invalid email format"}, status=400)
+        normalized_email = m.group(0)
         if not HealthSliderEmailAllowlist.objects(email=normalized_email).first():
             return JsonResponse(
                 {
