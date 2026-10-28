@@ -3965,3 +3965,88 @@ def test_submit_feedback_from_library_refuses_a_therapist_before_storing_uploads
     assert resp.status_code == 403
     storage.save.assert_not_called()
     assert LibraryInterventionLogs.objects.count() == 0
+
+
+def _private_intervention_of(owner):
+    return Intervention(
+        title="Private",
+        description="d",
+        content_type="Video",
+        external_id=f"PRIV_{owner.patient_code}",
+        language="en",
+        is_private=True,
+        private_patient_id=owner,
+    ).save()
+
+
+def _other_patient(therapist):
+    user = User(username="p_other", email="o@example.com", createdAt=datetime.now(), isActive=True).save()
+    return Patient(userId=user, patient_code="PAT_OTHER", therapist=therapist).save()
+
+
+def test_mark_completed_from_library_refuses_another_patients_private_intervention(mongo_mock):
+    patient, therapist, _, _ = setup_patient_with_plan()
+    private = _private_intervention_of(_other_patient(therapist))
+
+    resp = _post_complete(patient, private, source="library")
+
+    assert resp.status_code == 404
+    assert LibraryInterventionLogs.objects.count() == 0
+
+
+def test_mark_completed_from_library_accepts_the_patients_own_private_intervention(mongo_mock):
+    patient, _, _, _ = setup_patient_with_plan()
+    private = _private_intervention_of(patient)
+
+    resp = _post_complete(patient, private, source="library")
+
+    assert resp.status_code == 200
+    assert LibraryInterventionLogs.objects(interventionId=private).count() == 1
+
+
+def test_submit_feedback_from_library_refuses_another_patients_private_intervention(mongo_mock):
+    patient, therapist, _, _ = setup_patient_with_plan()
+    private = _private_intervention_of(_other_patient(therapist))
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention", questionKey="open_feedback", answer_type="text", translations=[]
+    )
+
+    resp = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(private.id),
+            "source": "library",
+            "open_feedback": "fine",
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert resp.status_code == 404
+    assert LibraryInterventionLogs.objects.count() == 0
+
+
+def test_library_log_for_a_day_is_unique_and_a_racing_insert_merges(mongo_mock):
+    """Two first writes for one day: the second insert is refused by the index and merged into the first."""
+    from core.views.patient_views import _save_library_log
+
+    patient, _, intervention, _ = setup_patient_with_plan()
+    question = FeedbackQuestion.objects.create(
+        questionSubject="Intervention", questionKey="open_feedback", answer_type="text", translations=[]
+    )
+    day = datetime.combine(timezone.localdate(), dtime.min)
+    first = LibraryInterventionLogs(userId=patient, interventionId=intervention, date=day, status=["completed"])
+    racing = LibraryInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        date=day,
+        status=[],
+        feedback=[FeedbackEntry(questionId=question, answerKey=[AnswerOption(key="fine")])],
+    )
+
+    _save_library_log(first)
+    _save_library_log(racing)
+
+    log = LibraryInterventionLogs.objects(userId=patient).get()
+    assert log.status == ["completed"]
+    assert [a.key for fb in log.feedback for a in fb.answerKey] == ["fine"]

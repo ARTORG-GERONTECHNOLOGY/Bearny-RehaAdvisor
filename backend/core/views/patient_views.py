@@ -16,7 +16,7 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
-from mongoengine.errors import DoesNotExist
+from mongoengine.errors import DoesNotExist, NotUniqueError
 from mongoengine.queryset.visitor import Q
 from pydub import AudioSegment
 from pydub.utils import which as pd_which
@@ -250,6 +250,8 @@ def submit_patient_feedback(request):
                 return JsonResponse({"error": "Intervention not found."}, status=404)
 
             if from_library:
+                if _hidden_from_library(intervention, patient):
+                    return JsonResponse({"error": "Intervention not found."}, status=404)
                 log = _library_log_for_day(patient, intervention, target_day)
                 canonical_intervention = log.interventionId
             else:
@@ -355,7 +357,10 @@ def submit_patient_feedback(request):
             log.updatedAt = timezone.now()
             # Collapse the day onto one variant, so duplicate logs stop accumulating per language.
             log.interventionId = canonical_intervention
-            log.save()
+            if from_library:
+                _save_library_log(log)
+            else:
+                log.save()
 
         # =========================
         # HEALTHSTATUS feedback path
@@ -504,11 +509,34 @@ def _library_log_for_day(patient, intervention, day):
     )
 
 
+def _hidden_from_library(intervention, patient) -> bool:
+    """Another patient's private intervention: the patient never sees it, so can't complete or rate it."""
+    return bool(getattr(intervention, "is_private", False)) and not _is_private_to(intervention, patient)
+
+
+def _save_library_log(log):
+    """Saves a day's library log; if a racing request inserted that day first, merges into its log."""
+    try:
+        log.save()
+    except NotUniqueError:
+        existing = LibraryInterventionLogs.objects(
+            userId=log.userId, interventionId=log.interventionId, date=log.date
+        ).first()
+        if existing is None:
+            raise
+        existing.status = sorted(set(existing.status or []) | set(log.status or []))
+        existing.feedback = (existing.feedback or []) + (log.feedback or [])
+        existing.updatedAt = timezone.now()
+        existing.save()
+
+
 def _set_library_completion(request, patient, intervention, date_str, completed: bool):
     """Marks or unmarks a library completion for one day. Never touches the plan or its logs."""
     # Only the patient: this records what they chose to do themselves.
     if not is_self(request, patient.userId.id):
         return _forbidden_patient()
+    if _hidden_from_library(intervention, patient):
+        return JsonResponse({"error": "Intervention not found"}, status=404)
     if date_str:
         try:
             day = datetime.date.fromisoformat(str(date_str))
@@ -522,7 +550,7 @@ def _set_library_completion(request, patient, intervention, date_str, completed:
         if "completed" not in (log.status or []):
             log.status = (log.status or []) + ["completed"]
         log.updatedAt = timezone.now()
-        log.save()
+        _save_library_log(log)
     else:
         logs = _library_day_logs(patient, intervention, day)
         if not logs:

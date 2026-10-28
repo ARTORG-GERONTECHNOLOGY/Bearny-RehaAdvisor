@@ -2250,11 +2250,14 @@ def test_therapist_plan_lists_library_completions_with_their_ratings(mongo_mock)
 
 
 def test_therapist_plan_counts_a_day_once_even_with_a_duplicate_library_log(mongo_mock):
-    """Two writes racing on one day can leave two logs; the therapist still sees one completed day."""
+    """Two language versions written in the same instant can each get a log; the day still counts once."""
     patient, _, intervention, _ = setup_basic_plan()
+    intervention_de = Intervention(
+        title="Dehnen", description="d", content_type="Video", external_id=intervention.external_id, language="de"
+    ).save()
     today = timezone.localdate()
     _library_log(patient, intervention, today)
-    _library_log(patient, intervention, today)
+    _library_log(patient, intervention_de, today)
     _library_log(patient, intervention, today - timedelta(days=1))
 
     resp = client.get(f"/api/patients/rehabilitation-plan/therapist/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")

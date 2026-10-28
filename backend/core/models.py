@@ -445,7 +445,8 @@ class LibraryInterventionLogs(Document):
     meta = {
         "collection": "LibraryInterventionLogs",
         "indexes": [
-            ("userId", "interventionId", "-date"),
+            # One log per intervention and day: two racing first writes can't both insert.
+            {"fields": ["userId", "interventionId", "date"], "unique": True},
         ],
     }
     userId = ReferenceField("Patient", required=True)

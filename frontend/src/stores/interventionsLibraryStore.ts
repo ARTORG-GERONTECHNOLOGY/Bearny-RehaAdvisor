@@ -34,8 +34,7 @@ export const libraryRef = (item: unknown): string => {
   return asString(item.external_id, '') || asString(item._id ?? item.id, '');
 };
 
-// Built once per status, so each card is a set lookup. Completed wins over viewed: the backend lists an
-// item in at most one, but a stale cache could hold both.
+// Built once per status, so each card is a set lookup; completed wins if a stale status lists both.
 export const libraryStatusLookup = (status: LibraryStatus) => {
   const completed = new Set(status.completed);
   const viewed = new Set(status.viewed);
