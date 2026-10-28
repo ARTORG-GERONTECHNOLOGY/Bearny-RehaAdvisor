@@ -20,8 +20,10 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
   const [reconnecting, setReconnecting] = useState(false);
 
   const hrScopeMissing = patientFitbitStore.hrScopeOk === false;
+  const hrDataMissing = patientFitbitStore.hrDataMissing === true;
 
-  if (dismissed || (!patientFitbitStore.needsReconnect && !hrScopeMissing)) return null;
+  if (dismissed || (!patientFitbitStore.needsReconnect && !hrScopeMissing && !hrDataMissing))
+    return null;
 
   const days = patientFitbitStore.daysUntilExpiry;
   const expired = days === 0 || days === null;
@@ -59,26 +61,34 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
 
       <div className="flex-1 min-w-48 break-words">
         <div className="font-bold text-sm text-zinc-800">
-          {hrScopeMissing
-            ? t('hrScopeBannerTitle')
-            : expired
-              ? t('reconnectBannerExpired')
-              : t('reconnectBannerWarning', { count: days })}
+          {hrDataMissing
+            ? t('hrSyncBannerTitle')
+            : hrScopeMissing
+              ? t('hrScopeBannerTitle')
+              : expired
+                ? t('reconnectBannerExpired')
+                : t('reconnectBannerWarning', { count: days })}
         </div>
         <div className="font-medium text-xs text-zinc-500 mt-0.5">
-          {hrScopeMissing ? t('hrScopeBannerReason') : t('reconnectBannerReason')}
+          {hrDataMissing
+            ? t('hrSyncBannerReason')
+            : hrScopeMissing
+              ? t('hrScopeBannerReason')
+              : t('reconnectBannerReason')}
         </div>
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
-        <Button
-          size="dashboard"
-          className="bg-yellow hover:bg-yellow/90 text-white rounded-2xl"
-          onClick={handleReconnect}
-          disabled={reconnecting}
-        >
-          {t('Reconnect')}
-        </Button>
+        {!hrDataMissing && (
+          <Button
+            size="dashboard"
+            className="bg-yellow hover:bg-yellow/90 text-white rounded-2xl"
+            onClick={handleReconnect}
+            disabled={reconnecting}
+          >
+            {t('Reconnect')}
+          </Button>
+        )}
         <button
           onClick={handleDismiss}
           aria-label="Dismiss"
