@@ -97,6 +97,11 @@ def healthslider_download_auth(request):
         if not m:
             return JsonResponse({"error": "Invalid email format"}, status=400)
         normalized_email = m.group(0)
+        # Defense-in-depth: explicitly reject characters/sequences that can be used
+        # to shape NoSQL queries/operators in downstream Mongo-style queries.
+        if "$" in normalized_email or "\x00" in normalized_email:
+            return JsonResponse({"error": "Invalid email format"}, status=400)
+        normalized_email = str(normalized_email)
         if not HealthSliderEmailAllowlist.objects(email=normalized_email).first():
             return JsonResponse(
                 {
