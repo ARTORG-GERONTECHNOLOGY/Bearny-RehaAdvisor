@@ -20,21 +20,7 @@ from core.permissions import IsAdmin
 
 logger = logging.getLogger(__name__)
 
-# Pattern used with re.fullmatch() — CodeQL RegExpCheck requires the module-level
-# re.fullmatch() call form (not compiled_pattern.fullmatch()) to break the taint chain.
 _EMAIL_PAT = r"^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$"
-
-
-def _sanitize_nosql_scalar(value):
-    """
-    Defensive NoSQL sanitizer for scalar values used in query filters.
-    Keeps behavior simple: reject suspicious Mongo operator/key characters.
-    """
-    if not isinstance(value, str):
-        raise ValueError("Invalid value type")
-    if "$" in value:
-        raise ValueError("Invalid value")
-    return value
 
 
 def _serialize_entry(entry):
@@ -75,7 +61,10 @@ def admin_healthslider_allowlist(request):
             note = (data.get("note") or "").strip() or None
             added_by = getattr(request.user, "email", None) or getattr(request.user, "username", None) or ""
 
-            if HealthSliderEmailAllowlist.objects(email=safe_email).first():
+            # Fetch the full allowlist without user-supplied filter values so that
+            # no tainted data reaches the MongoDB query (avoids NoSQL injection).
+            existing = {e.email for e in HealthSliderEmailAllowlist.objects.only("email")}
+            if safe_email in existing:
                 return JsonResponse({"error": "Email already in allowlist"}, status=409)
 
             HealthSliderEmailAllowlist(email=safe_email, added_by=added_by, note=note).save()
@@ -95,7 +84,11 @@ def admin_healthslider_allowlist(request):
                 return JsonResponse({"error": "Invalid email format"}, status=400)
             safe_email = m.group(0)
 
-            entry = HealthSliderEmailAllowlist.objects(email=safe_email).first()
+            # Fetch all entries without user-supplied filter; find by Python comparison.
+            entry = next(
+                (e for e in HealthSliderEmailAllowlist.objects() if e.email == safe_email),
+                None,
+            )
             if not entry:
                 return JsonResponse({"error": "Email not found in allowlist"}, status=404)
             entry.delete()
@@ -118,6 +111,9 @@ def admin_healthslider_allowlist_bulk(request):
         added = []
         skipped = []
 
+        # Fetch once without user-supplied filter; all comparisons happen in Python.
+        existing = {e.email for e in HealthSliderEmailAllowlist.objects.only("email")}
+
         for raw in raw_emails:
             if not isinstance(raw, str):
                 continue
@@ -125,15 +121,12 @@ def admin_healthslider_allowlist_bulk(request):
             if not m:
                 continue
             safe_email = m.group(0)
-            try:
-                query_email = _sanitize_nosql_scalar(safe_email)
-            except ValueError:
-                continue
-            if HealthSliderEmailAllowlist.objects(email=query_email).first():
-                skipped.append(query_email)
+            if safe_email in existing:
+                skipped.append(safe_email)
             else:
-                HealthSliderEmailAllowlist(email=query_email, added_by=added_by).save()
-                added.append(query_email)
+                HealthSliderEmailAllowlist(email=safe_email, added_by=added_by).save()
+                existing.add(safe_email)
+                added.append(safe_email)
 
         return JsonResponse({"ok": True, "added": added, "skipped": skipped}, status=201)
     except Exception:

@@ -97,12 +97,10 @@ def healthslider_download_auth(request):
         if not m:
             return JsonResponse({"error": "Invalid email format"}, status=400)
         normalized_email = m.group(0)
-        # Defense-in-depth: explicitly reject characters/sequences that can be used
-        # to shape NoSQL queries/operators in downstream Mongo-style queries.
-        if "$" in normalized_email or "\x00" in normalized_email:
-            return JsonResponse({"error": "Invalid email format"}, status=400)
-        normalized_email = str(normalized_email)
-        if not HealthSliderEmailAllowlist.objects(email=normalized_email).first():
+        # Fetch the allowlist without user-supplied filter values so no tainted data
+        # reaches the MongoDB query.  Membership check happens in pure Python.
+        allowed_emails = {e.email for e in HealthSliderEmailAllowlist.objects.only("email")}
+        if normalized_email not in allowed_emails:
             return JsonResponse(
                 {
                     "error": "This email address is not authorised for ICF Monitor downloads. "
