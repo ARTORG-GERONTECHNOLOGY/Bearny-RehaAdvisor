@@ -651,6 +651,21 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const libraryCompletedToday =
     patientInterventionsLibraryStore.lastLibraryCompletedOf(statusRef) === todayKey;
 
+  // Plan links always carry a date, so only library opens show when it was last done.
+  const openedFromLibrary = !searchParams.get('date');
+  // targetDate is today's plan session if there is one; then the plan button shows, otherwise the library one.
+  const doneTodayForShownButton = targetDate ? completed : libraryCompletedToday;
+  const lastDoneLabel =
+    openedFromLibrary && lastDone && !doneTodayForShownButton ? (
+      <span className="text-zinc-500 text-sm">
+        {t('lastDoneOn', {
+          date: format(new Date(`${lastDone}T00:00:00`), 'd MMM yyyy', {
+            locale: getDateFnsLocale(i18n.language),
+          }),
+        })}
+      </span>
+    ) : null;
+
   return (
     <Layout>
       <TooltipProvider>
@@ -667,7 +682,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
             </Button>
 
             {targetDate && (
-              <div className="flex flex-wrap gap-2 justify-end">
+              <div className="flex flex-wrap gap-2 justify-end items-center">
+                {lastDoneLabel}
                 {!completed && targetOccurrenceDate && targetOccurrenceDate >= new Date() && (
                   <Button
                     variant="secondary"
@@ -699,15 +715,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
             {/* Only without a date: a plan link whose session moved shows neither button, not the library one. */}
             {!targetDate && !searchParams.get('date') && (
               <div className="flex flex-wrap gap-2 justify-end items-center">
-                {lastDone && !libraryCompletedToday && (
-                  <span className="text-zinc-500 text-sm">
-                    {t('lastDoneOn', {
-                      date: format(new Date(`${lastDone}T00:00:00`), 'd MMM yyyy', {
-                        locale: getDateFnsLocale(i18n.language),
-                      }),
-                    })}
-                  </span>
-                )}
+                {lastDoneLabel}
 
                 <Button
                   disabled={isLibraryBusy}

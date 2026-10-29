@@ -1280,6 +1280,25 @@ describe('PatientInterventionDetail', () => {
       );
     });
 
+    it('shows when it was last done on a library open of a plan session day', async () => {
+      (patientInterventionsStore as any).items = [buildRec({ dates: [`${todayKey()}T09:00:00`] })];
+      libraryStore.lastCompletedOf.mockReturnValue('2026-10-24');
+      render(<PatientInterventionDetail />);
+
+      expect(await screen.findByText('Last done: 24 Oct 2026')).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /Mark as done/i })).toHaveLength(1);
+    });
+
+    it("hides last done once today's plan session is done", async () => {
+      (patientInterventionsStore as any).items = [buildRec({ dates: [`${todayKey()}T09:00:00`] })];
+      (patientInterventionsStore as any).isCompletedOn.mockReturnValue(true);
+      libraryStore.lastCompletedOf.mockReturnValue(todayKey());
+      render(<PatientInterventionDetail />);
+
+      expect(await screen.findByRole('button', { name: /Done/ })).toBeInTheDocument();
+      expect(screen.queryByText(/Last done/)).not.toBeInTheDocument();
+    });
+
     it('keeps the plan button for a plan session and offers no library completion', async () => {
       mockSearchParams = new URLSearchParams('date=2026-03-16');
       libraryStore.lastCompletedOf.mockReturnValue('2026-10-24');
