@@ -61,7 +61,7 @@ const localizer = dateFnsLocalizer({
   locales: LOCALE_MAP,
 });
 
-// Starts the week before the 1st and runs six weeks, so every month shows days of the months on either side.
+// Six weeks from the week holding the day before the 1st, so every month shows days of the months on either side.
 const firstVisibleDay = (date: Date) =>
   startOfWeek(subDays(startOfMonth(date), 1), { weekStartsOn: WEEK_STARTS_ON });
 const lastVisibleDay = (date: Date) => endOfDay(addDays(firstVisibleDay(date), 41));
