@@ -142,7 +142,7 @@ Validates that Docker images can be built successfully without breaking existing
 
 #### Configuration:
 ```yaml
-Build Context: repository root (frontend) and backend/
+Build Context: repository root for frontend, backend/ for backend
 Push to Registry: No (validation only)
 Caching Strategy: GitHub Actions cache (mode=max)
 Buildx: Multi-platform build support
