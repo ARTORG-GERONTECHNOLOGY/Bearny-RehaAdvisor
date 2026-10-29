@@ -244,8 +244,8 @@ services:
 
   react:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
+      context: .
+      dockerfile: frontend/Dockerfile.prod.reha-advisor
     env_file: .env.production
     restart: always
 
