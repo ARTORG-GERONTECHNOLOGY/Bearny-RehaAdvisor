@@ -17,6 +17,7 @@ health_vitals.csv       — manually-entered PatientVitals (weight, BP)
 health_fitbit.csv       — wearable health data (FitbitData or GoogleHealthData per patient)
 questionnaire_answers.csv — PatientICFRating health-status questionnaire answers
 question_dictionary.csv  — lookup table: question_key → text in all 6 languages
+answer_option_dictionary.csv — lookup table: (question_key, answer_key) → label in all 6 languages
 intervention_library.csv — lookup table: external_id → titles (all 6 languages) + metadata
 thresholds.csv          — current PatientThresholds per patient
 threshold_history.csv   — PatientThresholdsSnapshot change history
@@ -619,6 +620,42 @@ def _csv_question_dictionary():
     return _make_csv(headers, rows)
 
 
+def _csv_answer_option_dictionary():
+    """One row per answer option per FeedbackQuestion.
+
+    Lets analysts join intervention_feedback.csv on (question_key, answer_key)
+    to resolve a raw answer code to its human-readable label in any language.
+    """
+    headers = [
+        "question_key",
+        "answer_key",
+        "label_en",
+        "label_de",
+        "label_fr",
+        "label_it",
+        "label_nl",
+        "label_pt",
+    ]
+    rows = []
+    for q in FeedbackQuestion.objects.order_by("questionKey"):
+        qkey = q.questionKey or ""
+        for opt in q.possibleAnswers or []:
+            translations = {tr.language: tr.text for tr in (opt.translations or [])}
+            rows.append(
+                {
+                    "question_key": qkey,
+                    "answer_key": opt.key or "",
+                    "label_en": translations.get("en", ""),
+                    "label_de": translations.get("de", ""),
+                    "label_fr": translations.get("fr", ""),
+                    "label_it": translations.get("it", ""),
+                    "label_nl": translations.get("nl", ""),
+                    "label_pt": translations.get("pt", ""),
+                }
+            )
+    return _make_csv(headers, rows)
+
+
 def _csv_intervention_library():
     """One row per external_id — lookup table for intervention metadata and titles.
 
@@ -727,6 +764,7 @@ def admin_export_patients(request):
             ("health_fitbit.csv", _csv_health_fitbit(patients, user_map)),
             ("questionnaire_answers.csv", _csv_questionnaire_answers(patient_map)),
             ("question_dictionary.csv", _csv_question_dictionary()),
+            ("answer_option_dictionary.csv", _csv_answer_option_dictionary()),
             ("intervention_library.csv", _csv_intervention_library()),
             ("thresholds.csv", _csv_thresholds(patients)),
             ("threshold_history.csv", _csv_threshold_history(patients)),
