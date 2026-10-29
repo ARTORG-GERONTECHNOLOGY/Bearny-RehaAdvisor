@@ -1308,8 +1308,8 @@ describe('PatientInterventionDetail', () => {
       expect(screen.queryByText(/Last done/)).not.toBeInTheDocument();
     });
 
-    it('hides last done after an undo until the status has reloaded', async () => {
-      // Undone today, but the status still says today until it reloads.
+    it('hides last done while the session is undone but the status still says today', async () => {
+      // The state right after an undo, before the reloaded status arrives.
       (patientInterventionsStore as any).items = [buildRec({ dates: [`${todayKey()}T09:00:00`] })];
       (patientInterventionsStore as any).isCompletedOn.mockReturnValue(false);
       libraryStore.lastCompletedOf.mockReturnValue(todayKey());
