@@ -14,8 +14,18 @@ jest.mock('react-big-calendar', () => {
     const firstEvent = props.events?.[0];
     const eventProps = firstEvent ? props.eventPropGetter?.(firstEvent) : undefined;
     const dayProps = props.dayPropGetter?.(new Date());
+    // January 2027 ends on a Sunday, so a plain grid would have no February row.
+    const jan2027 = new Date(2027, 0, 15);
+    const gridDays: Date[] = props.localizer?.visibleDays?.(jan2027, props.localizer) ?? [];
+    const gridEnd: Date | undefined = props.localizer?.lastVisibleDay?.(jan2027, props.localizer);
     return (
       <div data-testid="mock-calendar">
+        <div data-testid="grid-days">
+          {gridDays.map((d) => `${d.getMonth() + 1}/${d.getDate()}`).join(',')}
+        </div>
+        <div data-testid="grid-end">
+          {gridEnd ? `${gridEnd.getMonth() + 1}/${gridEnd.getDate()}` : ''}
+        </div>
         <div data-testid="event-count">{props.events?.length ?? 0}</div>
         <div data-testid="event-classname">{eventProps?.className}</div>
         <div data-testid="day-classname">{dayProps?.className ?? ''}</div>
@@ -379,6 +389,21 @@ describe('InterventionCalendar big-calendar wiring', () => {
       />
     );
     expect(screen.getByTestId('day-classname')).toHaveTextContent('!bg-yellow/10');
+  });
+
+  it('shows six weeks in month view, including next-month days when a month ends on a Sunday', () => {
+    render(
+      <InterventionCalendar
+        patientData={makePatientData(TODAY) as any}
+        onSelectIntervention={jest.fn()}
+        onSelectFeedback={jest.fn()}
+      />
+    );
+    const days = screen.getByTestId('grid-days').textContent!.split(',');
+    expect(days).toHaveLength(42);
+    expect(days[0]).toBe('12/28');
+    expect(days.slice(-7)).toEqual(['2/1', '2/2', '2/3', '2/4', '2/5', '2/6', '2/7']);
+    expect(screen.getByTestId('grid-end')).toHaveTextContent('2/7');
   });
 
   it('disables resizing entirely', () => {

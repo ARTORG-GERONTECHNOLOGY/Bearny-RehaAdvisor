@@ -4,7 +4,7 @@ import { Calendar, dateFnsLocalizer, Views, type View } from 'react-big-calendar
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
+import { addDays, endOfDay, format, getDay, parse, startOfMonth, startOfWeek } from 'date-fns';
 
 import type { Intervention } from '@/types';
 import StarRating, { getRatingFromDateEntry } from './StarRating';
@@ -48,6 +48,16 @@ const localizer = dateFnsLocalizer({
   getDay,
   locales: LOCALE_MAP,
 });
+
+const MONTH_GRID_DAYS = 42;
+const firstVisibleDay = (date: Date) => startOfWeek(startOfMonth(date), { weekStartsOn: 1 });
+
+// Always six weeks, so a month ending on a Sunday still shows next-month days to drop a session on.
+localizer.firstVisibleDay = firstVisibleDay;
+localizer.lastVisibleDay = (date: Date) =>
+  endOfDay(addDays(firstVisibleDay(date), MONTH_GRID_DAYS - 1));
+localizer.visibleDays = (date: Date) =>
+  Array.from({ length: MONTH_GRID_DAYS }, (_, i) => addDays(firstVisibleDay(date), i));
 
 const safeDate = (v: string): Date | null => {
   const d = new Date(v);
