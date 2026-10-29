@@ -127,7 +127,7 @@ def submit_patient_feedback(request):
 
         # The rest of the library checks need the day and the intervention; still before any upload is stored.
         if from_library:
-            if target_day > timezone.localdate():
+            if target_day > _latest_library_day():
                 return JsonResponse({"error": "Library feedback can't be for a future day."}, status=400)
             library_intervention = (
                 Intervention.objects(id=ObjectId(intervention_id)).first()
@@ -257,7 +257,12 @@ def submit_patient_feedback(request):
         # INTERVENTION feedback path
         # =========================
         if intervention_id:
-            intervention = Intervention.objects.filter(id=ObjectId(intervention_id)).first()
+            # Already loaded and checked for the library above.
+            intervention = (
+                library_intervention
+                if from_library
+                else Intervention.objects.filter(id=ObjectId(intervention_id)).first()
+            )
             if not intervention:
                 return JsonResponse({"error": "Intervention not found."}, status=404)
 
@@ -519,6 +524,11 @@ def _library_log_for_day(patient, intervention, day):
     )
 
 
+def _latest_library_day():
+    """Today in Zurich plus one day: the app sends the device's date, which can be a day ahead east of Zurich."""
+    return timezone.localdate() + timedelta(days=1)
+
+
 def _hidden_from_library(intervention, patient) -> bool:
     """Another patient's private intervention: the patient never sees it, so can't complete or rate it."""
     return bool(getattr(intervention, "is_private", False)) and not _is_private_to(intervention, patient)
@@ -555,7 +565,7 @@ def _set_library_completion(request, patient, intervention, date_str, completed:
     else:
         day = timezone.localdate()
     # Undoing stays possible for any day, so a wrong entry can still be removed.
-    if completed and day > timezone.localdate():
+    if completed and day > _latest_library_day():
         return JsonResponse({"error": "A library completion can't be for a future day."}, status=400)
 
     if completed:

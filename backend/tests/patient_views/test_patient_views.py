@@ -4059,7 +4059,7 @@ def test_submit_feedback_from_library_refuses_a_future_day_before_storing_upload
                 "userId": str(patient.userId.id),
                 "interventionId": str(intervention.id),
                 "source": "library",
-                "date": (timezone.localdate() + timedelta(days=1)).isoformat(),
+                "date": (timezone.localdate() + timedelta(days=2)).isoformat(),
                 "open_feedback_audio": SimpleUploadedFile("a.wav", b"x", content_type="audio/wav"),
             },
             HTTP_AUTHORIZATION="Bearer test",
@@ -4074,11 +4074,38 @@ def test_mark_completed_from_library_refuses_a_future_day(mongo_mock):
     patient, _, intervention, _ = setup_patient_with_plan()
 
     resp = _post_complete(
-        patient, intervention, source="library", date=(timezone.localdate() + timedelta(days=1)).isoformat()
+        patient, intervention, source="library", date=(timezone.localdate() + timedelta(days=2)).isoformat()
     )
 
     assert resp.status_code == 400
     assert LibraryInterventionLogs.objects.count() == 0
+
+
+def test_library_accepts_a_device_one_day_ahead_of_zurich(mongo_mock):
+    """East of Zurich, the device's today is already tomorrow in Zurich for part of the day."""
+    patient, _, intervention, _ = setup_patient_with_plan()
+    FeedbackQuestion.objects.create(
+        questionSubject="Intervention", questionKey="open_feedback", answer_type="text", translations=[]
+    )
+    device_today = (timezone.localdate() + timedelta(days=1)).isoformat()
+
+    completed = _post_complete(patient, intervention, source="library", date=device_today)
+    rated = client.post(
+        "/api/patients/feedback/questionaire/",
+        data={
+            "userId": str(patient.userId.id),
+            "interventionId": str(intervention.id),
+            "source": "library",
+            "date": device_today,
+            "open_feedback": "fine",
+        },
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert (completed.status_code, rated.status_code) == (200, 200)
+    log = LibraryInterventionLogs.objects(userId=patient).get()
+    assert log.status == ["completed"]
+    assert len(log.feedback) == 1
 
 
 def test_unmark_library_completion_still_works_for_a_future_day(mongo_mock):
