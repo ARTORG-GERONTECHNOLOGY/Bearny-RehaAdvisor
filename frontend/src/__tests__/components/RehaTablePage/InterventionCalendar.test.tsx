@@ -14,8 +14,20 @@ jest.mock('react-big-calendar', () => {
     const firstEvent = props.events?.[0];
     const eventProps = firstEvent ? props.eventPropGetter?.(firstEvent) : undefined;
     const dayProps = props.dayPropGetter?.(new Date());
+    // January 2027 ends on a Sunday, March 2027 starts on a Monday.
+    const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+    const grid = (month: Date) => ({
+      days: (props.localizer?.visibleDays?.(month, props.localizer) ?? []).map(fmt).join(','),
+      end: fmt(props.localizer?.lastVisibleDay?.(month, props.localizer) ?? new Date(NaN)),
+    });
+    const jan = grid(new Date(2027, 0, 15));
+    const mar = grid(new Date(2027, 2, 15));
     return (
       <div data-testid="mock-calendar">
+        <div data-testid="jan-grid-days">{jan.days}</div>
+        <div data-testid="jan-grid-end">{jan.end}</div>
+        <div data-testid="mar-grid-days">{mar.days}</div>
+        <div data-testid="mar-grid-end">{mar.end}</div>
         <div data-testid="event-count">{props.events?.length ?? 0}</div>
         <div data-testid="event-classname">{eventProps?.className}</div>
         <div data-testid="day-classname">{dayProps?.className ?? ''}</div>
@@ -379,6 +391,27 @@ describe('InterventionCalendar big-calendar wiring', () => {
       />
     );
     expect(screen.getByTestId('day-classname')).toHaveTextContent('!bg-yellow/10');
+  });
+
+  it('always shows six weeks in month view, with days of the previous and next month', () => {
+    render(
+      <InterventionCalendar
+        patientData={makePatientData(TODAY) as any}
+        onSelectIntervention={jest.fn()}
+        onSelectFeedback={jest.fn()}
+      />
+    );
+    const jan = screen.getByTestId('jan-grid-days').textContent!.split(',');
+    expect(jan).toHaveLength(42);
+    expect(jan[0]).toBe('12/28');
+    expect(jan.slice(-7)).toEqual(['2/1', '2/2', '2/3', '2/4', '2/5', '2/6', '2/7']);
+    expect(screen.getByTestId('jan-grid-end')).toHaveTextContent('2/7');
+
+    const mar = screen.getByTestId('mar-grid-days').textContent!.split(',');
+    expect(mar).toHaveLength(42);
+    expect(mar[0]).toBe('2/22');
+    expect(mar.at(-1)).toBe('4/4');
+    expect(screen.getByTestId('mar-grid-end')).toHaveTextContent('4/4');
   });
 
   it('disables resizing entirely', () => {

@@ -17,6 +17,11 @@
   min-height: 520px;
 }
 
+/* Rows keep their height, so an extra week grows the month instead of squeezing the cells */
+.rehaCalendarWrap .rbc-month-view .rbc-month-row {
+  min-height: 110px;
+}
+
 /* Hardening clicks */
 .rehaCalendarWrap,
 .rbc-calendar,

@@ -4,7 +4,17 @@ import { Calendar, dateFnsLocalizer, Views, type View } from 'react-big-calendar
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
+import {
+  addDays,
+  eachDayOfInterval,
+  endOfDay,
+  format,
+  getDay,
+  parse,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+} from 'date-fns';
 
 import type { Intervention } from '@/types';
 import StarRating, { getRatingFromDateEntry } from './StarRating';
@@ -41,13 +51,25 @@ type CalendarEvent = {
   };
 };
 
+const WEEK_STARTS_ON = 1;
+
 const localizer = dateFnsLocalizer({
   format,
   parse,
-  startOfWeek: (date, options) => startOfWeek(date, { weekStartsOn: 1, ...options }),
+  startOfWeek: (date, options) => startOfWeek(date, { weekStartsOn: WEEK_STARTS_ON, ...options }),
   getDay,
   locales: LOCALE_MAP,
 });
+
+// Six weeks from the week holding the day before the 1st, so every month shows days of the months on either side.
+const firstVisibleDay = (date: Date) =>
+  startOfWeek(subDays(startOfMonth(date), 1), { weekStartsOn: WEEK_STARTS_ON });
+const lastVisibleDay = (date: Date) => endOfDay(addDays(firstVisibleDay(date), 41));
+
+localizer.firstVisibleDay = firstVisibleDay;
+localizer.lastVisibleDay = lastVisibleDay;
+localizer.visibleDays = (date: Date) =>
+  eachDayOfInterval({ start: firstVisibleDay(date), end: lastVisibleDay(date) });
 
 const safeDate = (v: string): Date | null => {
   const d = new Date(v);
