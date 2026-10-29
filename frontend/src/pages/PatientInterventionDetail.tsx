@@ -328,8 +328,9 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const { targetDate, targetOccurrenceIso } = useMemo(() => {
     const none = { targetDate: null as Date | null, targetOccurrenceIso: null as string | null };
 
-    const dateParam = searchParams.get('date');
-    if (!dateParam || !selectedRec?.dates?.length) return none;
+    // Without a date (opened from the library), today's plan session if there is one.
+    const dateParam = searchParams.get('date') || format(new Date(), 'yyyy-MM-dd');
+    if (!selectedRec?.dates?.length) return none;
 
     const parsed = new Date(`${dateParam}T00:00:00`);
     if (Number.isNaN(parsed.getTime())) return none;
@@ -524,7 +525,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
   // Logged as opened after 2s; the duration is added on leaving, or stays empty if leaving is never seen.
   // The date is read when sent (the backend checks it against the plan), so a reschedule here stays one visit.
   const viewDateRef = useRef('');
-  viewDateRef.current = searchParams.get('date') || '';
+  viewDateRef.current =
+    searchParams.get('date') || (targetDate ? format(targetDate, 'yyyy-MM-dd') : '');
   useEffect(() => {
     if (!patientId || !interventionId) return;
     const url = `/patients/vitals/intervention-view/${patientId}/`;

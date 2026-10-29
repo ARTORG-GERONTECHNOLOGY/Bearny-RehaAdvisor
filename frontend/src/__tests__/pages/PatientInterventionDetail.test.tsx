@@ -368,6 +368,18 @@ describe('PatientInterventionDetail', () => {
       ]);
     });
 
+    it("logs a library open against today's plan session when there is one", async () => {
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      mockSearchParams = new URLSearchParams('');
+      (patientInterventionsStore as any).items = [buildRec({ dates: [`${today}T09:00:00`] })];
+
+      await renderDetail();
+      await advance(2_000);
+
+      expect(viewPosts()[0][1]).toEqual({ intervention_id: 'int-1', date: today });
+    });
+
     it('keeps a visit that changes ?date= (reschedule from this page) as one row', async () => {
       const { rerender, unmount } = await renderDetail();
       await advance(3_000);
@@ -1242,6 +1254,30 @@ describe('PatientInterventionDetail', () => {
       expect(screen.queryByRole('button', { name: /Mark as done/i })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /Done/ })).not.toBeInTheDocument();
       expect(libraryStore.setLibraryCompleted).not.toHaveBeenCalled();
+    });
+
+    it("completes today's plan session when opened without a date and the plan has one today", async () => {
+      (patientInterventionsStore as any).items = [buildRec({ dates: [`${todayKey()}T09:00:00`] })];
+      (patientInterventionsStore as any).toggleCompleted.mockResolvedValueOnce({
+        completed: true,
+        dateKey: todayKey(),
+      });
+      render(<PatientInterventionDetail />);
+
+      const markDone = await screen.findByRole('button', { name: /Mark as done/i });
+      expect(screen.getAllByRole('button', { name: /Mark as done|Done/i })).toHaveLength(1);
+      fireEvent.click(markDone);
+
+      await waitFor(() => {
+        expect((patientInterventionsStore as any).toggleCompleted).toHaveBeenCalled();
+      });
+      expect(libraryStore.setLibraryCompleted).not.toHaveBeenCalled();
+      expect((patientQuestionnairesStore as any).openInterventionFeedback).toHaveBeenCalledWith(
+        'patient-1',
+        'int-1',
+        todayKey(),
+        'en'
+      );
     });
 
     it('keeps the plan button for a plan session and offers no library completion', async () => {
