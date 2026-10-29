@@ -131,7 +131,7 @@ Validates that Docker images can be built successfully without breaking existing
 
 #### Builds:
 1. **Frontend Production Image**
-   - Dockerfile: `frontend/Dockerfile.prod`
+   - Dockerfile: `frontend/Dockerfile.prod.reha-advisor`
    - Tag: `reha-advisor:frontend-latest`
    - Caching: GitHub Actions cache for faster builds
 
@@ -142,7 +142,7 @@ Validates that Docker images can be built successfully without breaking existing
 
 #### Configuration:
 ```yaml
-Build Context: frontend/ and backend/ directories
+Build Context: repository root for frontend, backend/ for backend
 Push to Registry: No (validation only)
 Caching Strategy: GitHub Actions cache (mode=max)
 Buildx: Multi-platform build support
