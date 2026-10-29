@@ -137,7 +137,9 @@ jobs:
   # ---------------------------------------------------------------------------
   frontend-e2e:
     name: Frontend E2E (Playwright)
-    # mongo:8.0 refuses to start on kernel 6.19+, see SERVER-121912
+    # ubuntu-24.04: mongo:7.0 LTS starts cleanly; Playwright supports this image.
+    # Do NOT use ubuntu-latest (currently 26.04, unsupported by Playwright) or
+    # mongo:8.0 (fails health check on kernel >=6.19, SERVER-121912).
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     needs: [test]
@@ -157,12 +159,12 @@ jobs:
 
     services:
       mongo:
-        image: mongo:8.0
+        image: mongo:7.0
         options: >-
           --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
         ports:
           - 27017:27017
 

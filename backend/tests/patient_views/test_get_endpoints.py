@@ -2008,9 +2008,9 @@ def test_combined_health_adherence_buckets_scheduled_and_completed_on_the_same_d
     """
     patient, therapist, intervention, _ = setup_basic_plan(with_plan=False)
 
-    # 22:30 UTC is 00:30 local the *next* day in Europe/Zurich.
+    # 23:30 UTC is 00:30 (CET, UTC+1) or 01:30 (CEST, UTC+2) local the *next* day in Europe/Zurich.
     day_local = timezone.localdate() - timedelta(days=3)
-    scheduled_utc = datetime.combine(day_local - timedelta(days=1), datetime.min.time()).replace(hour=22, minute=30)
+    scheduled_utc = datetime.combine(day_local - timedelta(days=1), datetime.min.time()).replace(hour=23, minute=30)
     assert timezone.localtime(scheduled_utc.replace(tzinfo=dt_timezone.utc)).date() == day_local
 
     plan = RehabilitationPlan(
