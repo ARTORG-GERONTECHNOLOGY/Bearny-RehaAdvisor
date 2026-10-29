@@ -1299,6 +1299,22 @@ describe('PatientInterventionDetail', () => {
       expect(screen.queryByText(/Last done/)).not.toBeInTheDocument();
     });
 
+    it('reloads the status after toggling the plan session, so last done stays right', async () => {
+      (patientInterventionsStore as any).items = [buildRec({ dates: [`${todayKey()}T09:00:00`] })];
+      (patientInterventionsStore as any).isCompletedOn.mockReturnValue(true);
+      (patientInterventionsStore as any).toggleCompleted.mockResolvedValueOnce({
+        completed: false,
+        dateKey: todayKey(),
+      });
+      render(<PatientInterventionDetail />);
+      await screen.findByRole('button', { name: /Done/ });
+      libraryStore.fetchStatus.mockClear();
+
+      fireEvent.click(screen.getByRole('button', { name: /Done/ }));
+
+      await waitFor(() => expect(libraryStore.fetchStatus).toHaveBeenCalledWith('patient-1'));
+    });
+
     it('keeps the plan button for a plan session and offers no library completion', async () => {
       mockSearchParams = new URLSearchParams('date=2026-03-16');
       libraryStore.lastCompletedOf.mockReturnValue('2026-10-24');

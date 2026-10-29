@@ -377,6 +377,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
         selectedRec,
         targetDate
       );
+      // "Last done" also counts plan sessions, so it changes with this toggle.
+      void patientInterventionsLibraryStore.fetchStatus(patientId);
 
       if (res?.completed) {
         try {
@@ -713,7 +715,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
             )}
 
             {/* Only without a date: a plan link whose session moved shows neither button, not the library one. */}
-            {!targetDate && !searchParams.get('date') && (
+            {!targetDate && openedFromLibrary && (
               <div className="flex flex-wrap gap-2 justify-end items-center">
                 {lastDoneLabel}
 
