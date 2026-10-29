@@ -27,6 +27,7 @@ from django.utils import timezone as dj_tz
 from core.models import (
     Intervention,
     InterventionAssignment,
+    LibraryInterventionLogs,
     Patient,
     PatientInterventionLogs,
     RehabilitationPlan,
@@ -134,6 +135,23 @@ def test_adherence_reports_zero_when_the_scheduled_day_has_no_completion(mongo_m
     """A missed day still counts toward the denominator, so adherence drops rather than going None."""
     day = dj_tz.localdate() - timedelta(days=2)
     patient, _, _ = _setup([datetime.combine(day, datetime.min.time()).replace(hour=12)])
+
+    adh_7, adh_total = _adherence(patient)
+    assert adh_total == 0
+    assert adh_7 == 0
+
+
+def test_adherence_ignores_library_completions(mongo_mock):
+    """A library completion on a scheduled day is the patient's own choice, not the planned session."""
+    day = dj_tz.localdate() - timedelta(days=2)
+    patient, intervention, _ = _setup([datetime.combine(day, datetime.min.time()).replace(hour=12)])
+
+    LibraryInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        date=datetime.combine(day, datetime.min.time()),
+        status=["completed"],
+    ).save()
 
     adh_7, adh_total = _adherence(patient)
     assert adh_total == 0

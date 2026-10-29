@@ -778,6 +778,39 @@ describe.each([
     store[setter](['completed', 'missed']);
     expect(filteredIds(store)).toEqual(['done', 'skipped']);
   });
+  it('counts an intervention done via the library as completed, not as opened', () => {
+    const store = setup();
+    store.patientData = {
+      ...store.patientData,
+      viewed_interventions: ['skipped', 'unassigned'],
+      library_completions: [
+        { _id: 'skipped', external_id: '', dates: [], completedCount: 1 },
+        { _id: 'unassigned', external_id: '', dates: [], completedCount: 1 },
+      ],
+    };
+
+    store[setter](['completed']);
+    expect(filteredIds(store)).toContain('skipped');
+    if (source === 'recommendations') expect(filteredIds(store)).toContain('unassigned');
+
+    store[setter](['accessed']);
+    expect(filteredIds(store)).not.toContain('skipped');
+    expect(filteredIds(store)).not.toContain('unassigned');
+
+    store[setter](['not_seen']);
+    expect(filteredIds(store)).not.toContain('unassigned');
+  });
+
+  it('does not count a library rating without a completion', () => {
+    const store = setup();
+    store.patientData = {
+      ...store.patientData,
+      library_completions: [{ _id: 'skipped', external_id: '', dates: [], completedCount: 0 }],
+    };
+
+    store[setter](['completed']);
+    expect(filteredIds(store)).not.toContain('skipped');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -803,6 +836,28 @@ describe('fetchAll', () => {
 
     expect(mockApiClient.get).toHaveBeenCalledWith('patients/rehabilitation-plan/therapist/p1/');
     expect(store.patientData.interventions).toHaveLength(1);
+  });
+
+  it('keeps library completions and views for a patient without a plan', async () => {
+    const store = makeStore();
+    store.explicitPatientId = 'p1';
+    mockApiClient.get.mockResolvedValueOnce({
+      data: {
+        success: false,
+        message: 'No rehabilitation plan found',
+        viewed_interventions: ['ext-lib'],
+        library_completions: [
+          { _id: 'lib-1', external_id: 'ext-lib', dates: [], completedCount: 1 },
+        ],
+      },
+    });
+
+    await store.fetchAll(jest.fn((k: string) => k));
+
+    expect(store.error).toBe('No rehabilitation plan found');
+    expect(store.patientData.interventions).toEqual([]);
+    expect(store.libraryCompletions.get('ext-lib')?.completedCount).toBe(1);
+    expect(store.patientData.viewed_interventions).toEqual(['ext-lib']);
   });
 
   it('treats a success:false envelope (with no interventions key) as an error', async () => {
@@ -1259,5 +1314,79 @@ describe('openRemoveModal / closeRemoveModal', () => {
     store.closeRemoveModal();
 
     expect(store.showRemoveModal).toBe(false);
+  });
+});
+
+describe('library completions stay out of the plan', () => {
+  const libraryEntry = {
+    datetime: '2026-10-27T09:00:00+00:00',
+    status: 'completed',
+    source: 'library',
+    feedback: [{ question: { id: 'q1', translations: [] }, answer: [{ key: '5' }] }],
+  };
+  const library_completions = [
+    { _id: 'lib-de', external_id: 'ext-plan', dates: [libraryEntry], completedCount: 1 },
+    { _id: 'lib-only', external_id: 'ext-lib', dates: [libraryEntry], completedCount: 1 },
+  ];
+  const planDate = { datetime: '2026-10-28T09:00:00+00:00', status: 'upcoming', feedback: [] };
+
+  const storeWithLibrary = () => {
+    const store = makeStore();
+    (store as any).allInterventions = [
+      { _id: 'plan-1', external_id: 'ext-plan', title: 'Planned' },
+      { _id: 'lib-only', external_id: 'ext-lib', title: 'Library only' },
+    ];
+    (store as any).patientData = {
+      interventions: [{ _id: 'plan-1', external_id: 'ext-plan', dates: [planDate] }],
+      library_completions,
+    };
+    return store;
+  };
+
+  it('keeps library-only interventions out of the active and past lists', () => {
+    const store = storeWithLibrary();
+    const listed = [...store.activePatientItems, ...store.pastPatientItems].map((x) => x._id);
+    expect(listed).toEqual(['plan-1']);
+  });
+
+  it('leaves the plan dates untouched when opening the feedback popup', () => {
+    const store = storeWithLibrary();
+    store.openFeedbackBrowser({ _id: 'plan-1', external_id: 'ext-plan' });
+
+    expect((store.patientData.interventions[0] as any).dates).toEqual([planDate]);
+    expect((store.feedbackBrowserIntervention as any).dates).toEqual([libraryEntry, planDate]);
+  });
+
+  it('shows library feedback for an intervention that was never planned', () => {
+    const store = storeWithLibrary();
+    store.openFeedbackBrowser({ _id: 'lib-only', external_id: 'ext-lib', title: 'Library only' });
+
+    expect(store.feedbackBrowserIntervention).toEqual({
+      _id: 'lib-only',
+      external_id: 'ext-lib',
+      title: 'Library only',
+      dates: [libraryEntry],
+    });
+  });
+
+  it('opens plan feedback as before when there are no library completions', () => {
+    const store = makeStore();
+    (store as any).patientData = { interventions: [{ _id: 'i1', title: 'Plan Item' }] };
+    store.openFeedbackBrowser({ _id: 'i1' });
+    expect(store.feedbackBrowserIntervention).toEqual({ _id: 'i1', title: 'Plan Item' });
+  });
+
+  it('keeps library_completions from the plan response', async () => {
+    const mockApiClient = require('@/api/client').default;
+    const store = makeStore();
+    store.explicitPatientId = 'p1';
+    (store as any).allInterventions = [{ _id: 'plan-1' }];
+    mockApiClient.get.mockResolvedValueOnce({
+      data: { interventions: [{ _id: 'plan-1', dates: [planDate] }], library_completions },
+    });
+
+    await store.fetchAll(jest.fn((k: string) => k));
+
+    expect(store.libraryCompletions.get('ext-lib')?._id).toBe('lib-only');
   });
 });

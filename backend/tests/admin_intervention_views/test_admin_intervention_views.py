@@ -18,7 +18,7 @@ Delete endpoint
   * Cascades: removes references from InterventionTemplate.recommendations.
   * Cascades: removes references from Therapist.default_recommendations.
   * Cascades: removes assignments from RehabilitationPlan.interventions.
-  * Cascades: deletes PatientInterventionLogs referencing the intervention.
+  * Cascades: deletes PatientInterventionLogs and LibraryInterventionLogs referencing the intervention.
   * Returns 400 for malformed id.
   * Returns 404 for unknown id.
   * Returns 405 for wrong HTTP method on delete URL.
@@ -42,6 +42,7 @@ from core.models import (
     Intervention,
     InterventionAssignment,
     InterventionTemplate,
+    LibraryInterventionLogs,
     Patient,
     PatientInterventionLogs,
     RehabilitationPlan,
@@ -333,6 +334,16 @@ def test_delete_cascades_patient_intervention_logs(mongo_mock):
     client.delete(DELETE_URL.format(intervention_id=str(iv.pk)))
 
     assert PatientInterventionLogs.objects.count() == 0
+
+
+def test_delete_cascades_library_intervention_logs(mongo_mock):
+    iv = _make_intervention("lib_ref_001")
+    patient = _make_patient(_make_therapist())
+    LibraryInterventionLogs(userId=patient, interventionId=iv, date=datetime.now(), status=["completed"]).save()
+
+    client.delete(DELETE_URL.format(intervention_id=str(iv.pk)))
+
+    assert LibraryInterventionLogs.objects.count() == 0
 
 
 def test_delete_get_method_not_allowed_on_single_route(mongo_mock):

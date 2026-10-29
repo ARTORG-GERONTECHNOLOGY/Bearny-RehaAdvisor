@@ -79,6 +79,35 @@ describe('patientQuestionnairesStore — Sentry capture', () => {
     });
   });
 
+  describe('openInterventionFeedback source', () => {
+    it('asks for library questions and remembers the source', async () => {
+      mockGet.mockResolvedValueOnce({ data: { questions: [] } });
+
+      await patientQuestionnairesStore.openInterventionFeedback(
+        'p1',
+        'int-1',
+        '2026-10-28',
+        'en',
+        'library'
+      );
+
+      expect(mockGet.mock.calls[0][1].params).toEqual({
+        interventionId: 'int-1',
+        source: 'library',
+      });
+      expect(patientQuestionnairesStore.feedbackSource).toBe('library');
+    });
+
+    it('defaults to the plan and sends no source', async () => {
+      mockGet.mockResolvedValueOnce({ data: { questions: [] } });
+
+      await patientQuestionnairesStore.openInterventionFeedback('p1', 'int-1', '2026-10-28', 'en');
+
+      expect(mockGet.mock.calls[0][1].params).toEqual({ interventionId: 'int-1' });
+      expect(patientQuestionnairesStore.feedbackSource).toBe('plan');
+    });
+  });
+
   describe('loadHealthQuestionnaire', () => {
     it('opens health popup when due health questions are returned', async () => {
       mockGet.mockResolvedValueOnce({
@@ -206,6 +235,12 @@ describe('patientQuestionnairesStore — Sentry capture', () => {
       expect(patientQuestionnairesStore.feedbackQuestions).toEqual([]);
       expect((patientQuestionnairesStore as any).loadingFeedback).toBe(false);
       expect(patientQuestionnairesStore.feedbackError).toBe('');
+    });
+
+    it('closeFeedback returns the source to the plan', () => {
+      (patientQuestionnairesStore as any).feedbackSource = 'library';
+      patientQuestionnairesStore.closeFeedback();
+      expect(patientQuestionnairesStore.feedbackSource).toBe('plan');
     });
 
     it('closeInitial hides the initial-questionnaire popup', () => {

@@ -49,8 +49,12 @@ from django.test import Client
 from django.utils import timezone
 
 from core.models import (
+    AnswerOption,
+    FeedbackEntry,
+    FeedbackQuestion,
     Intervention,
     InterventionAssignment,
+    LibraryInterventionLogs,
     Patient,
     PatientInterventionLogs,
     RehabilitationPlan,
@@ -1996,3 +2000,117 @@ def test_a_failed_save_does_not_destroy_the_log_it_was_merging(mongo_mock):
 
     videos = [l.video_url for l in PatientInterventionLogs.objects(userId=patient) if l.video_url]
     assert videos == ["/media/videos/only_copy.mp4"], "the only copy of the video was deleted"
+
+
+# ---------------------------------------------------------------------------
+# unmark_intervention_completed with source=library
+# ---------------------------------------------------------------------------
+
+
+def _library_toggle(path, patient, intervention, day):
+    return client.post(
+        path,
+        data=json.dumps(
+            {
+                "patient_id": str(patient.userId.id),
+                "intervention_id": str(intervention.id),
+                "date": day.isoformat(),
+                "source": "library",
+            }
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+
+def test_unmark_library_completion_deletes_a_log_without_rating(mongo_mock):
+    patient, _, intervention, _ = setup_patient_with_plan()
+    today = timezone.localdate()
+    _library_toggle("/api/interventions/complete/", patient, intervention, today)
+
+    resp = _library_toggle("/api/interventions/uncomplete/", patient, intervention, today)
+
+    assert resp.status_code == 200
+    assert LibraryInterventionLogs.objects.count() == 0
+
+
+def test_unmark_library_completion_keeps_the_rating(mongo_mock):
+    patient, _, intervention, _ = setup_patient_with_plan()
+    today = timezone.localdate()
+    _library_toggle("/api/interventions/complete/", patient, intervention, today)
+    question = FeedbackQuestion(questionSubject="Intervention", questionKey="q_uc_lib", answer_type="select").save()
+    log = LibraryInterventionLogs.objects.get()
+    log.feedback = [FeedbackEntry(questionId=question, answerKey=[AnswerOption(key="5")])]
+    log.save()
+
+    _library_toggle("/api/interventions/uncomplete/", patient, intervention, today)
+
+    log.reload()
+    assert log.status == []
+    assert len(log.feedback) == 1
+
+
+def test_unmark_library_completion_leaves_the_plan_completion(mongo_mock):
+    patient, _, intervention, plan = setup_patient_with_plan()
+    today = timezone.localdate()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(today, datetime.min.time()),
+        status=["completed"],
+    ).save()
+    _library_toggle("/api/interventions/complete/", patient, intervention, today)
+
+    _library_toggle("/api/interventions/uncomplete/", patient, intervention, today)
+
+    assert PatientInterventionLogs.objects.get().status == ["completed"]
+
+
+def test_unmark_plan_completion_leaves_the_library_completion(mongo_mock):
+    patient, _, intervention, plan = setup_patient_with_plan()
+    today = timezone.localdate()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(today, datetime.min.time()),
+        status=["completed"],
+    ).save()
+    _library_toggle("/api/interventions/complete/", patient, intervention, today)
+
+    client.post(
+        "/api/interventions/uncomplete/",
+        data=json.dumps(
+            {"patient_id": str(patient.userId.id), "intervention_id": str(intervention.id), "date": today.isoformat()}
+        ),
+        content_type="application/json",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+
+    assert LibraryInterventionLogs.objects.get().status == ["completed"]
+
+
+def test_library_completion_in_one_language_is_the_same_completion_in_another(mongo_mock):
+    """Completed in German, the English version is done too; toggling it there acts on the same day log."""
+    patient, _, intervention_en, _ = setup_patient_with_plan()
+    intervention_de = Intervention(
+        external_id=intervention_en.external_id,
+        language="de",
+        title="Yoga (de)",
+        description="Yoga-Einheit",
+        content_type="Video",
+    ).save()
+    today = timezone.localdate()
+    _library_toggle("/api/interventions/complete/", patient, intervention_de, today)
+
+    status = client.get(f"/api/patients/library-status/{patient.userId.id}/", HTTP_AUTHORIZATION="Bearer test").json()
+    assert status["completed"] == [intervention_en.external_id]
+    assert status["last_completed"] == {intervention_en.external_id: today.isoformat()}
+    assert status["last_library_completed"] == {intervention_en.external_id: today.isoformat()}
+
+    _library_toggle("/api/interventions/complete/", patient, intervention_en, today)
+    assert LibraryInterventionLogs.objects.count() == 1, "the English completion reuses the German day log"
+
+    _library_toggle("/api/interventions/uncomplete/", patient, intervention_en, today)
+    assert LibraryInterventionLogs.objects.count() == 0

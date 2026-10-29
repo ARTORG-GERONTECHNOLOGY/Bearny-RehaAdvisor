@@ -15,7 +15,12 @@ import {
 import StarIcon from '@/assets/icons/interventions/star.svg?react';
 
 import config from '@/config/config.json';
-import { DATE_STATUS_FILTER_OPTIONS } from '@/utils/interventions';
+import {
+  DATE_STATUS_FILTER_OPTIONS,
+  findLibraryCompletion,
+  getInterventionDateStatusClass,
+  indexLibraryCompletions,
+} from '@/utils/interventions';
 import { Intervention } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -128,6 +133,11 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
     return map;
   }, [patientData?.interventions]);
 
+  const libraryCompletions = useMemo(
+    () => indexLibraryCompletions(patientData?.library_completions),
+    [patientData?.library_completions]
+  );
+
   const languageOptions = useMemo(() => {
     const langs = allItems
       .flatMap((item: any) => [
@@ -184,6 +194,9 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
     const hasFuture =
       patientHasIntervention?.dates?.some((d: any) => new Date(d.datetime) > new Date()) || false;
 
+    const libraryCompletion = findLibraryCompletion(libraryCompletions, intervention);
+    const completedFromLibrary = (libraryCompletion?.completedCount || 0) > 0;
+
     const langs = toLangList(intervention?.available_languages);
     const langLabel = String(intervention?.language || '').toUpperCase();
 
@@ -229,44 +242,52 @@ const InterventionLeftPanel: React.FC<InterventionLeftPanelProps> = ({
                 </span>
               )}
             </div>
+            {completedFromLibrary && (
+              <Badge
+                variant="dashboard"
+                className={`mt-1 ${getInterventionDateStatusClass('completed')}`}
+              >
+                {assigned ? t('Also done via library') : t('Done via library')}
+              </Badge>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-3 pt-0">
           <div onClick={(e) => e.stopPropagation()} className="text-right">
             <ButtonGroup>
-              {/* Stats/Feedback only when assigned */}
+              {/* Stats only when assigned; Feedback also for what the patient did from the library */}
               {assigned && (
-                <>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="dashboard"
-                        variant="secondary"
-                        onClick={() => showStats(intervention)}
-                        aria-label={t('Statistics')}
-                        className="px-3"
-                      >
-                        <FaChartBar className="text-pink" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{t('Statistics')}</TooltipContent>
-                  </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="dashboard"
+                      variant="secondary"
+                      onClick={() => showStats(intervention)}
+                      aria-label={t('Statistics')}
+                      className="px-3"
+                    >
+                      <FaChartBar className="text-pink" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('Statistics')}</TooltipContent>
+                </Tooltip>
+              )}
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="dashboard"
-                        variant="secondary"
-                        onClick={() => openFeedbackBrowser(intervention)}
-                        aria-label={t('Feedback')}
-                        className="px-3"
-                      >
-                        <StarIcon className="text-yellow" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>{t('Feedback')}</TooltipContent>
-                  </Tooltip>
-                </>
+              {(assigned || libraryCompletion) && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="dashboard"
+                      variant="secondary"
+                      onClick={() => openFeedbackBrowser(intervention)}
+                      aria-label={t('Feedback')}
+                      className="px-3"
+                    >
+                      <StarIcon className="text-yellow" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('Feedback')}</TooltipContent>
+                </Tooltip>
               )}
 
               {/* Modify only if assigned AND has future */}

@@ -1,4 +1,4 @@
-import { InterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
+import { InterventionsLibraryStore, libraryStatusLookup } from '@/stores/interventionsLibraryStore';
 import apiClient from '@/api/client';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
@@ -320,6 +320,182 @@ describe('InterventionsLibraryStore', () => {
       expect(apiClient.get).toHaveBeenCalledWith('interventions/all/p1/', {
         params: { lang: 'de' },
       });
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // library status (completed / viewed / last done)
+  // ------------------------------------------------------------------
+  describe('library status', () => {
+    const status = {
+      completed: ['EXT-1'],
+      viewed: ['EXT-2', 'raw-id'],
+      last_completed: { 'EXT-1': '2026-10-27', 'EXT-2': '2026-10-26' },
+      last_library_completed: { 'EXT-1': '2026-10-27' },
+    };
+
+    it('loads the patient status', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.fetchStatus('p1');
+      expect(apiClient.get).toHaveBeenCalledWith('patients/library-status/p1/');
+      expect(store.status).toEqual(status);
+      expect(store.lastCompletedOf({ external_id: 'EXT-1' })).toBe('2026-10-27');
+      expect(store.lastCompletedOf({ external_id: 'EXT-2' })).toBe('2026-10-26');
+      expect(store.lastLibraryCompletedOf({ external_id: 'EXT-1' })).toBe('2026-10-27');
+      expect(store.lastLibraryCompletedOf({ external_id: 'EXT-2' })).toBeNull();
+    });
+
+    it('keeps the library usable when the status request fails', async () => {
+      (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('boom'));
+      await store.fetchStatus('p1');
+      expect(store.status).toEqual({
+        completed: [],
+        viewed: [],
+        last_completed: {},
+        last_library_completed: {},
+      });
+      expect(store.error).toBe('');
+    });
+
+    it('drops malformed status fields', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: {
+          completed: 'EXT-1',
+          viewed: [null, 'EXT-2'],
+          last_completed: [],
+          last_library_completed: 'x',
+        },
+      });
+      await store.fetchStatus('p1');
+      expect(store.status).toEqual({
+        completed: [],
+        viewed: ['EXT-2'],
+        last_completed: {},
+        last_library_completed: {},
+      });
+    });
+
+    it('marks a library completion with source=library and reloads the status', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({});
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.setLibraryCompleted('p1', 'iv-1', '2026-10-28', true);
+      expect(apiClient.post).toHaveBeenCalledWith('interventions/complete/', {
+        patient_id: 'p1',
+        intervention_id: 'iv-1',
+        date: '2026-10-28',
+        source: 'library',
+      });
+      expect(apiClient.get).toHaveBeenCalledWith('patients/library-status/p1/');
+    });
+
+    it('undoes a library completion through the uncomplete endpoint', async () => {
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({});
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.setLibraryCompleted('p1', 'iv-1', '2026-10-28', false);
+      expect((apiClient.post as jest.Mock).mock.calls[0][0]).toBe('interventions/uncomplete/');
+      expect((apiClient.post as jest.Mock).mock.calls[0][1].source).toBe('library');
+    });
+
+    it("clears another patient's status as soon as a new patient's request starts", async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.fetchStatus('p1');
+
+      let resolveNext: (v: unknown) => void = () => {};
+      (apiClient.get as jest.Mock).mockReturnValueOnce(new Promise((r) => (resolveNext = r)));
+      const pending = store.fetchStatus('p2');
+      expect(store.status.completed).toEqual([]);
+
+      resolveNext({ data: { completed: ['EXT-9'], viewed: [] } });
+      await pending;
+      expect(store.status.completed).toEqual(['EXT-9']);
+    });
+
+    it("keeps the same patient's status while it reloads", async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.fetchStatus('p1');
+
+      (apiClient.get as jest.Mock).mockReturnValueOnce(new Promise(() => {}));
+      void store.fetchStatus('p1');
+      expect(store.status.completed).toEqual(['EXT-1']);
+    });
+
+    it('ignores an older response that arrives after a newer one', async () => {
+      let resolveOld: (v: unknown) => void = () => {};
+      (apiClient.get as jest.Mock)
+        .mockReturnValueOnce(new Promise((r) => (resolveOld = r)))
+        .mockResolvedValueOnce({ data: { completed: ['EXT-NEW'], viewed: [] } });
+
+      const older = store.fetchStatus('p1');
+      await store.fetchStatus('p1');
+      resolveOld({ data: { completed: [], viewed: ['EXT-OLD'] } });
+      await older;
+
+      expect(store.status.completed).toEqual(['EXT-NEW']);
+      expect(store.status.viewed).toEqual([]);
+    });
+
+    it('shows the completion even when the reload after saving fails', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.fetchStatus('p1'); // the page loads the status first
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({});
+      (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+
+      await store.setLibraryCompleted('p1', 'iv-1', '2026-10-28', true, { external_id: 'EXT-5' });
+
+      expect(store.lastLibraryCompletedOf({ external_id: 'EXT-5' })).toBe('2026-10-28');
+    });
+
+    it("drops today's library completion right away when undone", async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: {
+          completed: ['EXT-5'],
+          viewed: [],
+          last_completed: { 'EXT-5': '2026-10-28' },
+          last_library_completed: { 'EXT-5': '2026-10-28' },
+        },
+      });
+      await store.fetchStatus('p1');
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({});
+      (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+
+      await store.setLibraryCompleted('p1', 'iv-1', '2026-10-28', false, { external_id: 'EXT-5' });
+
+      expect(store.lastLibraryCompletedOf({ external_id: 'EXT-5' })).toBeNull();
+    });
+
+    it('changes nothing locally when saving fails', async () => {
+      (apiClient.post as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+
+      await expect(
+        store.setLibraryCompleted('p1', 'iv-1', '2026-10-28', true, { external_id: 'EXT-5' })
+      ).rejects.toThrow('offline');
+      expect(store.lastLibraryCompletedOf({ external_id: 'EXT-5' })).toBeNull();
+    });
+
+    it('reset clears the status', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.fetchStatus('p1');
+      store.reset();
+      expect(store.status.completed).toEqual([]);
+    });
+
+    it('libraryStatusLookup matches by external_id, then by id', () => {
+      const statusOf = libraryStatusLookup(status);
+      expect(statusOf({ external_id: 'EXT-1', _id: 'x' })).toBe('completed');
+      expect(statusOf({ external_id: 'EXT-2' })).toBe('viewed');
+      expect(statusOf({ _id: 'raw-id' })).toBe('viewed');
+      expect(statusOf({ external_id: 'EXT-3' })).toBeNull();
+      expect(statusOf({})).toBeNull();
+    });
+
+    it('libraryStatusLookup prefers completed when an item is listed in both', () => {
+      const both = {
+        completed: ['EXT-1'],
+        viewed: ['EXT-1'],
+        last_completed: {},
+        last_library_completed: {},
+      };
+      expect(libraryStatusLookup(both)({ external_id: 'EXT-1' })).toBe('completed');
     });
   });
 });

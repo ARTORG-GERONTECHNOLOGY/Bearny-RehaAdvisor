@@ -19,6 +19,7 @@ import authStore from '@/stores/authStore';
 import { patientInterventionsStore, type PatientRec } from '@/stores/patientInterventionsStore';
 import { patientQuestionnairesStore } from '@/stores/patientQuestionnairesStore';
 import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
+import { getDateFnsLocale } from '@/utils/dateLocale';
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import { translateText } from '@/utils/translate';
 import { isHttpUrl } from '@/utils/urlUtils';
@@ -278,6 +279,9 @@ const PatientInterventionDetail: React.FC = observer(() => {
         return;
       }
 
+      // Not awaited: it only drives the library button's state and never blocks the page.
+      void patientInterventionsLibraryStore.fetchStatus(patientId);
+
       if (!patientInterventionsStore.items.length) {
         await patientInterventionsStore.fetchPlan(patientId, i18n.language);
       }
@@ -324,8 +328,9 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const { targetDate, targetOccurrenceIso } = useMemo(() => {
     const none = { targetDate: null as Date | null, targetOccurrenceIso: null as string | null };
 
-    const dateParam = searchParams.get('date');
-    if (!dateParam || !selectedRec?.dates?.length) return none;
+    // Without a date (opened from the library), today's plan session if there is one.
+    const dateParam = searchParams.get('date') || format(new Date(), 'yyyy-MM-dd');
+    if (!selectedRec?.dates?.length) return none;
 
     const parsed = new Date(`${dateParam}T00:00:00`);
     if (Number.isNaN(parsed.getTime())) return none;
@@ -392,6 +397,48 @@ const PatientInterventionDetail: React.FC = observer(() => {
       }
     } catch (err) {
       console.error('Toggle completed failed:', err);
+      setError(String(t('Something went wrong.')));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  // Opened without a plan session (e.g. from the library): completing it is a library completion for today.
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
+  const libraryLockKey = `${interventionId}__library`;
+  const isLibraryBusy = busyKey === libraryLockKey;
+
+  const handleToggleLibraryCompleted = async (completedToday: boolean, statusRef: unknown) => {
+    if (!patientId || !interventionId || isLibraryBusy) return;
+
+    setBusyKey(libraryLockKey);
+
+    try {
+      await patientInterventionsLibraryStore.setLibraryCompleted(
+        patientId,
+        interventionId,
+        todayKey,
+        !completedToday,
+        statusRef
+      );
+
+      if (!completedToday) {
+        try {
+          await patientQuestionnairesStore.openInterventionFeedback(
+            patientId,
+            interventionId,
+            todayKey,
+            i18n.language,
+            'library'
+          );
+        } catch (feedbackErr) {
+          console.error('[openFeedbackFor] failed:', feedbackErr);
+          patientQuestionnairesStore.closeFeedback();
+        }
+      }
+    } catch (err) {
+      console.error('Toggle library completed failed:', err);
+      setError(String(t('Something went wrong.')));
     } finally {
       setBusyKey(null);
     }
@@ -478,7 +525,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
   // Logged as opened after 2s; the duration is added on leaving, or stays empty if leaving is never seen.
   // The date is read when sent (the backend checks it against the plan), so a reschedule here stays one visit.
   const viewDateRef = useRef('');
-  viewDateRef.current = searchParams.get('date') || '';
+  viewDateRef.current =
+    searchParams.get('date') || (targetDate ? format(targetDate, 'yyyy-MM-dd') : '');
   useEffect(() => {
     if (!patientId || !interventionId) return;
     const url = `/patients/vitals/intervention-view/${patientId}/`;
@@ -595,6 +643,13 @@ const PatientInterventionDetail: React.FC = observer(() => {
 
   const titleRaw = effectiveItem?.title || effectiveItem?.intervention_title || '';
   const effectiveIsPrivate = Boolean(effectiveItem?.is_private);
+  const isBehaviorChange = effectiveItem?.intervention?.aim?.toLowerCase() === 'behavior change';
+
+  // "Last done" counts plan sessions too; the button only reflects today's library completion.
+  const statusRef = { external_id: effectiveItem.external_id, _id: interventionId };
+  const lastDone = patientInterventionsLibraryStore.lastCompletedOf(statusRef);
+  const libraryCompletedToday =
+    patientInterventionsLibraryStore.lastLibraryCompletedOf(statusRef) === todayKey;
 
   return (
     <Layout>
@@ -632,13 +687,43 @@ const PatientInterventionDetail: React.FC = observer(() => {
                   className={!completed ? 'bg-white border border-brand text-brand' : undefined}
                 >
                   {(() => {
-                    const isBehaviorChange =
-                      effectiveItem?.intervention?.aim?.toLowerCase() === 'behavior change';
                     if (isBusy) return <Skeleton className="w-20 h-6 rounded-full" />;
                     if (completed) return isBehaviorChange ? t('Viewed') : t('Done');
                     return isBehaviorChange ? t('Mark as viewed') : t('Mark as done');
                   })()}
                   {completed ? <CircleCheckFillIcon /> : <CircleHalfCheckIcon />}
+                </Button>
+              </div>
+            )}
+
+            {/* Only without a date: a plan link whose session moved shows neither button, not the library one. */}
+            {!targetDate && !searchParams.get('date') && (
+              <div className="flex flex-wrap gap-2 justify-end items-center">
+                {lastDone && !libraryCompletedToday && (
+                  <span className="text-zinc-500 text-sm">
+                    {t('lastDoneOn', {
+                      date: format(new Date(`${lastDone}T00:00:00`), 'd MMM yyyy', {
+                        locale: getDateFnsLocale(i18n.language),
+                      }),
+                    })}
+                  </span>
+                )}
+
+                <Button
+                  disabled={isLibraryBusy}
+                  aria-pressed={libraryCompletedToday}
+                  onClick={() => handleToggleLibraryCompleted(libraryCompletedToday, statusRef)}
+                  variant={libraryCompletedToday ? 'default' : 'secondary'}
+                  className={
+                    !libraryCompletedToday ? 'bg-white border border-brand text-brand' : undefined
+                  }
+                >
+                  {(() => {
+                    if (isLibraryBusy) return <Skeleton className="w-20 h-6 rounded-full" />;
+                    if (libraryCompletedToday) return isBehaviorChange ? t('Viewed') : t('Done');
+                    return isBehaviorChange ? t('Mark as viewed') : t('Mark as done');
+                  })()}
+                  {libraryCompletedToday ? <CircleCheckFillIcon /> : <CircleHalfCheckIcon />}
                 </Button>
               </div>
             )}
@@ -780,6 +865,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
           interventionId={patientQuestionnairesStore.feedbackInterventionId || ''}
           questions={safeInterventionQuestions}
           date={patientQuestionnairesStore.feedbackDateKey}
+          source={patientQuestionnairesStore.feedbackSource}
           onClose={() => patientQuestionnairesStore.closeFeedback()}
         />
       )}

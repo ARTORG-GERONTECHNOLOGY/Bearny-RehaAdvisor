@@ -19,7 +19,14 @@ const mockStore = {
   error: '',
   loading: false,
   fetchAll: jest.fn(async () => {}),
+  fetchStatus: jest.fn(async () => {}),
   clearError: jest.fn(),
+  status: {
+    completed: [] as string[],
+    viewed: [] as string[],
+    last_completed: {},
+    last_library_completed: {},
+  },
 };
 
 jest.mock('mobx-react-lite', () => ({
@@ -101,11 +108,13 @@ jest.mock('@/stores/authStore', () => ({
     checkAuthentication: jest.fn(async () => {}),
     isAuthenticated: true,
     userType: 'Patient',
+    getStoredUserId: () => 'patient-1',
   },
 }));
 
 jest.mock('@/stores/interventionsLibraryStore', () => ({
   patientInterventionsLibraryStore: mockStore,
+  libraryStatusLookup: jest.requireActual('@/stores/interventionsLibraryStore').libraryStatusLookup,
 }));
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
@@ -145,6 +154,12 @@ describe('PatientInterventionsLibrary', () => {
     ];
     mockStore.error = '';
     mockStore.loading = false;
+    mockStore.status = {
+      completed: [],
+      viewed: [],
+      last_completed: {},
+      last_library_completed: {},
+    };
   });
 
   it('passes translated-match search results and opens filter via panel callback', async () => {
@@ -619,5 +634,100 @@ describe('PatientInterventionsLibrary', () => {
     expect(within(otherSection).getByTestId('intervention-card-2')).toBeInTheDocument();
     expect(within(otherSection).getByTestId('intervention-card-3')).toBeInTheDocument();
     expect(within(otherSection).queryByTestId('intervention-card-1')).not.toBeInTheDocument();
+  });
+
+  describe('viewed / completed status', () => {
+    const FILTER_KEY = 'patientLibraryFilters';
+    const items = [
+      { _id: '1', external_id: 'EXT-1', title: 'Done', aims: ['exercise'], duration: 10 },
+      { _id: '2', external_id: 'EXT-2', title: 'Opened', aims: ['exercise'], duration: 10 },
+      { _id: '3', external_id: 'EXT-3', title: 'New', aims: ['exercise'], duration: 10 },
+    ];
+    const cardStatuses = () => {
+      const latest = new Map<string, unknown>();
+      mockInterventionCard.mock.calls.forEach(([props]: any) =>
+        latest.set(props.item._id, props.status)
+      );
+      return Object.fromEntries(latest);
+    };
+
+    beforeEach(() => {
+      mockStore.visibleItemsForPatient = items;
+      mockStore.status = {
+        completed: ['EXT-1'],
+        viewed: ['EXT-2'],
+        last_completed: {},
+        last_library_completed: {},
+      };
+    });
+
+    it('loads the status for the signed-in patient', async () => {
+      render(<PatientInterventionsLibrary />);
+      await waitFor(() => expect(mockStore.fetchStatus).toHaveBeenCalledWith('patient-1'));
+    });
+
+    it('passes each card its status', async () => {
+      render(<PatientInterventionsLibrary />);
+      await waitFor(() => expect(cardStatuses()).toEqual({ 1: 'completed', 2: 'viewed', 3: null }));
+    });
+
+    it('marks a card completed in another language version', async () => {
+      // The patient completed the German version; the list shows the English one.
+      mockStore.visibleItemsForPatient = [
+        { _id: 'en-id', external_id: 'EXT-1', title: 'Done', aims: ['exercise'], duration: 10 },
+      ];
+      render(<PatientInterventionsLibrary />);
+      await waitFor(() => expect(cardStatuses()).toEqual({ 'en-id': 'completed' }));
+    });
+
+    it('hides completed interventions, then viewed ones too', async () => {
+      render(<PatientInterventionsLibrary />);
+      await waitFor(() => expect(getLatestFilterSheetProps().filteredCount).toBe(3));
+
+      await act(async () => {
+        getLatestDesktopFiltersProps().setHideCompleted(true);
+      });
+      await waitFor(() => expect(getLatestFilterSheetProps().filteredCount).toBe(2));
+      expect(screen.queryByTestId('intervention-card-1')).not.toBeInTheDocument();
+
+      await act(async () => {
+        getLatestFilterSheetProps().setHideViewed(true);
+      });
+      await waitFor(() => expect(getLatestFilterSheetProps().filteredCount).toBe(1));
+      expect(screen.getAllByTestId('intervention-card-3').length).toBeGreaterThan(0);
+      expect(screen.queryByTestId('intervention-card-2')).not.toBeInTheDocument();
+    });
+
+    it('hides viewed interventions but keeps completed ones', async () => {
+      render(<PatientInterventionsLibrary />);
+      await act(async () => {
+        getLatestDesktopFiltersProps().setHideViewed(true);
+      });
+      await waitFor(() => expect(getLatestFilterSheetProps().filteredCount).toBe(2));
+      expect(screen.getAllByTestId('intervention-card-1').length).toBeGreaterThan(0);
+    });
+
+    it('remembers the status filters for the session and resets them', async () => {
+      render(<PatientInterventionsLibrary />);
+      await act(async () => {
+        getLatestDesktopFiltersProps().setHideCompleted(true);
+      });
+      await waitFor(() => {
+        expect(JSON.parse(sessionStorage.getItem(FILTER_KEY) ?? '{}').hideCompleted).toBe(true);
+      });
+
+      await act(async () => {
+        getLatestFilterSheetProps().onResetFilters();
+      });
+      await waitFor(() => expect(getLatestDesktopFiltersProps().hideCompleted).toBe(false));
+      expect(JSON.parse(sessionStorage.getItem(FILTER_KEY) ?? '{}').hideCompleted).toBe(false);
+    });
+
+    it('starts with nothing hidden when saved filters predate the status filters', async () => {
+      sessionStorage.setItem(FILTER_KEY, JSON.stringify({ searchTerm: '', aimsFilter: [] }));
+      render(<PatientInterventionsLibrary />);
+      await waitFor(() => expect(getLatestDesktopFiltersProps().hideViewed).toBe(false));
+      expect(getLatestDesktopFiltersProps().hideCompleted).toBe(false);
+    });
   });
 });

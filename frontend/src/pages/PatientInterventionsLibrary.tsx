@@ -9,7 +9,11 @@ import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
-import { patientInterventionsLibraryStore } from '@/stores/interventionsLibraryStore';
+import {
+  libraryStatusLookup,
+  patientInterventionsLibraryStore,
+} from '@/stores/interventionsLibraryStore';
+import authStore from '@/stores/authStore';
 
 import PatientLibraryFilterSheet from '@/components/PatientLibrary/PatientLibraryFilterSheet';
 import PatientLibraryDesktopFilters from '@/components/PatientLibrary/PatientLibraryDesktopFilters';
@@ -44,6 +48,7 @@ type InterventionCardItem = {
   duration?: string | number;
   content_type?: string;
   avg_rating?: number | null;
+  rating_count?: number;
   aims?: string[];
   intervention_title?: string;
   intervention_id?: string;
@@ -130,6 +135,8 @@ type FilterState = {
   languageFilter: string[];
   durationFilterIndices: [number, number];
   ratingFilterIndices: [number, number];
+  hideViewed: boolean;
+  hideCompleted: boolean;
 };
 
 const DEFAULT_FILTERS: FilterState = {
@@ -139,6 +146,8 @@ const DEFAULT_FILTERS: FilterState = {
   languageFilter: [],
   durationFilterIndices: [0, 4],
   ratingFilterIndices: [0, 4],
+  hideViewed: false,
+  hideCompleted: false,
 };
 
 const loadFilters = (): FilterState => {
@@ -187,6 +196,8 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
   const [ratingFilterIndices, setRatingFilterIndices] = useState(
     initialFilters.ratingFilterIndices
   );
+  const [hideViewed, setHideViewed] = useState(initialFilters.hideViewed);
+  const [hideCompleted, setHideCompleted] = useState(initialFilters.hideCompleted);
 
   useEffect(() => {
     saveFilters({
@@ -196,6 +207,8 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       languageFilter,
       durationFilterIndices,
       ratingFilterIndices,
+      hideViewed,
+      hideCompleted,
     });
   }, [
     searchTerm,
@@ -204,6 +217,8 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     languageFilter,
     durationFilterIndices,
     ratingFilterIndices,
+    hideViewed,
+    hideCompleted,
   ]);
 
   const resetAllFilters = useCallback(() => {
@@ -213,6 +228,8 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     setLanguageFilter(DEFAULT_FILTERS.languageFilter);
     setDurationFilterIndices(DEFAULT_FILTERS.durationFilterIndices);
     setRatingFilterIndices(DEFAULT_FILTERS.ratingFilterIndices);
+    setHideViewed(DEFAULT_FILTERS.hideViewed);
+    setHideCompleted(DEFAULT_FILTERS.hideCompleted);
     saveFilters(DEFAULT_FILTERS);
   }, []);
 
@@ -238,6 +255,15 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
     const lang = i18n.language.slice(0, 2);
     patientInterventionsLibraryStore.fetchAll({ mode: 'patient', lang });
   }, [isAllowed, i18n.language]);
+
+  useEffect(() => {
+    const patientId = authStore.getStoredUserId();
+    if (!isAllowed || !patientId) return;
+    patientInterventionsLibraryStore.fetchStatus(patientId);
+  }, [isAllowed]);
+
+  const libraryStatus = patientInterventionsLibraryStore.status;
+  const statusOf = useMemo(() => libraryStatusLookup(libraryStatus), [libraryStatus]);
 
   const sourceItems = patientInterventionsLibraryStore.visibleItemsForPatient;
   const storeError = patientInterventionsLibraryStore.error;
@@ -394,8 +420,15 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
       return rating >= minRating && rating <= maxRating;
     });
 
-    return withRating;
+    if (!hideViewed && !hideCompleted) return withRating;
+    return withRating.filter((it: InterventionCardItem) => {
+      const status = statusOf(it);
+      return !(hideViewed && status === 'viewed') && !(hideCompleted && status === 'completed');
+    });
   }, [
+    hideViewed,
+    hideCompleted,
+    statusOf,
     sourceItems,
     contentTypeFilter,
     aimsFilter,
@@ -595,6 +628,10 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
           ratingFilterIndices={ratingFilterIndices}
           setRatingFilterIndices={setRatingFilterIndices}
           ratingLabels={ratingLabels}
+          hideViewed={hideViewed}
+          setHideViewed={setHideViewed}
+          hideCompleted={hideCompleted}
+          setHideCompleted={setHideCompleted}
           onResetFilters={resetAllFilters}
         />
       </div>
@@ -618,6 +655,10 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
           ratingFilterIndices={ratingFilterIndices}
           setRatingFilterIndices={setRatingFilterIndices}
           ratingLabels={ratingLabels}
+          hideViewed={hideViewed}
+          setHideViewed={setHideViewed}
+          hideCompleted={hideCompleted}
+          setHideCompleted={setHideCompleted}
         />
 
         {/* Lists by type */}
@@ -672,6 +713,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
                         contentTypeIcon={contentTypeIcon}
                         onClick={() => openDetails(item)}
                         containerClassName="shrink-0 w-72"
+                        status={statusOf(item)}
                       />
                     );
                   })}
@@ -707,6 +749,7 @@ const PatientInterventionsLibrary: React.FC = observer(() => {
                       contentTypeIcon={contentTypeIcon}
                       onClick={() => openDetails(item)}
                       containerClassName="w-full"
+                      status={statusOf(item)}
                     />
                   );
                 })}

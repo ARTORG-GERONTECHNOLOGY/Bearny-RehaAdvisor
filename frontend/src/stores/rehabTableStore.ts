@@ -5,6 +5,7 @@ import authStore from '@/stores/authStore';
 import { filterInterventions } from '@/utils/filterUtils';
 import { translateText } from '@/utils/translate';
 import { toLocalYMD } from '@/utils/dateFormat';
+import { findLibraryCompletion, indexLibraryCompletions } from '@/utils/interventions';
 import { extractApiError, toStr } from '@/utils/apiErrorMessages';
 import config from '@/config/config.json';
 import type { Intervention } from '@/types';
@@ -64,6 +65,11 @@ const getContentType = (x: unknown): string => {
 };
 
 // Datetime and status per session.
+const getRawDates = (x: unknown): Array<Record<string, unknown>> => {
+  const dates = x && typeof x === 'object' ? (x as { dates?: unknown }).dates : undefined;
+  return Array.isArray(dates) ? dates.filter((d) => d && typeof d === 'object') : [];
+};
+
 const getDates = (x: unknown): Array<{ datetime: string; status: string }> => {
   if (!x || typeof x !== 'object') return [];
   const o = x as { dates?: unknown };
@@ -301,6 +307,10 @@ export class RehabTableStore {
     return this.matchedPatientItems.filter((it) => !this.hasFutureDates(it._id));
   }
 
+  get libraryCompletions() {
+    return indexLibraryCompletions(this.patientData?.library_completions);
+  }
+
   // External ids (or ids) of everything the patient opened, including unplanned library views.
   private get viewedInterventions(): Set<string> {
     const raw = this.patientData?.viewed_interventions;
@@ -309,11 +319,14 @@ export class RehabTableStore {
 
   // Keeps items with a session in a selected status. Beyond that, "accessed" matches an intervention the
   // patient opened (planned or not) but never completed, and "not_seen" one they never opened or completed.
+  // Done via the library counts as completed, like its badge.
   private filterByStatus(items: Intervention[], statusFilter: string[]): Intervention[] {
     if (!statusFilter.length) return items;
     const viewed = this.viewedInterventions;
+    const library = this.libraryCompletions;
     return items.filter((it) => {
       const statuses = getDates(this.planItemFor(it)).map((d) => d.status);
+      if ((findLibraryCompletion(library, it)?.completedCount || 0) > 0) statuses.push('completed');
       if (statuses.some((st) => statusFilter.includes(st))) return true;
       if (statuses.includes('completed')) return false;
       const opened =
@@ -589,7 +602,12 @@ export class RehabTableStore {
 
       if (success === false && typeof message === 'string' && !raw.interventions) {
         runInAction(() => {
-          this.patientData = EMPTY_PLAN;
+          // No plan, but what the patient did in the library still shows on the cards.
+          this.patientData = {
+            ...EMPTY_PLAN,
+            library_completions: raw.library_completions,
+            viewed_interventions: raw.viewed_interventions,
+          };
           this.error = message;
         });
         return;
@@ -747,7 +765,17 @@ export class RehabTableStore {
 
     // use merged plan item if possible (dates + feedback are there)
     const planItem = this.selectedExerciseFromPlan || null;
-    this.feedbackBrowserIntervention = planItem || (intervention as Intervention);
+    const base = planItem || (intervention as Intervention);
+    // Shown next to the plan's sessions in the popup only; the plan's own dates stay untouched.
+    const library = findLibraryCompletion(this.libraryCompletions, intervention);
+    this.feedbackBrowserIntervention = library
+      ? ({
+          ...base,
+          dates: [...getRawDates(base), ...library.dates].sort((a, b) =>
+            String(a.datetime || '').localeCompare(String(b.datetime || ''))
+          ),
+        } as unknown as Intervention)
+      : base;
     this.feedbackInitialDatetime = datetime ?? null;
     this.showFeedbackBrowser = true;
   }

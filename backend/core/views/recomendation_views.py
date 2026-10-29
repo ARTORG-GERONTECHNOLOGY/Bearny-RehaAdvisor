@@ -34,6 +34,7 @@ from core.models import (
     Intervention,
     InterventionAssignment,
     InterventionMedia,
+    LibraryInterventionLogs,
     Logs,
     Patient,
     PatientInterventionLogs,
@@ -861,16 +862,18 @@ def get_intervention_detail(request, intervention_id):
         patient_filter = accessible_patient_filter(request)
         if patient_filter is not None:
             log_filter["userId__in"] = list(Patient.objects(**patient_filter).scalar("id"))
-        patient_logs = PatientInterventionLogs.objects.filter(**log_filter)
-        for log in patient_logs:
-            for entry in log.feedback or []:
-                feedbacks.append(
-                    {
-                        "date": (entry.date.isoformat() if getattr(entry, "date", None) else None),
-                        "comment": getattr(entry, "comment", None),
-                        "rating": getattr(entry, "rating", None),
-                    }
-                )
+        # Library feedback too, like the library card's rating; source tells the two apart.
+        for source, logs_model in (("plan", PatientInterventionLogs), ("library", LibraryInterventionLogs)):
+            for log in logs_model.objects.filter(**log_filter):
+                for entry in log.feedback or []:
+                    feedbacks.append(
+                        {
+                            "date": (entry.date.isoformat() if getattr(entry, "date", None) else None),
+                            "comment": getattr(entry, "comment", None),
+                            "rating": getattr(entry, "rating", None),
+                            "source": source,
+                        }
+                    )
 
         data = {
             "_id": str(intervention.id),
@@ -1075,7 +1078,6 @@ def list_all_interventions(request, patient_id=None):
                 ObjectId(vid) for ids in variant_ids_by_item_id.values() for vid in ids if ObjectId.is_valid(vid)
             ]
             if all_variant_ids:
-                logs_col = PatientInterventionLogs._get_collection()
                 pipeline = [
                     {"$match": {"interventionId": {"$in": all_variant_ids}}},
                     {"$unwind": "$feedback"},
@@ -1092,18 +1094,19 @@ def list_all_interventions(request, patient_id=None):
                 ratings_by_variant = {}
                 # Parsed in Python (not $toInt/$regex) so this shares _parse_star_key with
                 # _star_rating_value() instead of a parallel Mongo-side validation rule.
-                for row in logs_col.aggregate(pipeline):
-                    values = []
-                    for keys in row["answer_key_lists"]:
-                        # One rating per feedback entry: first valid 1-5 key wins.
-                        value = next((v for v in (_parse_star_key(k) for k in keys) if v is not None), None)
-                        if value is not None:
-                            values.append(value)
-                    if values:
-                        ratings_by_variant[str(row["_id"])] = {
-                            "rating_sum": sum(values),
-                            "rating_count": len(values),
-                        }
+                # Ratings given from the library count too.
+                for logs_model in (PatientInterventionLogs, LibraryInterventionLogs):
+                    for row in logs_model._get_collection().aggregate(pipeline):
+                        values = []
+                        for keys in row["answer_key_lists"]:
+                            # One rating per feedback entry: first valid 1-5 key wins.
+                            value = next((v for v in (_parse_star_key(k) for k in keys) if v is not None), None)
+                            if value is not None:
+                                values.append(value)
+                        if values:
+                            agg = ratings_by_variant.setdefault(str(row["_id"]), {"rating_sum": 0, "rating_count": 0})
+                            agg["rating_sum"] += sum(values)
+                            agg["rating_count"] += len(values)
                 for item in all_serialized:
                     rows = [
                         ratings_by_variant[vid]

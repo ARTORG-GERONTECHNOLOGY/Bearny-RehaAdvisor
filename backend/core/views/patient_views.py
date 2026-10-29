@@ -16,7 +16,7 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import JsonResponse
 from django.utils import timezone
-from mongoengine.errors import DoesNotExist
+from mongoengine.errors import DoesNotExist, NotUniqueError
 from mongoengine.queryset.visitor import Q
 from pydub import AudioSegment
 from pydub.utils import which as pd_which
@@ -32,6 +32,7 @@ from core.models import (
     GoogleHealthData,
     Intervention,
     InterventionAssignment,
+    LibraryInterventionLogs,
     Patient,
     PatientICFRating,
     PatientInterventionLogs,
@@ -89,6 +90,7 @@ def submit_patient_feedback(request):
     Handles submission of patient feedback with optional video/audio input.
 
     Supports optional 'date' (YYYY-MM-DD) from FE to save feedback to that day (past/today).
+    With 'source=library' intervention feedback goes to that day's LibraryInterventionLogs entry.
     """
 
     try:
@@ -108,6 +110,10 @@ def submit_patient_feedback(request):
             return JsonResponse({"error": "Patient not found."}, status=404)
         if not can_access_patient(request, patient, allow_self=True):
             return _forbidden_patient()
+        # Library feedback is what the patient chose to do themselves; refused before any upload is stored.
+        from_library = bool(intervention_id) and request.POST.get("source") == "library"
+        if from_library and not is_self(request, patient.userId.id):
+            return _forbidden_patient()
 
         # --- Resolve target day (date-only) ---
         # If FE didn't send it, fallback to "today"
@@ -118,6 +124,18 @@ def submit_patient_feedback(request):
                 return JsonResponse({"error": "Invalid date format. Expected YYYY-MM-DD."}, status=400)
         else:
             target_day = timezone.localdate()
+
+        # The rest of the library checks need the day and the intervention; still before any upload is stored.
+        if from_library:
+            if target_day > _latest_library_day():
+                return JsonResponse({"error": "Library feedback can't be for a future day."}, status=400)
+            library_intervention = (
+                Intervention.objects(id=ObjectId(intervention_id)).first()
+                if ObjectId.is_valid(intervention_id)
+                else None
+            )
+            if library_intervention is None or _hidden_from_library(library_intervention, patient):
+                return JsonResponse({"error": "Intervention not found."}, status=404)
 
         # Naive local day bounds, matching how PatientInterventionLogs store dates (see
         # mark_intervention_completed). Converting to UTC here shifts the window off the stored values.
@@ -137,6 +155,9 @@ def submit_patient_feedback(request):
 
             # --- Video (unchanged) ---
             if ct.startswith("video/"):
+                # Never stored for the library: no log there would point to it, so it could never expire.
+                if from_library:
+                    continue
                 ext = upload.name.rsplit(".", 1)[-1].lower()
                 fname = f"{ts}_{upload.name}"
                 path = default_storage.save(f"video_feedback/{fname}", upload)
@@ -220,7 +241,7 @@ def submit_patient_feedback(request):
         # =========================
         for key, val in request.POST.items():
             # ✅ include "date" in skip keys so it doesn't become an answer
-            if key in ("userId", "interventionId", "date"):
+            if key in ("userId", "interventionId", "date", "source"):
                 continue
             if key not in answers:
                 try:
@@ -236,46 +257,58 @@ def submit_patient_feedback(request):
         # INTERVENTION feedback path
         # =========================
         if intervention_id:
-            intervention = Intervention.objects.filter(id=ObjectId(intervention_id)).first()
+            # Already loaded and checked for the library above.
+            intervention = (
+                library_intervention
+                if from_library
+                else Intervention.objects.filter(id=ObjectId(intervention_id)).first()
+            )
             if not intervention:
                 return JsonResponse({"error": "Intervention not found."}, status=404)
 
-            plan = RehabilitationPlan.objects(patientId=patient).first()
-            if not plan:
-                return JsonResponse({"error": "Rehabilitation plan not found."}, status=404)
+            if from_library:
+                log = _library_log_for_day(patient, intervention, target_day)
+                canonical_intervention = log.interventionId
+            else:
+                plan = RehabilitationPlan.objects(patientId=patient).first()
+                if not plan:
+                    return JsonResponse({"error": "Rehabilitation plan not found."}, status=404)
 
-            # Resolve via the plan's assignment: a translated variant must land on completion's log.
-            _, canonical_intervention, variant_ids = _resolve_plan_assignment(plan, intervention)
+                # Resolve via the plan's assignment: a translated variant must land on completion's log.
+                _, canonical_intervention, variant_ids = _resolve_plan_assignment(plan, intervention)
 
-            # ✅ use target_day bounds, NOT "today"
-            # Scoped, windowed and ordered exactly like mark_intervention_completed, so feedback lands
-            # on the very log that endpoint keeps for the day rather than a same-day duplicate.
-            log = (
-                PatientInterventionLogs.objects(
-                    userId=patient,
-                    rehabilitationPlanId=plan,
-                    interventionId__in=variant_ids,
-                    date__gte=day_start,
-                    date__lte=day_end,
+                # ✅ use target_day bounds, NOT "today"
+                # Scoped, windowed and ordered exactly like mark_intervention_completed, so feedback lands
+                # on the very log that endpoint keeps for the day rather than a same-day duplicate.
+                log = (
+                    PatientInterventionLogs.objects(
+                        userId=patient,
+                        rehabilitationPlanId=plan,
+                        interventionId__in=variant_ids,
+                        date__gte=day_start,
+                        date__lte=day_end,
+                    )
+                    .order_by("-date")
+                    .first()
                 )
-                .order_by("-date")
-                .first()
-            )
 
-            if not log:
-                # ✅ log.date should be within the target day
-                log = PatientInterventionLogs(
-                    userId=patient,
-                    interventionId=canonical_intervention,
-                    rehabilitationPlanId=plan,
-                    date=day_start,  # keep consistent day anchor
-                    status=[],
-                    feedback=[],
-                    comments="",
-                )
+                if not log:
+                    # ✅ log.date should be within the target day
+                    log = PatientInterventionLogs(
+                        userId=patient,
+                        interventionId=canonical_intervention,
+                        rehabilitationPlanId=plan,
+                        date=day_start,  # keep consistent day anchor
+                        status=[],
+                        feedback=[],
+                        comments="",
+                    )
 
             for qkey, answer_val in answers.items():
                 # keep your special video handling
+                # Library logs carry no video; a hand-made video answer is dropped, not attached.
+                if qkey == "video_example" and from_library:
+                    continue
                 if qkey == "video_example" and isinstance(answer_val, dict) and "video_url" in answer_val:
                     log.video_url = answer_val["video_url"]
                     log.video_expired = False
@@ -339,7 +372,10 @@ def submit_patient_feedback(request):
             log.updatedAt = timezone.now()
             # Collapse the day onto one variant, so duplicate logs stop accumulating per language.
             log.interventionId = canonical_intervention
-            log.save()
+            if from_library:
+                _save_library_log(log)
+            else:
+                log.save()
 
         # =========================
         # HEALTHSTATUS feedback path
@@ -461,13 +497,115 @@ def _discard_merged_logs(others):
             logger.warning("[_discard_merged_logs] Could not delete duplicate log %s", l.id, exc_info=True)
 
 
+def _library_day_logs(patient, intervention, day):
+    """The patient's library logs for any language variant of this intervention on a local day, newest first."""
+    variant_ids = _variant_ids_for_external_id(getattr(intervention, "external_id", None)) or [intervention.id]
+    return list(
+        LibraryInterventionLogs.objects(
+            userId=patient,
+            interventionId__in=variant_ids,
+            date__gte=datetime.datetime.combine(day, datetime.time.min),
+            date__lte=datetime.datetime.combine(day, datetime.time.max),
+        ).order_by("-date")
+    )
+
+
+def _library_log_for_day(patient, intervention, day):
+    """That day's library log, or a new unsaved one anchored on local midnight."""
+    logs = _library_day_logs(patient, intervention, day)
+    if logs:
+        return logs[0]
+    return LibraryInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        date=datetime.datetime.combine(day, datetime.time.min),
+        status=[],
+        feedback=[],
+    )
+
+
+def _latest_library_day():
+    """Today in Zurich plus one day: the app sends the device's date, which can be a day ahead east of Zurich."""
+    return timezone.localdate() + timedelta(days=1)
+
+
+def _hidden_from_library(intervention, patient) -> bool:
+    """Another patient's private intervention: the patient never sees it, so can't complete or rate it."""
+    return bool(getattr(intervention, "is_private", False)) and not _is_private_to(intervention, patient)
+
+
+def _save_library_log(log):
+    """Saves a day's library log; if a racing request inserted that day first, merges into its log."""
+    try:
+        log.save()
+    except NotUniqueError:
+        existing = LibraryInterventionLogs.objects(
+            userId=log.userId, interventionId=log.interventionId, date=log.date
+        ).first()
+        if existing is None:
+            raise
+        existing.status = sorted(set(existing.status or []) | set(log.status or []))
+        existing.feedback = (existing.feedback or []) + (log.feedback or [])
+        existing.updatedAt = timezone.now()
+        existing.save()
+
+
+def _set_library_completion(request, patient, intervention, date_str, completed: bool):
+    """Marks or unmarks a library completion for one day. Never touches the plan or its logs."""
+    # Only the patient: this records what they chose to do themselves.
+    if not is_self(request, patient.userId.id):
+        return _forbidden_patient()
+    if _hidden_from_library(intervention, patient):
+        return JsonResponse({"error": "Intervention not found"}, status=404)
+    if date_str:
+        try:
+            day = datetime.date.fromisoformat(str(date_str))
+        except ValueError:
+            return JsonResponse({"error": "Invalid date. Expected YYYY-MM-DD."}, status=400)
+    else:
+        day = timezone.localdate()
+    # Undoing stays possible for any day, so a wrong entry can still be removed.
+    if completed and day > _latest_library_day():
+        return JsonResponse({"error": "A library completion can't be for a future day."}, status=400)
+
+    if completed:
+        log = _library_log_for_day(patient, intervention, day)
+        if "completed" not in (log.status or []):
+            log.status = (log.status or []) + ["completed"]
+        log.updatedAt = timezone.now()
+        _save_library_log(log)
+    else:
+        logs = _library_day_logs(patient, intervention, day)
+        if not logs:
+            return JsonResponse({"message": "No completion log for this day"}, status=200)
+        for log in logs:
+            log.status = [s for s in (log.status or []) if s != "completed"]
+            # A rating is content the patient produced; undoing the completion keeps it.
+            if log.feedback:
+                log.updatedAt = timezone.now()
+                log.save()
+            else:
+                log.delete()
+
+    Logs(
+        userId=patient.userId,
+        action="INTERVENTION_COMPLETE" if completed else "INTERVENTION_UNCOMPLETE",
+        actor_role="Patient",
+        patient=patient,
+        details=f"intervention={intervention.title} date={day.isoformat()} source=library",
+    ).save()
+    message = "Marked as completed successfully" if completed else "Unmarked successfully"
+    return JsonResponse({"message": message}, status=200)
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def mark_intervention_completed(request):
     """
     POST /api/interventions/complete/
-    Body: { patient_id, intervention_id, date?: 'YYYY-MM-DD' }  # date optional; defaults to TODAY (local)
+    Body: { patient_id, intervention_id, date?: 'YYYY-MM-DD', source?: 'library' }  # date optional; defaults to TODAY (local)
     Ensures only ONE log per (patient, rehab_plan, intervention, day) exists.
+    With source='library' the completion goes to LibraryInterventionLogs instead and needs no plan.
 
     Date storage:
     - Logs are stored with a *naive local* datetime (no UTC conversion).
@@ -499,6 +637,8 @@ def mark_intervention_completed(request):
             return _forbidden_patient()
 
         intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
+        if data.get("source") == "library":
+            return _set_library_completion(request, patient, intervention, target_date_str, completed=True)
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
         if not rehab_plan:
             return JsonResponse({"error": "Rehabilitation plan not found for this patient"}, status=404)
@@ -620,7 +760,7 @@ def mark_intervention_completed(request):
 def unmark_intervention_completed(request):
     """
     POST /api/interventions/uncomplete/
-    Body: { patient_id, intervention_id, date: 'YYYY-MM-DD' }
+    Body: { patient_id, intervention_id, date: 'YYYY-MM-DD', source?: 'library' }
 
     Removes 'completed' for that day and also cleans duplicates.
 
@@ -643,6 +783,8 @@ def unmark_intervention_completed(request):
         if not can_access_patient(request, patient, allow_self=True):
             return _forbidden_patient()
         intervention = Intervention.objects.get(pk=ObjectId(intervention_id))
+        if data.get("source") == "library":
+            return _set_library_completion(request, patient, intervention, target_date_str, completed=False)
         rehab_plan = RehabilitationPlan.objects(patientId=patient).first()
         if not rehab_plan:
             return JsonResponse({"error": "Rehabilitation plan not found for this patient"}, status=404)
@@ -1284,7 +1426,7 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
         ?interventionId=<id>
 
     Returns feedback questions. For "Intervention", if the assignment has
-    require_video_feedback=True, appends a video request question.
+    require_video_feedback=True, appends a video request question (never with ?source=library).
     """
     logger = logging.getLogger(__name__)
 
@@ -1499,7 +1641,8 @@ def get_feedback_questions(request, questionaire_type, patient_id, intervention_
             except Exception:
                 iv_doc = None
 
-        if iv_doc is not None:
+        # A library completion has no plan session, so no therapist-requested video either.
+        if iv_doc is not None and request.GET.get("source") != "library":
             plan = RehabilitationPlan.objects(patientId=patient).first()
             if plan:
                 # Via the document, so a request naming a language variant the plan does not hold
@@ -3054,6 +3197,92 @@ def reschedule_intervention_date(request):
     )
 
 
+def _therapist_feedback(log, questions_by_id, star_q_ids):
+    """A log's feedback as the therapist plan view serializes it, plus its star ratings."""
+    entries, ratings = [], []
+    for fb in (getattr(log, "feedback", None) or []) if log else []:
+        question_id = getattr(getattr(fb, "questionId", None), "id", None)
+        question = questions_by_id.get(question_id)
+        if question is None:
+            continue
+
+        question_data = {
+            "id": str(question.id),
+            "translations": [{"language": tr.language, "text": tr.text} for tr in question.translations],
+        }
+
+        answer_data = [
+            {
+                "key": opt.key,
+                "translations": [{"language": tr.language, "text": tr.text} for tr in opt.translations],
+            }
+            for opt in (fb.answerKey or [])
+        ]
+
+        entries.append(
+            {
+                "question": question_data,
+                "comment": fb.comment,
+                "audio_url": getattr(fb, "audio_url", None),
+                "answer": answer_data,
+            }
+        )
+
+        # Only star-rating questions feed the average, not e.g. a difficulty scale.
+        rating = _star_rating_value(question.id, fb.answerKey, star_q_ids)
+        if rating is not None:
+            ratings.append(rating)
+    return entries, ratings
+
+
+def _feedback_questions_by_id(logs) -> dict:
+    """The FeedbackQuestions these logs' feedback answers, fetched in one query."""
+    ids = {
+        getattr(fb.questionId, "id", None)
+        for lg in logs
+        for fb in (getattr(lg, "feedback", None) or [])
+        if getattr(fb, "questionId", None) is not None
+    }
+    ids.discard(None)
+    return {q.id: q for q in FeedbackQuestion.objects(id__in=ids)}
+
+
+def _library_completions_for_therapist(library_logs, questions_by_id, star_q_ids) -> list:
+    """Library logs grouped per intervention (by external_id), each entry shaped like a plan date."""
+    refs = _intervention_refs({lg.interventionId.id for lg in library_logs})
+    groups: dict = {}
+    for lg in library_logs:
+        raw_id = str(lg.interventionId.id)
+        group = groups.setdefault(
+            refs[raw_id],
+            {"_id": raw_id, "external_id": refs[raw_id], "dates": [], "completed_days": set(), "ratings": []},
+        )
+        feedback, ratings = _therapist_feedback(lg, questions_by_id, star_q_ids)
+        completed = "completed" in (lg.status or [])
+        if completed:
+            # Days, not logs: two writes racing on one day can leave a duplicate log.
+            group["completed_days"].add(lg.date.date())
+        group["ratings"].extend(ratings)
+        group["dates"].append(
+            {
+                "datetime": _as_aware_utc(lg.createdAt or lg.date).isoformat(),
+                "status": "completed" if completed else "",
+                "source": "library",
+                "feedback": feedback,
+            }
+        )
+
+    out = []
+    for group in groups.values():
+        ratings = group.pop("ratings")
+        group["completedCount"] = len(group.pop("completed_days"))
+        group["dates"].sort(key=lambda d: d["datetime"])
+        group["ratingCount"] = len(ratings)
+        group["averageRating"] = round(sum(ratings) / len(ratings), 1) if ratings else 0
+        out.append(group)
+    return out
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_patient_plan_for_therapist(request, patient_id):
@@ -3110,11 +3339,17 @@ def get_patient_plan_for_therapist(request, patient_id):
             logger.info(
                 "[get_patient_plan_for_therapist] No rehab plan found for resolved patient (identifier redacted)"
             )
+            # The library needs no plan, so what the patient did there is still shown.
+            library_logs = list(LibraryInterventionLogs.objects(userId=patient).no_dereference())
             return JsonResponse(
                 {
                     "success": False,
                     "message": "No rehabilitation plan found",
                     "rehab_plan": [],
+                    "viewed_interventions": _viewed_intervention_refs(_accessed_logs(patient)),
+                    "library_completions": _library_completions_for_therapist(
+                        library_logs, _feedback_questions_by_id(library_logs), set(_get_star_q_ids())
+                    ),
                 },
                 status=200,
             )
@@ -3180,16 +3415,14 @@ def get_patient_plan_for_therapist(request, patient_id):
         for _log in _all_logs:
             _logs_by_variant_id.setdefault(_log.interventionId.id, []).append(_log)
 
-        _question_ids = {
-            getattr(fb.questionId, "id", None)
-            for _log in _all_logs
-            for fb in (getattr(_log, "feedback", None) or [])
-            if getattr(fb, "questionId", None) is not None
-        }
-        _question_ids.discard(None)
-        _questions_by_id = {q.id: q for q in FeedbackQuestion.objects(id__in=_question_ids)}
+        # Never merged into the plan's dates: library completions are listed apart (library_completions).
+        _library_logs = list(LibraryInterventionLogs.objects(userId=patient).no_dereference())
+        _questions_by_id = _feedback_questions_by_id(_all_logs + _library_logs)
         accessed_logs = _accessed_logs(patient, since=_accessed_since(plan))
         plan_data["viewed_interventions"] = _viewed_intervention_refs(accessed_logs)
+        plan_data["library_completions"] = _library_completions_for_therapist(
+            _library_logs, _questions_by_id, star_q_ids
+        )
 
         for _group in _groups:
             assignment = _group["canonical"]
@@ -3228,43 +3461,9 @@ def get_patient_plan_for_therapist(request, patient_id):
                 else:
                     status = "upcoming"
 
-                feedback_entries = []
-                if log and getattr(log, "feedback", None):
-                    for fb in log.feedback:
-                        question_id = getattr(getattr(fb, "questionId", None), "id", None)
-                        question = questions_by_id.get(question_id)
-                        if question is None:
-                            continue
-
-                        question_data = {
-                            "id": str(question.id),
-                            "translations": [
-                                {"language": tr.language, "text": tr.text} for tr in question.translations
-                            ],
-                        }
-
-                        answer_data = [
-                            {
-                                "key": opt.key,
-                                "translations": [{"language": tr.language, "text": tr.text} for tr in opt.translations],
-                            }
-                            for opt in (fb.answerKey or [])
-                        ]
-
-                        feedback_entries.append(
-                            {
-                                "question": question_data,
-                                "comment": fb.comment,
-                                "audio_url": getattr(fb, "audio_url", None),
-                                "answer": answer_data,
-                            }
-                        )
-
-                        # Only star-rating questions feed the average, not e.g. a difficulty scale.
-                        rating = _star_rating_value(question.id, fb.answerKey, star_q_ids)
-                        if rating is not None:
-                            rating_sum += rating
-                            rating_count += 1
+                feedback_entries, ratings = _therapist_feedback(log, questions_by_id, star_q_ids)
+                rating_sum += sum(ratings)
+                rating_count += len(ratings)
 
                 # Video feedback if present
                 video_feedback = None
@@ -4305,3 +4504,67 @@ def log_intervention_view(request, patient_id: str):
         return JsonResponse({"ok": False}, status=500)
 
     return JsonResponse({"ok": True, "id": str(log.id)}, status=200)
+
+
+def _intervention_refs(ids) -> dict:
+    """{str(id): external_id, or the raw id when it has none} for these Intervention ids."""
+    ids = [i for i in ids if i is not None]
+    found = {str(iv.id): iv.external_id for iv in Intervention.objects(id__in=ids).only("external_id")}
+    return {str(i): found.get(str(i)) or str(i) for i in ids}
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_library_status(request, patient_id: str):
+    """
+    GET /api/patients/library-status/<patient_id>/
+    What the patient has done with library interventions, keyed by external_id (raw id when it has none):
+      completed:              ever completed, from the library or the plan
+      viewed:                 opened from anywhere, never completed
+      last_completed:         {ref: 'YYYY-MM-DD'} of the latest completion, from the library or the plan
+      last_library_completed: {ref: 'YYYY-MM-DD'} of the latest library completion
+    """
+    patient = _resolve_patient(patient_id)
+    if not patient:
+        return JsonResponse({"error": "Patient not found"}, status=404)
+    if not can_access_patient(request, patient, allow_self=True):
+        return _forbidden_patient()
+
+    def _latest(logs, refs) -> dict:
+        out: dict = {}
+        for lg in logs:
+            if not isinstance(lg.date, datetime.datetime):
+                continue
+            ref = refs[str(lg.interventionId.id)]
+            day = lg.date.date().isoformat()  # naive local, as stored
+            if day > out.get(ref, ""):
+                out[ref] = day
+        return out
+
+    try:
+        plan_logs = list(
+            PatientInterventionLogs.objects(userId=patient, status="completed")
+            .only("interventionId", "date")
+            .no_dereference()
+        )
+        library_logs = list(
+            LibraryInterventionLogs.objects(userId=patient, status="completed")
+            .only("interventionId", "date")
+            .no_dereference()
+        )
+        refs = _intervention_refs({lg.interventionId.id for lg in plan_logs + library_logs})
+
+        completed = set(refs.values())
+        viewed = [r for r in _viewed_intervention_refs(_accessed_logs(patient)) if r not in completed]
+        return JsonResponse(
+            {
+                "completed": sorted(completed),
+                "viewed": viewed,
+                "last_completed": _latest(plan_logs + library_logs, refs),
+                "last_library_completed": _latest(library_logs, refs),
+            },
+            status=200,
+        )
+    except Exception:
+        logger.exception("[get_library_status] Unexpected error")
+        return JsonResponse({"error": "Internal server error."}, status=500)

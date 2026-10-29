@@ -309,6 +309,43 @@ export const getInterventionDateStatusClass = (status: string): string => {
   }
 };
 
+/** What the patient completed or rated from the library, as the therapist plan returns it (library_completions). */
+export type LibraryCompletion = {
+  _id: string;
+  external_id: string;
+  dates: Array<Record<string, unknown>>;
+  completedCount: number;
+  ratingCount: number;
+  averageRating: number;
+};
+
+/** Library completions by external_id and _id, so any catalog language variant finds its entry. */
+export const indexLibraryCompletions = (raw: unknown): Map<string, LibraryCompletion> => {
+  const map = new Map<string, LibraryCompletion>();
+  for (const entry of asArray<unknown>(raw)) {
+    if (!isRecord(entry)) continue;
+    const completion: LibraryCompletion = {
+      _id: asString(entry._id, ''),
+      external_id: asString(entry.external_id, ''),
+      dates: asArray<unknown>(entry.dates).filter(isRecord),
+      completedCount: Number(entry.completedCount) || 0,
+      ratingCount: Number(entry.ratingCount) || 0,
+      averageRating: Number(entry.averageRating) || 0,
+    };
+    if (completion.external_id) map.set(completion.external_id, completion);
+    if (completion._id) map.set(completion._id, completion);
+  }
+  return map;
+};
+
+export const findLibraryCompletion = (
+  index: Map<string, LibraryCompletion>,
+  item: unknown
+): LibraryCompletion | null => {
+  if (!isRecord(item)) return null;
+  return index.get(asString(item.external_id, '')) ?? index.get(asString(item._id, '')) ?? null;
+};
+
 /** Label derived from PRIMARY media item. Used by list rows. */
 export function getMediaTypeLabelFromIntervention(item?: unknown): string {
   const m = getPrimaryMedia(item);

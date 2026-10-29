@@ -12,6 +12,8 @@ import {
   toLangOpts,
   getTypeIcon,
   getContentTypeIcon,
+  indexLibraryCompletions,
+  findLibraryCompletion,
 } from '@/utils/interventions';
 import type { InterventionMedia } from '@/utils/interventions';
 
@@ -499,5 +501,38 @@ describe('getContentTypeIcon', () => {
 
   it('returns the same icon for website and app', () => {
     expect(getContentTypeIcon('website')).toBe(getContentTypeIcon('app'));
+  });
+});
+
+describe('library completions lookup', () => {
+  const raw = [
+    {
+      _id: 'iv-de',
+      external_id: 'EXT-1',
+      dates: [{ datetime: '2026-10-27T10:00:00+00:00', source: 'library' }, 'junk'],
+      completedCount: 1,
+      ratingCount: 1,
+      averageRating: 4,
+    },
+    { _id: 'iv-2', external_id: '', dates: [], completedCount: 0 },
+    'not-an-entry',
+  ];
+
+  it('finds an entry by external_id, so any language variant matches', () => {
+    const index = indexLibraryCompletions(raw);
+    const found = findLibraryCompletion(index, { _id: 'iv-en', external_id: 'EXT-1' });
+    expect(found?._id).toBe('iv-de');
+    expect(found?.dates).toHaveLength(1);
+  });
+
+  it('falls back to _id when the item has no external_id', () => {
+    const index = indexLibraryCompletions(raw);
+    expect(findLibraryCompletion(index, { _id: 'iv-2' })?.completedCount).toBe(0);
+  });
+
+  it('returns null for unknown items and tolerates a missing list', () => {
+    expect(findLibraryCompletion(indexLibraryCompletions(raw), { _id: 'nope' })).toBeNull();
+    expect(findLibraryCompletion(indexLibraryCompletions(undefined), { _id: 'iv-2' })).toBeNull();
+    expect(findLibraryCompletion(indexLibraryCompletions(raw), null)).toBeNull();
   });
 });

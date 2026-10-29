@@ -14,6 +14,7 @@ ZIP export (patients endpoint)
   * rehab_calendar.csv: one row per scheduled date per intervention assignment.
   * intervention_logs.csv: one row per PatientInterventionLog, correct fields.
   * intervention_feedback.csv: FeedbackEntry rows from intervention logs.
+  * Both also hold library logs, told apart from plan logs by the source column.
   * health_vitals.csv: PatientVitals rows, correct fields.
   * health_fitbit.csv: FitbitData rows resolved via user_id → patient.
   * questionnaire_answers.csv: PatientICFRating rows with question_key and rating.
@@ -56,6 +57,7 @@ from core.models import (
     GoogleHealthData,
     Intervention,
     InterventionAssignment,
+    LibraryInterventionLogs,
     Logs,
     Patient,
     PatientICFRating,
@@ -564,6 +566,33 @@ def test_intervention_logs_csv_contains_log_rows(mongo_mock):
     assert rows[0]["status"] == "completed"
     assert rows[0]["comments"] == "felt good"
     assert rows[0]["date"] == "2025-01-10"
+    assert rows[0]["source"] == "plan"
+
+
+def test_intervention_logs_and_feedback_csv_include_library_logs(mongo_mock):
+    therapist = _make_therapist()
+    patient = _make_patient(therapist, "P001", clinic="Inselspital")
+    intervention = _make_intervention()
+    question = FeedbackQuestion(questionSubject="Intervention", questionKey="rating_stars_video", answer_type="select")
+    question.save()
+    LibraryInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        date=datetime(2025, 2, 3),
+        status=["completed"],
+        feedback=[FeedbackEntry(questionId=question, comment="nice")],
+    ).save()
+
+    with _open_zip(client.get(EXPORT_URL)) as zf:
+        logs = _read_csv_from_zip(zf, "intervention_logs.csv")
+        feedback = _read_csv_from_zip(zf, "intervention_feedback.csv")
+
+    assert [(r["date"], r["status"], r["comments"], r["source"]) for r in logs] == [
+        ("2025-02-03", "completed", "", "library")
+    ]
+    assert [(r["question_key"], r["comment"], r["source"]) for r in feedback] == [
+        ("rating_stars_video", "nice", "library")
+    ]
 
 
 def test_intervention_logs_csv_survives_a_dangling_intervention_reference(mongo_mock):

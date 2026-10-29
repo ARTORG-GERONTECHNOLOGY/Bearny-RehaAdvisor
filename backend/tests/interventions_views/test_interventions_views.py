@@ -73,7 +73,10 @@ from django.utils import timezone
 from core.models import (
     DefaultInterventions,
     DiagnosisAssignmentSettings,
+    FeedbackEntry,
+    FeedbackQuestion,
     Intervention,
+    LibraryInterventionLogs,
     Patient,
     PatientInterventionLogs,
     PatientType,
@@ -654,6 +657,38 @@ def test_get_intervention_detail_response_shape(mongo_mock):
     assert "recommendation" in data, "response must have 'recommendation'"
     assert "feedback" in data, "response must have 'feedback'"
     assert isinstance(data["feedback"], list)
+
+
+def test_get_intervention_detail_lists_plan_and_library_feedback(mongo_mock):
+    """Library feedback is listed next to plan feedback, marked by source."""
+    intervention = create_intervention()
+    question = FeedbackQuestion(questionSubject="Intervention", questionKey="q_detail", answer_type="text").save()
+    user = User(username="p_detail", createdAt=datetime.now(), isActive=True).save()
+    therapist = Therapist(userId=User(username="t_detail", createdAt=datetime.now()).save()).save()
+    patient = Patient(userId=user, patient_code="P_DETAIL", therapist=therapist).save()
+    plan = RehabilitationPlan(
+        patientId=patient, therapistId=therapist, startDate=datetime.now(), endDate=datetime.now(), status="active"
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.now(),
+        feedback=[FeedbackEntry(questionId=question, comment="from plan")],
+    ).save()
+    LibraryInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        date=datetime.now(),
+        feedback=[FeedbackEntry(questionId=question, comment="from library")],
+    ).save()
+
+    resp = client.get(f"/api/interventions/{intervention.id}/", HTTP_AUTHORIZATION="Bearer test")
+
+    assert sorted((f["comment"], f["source"]) for f in resp.json()["feedback"]) == [
+        ("from library", "library"),
+        ("from plan", "plan"),
+    ]
 
 
 def test_get_intervention_detail_not_found(mongo_mock):

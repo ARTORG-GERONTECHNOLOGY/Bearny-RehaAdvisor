@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import PatientLibraryDesktopFilters from '@/components/PatientLibrary/PatientLibraryDesktopFilters';
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
@@ -66,6 +66,10 @@ describe('PatientLibraryDesktopFilters', () => {
         ratingFilterIndices={[0, 4]}
         setRatingFilterIndices={setRatingFilterIndices}
         ratingLabels={['1', '2', '3', '4', '5']}
+        hideViewed={false}
+        setHideViewed={jest.fn()}
+        hideCompleted={false}
+        setHideCompleted={jest.fn()}
       />
     );
 
@@ -96,5 +100,46 @@ describe('PatientLibraryDesktopFilters', () => {
 
     fireEvent.click(sliderButtons[1]);
     expect(setRatingFilterIndices).toHaveBeenCalledWith([1, 3]);
+  });
+
+  it('toggles hiding viewed and completed interventions', () => {
+    const setHideViewed = jest.fn();
+    const setHideCompleted = jest.fn();
+
+    render(
+      <PatientLibraryDesktopFilters
+        searchTerm=""
+        onSearchTermChange={jest.fn()}
+        typeOptions={[]}
+        contentOptions={[]}
+        languageOptions={[]}
+        aimsFilter={[]}
+        setAimsFilter={jest.fn()}
+        contentTypeFilter={[]}
+        setContentTypeFilter={jest.fn()}
+        languageFilter={[]}
+        setLanguageFilter={jest.fn()}
+        durationFilterIndices={[0, 4]}
+        setDurationFilterIndices={jest.fn()}
+        durationLabels={[]}
+        ratingFilterIndices={[0, 4]}
+        setRatingFilterIndices={jest.fn()}
+        ratingLabels={[]}
+        hideViewed={false}
+        setHideViewed={setHideViewed}
+        hideCompleted
+        setHideCompleted={setHideCompleted}
+      />
+    );
+
+    expect(screen.getByText('Status')).toBeInTheDocument();
+    const switchFor = (label: string) =>
+      within(screen.getByText(label).parentElement as HTMLElement).getByRole('button', {
+        name: 'switch',
+      });
+    fireEvent.click(switchFor('Hide viewed'));
+    fireEvent.click(switchFor('Hide completed'));
+    expect(setHideViewed).toHaveBeenCalledWith(true);
+    expect(setHideCompleted).toHaveBeenCalledWith(false);
   });
 });

@@ -53,6 +53,7 @@ from core.models import (
     HealthQuestionnaire,
     Intervention,
     InterventionAssignment,
+    LibraryInterventionLogs,
     Logs,
     Patient,
     PatientICFRating,
@@ -2172,3 +2173,281 @@ def test_combined_health_data_inflated_gh_record_passes_through_faithfully(mongo
     # API must return the DB value unchanged — backfill is responsible for correction
     assert s["minutes_asleep"] == 542
     assert s["minutes_asleep"] == s["sleep_duration"] // 60000  # inflated: equal
+
+
+# ---------------------------------------------------------------------------
+# Library completions: listed for the therapist apart from the plan, never in it
+# ---------------------------------------------------------------------------
+
+
+def _star_question():
+    return FeedbackQuestion(
+        questionSubject="Intervention",
+        questionKey="rating_stars_video",
+        translations=[Translation(language="en", text="Rate this")],
+        possibleAnswers=[AnswerOption(key=str(i)) for i in range(1, 6)],
+        answer_type="select",
+    ).save()
+
+
+def _library_log(patient, intervention, day, rating=None, question=None, completed=True):
+    return LibraryInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        date=datetime.combine(day, datetime.min.time()),
+        status=["completed"] if completed else [],
+        feedback=[FeedbackEntry(questionId=question, answerKey=[AnswerOption(key=str(rating))])] if rating else [],
+    ).save()
+
+
+def test_therapist_plan_keeps_library_completions_out_of_the_plan_and_calendar(mongo_mock):
+    """A library completion on a planned session day neither completes the session nor feeds its ratings."""
+    patient, _, intervention, plan = setup_basic_plan()
+    question = _star_question()
+    today = timezone.localdate()
+    _library_log(patient, intervention, today, rating=5, question=question)
+    unplanned = Intervention(
+        title="Breathing", description="d", content_type="Video", external_id="TEST-EXT-LIB", language="en"
+    ).save()
+    _library_log(patient, unplanned, today - timedelta(days=1))
+
+    resp = client.get(f"/api/patients/rehabilitation-plan/therapist/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
+
+    assert resp.status_code == 200, resp.content.decode()
+    body = resp.json()
+    assert [iv["_id"] for iv in body["interventions"]] == [str(intervention.id)], "unplanned never joins the plan"
+    planned = body["interventions"][0]
+    assert len(planned["dates"]) == len(plan.interventions[0].dates)
+    assert all(d["status"] != "completed" for d in planned["dates"])
+    assert all("source" not in d for d in planned["dates"])
+    assert planned["completedCount"] == 0
+    assert planned["ratingCount"] == 0
+
+
+def test_therapist_plan_lists_library_completions_with_their_ratings(mongo_mock):
+    patient, _, intervention, _ = setup_basic_plan()
+    question = _star_question()
+    today = timezone.localdate()
+    _library_log(patient, intervention, today - timedelta(days=1), rating=4, question=question)
+    _library_log(patient, intervention, today, rating=2, question=question)
+    rated_only = Intervention(
+        title="Breathing", description="d", content_type="Video", external_id="TEST-EXT-LIB", language="en"
+    ).save()
+    _library_log(patient, rated_only, today, rating=3, question=question, completed=False)
+
+    resp = client.get(f"/api/patients/rehabilitation-plan/therapist/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
+
+    by_ref = {c["external_id"]: c for c in resp.json()["library_completions"]}
+    planned = by_ref["TEST-EXT-001"]
+    assert planned["completedCount"] == 2
+    assert planned["ratingCount"] == 2
+    assert planned["averageRating"] == 3.0
+    assert [d["source"] for d in planned["dates"]] == ["library", "library"]
+    assert all(d["status"] == "completed" for d in planned["dates"])
+    assert planned["dates"][0]["feedback"][0]["answer"][0]["key"] == "4", "oldest first"
+    assert by_ref["TEST-EXT-LIB"]["completedCount"] == 0
+    assert by_ref["TEST-EXT-LIB"]["dates"][0]["status"] == ""
+
+
+def test_therapist_plan_counts_a_day_once_even_with_a_duplicate_library_log(mongo_mock):
+    """Two language versions written in the same instant can each get a log; the day still counts once."""
+    patient, _, intervention, _ = setup_basic_plan()
+    intervention_de = Intervention(
+        title="Dehnen", description="d", content_type="Video", external_id=intervention.external_id, language="de"
+    ).save()
+    today = timezone.localdate()
+    _library_log(patient, intervention, today)
+    _library_log(patient, intervention_de, today)
+    _library_log(patient, intervention, today - timedelta(days=1))
+
+    resp = client.get(f"/api/patients/rehabilitation-plan/therapist/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
+
+    assert resp.json()["library_completions"][0]["completedCount"] == 2
+
+
+def test_therapist_view_shows_library_completions_for_a_patient_without_a_plan(mongo_mock):
+    """The library needs no plan, so its completions and ratings still reach the therapist."""
+    patient, _, intervention, _ = setup_basic_plan(with_plan=False)
+    question = _star_question()
+    _library_log(patient, intervention, timezone.localdate(), rating=4, question=question)
+    _log_view(patient, str(intervention.id))
+
+    resp = client.get(f"/api/patients/rehabilitation-plan/therapist/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
+
+    body = resp.json()
+    assert body["success"] is False
+    assert body["viewed_interventions"] == ["TEST-EXT-001"]
+    [completion] = body["library_completions"]
+    assert (completion["external_id"], completion["completedCount"], completion["ratingCount"]) == (
+        "TEST-EXT-001",
+        1,
+        1,
+    )
+
+
+def test_therapist_plan_has_no_library_completions_by_default(mongo_mock):
+    patient, _, _, _ = setup_basic_plan()
+
+    resp = client.get(f"/api/patients/rehabilitation-plan/therapist/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
+
+    assert resp.json()["library_completions"] == []
+
+
+def test_patient_plan_ignores_library_completions(mongo_mock):
+    patient, _, intervention, _ = setup_basic_plan()
+    _library_log(patient, intervention, timezone.localdate())
+
+    resp = client.get(f"/api/patients/rehabilitation-plan/patient/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
+
+    assert resp.json()[0]["completion_dates"] == []
+
+
+def test_combined_health_adherence_ignores_library_completions(mongo_mock):
+    patient, therapist, intervention, _ = setup_basic_plan(with_plan=False)
+    day = timezone.localdate() - timedelta(days=2)
+    scheduled = timezone.make_aware(datetime.combine(day, datetime.min.time()).replace(hour=12))
+    RehabilitationPlan(
+        patientId=patient,
+        therapistId=therapist,
+        startDate=datetime.now() - timedelta(days=10),
+        endDate=datetime.now() + timedelta(days=10),
+        status="active",
+        interventions=[InterventionAssignment(interventionId=intervention, frequency="Daily", dates=[scheduled])],
+    ).save()
+    _library_log(patient, intervention, day)
+
+    resp = client.get(f"/api/patients/health-combined-history/{patient.id}/", HTTP_AUTHORIZATION="Bearer test")
+
+    row = {r["date"]: r for r in resp.json()["adherence"]}[day.isoformat()]
+    assert row["scheduled"] == 1
+    assert row["completed"] == 0
+
+
+def test_fetch_feedback_questions_from_library_omits_the_requested_video(mongo_mock):
+    patient, _, intervention, plan = setup_basic_plan()
+    plan.interventions[0].require_video_feedback = True
+    plan.save()
+    url = f"/api/patients/get-questions/Intervention/{patient.userId.id}/{intervention.id}/"
+
+    from_plan = client.get(url, HTTP_AUTHORIZATION="Bearer test").json()["questions"]
+    from_library = client.get(f"{url}?source=library", HTTP_AUTHORIZATION="Bearer test").json()["questions"]
+
+    assert "video_example" in [q["questionKey"] for q in from_plan]
+    assert "video_example" not in [q["questionKey"] for q in from_library]
+
+
+# ---------------------------------------------------------------------------
+# get_library_status  —  GET /api/patients/library-status/<id>/
+# ---------------------------------------------------------------------------
+
+
+def _library_status(patient):
+    return client.get(f"/api/patients/library-status/{patient.userId.id}/", HTTP_AUTHORIZATION="Bearer test")
+
+
+def test_library_status_marks_completions_from_the_library_and_the_plan(mongo_mock):
+    patient, _, intervention, plan = setup_basic_plan()
+    today = timezone.localdate()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(today - timedelta(days=2), datetime.min.time()),
+        status=["completed"],
+    ).save()
+    from_library = Intervention(
+        title="Breathing", description="d", content_type="Video", external_id="TEST-EXT-LIB", language="de"
+    ).save()
+    _library_log(patient, from_library, today - timedelta(days=3))
+    _library_log(patient, from_library, today - timedelta(days=1))
+
+    resp = _library_status(patient)
+
+    assert resp.status_code == 200, resp.content.decode()
+    body = resp.json()
+    assert body["completed"] == ["TEST-EXT-001", "TEST-EXT-LIB"]
+    assert body["last_completed"] == {
+        "TEST-EXT-001": (today - timedelta(days=2)).isoformat(),
+        "TEST-EXT-LIB": (today - timedelta(days=1)).isoformat(),
+    }
+    assert body["last_library_completed"] == {"TEST-EXT-LIB": (today - timedelta(days=1)).isoformat()}
+
+
+def test_library_status_last_completed_takes_the_later_of_plan_and_library(mongo_mock):
+    """The latest completion from anywhere is shown as last done; the library one alone drives the library button."""
+    patient, _, intervention, plan = setup_basic_plan()
+    today = timezone.localdate()
+    _library_log(patient, intervention, today - timedelta(days=5))
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(today - timedelta(days=1), datetime.min.time()).replace(hour=9),
+        status=["completed"],
+    ).save()
+    PatientInterventionLogs(
+        userId=patient,
+        interventionId=intervention,
+        rehabilitationPlanId=plan,
+        date=datetime.combine(today, datetime.min.time()),
+        status=["skipped"],
+    ).save()
+
+    body = _library_status(patient).json()
+
+    assert body["last_completed"] == {"TEST-EXT-001": (today - timedelta(days=1)).isoformat()}
+    assert body["last_library_completed"] == {"TEST-EXT-001": (today - timedelta(days=5)).isoformat()}
+
+
+def test_library_status_lists_opened_but_never_completed_as_viewed(mongo_mock):
+    patient, _, intervention, _ = setup_basic_plan()
+    opened = Intervention(
+        title="Breathing", description="d", content_type="Video", external_id="TEST-EXT-LIB", language="en"
+    ).save()
+    _log_view(patient, str(opened.id))
+    _log_view(patient, str(intervention.id), timezone.localdate())
+    _library_log(patient, intervention, timezone.localdate())
+
+    body = _library_status(patient).json()
+
+    assert body["viewed"] == ["TEST-EXT-LIB"]
+    assert body["completed"] == ["TEST-EXT-001"]
+
+
+def test_library_status_skips_uncompleted_logs_and_other_patients(mongo_mock):
+    patient, _, intervention, _ = setup_basic_plan()
+    _library_log(patient, intervention, timezone.localdate(), completed=False)
+    other_user = User(username="p2", createdAt=datetime.now(), isActive=True).save()
+    other = Patient(userId=other_user, patient_code="PAT002", therapist=patient.therapist).save()
+    _library_log(other, intervention, timezone.localdate())
+
+    assert _library_status(patient).json() == {
+        "completed": [],
+        "viewed": [],
+        "last_completed": {},
+        "last_library_completed": {},
+    }
+
+
+def test_library_status_patient_not_found(mongo_mock):
+    resp = client.get(f"/api/patients/library-status/{ObjectId()}/", HTTP_AUTHORIZATION="Bearer test")
+
+    assert resp.status_code == 404
+
+
+def test_library_status_refuses_an_unrelated_caller(mongo_mock):
+    from types import SimpleNamespace
+
+    from django.test import override_settings
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.patient_views import get_library_status
+
+    patient, _, _, _ = setup_basic_plan()
+    request = APIRequestFactory().get(f"/api/patients/library-status/{patient.userId.id}/")
+    force_authenticate(request, user=SimpleNamespace(is_authenticated=True, id=str(ObjectId())))
+
+    with override_settings(TESTING=False):
+        resp = get_library_status(request, str(patient.userId.id))
+
+    assert resp.status_code == 403

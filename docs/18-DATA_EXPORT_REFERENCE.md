@@ -64,6 +64,8 @@ One row per scheduled session date per intervention per rehabilitation plan. A p
 
 One row per completed or skipped session. Only sessions that were acted on by the patient appear here; future scheduled sessions do not.
 
+Interventions the patient did on their own from the library are included as well, with `source` set to `library`. They were not planned by the therapist, so they have no matching row in `rehab_calendar.csv`, and `date` is the day the patient did them. A library row with an empty `status` holds only a rating: the patient rated the intervention, then undid the completion.
+
 | Column | Description |
 |---|---|
 | `clinic` | Clinic |
@@ -74,6 +76,7 @@ One row per completed or skipped session. Only sessions that were acted on by th
 | `status` | Semicolon-separated list of statuses: `completed`, `skipped`, `postponed`, `upcoming` |
 | `comments` | Free-text comment the patient entered when marking the session |
 | `created_at` | Timestamp (ISO 8601) when the log record was first created |
+| `source` | `plan` for a planned session, `library` for a completion from the patient library |
 
 ---
 
@@ -91,6 +94,7 @@ One row per feedback question answered per session. A session with 3 feedback qu
 | `question_key` | Stable identifier for the feedback question (e.g. `pain_level`, `effort`) |
 | `answer_keys` | Semicolon-separated list of selected answer option keys |
 | `comment` | Free-text comment entered alongside the answer |
+| `source` | `plan` for feedback on a planned session, `library` for a rating given from the patient library |
 
 > **`log_date` vs `feedback_date`**: `log_date` is the session's scheduled slot; `feedback_date` is when the patient tapped "submit". They differ when the patient marks a session complete but fills in the questionnaire at a later time.
 

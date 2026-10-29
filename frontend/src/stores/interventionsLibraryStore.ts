@@ -8,6 +8,45 @@ import type { InterventionTypeTh } from '@/types';
 
 export type LibraryMode = 'patient' | 'therapist';
 
+// What the patient has done with library items, keyed by external_id (or _id when there is none).
+export type LibraryStatus = {
+  completed: string[];
+  viewed: string[];
+  last_completed: Record<string, string>; // ref -> YYYY-MM-DD of the latest completion, library or plan
+  last_library_completed: Record<string, string>; // ref -> YYYY-MM-DD of the latest library completion
+};
+
+const EMPTY_STATUS: LibraryStatus = {
+  completed: [],
+  viewed: [],
+  last_completed: {},
+  last_library_completed: {},
+};
+
+const asDayMap = (v: unknown): Record<string, string> =>
+  isRecord(v) ? Object.fromEntries(Object.entries(v).map(([k, d]) => [k, asString(d, '')])) : {};
+
+const asStringList = (v: unknown): string[] =>
+  Array.isArray(v) ? v.map((x) => asString(x)).filter(Boolean) : [];
+
+export const libraryRef = (item: unknown): string => {
+  if (!isRecord(item)) return '';
+  return asString(item.external_id, '') || asString(item._id ?? item.id, '');
+};
+
+// Built once per status, so each card is a set lookup; completed wins if a stale status lists both.
+export const libraryStatusLookup = (status: LibraryStatus) => {
+  const completed = new Set(status.completed);
+  const viewed = new Set(status.viewed);
+  return (item: unknown): 'completed' | 'viewed' | null => {
+    const ref = libraryRef(item);
+    if (!ref) return null;
+    if (completed.has(ref)) return 'completed';
+    if (viewed.has(ref)) return 'viewed';
+    return null;
+  };
+};
+
 type FetchOptions = {
   mode: LibraryMode;
 
@@ -130,6 +169,9 @@ export class InterventionsLibraryStore {
   items: InterventionTypeTh[] = [];
   loading = false;
   error = '';
+  status: LibraryStatus = EMPTY_STATUS;
+  private statusPatientId = '';
+  private statusRequest = 0;
 
   lastMode: LibraryMode | null = null;
   lastFetch: FetchOptions | null = null;
@@ -183,6 +225,66 @@ export class InterventionsLibraryStore {
     this.error = '';
     this.lastMode = null;
     this.lastFetch = null;
+    this.status = EMPTY_STATUS;
+    this.statusPatientId = '';
+  }
+
+  lastCompletedOf(item: unknown): string | null {
+    return this.status.last_completed[libraryRef(item)] || null;
+  }
+
+  lastLibraryCompletedOf(item: unknown): string | null {
+    return this.status.last_library_completed[libraryRef(item)] || null;
+  }
+
+  async fetchStatus(patientId: string) {
+    const request = ++this.statusRequest;
+    // Stores outlive a logout, so the previous patient's status never shows while this one loads.
+    if (patientId !== this.statusPatientId) {
+      this.status = EMPTY_STATUS;
+      this.statusPatientId = patientId;
+    }
+    try {
+      const res = await apiClient.get(`patients/library-status/${patientId}/`);
+      // A slower, older response must not overwrite a newer one (e.g. the reload after a tap).
+      if (request !== this.statusRequest) return;
+      const data = isRecord(res.data) ? res.data : {};
+      runInAction(() => {
+        this.status = {
+          completed: asStringList(data.completed),
+          viewed: asStringList(data.viewed),
+          last_completed: asDayMap(data.last_completed),
+          last_library_completed: asDayMap(data.last_library_completed),
+        };
+      });
+    } catch {
+      // Status is decoration on the list; the library stays usable without it.
+    }
+  }
+
+  // Completes or un-completes a library item for one day, apart from the plan.
+  async setLibraryCompleted(
+    patientId: string,
+    interventionId: string,
+    dateKey: string,
+    completed: boolean,
+    item?: unknown
+  ) {
+    await apiClient.post(completed ? 'interventions/complete/' : 'interventions/uncomplete/', {
+      patient_id: patientId,
+      intervention_id: interventionId,
+      date: dateKey,
+      source: 'library',
+    });
+    // Only the button's state, set right away so a failed reload below can't leave it showing the old one.
+    const ref = libraryRef(item ?? { _id: interventionId });
+    runInAction(() => {
+      const library = { ...this.status.last_library_completed };
+      if (completed) library[ref] = dateKey;
+      else if (library[ref] === dateKey) delete library[ref];
+      this.status = { ...this.status, last_library_completed: library };
+    });
+    await this.fetchStatus(patientId);
   }
 
   /**
