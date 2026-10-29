@@ -344,6 +344,9 @@ const PatientInterventionDetail: React.FC = observer(() => {
     return matchedIso ? { targetDate: parsed, targetOccurrenceIso: matchedIso } : none;
   }, [searchParams, selectedRec]);
 
+  // Plan links always carry a date, so this is a library open.
+  const openedFromLibrary = !searchParams.get('date');
+
   const targetOccurrenceDate = useMemo(
     () => (targetOccurrenceIso ? new Date(targetOccurrenceIso) : null),
     [targetOccurrenceIso]
@@ -377,8 +380,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
         selectedRec,
         targetDate
       );
-      // "Last done" also counts plan sessions, so it changes with this toggle.
-      void patientInterventionsLibraryStore.fetchStatus(patientId);
+      // "Last done" also counts plan sessions; it only shows on library opens.
+      if (openedFromLibrary) void patientInterventionsLibraryStore.fetchStatus(patientId);
 
       if (res?.completed) {
         try {
@@ -653,12 +656,10 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const libraryCompletedToday =
     patientInterventionsLibraryStore.lastLibraryCompletedOf(statusRef) === todayKey;
 
-  // Plan links always carry a date, so only library opens show when it was last done.
-  const openedFromLibrary = !searchParams.get('date');
-  // targetDate is today's plan session if there is one; then the plan button shows, otherwise the library one.
-  const doneTodayForShownButton = targetDate ? completed : libraryCompletedToday;
+  // Done today by any route; the button covers the moment before the reloaded status says so.
+  const doneToday = lastDone === todayKey || (targetDate ? completed : libraryCompletedToday);
   const lastDoneLabel =
-    openedFromLibrary && lastDone && !doneTodayForShownButton ? (
+    openedFromLibrary && lastDone && !doneToday ? (
       <span className="text-zinc-500 text-sm">
         {t('lastDoneOn', {
           date: format(new Date(`${lastDone}T00:00:00`), 'd MMM yyyy', {

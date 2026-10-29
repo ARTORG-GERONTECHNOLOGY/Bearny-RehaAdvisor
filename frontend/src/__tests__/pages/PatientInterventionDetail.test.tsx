@@ -1182,11 +1182,11 @@ describe('PatientInterventionDetail', () => {
     });
 
     it('shows a plan completion as last done but leaves the library button open', async () => {
-      // Done today in the plan, never from the library.
-      libraryStore.lastCompletedOf.mockReturnValue(todayKey());
+      // Done earlier in the plan, never from the library.
+      libraryStore.lastCompletedOf.mockReturnValue('2026-10-24');
       render(<PatientInterventionDetail />);
 
-      expect(await screen.findByText(/^Last done: /)).toBeInTheDocument();
+      expect(await screen.findByText('Last done: 24 Oct 2026')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Mark as done/i })).toHaveAttribute(
         'aria-pressed',
         'false'
@@ -1289,14 +1289,52 @@ describe('PatientInterventionDetail', () => {
       expect(screen.getAllByRole('button', { name: /Mark as done/i })).toHaveLength(1);
     });
 
-    it("hides last done once today's plan session is done", async () => {
+    it("hides last done once today's plan session is done, before the status catches up", async () => {
       (patientInterventionsStore as any).items = [buildRec({ dates: [`${todayKey()}T09:00:00`] })];
       (patientInterventionsStore as any).isCompletedOn.mockReturnValue(true);
-      libraryStore.lastCompletedOf.mockReturnValue(todayKey());
+      libraryStore.lastCompletedOf.mockReturnValue('2026-10-24');
       render(<PatientInterventionDetail />);
 
       expect(await screen.findByRole('button', { name: /Done/ })).toBeInTheDocument();
       expect(screen.queryByText(/Last done/)).not.toBeInTheDocument();
+    });
+
+    it('hides last done when it was already done today from the library and the session is open', async () => {
+      (patientInterventionsStore as any).items = [buildRec({ dates: [`${todayKey()}T09:00:00`] })];
+      libraryStore.lastCompletedOf.mockReturnValue(todayKey());
+      render(<PatientInterventionDetail />);
+
+      expect(await screen.findByRole('button', { name: /Mark as done/i })).toBeInTheDocument();
+      expect(screen.queryByText(/Last done/)).not.toBeInTheDocument();
+    });
+
+    it('hides last done after an undo until the status has reloaded', async () => {
+      // Undone today, but the status still says today until it reloads.
+      (patientInterventionsStore as any).items = [buildRec({ dates: [`${todayKey()}T09:00:00`] })];
+      (patientInterventionsStore as any).isCompletedOn.mockReturnValue(false);
+      libraryStore.lastCompletedOf.mockReturnValue(todayKey());
+      render(<PatientInterventionDetail />);
+
+      await screen.findByRole('button', { name: /Mark as done/i });
+      expect(screen.queryByText(/Last done/)).not.toBeInTheDocument();
+    });
+
+    it('does not reload the library status for a plan link', async () => {
+      mockSearchParams = new URLSearchParams('date=2026-03-16');
+      (patientInterventionsStore as any).toggleCompleted.mockResolvedValueOnce({
+        completed: false,
+        dateKey: '2026-03-16',
+      });
+      render(<PatientInterventionDetail />);
+      await screen.findByRole('button', { name: /Mark as done/i });
+      libraryStore.fetchStatus.mockClear();
+
+      fireEvent.click(screen.getByRole('button', { name: /Mark as done/i }));
+
+      await waitFor(() =>
+        expect((patientInterventionsStore as any).toggleCompleted).toHaveBeenCalled()
+      );
+      expect(libraryStore.fetchStatus).not.toHaveBeenCalled();
     });
 
     it('reloads the status after toggling the plan session, so last done stays right', async () => {
