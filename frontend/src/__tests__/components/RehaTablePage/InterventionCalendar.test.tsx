@@ -14,7 +14,7 @@ jest.mock('react-big-calendar', () => {
     const firstEvent = props.events?.[0];
     const eventProps = firstEvent ? props.eventPropGetter?.(firstEvent) : undefined;
     const dayProps = props.dayPropGetter?.(new Date());
-    // January 2027 ends on a Sunday, March 2027 on a Wednesday.
+    // January 2027 ends on a Sunday, March 2027 starts on a Monday.
     const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
     const grid = (month: Date) => ({
       days: (props.localizer?.visibleDays?.(month, props.localizer) ?? []).map(fmt).join(','),
@@ -393,7 +393,7 @@ describe('InterventionCalendar big-calendar wiring', () => {
     expect(screen.getByTestId('day-classname')).toHaveTextContent('!bg-yellow/10');
   });
 
-  it('always shows six weeks in month view, including next-month days when a month ends on a Sunday', () => {
+  it('always shows six weeks in month view, with days of the previous and next month', () => {
     render(
       <InterventionCalendar
         patientData={makePatientData(TODAY) as any}
@@ -409,9 +409,9 @@ describe('InterventionCalendar big-calendar wiring', () => {
 
     const mar = screen.getByTestId('mar-grid-days').textContent!.split(',');
     expect(mar).toHaveLength(42);
-    expect(mar[0]).toBe('3/1');
-    expect(mar.at(-1)).toBe('4/11');
-    expect(screen.getByTestId('mar-grid-end')).toHaveTextContent('4/11');
+    expect(mar[0]).toBe('2/22');
+    expect(mar.at(-1)).toBe('4/4');
+    expect(screen.getByTestId('mar-grid-end')).toHaveTextContent('4/4');
   });
 
   it('disables resizing entirely', () => {

@@ -13,6 +13,7 @@ import {
   parse,
   startOfMonth,
   startOfWeek,
+  subDays,
 } from 'date-fns';
 
 import type { Intervention } from '@/types';
@@ -60,9 +61,9 @@ const localizer = dateFnsLocalizer({
   locales: LOCALE_MAP,
 });
 
+// Starts the week before the 1st and runs six weeks, so every month shows days of the months on either side.
 const firstVisibleDay = (date: Date) =>
-  startOfWeek(startOfMonth(date), { weekStartsOn: WEEK_STARTS_ON });
-// Always six weeks, so a month ending on a Sunday still shows next-month days to drop a session on.
+  startOfWeek(subDays(startOfMonth(date), 1), { weekStartsOn: WEEK_STARTS_ON });
 const lastVisibleDay = (date: Date) => endOfDay(addDays(firstVisibleDay(date), 41));
 
 localizer.firstVisibleDay = firstVisibleDay;
