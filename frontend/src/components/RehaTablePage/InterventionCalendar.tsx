@@ -4,7 +4,16 @@ import { Calendar, dateFnsLocalizer, Views, type View } from 'react-big-calendar
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
-import { addDays, endOfDay, format, getDay, parse, startOfMonth, startOfWeek } from 'date-fns';
+import {
+  addDays,
+  eachDayOfInterval,
+  endOfDay,
+  format,
+  getDay,
+  parse,
+  startOfMonth,
+  startOfWeek,
+} from 'date-fns';
 
 import type { Intervention } from '@/types';
 import StarRating, { getRatingFromDateEntry } from './StarRating';
@@ -41,23 +50,25 @@ type CalendarEvent = {
   };
 };
 
+const WEEK_STARTS_ON = 1;
+
 const localizer = dateFnsLocalizer({
   format,
   parse,
-  startOfWeek: (date, options) => startOfWeek(date, { weekStartsOn: 1, ...options }),
+  startOfWeek: (date, options) => startOfWeek(date, { weekStartsOn: WEEK_STARTS_ON, ...options }),
   getDay,
   locales: LOCALE_MAP,
 });
 
-const MONTH_GRID_DAYS = 42;
-const firstVisibleDay = (date: Date) => startOfWeek(startOfMonth(date), { weekStartsOn: 1 });
-
+const firstVisibleDay = (date: Date) =>
+  startOfWeek(startOfMonth(date), { weekStartsOn: WEEK_STARTS_ON });
 // Always six weeks, so a month ending on a Sunday still shows next-month days to drop a session on.
+const lastVisibleDay = (date: Date) => endOfDay(addDays(firstVisibleDay(date), 41));
+
 localizer.firstVisibleDay = firstVisibleDay;
-localizer.lastVisibleDay = (date: Date) =>
-  endOfDay(addDays(firstVisibleDay(date), MONTH_GRID_DAYS - 1));
+localizer.lastVisibleDay = lastVisibleDay;
 localizer.visibleDays = (date: Date) =>
-  Array.from({ length: MONTH_GRID_DAYS }, (_, i) => addDays(firstVisibleDay(date), i));
+  eachDayOfInterval({ start: firstVisibleDay(date), end: lastVisibleDay(date) });
 
 const safeDate = (v: string): Date | null => {
   const d = new Date(v);
