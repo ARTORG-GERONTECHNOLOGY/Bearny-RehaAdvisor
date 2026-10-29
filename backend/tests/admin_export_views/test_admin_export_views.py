@@ -50,6 +50,7 @@ from mongoengine import connect, disconnect
 from rest_framework.test import APIClient
 
 from core.models import (
+    AnswerOption,
     FeedbackEntry,
     FeedbackQuestion,
     FitbitData,
@@ -119,6 +120,7 @@ EXPECTED_CSV_FILES = {
     "health_fitbit.csv",
     "questionnaire_answers.csv",
     "question_dictionary.csv",
+    "answer_option_dictionary.csv",
     "intervention_library.csv",
     "thresholds.csv",
     "threshold_history.csv",
@@ -878,6 +880,83 @@ def test_question_dictionary_csv_contains_all_questions(mongo_mock):
 def test_question_dictionary_csv_is_empty_when_no_questions(mongo_mock):
     with _open_zip(client.get(EXPORT_URL)) as zf:
         rows = _read_csv_from_zip(zf, "question_dictionary.csv")
+    assert rows == []
+
+
+# ===========================================================================
+# answer_option_dictionary.csv
+# ===========================================================================
+
+
+def test_answer_option_dictionary_csv_contains_all_options(mongo_mock):
+    FeedbackQuestion(
+        questionKey="rating_difficulty",
+        questionSubject="Intervention",
+        answer_type="select",
+        possibleAnswers=[
+            AnswerOption(
+                key="easy",
+                translations=[
+                    Translation(language="en", text="Easy"),
+                    Translation(language="de", text="Einfach"),
+                ],
+            ),
+            AnswerOption(
+                key="hard",
+                translations=[
+                    Translation(language="en", text="Hard"),
+                    Translation(language="de", text="Schwierig"),
+                ],
+            ),
+        ],
+    ).save()
+    FeedbackQuestion(
+        questionKey="custom_weekly_check_abc123_0_def456",
+        questionSubject="Healthstatus",
+        answer_type="select",
+        possibleAnswers=[
+            AnswerOption(
+                key="yes",
+                translations=[Translation(language="en", text="Yes")],
+            ),
+        ],
+    ).save()
+
+    with _open_zip(client.get(EXPORT_URL)) as zf:
+        rows = _read_csv_from_zip(zf, "answer_option_dictionary.csv")
+
+    assert len(rows) == 3
+    by_key = {(r["question_key"], r["answer_key"]): r for r in rows}
+
+    easy = by_key[("rating_difficulty", "easy")]
+    assert easy["label_en"] == "Easy"
+    assert easy["label_de"] == "Einfach"
+    assert easy["label_fr"] == ""
+
+    hard = by_key[("rating_difficulty", "hard")]
+    assert hard["label_en"] == "Hard"
+
+    yes = by_key[("custom_weekly_check_abc123_0_def456", "yes")]
+    assert yes["label_en"] == "Yes"
+    assert yes["label_de"] == ""
+
+
+def test_answer_option_dictionary_csv_is_empty_when_no_questions(mongo_mock):
+    with _open_zip(client.get(EXPORT_URL)) as zf:
+        rows = _read_csv_from_zip(zf, "answer_option_dictionary.csv")
+    assert rows == []
+
+
+def test_answer_option_dictionary_csv_is_empty_for_questions_without_options(mongo_mock):
+    FeedbackQuestion(
+        questionKey="rating_text_only",
+        questionSubject="Intervention",
+        answer_type="text",
+        possibleAnswers=[],
+    ).save()
+
+    with _open_zip(client.get(EXPORT_URL)) as zf:
+        rows = _read_csv_from_zip(zf, "answer_option_dictionary.csv")
     assert rows == []
 
 
