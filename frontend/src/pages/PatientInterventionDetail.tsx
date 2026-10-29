@@ -344,6 +344,9 @@ const PatientInterventionDetail: React.FC = observer(() => {
     return matchedIso ? { targetDate: parsed, targetOccurrenceIso: matchedIso } : none;
   }, [searchParams, selectedRec]);
 
+  // Plan links always carry a date, so this is a library open.
+  const openedFromLibrary = !searchParams.get('date');
+
   const targetOccurrenceDate = useMemo(
     () => (targetOccurrenceIso ? new Date(targetOccurrenceIso) : null),
     [targetOccurrenceIso]
@@ -377,6 +380,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
         selectedRec,
         targetDate
       );
+      // "Last done" also counts plan sessions; it only shows on library opens.
+      if (openedFromLibrary) void patientInterventionsLibraryStore.fetchStatus(patientId);
 
       if (res?.completed) {
         try {
@@ -651,6 +656,19 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const libraryCompletedToday =
     patientInterventionsLibraryStore.lastLibraryCompletedOf(statusRef) === todayKey;
 
+  // Done today by any route; the button covers the moment before the reloaded status says so.
+  const doneToday = lastDone === todayKey || (targetDate ? completed : libraryCompletedToday);
+  const lastDoneLabel =
+    openedFromLibrary && lastDone && !doneToday ? (
+      <span className="text-zinc-500 text-sm">
+        {t('lastDoneOn', {
+          date: format(new Date(`${lastDone}T00:00:00`), 'd MMM yyyy', {
+            locale: getDateFnsLocale(i18n.language),
+          }),
+        })}
+      </span>
+    ) : null;
+
   return (
     <Layout>
       <TooltipProvider>
@@ -667,7 +685,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
             </Button>
 
             {targetDate && (
-              <div className="flex flex-wrap gap-2 justify-end">
+              <div className="flex flex-wrap gap-2 justify-end items-center">
+                {lastDoneLabel}
                 {!completed && targetOccurrenceDate && targetOccurrenceDate >= new Date() && (
                   <Button
                     variant="secondary"
@@ -697,17 +716,9 @@ const PatientInterventionDetail: React.FC = observer(() => {
             )}
 
             {/* Only without a date: a plan link whose session moved shows neither button, not the library one. */}
-            {!targetDate && !searchParams.get('date') && (
+            {!targetDate && openedFromLibrary && (
               <div className="flex flex-wrap gap-2 justify-end items-center">
-                {lastDone && !libraryCompletedToday && (
-                  <span className="text-zinc-500 text-sm">
-                    {t('lastDoneOn', {
-                      date: format(new Date(`${lastDone}T00:00:00`), 'd MMM yyyy', {
-                        locale: getDateFnsLocale(i18n.language),
-                      }),
-                    })}
-                  </span>
-                )}
+                {lastDoneLabel}
 
                 <Button
                   disabled={isLibraryBusy}
