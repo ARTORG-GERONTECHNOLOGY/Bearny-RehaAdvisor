@@ -407,7 +407,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
   const libraryLockKey = `${interventionId}__library`;
   const isLibraryBusy = busyKey === libraryLockKey;
 
-  const handleToggleLibraryCompleted = async (completedToday: boolean) => {
+  const handleToggleLibraryCompleted = async (completedToday: boolean, statusRef: unknown) => {
     if (!patientId || !interventionId || isLibraryBusy) return;
 
     setBusyKey(libraryLockKey);
@@ -417,7 +417,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
         patientId,
         interventionId,
         todayKey,
-        !completedToday
+        !completedToday,
+        statusRef
       );
 
       if (!completedToday) {
@@ -693,7 +694,8 @@ const PatientInterventionDetail: React.FC = observer(() => {
               </div>
             )}
 
-            {!targetDate && (
+            {/* Only without a date: a plan link whose session moved shows neither button, not the library one. */}
+            {!targetDate && !searchParams.get('date') && (
               <div className="flex flex-wrap gap-2 justify-end items-center">
                 {lastDone && !libraryCompletedToday && (
                   <span className="text-zinc-500 text-sm">
@@ -708,7 +710,7 @@ const PatientInterventionDetail: React.FC = observer(() => {
                 <Button
                   disabled={isLibraryBusy}
                   aria-pressed={libraryCompletedToday}
-                  onClick={() => handleToggleLibraryCompleted(libraryCompletedToday)}
+                  onClick={() => handleToggleLibraryCompleted(libraryCompletedToday, statusRef)}
                   variant={libraryCompletedToday ? 'default' : 'secondary'}
                   className={
                     !libraryCompletedToday ? 'bg-white border border-brand text-brand' : undefined

@@ -434,6 +434,44 @@ describe('InterventionsLibraryStore', () => {
       expect(store.status.viewed).toEqual([]);
     });
 
+    it('shows the completion even when the reload after saving fails', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
+      await store.fetchStatus('p1'); // the page loads the status first
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({});
+      (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+
+      await store.setLibraryCompleted('p1', 'iv-1', '2026-10-28', true, { external_id: 'EXT-5' });
+
+      expect(store.lastLibraryCompletedOf({ external_id: 'EXT-5' })).toBe('2026-10-28');
+    });
+
+    it("drops today's library completion right away when undone", async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: {
+          completed: ['EXT-5'],
+          viewed: [],
+          last_completed: { 'EXT-5': '2026-10-28' },
+          last_library_completed: { 'EXT-5': '2026-10-28' },
+        },
+      });
+      await store.fetchStatus('p1');
+      (apiClient.post as jest.Mock).mockResolvedValueOnce({});
+      (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+
+      await store.setLibraryCompleted('p1', 'iv-1', '2026-10-28', false, { external_id: 'EXT-5' });
+
+      expect(store.lastLibraryCompletedOf({ external_id: 'EXT-5' })).toBeNull();
+    });
+
+    it('changes nothing locally when saving fails', async () => {
+      (apiClient.post as jest.Mock).mockRejectedValueOnce(new Error('offline'));
+
+      await expect(
+        store.setLibraryCompleted('p1', 'iv-1', '2026-10-28', true, { external_id: 'EXT-5' })
+      ).rejects.toThrow('offline');
+      expect(store.lastLibraryCompletedOf({ external_id: 'EXT-5' })).toBeNull();
+    });
+
     it('reset clears the status', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: status });
       await store.fetchStatus('p1');

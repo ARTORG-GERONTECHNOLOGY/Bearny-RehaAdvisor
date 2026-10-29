@@ -1122,7 +1122,8 @@ describe('PatientInterventionDetail', () => {
           'patient-1',
           'int-1',
           todayKey(),
-          true
+          true,
+          expect.objectContaining({ _id: 'int-1' })
         );
       });
       expect((patientInterventionsStore as any).toggleCompleted).not.toHaveBeenCalled();
@@ -1150,7 +1151,8 @@ describe('PatientInterventionDetail', () => {
           'patient-1',
           'int-1',
           todayKey(),
-          false
+          false,
+          expect.objectContaining({ _id: 'int-1' })
         );
       });
       expect((patientQuestionnairesStore as any).openInterventionFeedback).not.toHaveBeenCalled();
@@ -1229,6 +1231,17 @@ describe('PatientInterventionDetail', () => {
       fireEvent.click(await screen.findByRole('button', { name: /Mark as done/i }));
 
       expect(await screen.findByText('Something went wrong.')).toBeInTheDocument();
+    });
+
+    it('shows no completion button for a plan link whose session has moved', async () => {
+      // The plan only has a session on 2026-03-16; this link still points at the old day.
+      mockSearchParams = new URLSearchParams('date=2026-03-20');
+      render(<PatientInterventionDetail />);
+
+      await screen.findByText('Morning Stretch');
+      expect(screen.queryByRole('button', { name: /Mark as done/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Done/ })).not.toBeInTheDocument();
+      expect(libraryStore.setLibraryCompleted).not.toHaveBeenCalled();
     });
 
     it('keeps the plan button for a plan session and offers no library completion', async () => {

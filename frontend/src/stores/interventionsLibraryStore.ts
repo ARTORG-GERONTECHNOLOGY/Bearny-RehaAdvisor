@@ -267,13 +267,22 @@ export class InterventionsLibraryStore {
     patientId: string,
     interventionId: string,
     dateKey: string,
-    completed: boolean
+    completed: boolean,
+    item?: unknown
   ) {
     await apiClient.post(completed ? 'interventions/complete/' : 'interventions/uncomplete/', {
       patient_id: patientId,
       intervention_id: interventionId,
       date: dateKey,
       source: 'library',
+    });
+    // Only the button's state, set right away so a failed reload below can't leave it showing the old one.
+    const ref = libraryRef(item ?? { _id: interventionId });
+    runInAction(() => {
+      const library = { ...this.status.last_library_completed };
+      if (completed) library[ref] = dateKey;
+      else if (library[ref] === dateKey) delete library[ref];
+      this.status = { ...this.status, last_library_completed: library };
     });
     await this.fetchStatus(patientId);
   }
