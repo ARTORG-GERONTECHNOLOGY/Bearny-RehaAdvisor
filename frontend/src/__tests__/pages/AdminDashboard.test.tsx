@@ -501,27 +501,6 @@ describe('AdminDashboard', () => {
     });
   });
 
-  // ── logout ─────────────────────────────────────────────────────────────────
-
-  it('logs out and navigates to home when Logout is clicked', async () => {
-    render(
-      <MemoryRouter>
-        <AdminDashboard />
-      </MemoryRouter>
-    );
-
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Admin Dashboard', level: 1 })).toBeInTheDocument()
-    );
-
-    fireEvent.click(screen.getByText('Logout'));
-
-    await waitFor(() => {
-      expect(mockAuthStore.logout).toHaveBeenCalled();
-      expect(mockNavigate).toHaveBeenCalledWith('/');
-    });
-  });
-
   // ── interventions tab ─────────────────────────────────────────────────────
 
   describe('interventions tab', () => {

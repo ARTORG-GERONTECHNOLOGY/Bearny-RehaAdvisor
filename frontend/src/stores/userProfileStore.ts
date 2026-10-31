@@ -80,6 +80,7 @@ class UserProfileStore {
 
     this.loading = true;
     this.errorBanner = '';
+    this.userData = null;
 
     try {
       const res = await apiClient.get(`/users/${id}/profile`);

@@ -84,6 +84,12 @@ export default function Navigation() {
                 iconFill: SunriseFill,
                 label: t('Admin Dashboard'),
               },
+              {
+                path: '/userprofile',
+                iconOutline: UserOutline,
+                iconFill: UserFill,
+                label: t('Profile'),
+              },
             ]
           : [
               {
