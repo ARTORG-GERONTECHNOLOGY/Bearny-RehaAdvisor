@@ -81,6 +81,20 @@ describe('ProfileDetailsCard', () => {
 
     expect(screen.getByText('root')).toBeInTheDocument();
     expect(screen.getByText('admin@example.com')).toBeInTheDocument();
+    expect(screen.getByText('None')).toBeInTheDocument();
     expect(screen.queryByText('Specialization')).not.toBeInTheDocument();
+  });
+
+  it('omits a missing name part instead of printing "undefined"', () => {
+    render(
+      <ProfileDetailsCard
+        loading={false}
+        userType="Patient"
+        userData={{ name: 'Doe', email: 'doe@example.com' }}
+      />
+    );
+
+    expect(screen.getByText('Doe')).toBeInTheDocument();
+    expect(screen.queryByText(/undefined/)).not.toBeInTheDocument();
   });
 });

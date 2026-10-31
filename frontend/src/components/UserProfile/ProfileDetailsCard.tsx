@@ -37,7 +37,13 @@ const ProfileDetailsCard: React.FC<ProfileDetailsCardProps> = ({ loading, userDa
   return (
     <Card className="flex flex-col items-start gap-2">
       <div className="font-bold text-lg text-zinc-800">
-        {userType === 'Admin' ? userData.username : `${userData.first_name} ${userData.name}`}
+        {userType === 'Admin' ? (
+          userData.username
+        ) : (
+          <>
+            {userData.first_name} {userData.name}
+          </>
+        )}
       </div>
       <div>
         <div className="font-bold text-zinc-800">{t('Email')}</div>
@@ -45,7 +51,7 @@ const ProfileDetailsCard: React.FC<ProfileDetailsCardProps> = ({ loading, userDa
       </div>
       <div>
         <div className="font-bold text-zinc-800">{t('Phone')}</div>
-        <div className="text-zinc-500 leading-none">{userData.phone}</div>
+        <div className="text-zinc-500 leading-none">{userData.phone || t('None')}</div>
       </div>
 
       {userType === 'Therapist' && (

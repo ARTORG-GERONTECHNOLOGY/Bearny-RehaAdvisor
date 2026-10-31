@@ -93,6 +93,7 @@ from unittest import mock
 import mongomock
 import pytest
 from bson import ObjectId
+from django.test import override_settings
 from rest_framework.test import APIClient
 
 from core.models import Patient, RehabilitationPlan, Therapist, User
@@ -1024,6 +1025,37 @@ def test_user_profile_view_admin_put_forbidden():
     assert User.objects.get(pk=admin.id).email == "admin_uv@test.example.com"
 
 
+def test_user_profile_view_admin_password_change_via_profile_forbidden():
+    """The profile endpoint's password path has no rate limit; admins must use change-password."""
+    admin = _admin_user()
+    resp = client.put(
+        f"/api/users/{admin.id}/profile/",
+        data=json.dumps({"oldPassword": "x", "newPassword": "NewPass1!"}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 403
+    assert User.objects.get(pk=admin.id).pwdhash == "x"
+
+
+@override_settings(TESTING=False)
+def test_user_profile_view_admin_cannot_read_other_admin():
+    """An admin may read only their own admin profile, not another admin's contact details."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from core.views.user_views import user_profile_view
+
+    admin = _admin_user()
+    other = User(
+        username="admin_other", email="other@example.com", role="Admin", isActive=True, createdAt=datetime.now()
+    ).save()
+
+    request = APIRequestFactory().get(f"/api/users/{other.id}/profile/")
+    force_authenticate(request, user=SimpleNamespace(is_authenticated=True, id=str(admin.id)))
+    resp = user_profile_view(request, user_id=str(other.id))
+
+    assert resp.status_code == 403
+
+
 def test_user_profile_view_admin_delete_forbidden():
     """DELETE on an Admin returns 403 and leaves the account active."""
     admin = _admin_user()
@@ -1334,6 +1366,23 @@ def test_change_password_success():
         )
     assert resp.status_code == 200
     assert "Password changed" in resp.json().get("message", "")
+
+
+def test_change_password_logs_caller_role():
+    """The audit log records the account's own role, e.g. Admin, not a hard-coded Therapist."""
+    from core.models import Logs
+
+    admin = User.objects.get(username="admin_uv_test")
+    with (
+        mock.patch("core.views.user_views.check_password", return_value=True),
+        mock.patch("core.views.user_views.make_password", return_value="new_hashed"),
+    ):
+        client.put(
+            f"/api/users/{admin.id}/change-password/",
+            data=json.dumps({"old_password": "OldPass1!", "new_password": "NewPass1!"}),
+            content_type="application/json",
+        )
+    assert Logs.objects(userId=admin, action="UPDATE_PROFILE").first().actor_role == "Admin"
 
 
 def test_change_password_missing_old_returns_400():

@@ -255,7 +255,7 @@ def change_password(request, therapist_id):
     Logs.objects.create(
         userId=user,
         action="UPDATE_PROFILE",
-        actor_role="Therapist",
+        actor_role=user.role,
         details="Password changed securely",
     )
 
@@ -294,7 +294,11 @@ def user_profile_view(request, user_id):
     if not can_access_user(request, user):
         return JsonResponse({"error": "You are not authorised to access this profile."}, status=403)
 
-    # Admin profiles are read-only: an email change would also redirect 2FA codes and password resets.
+    # Admin email receives 2FA codes and password resets, so only the admin themselves may read it.
+    if target_role == "Admin" and not is_self(request, user.id):
+        return JsonResponse({"error": "You are not authorised to access this profile."}, status=403)
+
+    # Read-only, also for the unthrottled password path below; admins use change_password instead.
     if target_role == "Admin" and request.method != "GET":
         return JsonResponse({"error": "Admin profiles are read-only."}, status=403)
 
