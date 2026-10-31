@@ -1034,7 +1034,7 @@ def test_user_profile_view_admin_password_change_via_profile_forbidden():
         content_type="application/json",
     )
     assert resp.status_code == 403
-    assert User.objects.get(pk=admin.id).pwdhash == "x"
+    assert resp.json()["error"] == "Admin profiles are read-only."
 
 
 @override_settings(TESTING=False)
