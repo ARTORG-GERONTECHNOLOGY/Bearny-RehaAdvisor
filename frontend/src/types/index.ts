@@ -64,6 +64,7 @@ export interface AuthPayload {
 }
 // types/UserType.ts
 export interface UserType {
+  username?: string;
   email: string;
   phone?: string;
   first_name?: string;

@@ -129,6 +129,15 @@ describe('userProfileStore', () => {
       expect(userProfileStore.errorBanner).toBe('Failed to load user profile');
       expect(userProfileStore.loading).toBe(false);
     });
+
+    it("does not keep the previous user's data when the fetch fails", async () => {
+      userProfileStore.userData = { email: 'previous@user.com' };
+      (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('network down'));
+
+      await userProfileStore.fetchProfile();
+
+      expect(userProfileStore.userData).toBeNull();
+    });
   });
 
   // ------------------------------------------------------------------

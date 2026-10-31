@@ -69,4 +69,32 @@ describe('ProfileDetailsCard', () => {
 
     expect(screen.getAllByText('None').length).toBeGreaterThanOrEqual(2);
   });
+
+  it('shows the username as title for Admin and no therapist fields', () => {
+    render(
+      <ProfileDetailsCard
+        loading={false}
+        userType="Admin"
+        userData={{ username: 'root', email: 'admin@example.com' }}
+      />
+    );
+
+    expect(screen.getByText('root')).toBeInTheDocument();
+    expect(screen.getByText('admin@example.com')).toBeInTheDocument();
+    expect(screen.getByText('None')).toBeInTheDocument();
+    expect(screen.queryByText('Specialization')).not.toBeInTheDocument();
+  });
+
+  it('omits a missing name part instead of printing "undefined"', () => {
+    render(
+      <ProfileDetailsCard
+        loading={false}
+        userType="Patient"
+        userData={{ name: 'Doe', email: 'doe@example.com' }}
+      />
+    );
+
+    expect(screen.getByText('Doe')).toBeInTheDocument();
+    expect(screen.queryByText(/undefined/)).not.toBeInTheDocument();
+  });
 });

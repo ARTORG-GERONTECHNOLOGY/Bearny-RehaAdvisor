@@ -47,6 +47,9 @@ const UserProfile: React.FC = observer(() => {
     navigate('/');
   };
 
+  // Admin profiles are read-only on the server; password change goes through its own endpoint.
+  const isAdmin = authStore.userType === 'Admin';
+
   const onDeleteConfirmed = async () => {
     await userProfileStore.deleteAccount();
     // if delete succeeded, authStore.logout already ran; go home
@@ -69,7 +72,7 @@ const UserProfile: React.FC = observer(() => {
             userData={userProfileStore.userData}
             userType={authStore.userType}
           />
-          {userProfileStore.userData && (
+          {userProfileStore.userData && !isAdmin && (
             <Button onClick={userProfileStore.openEditProfile}>{t('Edit Info')}</Button>
           )}
           <Button onClick={userProfileStore.openChangePassword}>{t('Change Password')}</Button>
@@ -80,14 +83,16 @@ const UserProfile: React.FC = observer(() => {
             <LogoutFill />
           </Button>
 
-          <Button
-            variant="ghost"
-            disabled={userProfileStore.deleting}
-            onClick={userProfileStore.openDelete}
-            className="text-nok p-0 h-auto"
-          >
-            {t('Delete Account')}
-          </Button>
+          {!isAdmin && (
+            <Button
+              variant="ghost"
+              disabled={userProfileStore.deleting}
+              onClick={userProfileStore.openDelete}
+              className="text-nok p-0 h-auto"
+            >
+              {t('Delete Account')}
+            </Button>
+          )}
         </Section>
       </div>
 
