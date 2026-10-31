@@ -187,6 +187,16 @@ describe('UserProfile page', () => {
     expect(userProfileStoreMock.openChangePassword).toHaveBeenCalled();
   });
 
+  it('hides Edit Info and Delete Account for Admin but keeps Change Password', () => {
+    authStoreMock.userType = 'Admin';
+
+    renderWithRouter(<UserProfile />);
+
+    expect(screen.queryByRole('button', { name: 'Edit Info' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete Account' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Change Password' })).toBeInTheDocument();
+  });
+
   it('renders EditUserInfo when showEditProfile=true and can cancel', () => {
     userProfileStoreMock.showEditProfile = true;
 

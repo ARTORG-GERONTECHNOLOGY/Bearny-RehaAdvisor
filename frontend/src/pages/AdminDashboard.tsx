@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
-import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
@@ -15,13 +14,11 @@ import ActiveUsersCard from '@/components/AdminDashboard/ActiveUsersCard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 import adminStore from '@/stores/adminStore';
-import authStore from '@/stores/authStore';
 import { AdminDashboardStore } from '@/stores/adminDashboardStore';
 import { useRoleAuthGate } from '@/hooks/useRoleAuthGate';
 import apiClient from '@/api/client';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
-import LogoutFill from '@/assets/icons/logout-fill.svg?react';
 import { toLocalYMD, formatLocaleDate, formatLocaleDateTime } from '@/utils/dateFormat';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
 import { Spinner } from '@/components/ui/spinner';
@@ -45,7 +42,6 @@ type AccessModalState = {
 };
 
 const AdminDashboard: React.FC = observer(() => {
-  const navigate = useNavigate();
   const { t } = useTranslation();
   const { isAllowed } = useRoleAuthGate('Admin', '/unauthorized');
 
@@ -634,19 +630,10 @@ const AdminDashboard: React.FC = observer(() => {
     }
   };
 
-  const handleLogout = async () => {
-    await authStore.logout();
-    navigate('/');
-  };
-
   return (
     <Layout>
-      <div className="flex flex-wrap justify-between items-center mb-4">
+      <div className="mb-4">
         <PageHeader title={t('Admin Dashboard')} />
-        <Button size="dashboard" variant="secondary" onClick={handleLogout}>
-          {t('Logout')}
-          <LogoutFill />
-        </Button>
       </div>
 
       {store.error && <ErrorAlert message={store.error} onClose={() => store.setError(null)} />}

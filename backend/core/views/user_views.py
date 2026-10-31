@@ -294,6 +294,10 @@ def user_profile_view(request, user_id):
     if not can_access_user(request, user):
         return JsonResponse({"error": "You are not authorised to access this profile."}, status=403)
 
+    # Admin profiles are read-only: an email change would also redirect 2FA codes and password resets.
+    if target_role == "Admin" and request.method != "GET":
+        return JsonResponse({"error": "Admin profiles are read-only."}, status=403)
+
     # ------------------------------------------------------------------
     # Sanitizer
     # ------------------------------------------------------------------
@@ -387,6 +391,13 @@ def user_profile_view(request, user_id):
                     "specializations": th.specializations or [],
                     "clinics": th.clinics or [],
                     "projects": th.projects or [],
+                }
+
+            elif target_role == "Admin":
+                obj = {
+                    "username": sanitize(user.username),
+                    "email": sanitize(user.email),
+                    "phone": sanitize(user.phone),
                 }
 
             else:  # PATIENT

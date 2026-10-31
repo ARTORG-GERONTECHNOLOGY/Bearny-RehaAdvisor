@@ -73,14 +73,14 @@ describe('Navigation - navLinks by user type', () => {
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 
-  it('shows Admin Dashboard link for Admin', () => {
+  it('shows Admin Dashboard + Profile for Admin', () => {
     mockAuthStore.userType = 'Admin';
     renderNav('/admin');
     expect(screen.getAllByText('Admin Dashboard').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Profile').length).toBeGreaterThan(0);
     expect(screen.queryByText('Home')).not.toBeInTheDocument();
     expect(screen.queryByText('Patients')).not.toBeInTheDocument();
     expect(screen.queryByText('Library')).not.toBeInTheDocument();
-    expect(screen.queryByText('Profile')).not.toBeInTheDocument();
     expect(screen.queryByText('Week Plan')).not.toBeInTheDocument();
   });
 
@@ -174,6 +174,13 @@ describe('Navigation - desktop avatar button', () => {
     mockAuthStore.userType = 'Researcher';
     renderNav('/researcher');
     expect(screen.getByTestId('avatar-button')).toBeInTheDocument();
+  });
+
+  it('renders the avatar button for Admin (links to /userprofile)', () => {
+    mockAuthStore.userType = 'Admin';
+    renderNav('/admin');
+    fireEvent.click(screen.getByTestId('avatar-button'));
+    expect(mockNavigate).toHaveBeenCalledWith('/userprofile');
   });
 
   it('does NOT render the avatar button when unauthenticated', () => {

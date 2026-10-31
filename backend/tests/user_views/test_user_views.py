@@ -996,6 +996,43 @@ def test_user_profile_view_delete_by_therapist_logs_therapist_role():
 
 
 # ===========================================================================
+# user_profile_view — Admin (read-only)
+# ===========================================================================
+
+
+def _admin_user():
+    return User.objects.get(username="admin_uv_test")
+
+
+def test_user_profile_view_admin_get_returns_contact_fields():
+    """GET on an Admin returns only username, email and phone."""
+    admin = _admin_user()
+    resp = client.get(f"/api/users/{admin.id}/profile/")
+    assert resp.status_code == 200
+    assert resp.json() == {"username": admin.username, "email": admin.email, "phone": None}
+
+
+def test_user_profile_view_admin_put_forbidden():
+    """An Admin's email can't be changed here, since it receives their 2FA codes and password resets."""
+    admin = _admin_user()
+    resp = client.put(
+        f"/api/users/{admin.id}/profile/",
+        data=json.dumps({"email": "attacker@example.com"}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 403
+    assert User.objects.get(pk=admin.id).email == "admin_uv@test.example.com"
+
+
+def test_user_profile_view_admin_delete_forbidden():
+    """DELETE on an Admin returns 403 and leaves the account active."""
+    admin = _admin_user()
+    resp = client.delete(f"/api/users/{admin.id}/profile/")
+    assert resp.status_code == 403
+    assert User.objects.get(pk=admin.id).isActive is True
+
+
+# ===========================================================================
 # user_profile_view — HTTP method enforcement
 # ===========================================================================
 
