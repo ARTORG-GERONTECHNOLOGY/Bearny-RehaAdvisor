@@ -255,7 +255,7 @@ def change_password(request, therapist_id):
     Logs.objects.create(
         userId=user,
         action="UPDATE_PROFILE",
-        actor_role=_actor_role(request, user.role),
+        actor_role=user.role,
         details="Password changed securely",
     )
 
