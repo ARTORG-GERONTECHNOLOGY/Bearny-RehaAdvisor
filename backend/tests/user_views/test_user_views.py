@@ -1377,11 +1377,12 @@ def test_change_password_logs_caller_role():
         mock.patch("core.views.user_views.check_password", return_value=True),
         mock.patch("core.views.user_views.make_password", return_value="new_hashed"),
     ):
-        client.put(
+        resp = client.put(
             f"/api/users/{admin.id}/change-password/",
             data=json.dumps({"old_password": "OldPass1!", "new_password": "NewPass1!"}),
             content_type="application/json",
         )
+    assert resp.status_code == 200
     assert Logs.objects(userId=admin, action="UPDATE_PROFILE").first().actor_role == "Admin"
 
 

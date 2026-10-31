@@ -65,6 +65,7 @@ const authStoreMock = {
   isAuthenticated: true,
   userType: 'Therapist',
   checkAuthentication: jest.fn(),
+  logout: jest.fn(async () => {}),
 };
 
 const userProfileStoreMock = {
@@ -185,6 +186,18 @@ describe('UserProfile page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Change Password' }));
     expect(userProfileStoreMock.openChangePassword).toHaveBeenCalled();
+  });
+
+  it('logs out and navigates home when Logout is clicked (the only logout for Admin)', async () => {
+    authStoreMock.userType = 'Admin';
+
+    renderWithRouter(<UserProfile />);
+    fireEvent.click(screen.getByRole('button', { name: 'Logout' }));
+
+    await waitFor(() => {
+      expect(authStoreMock.logout).toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith('/');
+    });
   });
 
   it('hides Edit Info and Delete Account for Admin but keeps Change Password', () => {
