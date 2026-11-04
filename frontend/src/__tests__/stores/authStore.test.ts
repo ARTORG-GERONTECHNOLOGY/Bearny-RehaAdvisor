@@ -1,15 +1,21 @@
 import axios from 'axios';
+import i18next from 'i18next';
 import authStore from '@/stores/authStore';
 import apiClient from '@/api/client';
 
 jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 jest.mock('axios');
+jest.mock('i18next', () => ({
+  __esModule: true,
+  default: { language: 'en', resolvedLanguage: 'en', changeLanguage: jest.fn() },
+}));
 
 describe('authStore', () => {
   beforeEach(() => {
     sessionStorage.clear();
     localStorage.clear();
     jest.clearAllMocks();
+    (i18next as any).resolvedLanguage = 'en';
     authStore.reset();
     authStore.removeInactivityListeners();
   });
@@ -233,6 +239,44 @@ describe('authStore', () => {
       await authStore.fetchAndStoreUserInfo('u1');
 
       expect(authStore.specialisations).toEqual(['Neuro', 'Cardio']);
+    });
+
+    it("applies a patient's saved language to i18n", async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { role: 'Patient', preferred_language: 'de' },
+      });
+
+      await authStore.fetchAndStoreUserInfo('u1');
+
+      expect(i18next.changeLanguage).toHaveBeenCalledWith('de');
+      expect(apiClient.put).not.toHaveBeenCalled();
+    });
+
+    it('saves the language in use when a patient has none saved yet', async () => {
+      (i18next as any).resolvedLanguage = 'fr';
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { role: 'Patient', preferred_language: '' },
+      });
+      (apiClient.put as jest.Mock).mockResolvedValueOnce({});
+
+      await authStore.fetchAndStoreUserInfo('u1');
+
+      expect(apiClient.put).toHaveBeenCalledWith('/users/u1/profile/', {
+        preferred_language: 'fr',
+      });
+      expect(authStore.preferredLanguage).toBe('fr');
+      expect(i18next.changeLanguage).not.toHaveBeenCalled();
+    });
+
+    it('leaves the language alone for therapists', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { role: 'Therapist', preferred_language: '' },
+      });
+
+      await authStore.fetchAndStoreUserInfo('u1');
+
+      expect(apiClient.put).not.toHaveBeenCalled();
+      expect(i18next.changeLanguage).not.toHaveBeenCalled();
     });
 
     it('warns and does not throw when the profile fetch fails', async () => {

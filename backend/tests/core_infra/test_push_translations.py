@@ -66,3 +66,8 @@ def test_get_push_content_falls_back_to_other_for_unknown_category():
 def test_get_push_content_falls_back_to_english_for_unmapped_language():
     # Not in PUSH_TRANSLATIONS and not in PUSH_LANG_FALLBACK either.
     assert get_push_content("xx", "education") == PUSH_TRANSLATIONS["en"]["education"]
+
+
+def test_get_push_content_falls_back_to_english_when_language_unset():
+    # Patients have no preferred_language until their first login saves one.
+    assert get_push_content(None, "exercise") == PUSH_TRANSLATIONS["en"]["exercise"]

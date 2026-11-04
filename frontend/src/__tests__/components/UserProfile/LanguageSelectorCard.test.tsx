@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import LanguageSelectorCard from '@/components/UserProfile/LanguageSelectorCard';
 import apiClient from '@/api/client';
@@ -11,7 +11,12 @@ jest.mock('@/api/client', () => jest.requireActual('@/__mocks__/api/client'));
 
 jest.mock('@/stores/authStore', () => ({
   __esModule: true,
-  default: { userType: 'Patient', getStoredUserId: jest.fn(() => 'patient-1') },
+  default: {
+    userType: 'Patient',
+    preferredLanguage: '',
+    getStoredUserId: jest.fn(() => 'patient-1'),
+    setPreferredLanguage: jest.fn(),
+  },
 }));
 
 // Real Radix Select needs pointer-capture APIs jsdom doesn't implement — mock it with a
@@ -49,6 +54,7 @@ describe('LanguageSelectorCard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (authStore as any).userType = 'Patient';
+    (authStore as any).preferredLanguage = '';
     (authStore.getStoredUserId as jest.Mock).mockReturnValue('patient-1');
     (apiClient.put as jest.Mock).mockResolvedValue({});
   });
@@ -88,6 +94,21 @@ describe('LanguageSelectorCard', () => {
     i18n.language = originalLanguage;
   });
 
+  it("shows a patient's saved language even when the UI is in another language", () => {
+    (authStore as any).preferredLanguage = 'de';
+
+    render(<LanguageSelectorCard />);
+    expect(screen.getByTestId('language-select')).toHaveValue('de');
+  });
+
+  it('ignores preferredLanguage for therapists and shows the UI language', () => {
+    (authStore as any).userType = 'Therapist';
+    (authStore as any).preferredLanguage = 'de';
+
+    render(<LanguageSelectorCard />);
+    expect(screen.getByTestId('language-select')).toHaveValue('en');
+  });
+
   it('calls i18n.changeLanguage when a different language is selected', () => {
     const { useTranslation } = jest.requireMock('react-i18next');
     const { i18n } = useTranslation();
@@ -117,6 +138,27 @@ describe('LanguageSelectorCard', () => {
       fireEvent.change(screen.getByTestId('language-select'), { target: { value: 'fr' } });
 
       expect(apiClient.put).not.toHaveBeenCalled();
+    });
+
+    it('stores the new language in authStore once the PUT succeeds', async () => {
+      render(<LanguageSelectorCard />);
+
+      fireEvent.change(screen.getByTestId('language-select'), { target: { value: 'pt' } });
+
+      await waitFor(() => expect(authStore.setPreferredLanguage).toHaveBeenCalledWith('pt'));
+    });
+
+    it('switches back to the saved language when the PUT fails', async () => {
+      const { useTranslation } = jest.requireMock('react-i18next');
+      const { i18n } = useTranslation();
+      (authStore as any).preferredLanguage = 'de';
+      (apiClient.put as jest.Mock).mockRejectedValueOnce(new Error('network down'));
+      render(<LanguageSelectorCard />);
+
+      fireEvent.change(screen.getByTestId('language-select'), { target: { value: 'it' } });
+
+      await waitFor(() => expect(i18n.changeLanguage).toHaveBeenLastCalledWith('de'));
+      expect(authStore.setPreferredLanguage).not.toHaveBeenCalled();
     });
 
     it('does not throw when the PUT request fails', () => {

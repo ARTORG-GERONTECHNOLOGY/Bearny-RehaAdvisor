@@ -1,6 +1,7 @@
 // src/stores/authStore.ts
 import axios from 'axios';
 import * as Sentry from '@sentry/react';
+import i18next from 'i18next';
 import { makeAutoObservable, runInAction } from 'mobx';
 import apiClient from '@/api/client';
 import { getApiErrorMessage } from '@/utils/apiErrorMessages';
@@ -182,8 +183,27 @@ class AuthStore {
           localStorage.setItem('project', this.project);
         }
       });
+
+      if (data.role === 'Patient') await this.syncPatientLanguage(id, data.preferred_language);
     } catch (err) {
       console.warn('Failed to fetch user info:', err);
+    }
+  }
+
+  // Saved language wins over the pre-login (footer/browser) one; if none is saved yet, save the one in use.
+  private async syncPatientLanguage(id: string, saved: unknown) {
+    const savedLang = String(saved || '').slice(0, 2);
+    if (savedLang) {
+      if ((i18next.language || '').slice(0, 2) !== savedLang) i18next.changeLanguage(savedLang);
+      return;
+    }
+
+    const current = (i18next.resolvedLanguage || i18next.language || 'en').slice(0, 2);
+    try {
+      await apiClient.put(`/users/${id}/profile/`, { preferred_language: current });
+      runInAction(() => this.setPreferredLanguage(current));
+    } catch (err) {
+      console.warn('Failed to save preferred language:', err);
     }
   }
 

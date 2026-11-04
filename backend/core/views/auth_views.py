@@ -1150,7 +1150,7 @@ def get_user_info(request, user_id):
         last_name = ""
         specialisation = ""
         function = ""
-        preferred_language = "en"
+        preferred_language = ""
         clinic = ""
         project = ""
 
@@ -1167,7 +1167,7 @@ def get_user_info(request, user_id):
                 first_name = patient.first_name
                 last_name = patient.name
                 function = patient.function
-                preferred_language = getattr(patient, "preferred_language", None) or "en"
+                preferred_language = getattr(patient, "preferred_language", None) or ""
                 clinic = getattr(patient, "clinic", None) or ""
                 project = getattr(patient, "project", None) or ""
 

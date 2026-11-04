@@ -725,7 +725,8 @@ class Patient(Document):
     preferred_language = StringField(
         max_length=10,
         choices=["en", "es", "fr", "de", "it", "nl", "pt", "sv", "zh", "ja", "ko"],
-        default="en",
+        # None until the patient's first login saves the language they're using.
+        null=True,
     )
 
     def save(self, *args, **kwargs):

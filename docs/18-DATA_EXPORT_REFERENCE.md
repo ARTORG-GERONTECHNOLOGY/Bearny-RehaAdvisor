@@ -36,7 +36,7 @@ One row per patient.
 | `reha_end_date` | End of the rehabilitation period (YYYY-MM-DD) |
 | `study_end_date` | End of the study participation period (YYYY-MM-DD) |
 | `duration_days` | Total plan duration in days |
-| `preferred_language` | Language code the patient uses in the app (e.g. "de", "fr") |
+| `preferred_language` | Language code the patient uses in the app (e.g. "de", "fr"); empty if the patient has never logged in |
 | `created_at` | Date the patient record was created in the platform |
 
 ---

@@ -258,10 +258,11 @@ def test_get_user_info_patient_returns_preferred_language(mongo_mock):
     assert data["preferred_language"] == "de"
 
 
-def test_get_user_info_patient_preferred_language_defaults_to_en(mongo_mock):
+def test_get_user_info_patient_preferred_language_empty_when_unset(mongo_mock):
     """
-    When a Patient has no ``preferred_language`` set (or the document is missing),
-    the response must default to ``"en"`` so the frontend always has a usable value.
+    A Patient who has never chosen a language gets ``""``, not ``"en"``, so the
+    frontend can tell "never chosen" apart from "chose English" and save the
+    language in use at first login.
     """
     therapist_user = User(
         username="defaultlangth",
@@ -280,7 +281,7 @@ def test_get_user_info_patient_preferred_language_defaults_to_en(mongo_mock):
         isActive=True,
     ).save()
 
-    # Patient saved without preferred_language — model default applies
+    # Patient saved without preferred_language
     Patient(
         userId=patient_user,
         patient_code="PAT-DEFAULT",
@@ -295,7 +296,7 @@ def test_get_user_info_patient_preferred_language_defaults_to_en(mongo_mock):
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["preferred_language"] == "en"
+    assert data["preferred_language"] == ""
 
 
 # ===========================================================================
