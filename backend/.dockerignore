@@ -1,10 +1,34 @@
 # Python
-__pycache__/
-*.py[cod]
+**/__pycache__
+**/*.py[cod]
 env
+venv/
+**/.pytest_cache
+.coverage
+htmlcov/
 
-# Django 
-db.sqlite3
+# Local env files and secrets
+**/.env*
+**/*.pem
+**/*.key
 
-# Docker 
+# Local databases and Celery state
+**/*.sqlite3
+api/beat.db
+**/celery*.state*
+**/celerybeat-schedule*
+gunicorn.ctl
+
+# Logs and local uploads (prod uses MEDIA_ROOT=/srv/app/media)
+**/*.log
+media/
+
+# Docker
 Dockerfile
+Dockerfile.*
+.dockerignore
+
+# Editor files
+.idea/
+**/.DS_Store
+**/*.swp

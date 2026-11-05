@@ -1,29 +1,47 @@
-# Ignore node dependencies
-node_modules/
+# Node dependencies (images install their own with npm ci)
+**/node_modules
 
+# Local env files and secrets
+**/.env*
+**/*.pem
+**/*.key
 
-# Ignore Python virtualenv (if used)
+# Frontend build and test output (images build their own dist)
+frontend/dist/
+frontend/dev-dist/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+
+# Python caches, logs and local state
 venv/
+**/__pycache__
+**/.pytest_cache
+**/*.log
+backend/celery*.state*
+backend/celerybeat-schedule*
+backend/api/*.sqlite3
+backend/api/beat.db
 
-# Ignore MongoDB data
+# MongoDB data
 mongo_data/
 
-# Ignore Git metadata
+# Git metadata
 .git/
 .gitignore
 
-# Ignore Docker artifacts
+# Docker artifacts
 docker-compose.override.yml
 docker-compose.dev.yml
-# Ignore MongoDB data
-mongo_data/
 
-# Ignore certbot secrets and configs
+# Certbot secrets and configs
 nginx/certbot/conf/
 nginx/certbot/www/
 
-# Ignore common local/dev folders
-node_modules/
-.git/
-.claude
+# Local tooling and editor files
 .claude/
+.idea/
+**/.DS_Store
+**/*.swp
+archives/
+worktrees/
