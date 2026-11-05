@@ -13,15 +13,12 @@ frontend/coverage/
 frontend/playwright-report/
 frontend/test-results/
 
-# Python caches, logs and local state
+# Backend builds use ./backend as context (see backend/.dockerignore)
+backend/
 venv/
-**/__pycache__
-**/.pytest_cache
+
+# Logs
 **/*.log
-backend/celery*.state*
-backend/celerybeat-schedule*
-backend/api/*.sqlite3
-backend/api/beat.db
 
 # MongoDB data
 mongo_data/
