@@ -174,3 +174,5 @@ celerybeat.log
 **/beat.db
 **/celery.log
 **/celerybeat.log
+**/celery_worker.state*
+**/celerybeat-schedule*

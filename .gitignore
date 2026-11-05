@@ -26,3 +26,8 @@ backups/
 .claude
 export_audit.csv
 .vscode/*
+
+# OS and editor files
+.DS_Store
+.idea/
+*.swp
