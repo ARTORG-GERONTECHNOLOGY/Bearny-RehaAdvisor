@@ -592,7 +592,7 @@ def _set_library_completion(request, patient, intervention, date_str, completed:
         action="INTERVENTION_COMPLETE" if completed else "INTERVENTION_UNCOMPLETE",
         actor_role="Patient",
         patient=patient,
-        details=f"intervention={intervention.title} date={day.isoformat()} source=library",
+        details=f"intervention_id={intervention.external_id} intervention={intervention.title} date={day.isoformat()} source=library",
     ).save()
     message = "Marked as completed successfully" if completed else "Unmarked successfully"
     return JsonResponse({"message": message}, status=200)
@@ -718,7 +718,7 @@ def mark_intervention_completed(request):
                 action="INTERVENTION_COMPLETE",
                 actor_role="Patient",
                 patient=patient,
-                details=f"intervention={canonical_intervention.title} date={target_day.isoformat()}",
+                details=f"intervention_id={canonical_intervention.external_id} intervention={canonical_intervention.title} date={target_day.isoformat()}",
             ).save()
 
             return JsonResponse({"message": "Marked as completed successfully"}, status=200)
@@ -741,7 +741,7 @@ def mark_intervention_completed(request):
             action="INTERVENTION_COMPLETE",
             actor_role="Patient",
             patient=patient,
-            details=f"intervention={canonical_intervention.title} date={target_day.isoformat()}",
+            details=f"intervention_id={canonical_intervention.external_id} intervention={canonical_intervention.title} date={target_day.isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Marked as completed successfully"}, status=200)
@@ -850,7 +850,7 @@ def unmark_intervention_completed(request):
             action="INTERVENTION_UNCOMPLETE",
             actor_role="Patient",
             patient=patient,
-            details=f"intervention={canonical_intervention.title} date={target_day.isoformat()}",
+            details=f"intervention_id={canonical_intervention.external_id} intervention={canonical_intervention.title} date={target_day.isoformat()}",
         ).save()
 
         return JsonResponse({"message": "Unmarked successfully"}, status=200)
@@ -4497,7 +4497,7 @@ def log_intervention_view(request, patient_id: str):
             actor_role="Patient",
             user_agent=(request.headers.get("User-Agent", "") or "")[:300],
             patient=patient,
-            details=f"intervention_id={intervention.id} date={date} seconds={seconds_viewed or ''}",
+            details=f"intervention_id={intervention.id} external_id={intervention.external_id} date={date} seconds={seconds_viewed or ''}",
         )
     except Exception:
         logger.exception("[log_intervention_view] Failed to write view log")

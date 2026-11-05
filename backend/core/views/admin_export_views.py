@@ -21,12 +21,13 @@ answer_option_dictionary.csv — lookup table: (question_key, answer_key) → la
 intervention_library.csv — lookup table: external_id → titles (all 6 languages) + metadata
 thresholds.csv          — current PatientThresholds per patient
 threshold_history.csv   — PatientThresholdsSnapshot change history
-activity_logs.csv       — Logs (platform activity events)
+activity_logs.csv       — Logs (platform activity events, includes intervention_external_id column)
 """
 
 import csv
 import io
 import logging
+import re
 import zipfile
 from datetime import date
 
@@ -56,6 +57,12 @@ from core.views.wearable_utils import fetch_merged_wearable_records
 from utils.interventions import _safe_intervention
 
 logger = logging.getLogger(__name__)
+
+# Parses intervention_external_id from activity_log details strings.
+# INTERVENTION_COMPLETE/UNCOMPLETE/RESCHEDULE store it as intervention_id=<ext_id>.
+# INTERVENTION_VIEW (new logs) adds external_id=<ext_id> alongside its ObjectId.
+_LOG_EXTERNAL_ID_RE = re.compile(r"external_id=(\S+)")
+_LOG_INTERVENTION_ID_RE = re.compile(r"intervention_id=(\S+)")
 
 
 # ---------------------------------------------------------------------------
@@ -568,6 +575,7 @@ def _csv_activity_logs(patient_map):
         "action",
         "timestamp",
         "actor_role",
+        "intervention_external_id",
         "details",
     ]
     rows = []
@@ -580,6 +588,11 @@ def _csv_activity_logs(patient_map):
         except Exception:
             pt_id = None
         pt = patient_map.get(pt_id) if pt_id else None
+        details = getattr(log, "details", "") or ""
+        # Try the explicit external_id= field first (INTERVENTION_VIEW logs), then
+        # intervention_id= which carries the external_id for all other action types.
+        m = _LOG_EXTERNAL_ID_RE.search(details) or _LOG_INTERVENTION_ID_RE.search(details)
+        intervention_external_id = m.group(1) if m else ""
         rows.append(
             {
                 "clinic": getattr(pt, "clinic", "") if pt else "",
@@ -587,7 +600,8 @@ def _csv_activity_logs(patient_map):
                 "action": getattr(log, "action", "") or "",
                 "timestamp": _fmt_datetime(getattr(log, "timestamp", None)),
                 "actor_role": getattr(log, "actor_role", "") or "",
-                "details": getattr(log, "details", "") or "",
+                "intervention_external_id": intervention_external_id,
+                "details": details,
             }
         )
     return _make_csv(headers, rows)

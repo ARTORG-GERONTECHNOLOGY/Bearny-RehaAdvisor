@@ -185,7 +185,9 @@ def test_log_intervention_view_happy_path(mongo_mock):
     log = Logs.objects(action="INTERVENTION_VIEW").first()
     assert log is not None
     # Stored by its id, whatever form the page's URL used.
-    assert log.details == f"intervention_id={Intervention.objects.first().id} date=2026-03-21 seconds="
+    assert (
+        log.details == f"intervention_id={Intervention.objects.first().id} external_id=abc123 date=2026-03-21 seconds="
+    )
     assert log.userId.id == patient.userId.id
     assert resp.json()["id"] == str(log.id)
 
