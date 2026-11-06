@@ -1493,6 +1493,8 @@
   "hrSyncBannerReason": "Fitbit ne synchronise peut-être pas la fréquence cardiaque avec Google Health. Dans Paramètres Android → Health Connect, vérifiez que Fitbit dispose d'un accès en écriture pour la fréquence cardiaque.",
   "sleepScopeBannerTitle": "Données de sommeil indisponibles — veuillez reconnecter Google Health.",
   "sleepScopeBannerReason": "La reconnexion accorde à l'application l'accès aux données de sommeil nécessaires au suivi du sommeil.",
+  "noDataBannerTitle": "Aucune donnée de santé reçue — vérifiez la synchronisation Fitbit.",
+  "noDataBannerReason": "Fitbit ne transmet peut-être pas de données à Health Connect. Dans Paramètres Android → Health Connect, confirmez que Fitbit a un accès en écriture pour Activité, Fréquence cardiaque et Sommeil.",
   "1. Research Use": "1. Utilisation à des fins de recherche",
   "2. Data Privacy": "2. Confidentialité des données",
   "3. No Guarantees": "3. Aucune garantie",

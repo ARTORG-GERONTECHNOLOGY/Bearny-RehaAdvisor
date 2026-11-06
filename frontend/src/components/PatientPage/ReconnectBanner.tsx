@@ -22,10 +22,18 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
   const hrScopeMissing = patientFitbitStore.hrScopeOk === false;
   const hrDataMissing = patientFitbitStore.hrDataMissing === true;
   const sleepScopeMissing = patientFitbitStore.sleepScopeOk === false;
+  // Connected but zero data ever written — device is not syncing to Health Connect.
+  // Only show this when scopes are confirmed OK (scope banners take priority).
+  const noDataEver =
+    patientFitbitStore.noDataEver === true && !hrScopeMissing && !sleepScopeMissing;
 
   if (
     dismissed ||
-    (!patientFitbitStore.needsReconnect && !hrScopeMissing && !hrDataMissing && !sleepScopeMissing)
+    (!patientFitbitStore.needsReconnect &&
+      !hrScopeMissing &&
+      !hrDataMissing &&
+      !sleepScopeMissing &&
+      !noDataEver)
   )
     return null;
 
@@ -65,29 +73,33 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
 
       <div className="flex-1 min-w-48 break-words">
         <div className="font-bold text-sm text-zinc-800">
-          {hrDataMissing
-            ? t('hrSyncBannerTitle')
-            : hrScopeMissing
-              ? t('hrScopeBannerTitle')
-              : sleepScopeMissing
-                ? t('sleepScopeBannerTitle')
-                : expired
-                  ? t('reconnectBannerExpired')
-                  : t('reconnectBannerWarning', { count: days })}
+          {noDataEver
+            ? t('noDataBannerTitle')
+            : hrDataMissing
+              ? t('hrSyncBannerTitle')
+              : hrScopeMissing
+                ? t('hrScopeBannerTitle')
+                : sleepScopeMissing
+                  ? t('sleepScopeBannerTitle')
+                  : expired
+                    ? t('reconnectBannerExpired')
+                    : t('reconnectBannerWarning', { count: days })}
         </div>
         <div className="font-medium text-xs text-zinc-500 mt-0.5">
-          {hrDataMissing
-            ? t('hrSyncBannerReason')
-            : hrScopeMissing
-              ? t('hrScopeBannerReason')
-              : sleepScopeMissing
-                ? t('sleepScopeBannerReason')
-                : t('reconnectBannerReason')}
+          {noDataEver
+            ? t('noDataBannerReason')
+            : hrDataMissing
+              ? t('hrSyncBannerReason')
+              : hrScopeMissing
+                ? t('hrScopeBannerReason')
+                : sleepScopeMissing
+                  ? t('sleepScopeBannerReason')
+                  : t('reconnectBannerReason')}
         </div>
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
-        {!hrDataMissing && (
+        {!hrDataMissing && !noDataEver && (
           <Button
             size="dashboard"
             className="bg-yellow hover:bg-yellow/90 text-white rounded-2xl"

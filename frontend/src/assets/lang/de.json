@@ -1493,6 +1493,8 @@
   "hrSyncBannerReason": "Fitbit überträgt möglicherweise keine Herzfrequenzdaten an Google Health. Prüfen Sie unter Android-Einstellungen → Health Connect, ob Fitbit Schreibzugriff für Herzfrequenz hat.",
   "sleepScopeBannerTitle": "Schlafdaten nicht verfügbar — bitte Google Health erneut verbinden.",
   "sleepScopeBannerReason": "Durch die erneute Verbindung erhält die App Zugriff auf Schlafdaten, die für die Schlafauswertung benötigt werden.",
+  "noDataBannerTitle": "Keine Gesundheitsdaten empfangen — Fitbit-Synchronisierung prüfen.",
+  "noDataBannerReason": "Fitbit schreibt möglicherweise keine Daten in Health Connect. Öffnen Sie in Android-Einstellungen → Health Connect, und bestätigen Sie, dass Fitbit Schreibzugriff für Aktivität, Herzfrequenz und Schlaf hat.",
   "1. Research Use": "1. Forschungszweck",
   "2. Data Privacy": "2. Datenschutz",
   "3. No Guarantees": "3. Keine Garantien",
