@@ -331,41 +331,60 @@ def google_health_status(request, patient_id):
     #   HTTP 200 → scope granted (banner should clear immediately after reconnect)
     #   HTTP 403 → scope truly missing (banner stays, reconnect needed)
     #   Network error → leave field as None (no banner change)
+    #
+    # We also probe when the user is connected but has never received any data at all.
+    # This distinguishes "scope missing" from "device not writing to Health Connect".
     hr_scope_ok = None
     hr_data_missing = None
     sleep_scope_ok = None
+    no_data_ever = connected and (not latest)
 
     if connected:
         active_days = list(GoogleHealthData.objects(user=user, steps__gt=0).order_by("-date").limit(7))
+
+        # Gather which probes are needed, then run them once with a single token fetch.
+        should_probe_hr = False
+        should_probe_sleep = False
+
         if active_days:
             stored_hr_ok = any((d.wear_time_minutes or 0) > 0 for d in active_days)
             if stored_hr_ok:
                 hr_scope_ok = True
             else:
-                try:
-                    token_val = get_valid_google_access_token(user)
-                    probe = _probe_hr_scope(token_val)
-                    if probe is True:
-                        hr_scope_ok = True
-                        hr_data_missing = True
-                    elif probe is False:
-                        hr_scope_ok = False
-                except Exception:
-                    logger.warning("[gh_status] could not probe hr scope for user %s", user.id)
+                should_probe_hr = True
 
             stored_sleep_ok = any(d.sleep is not None for d in active_days)
             if stored_sleep_ok:
                 sleep_scope_ok = True
             else:
-                try:
-                    token_val = get_valid_google_access_token(user)
+                should_probe_sleep = True
+        elif no_data_ever:
+            # Connected for a while but zero data written — probe both scopes to tell
+            # the patient whether the issue is a missing scope (fix: reconnect) or
+            # the device not writing to Health Connect (fix: check app permissions).
+            should_probe_hr = True
+            should_probe_sleep = True
+
+        if should_probe_hr or should_probe_sleep:
+            try:
+                token_val = get_valid_google_access_token(user)
+                if should_probe_hr:
+                    probe = _probe_hr_scope(token_val)
+                    if probe is True:
+                        hr_scope_ok = True
+                        if active_days:
+                            # Scope OK but historical HR absent → Fitbit not writing HR zones
+                            hr_data_missing = True
+                    elif probe is False:
+                        hr_scope_ok = False
+                if should_probe_sleep:
                     probe = _probe_sleep_scope(token_val)
                     if probe is True:
                         sleep_scope_ok = True
                     elif probe is False:
                         sleep_scope_ok = False
-                except Exception:
-                    logger.warning("[gh_status] could not probe sleep scope for user %s", user.id)
+            except Exception:
+                logger.warning("[gh_status] could not probe scopes for user %s", user.id)
 
     return JsonResponse(
         {
@@ -378,6 +397,7 @@ def google_health_status(request, patient_id):
             "hr_scope_ok": hr_scope_ok,
             "hr_data_missing": hr_data_missing,
             "sleep_scope_ok": sleep_scope_ok,
+            "no_data_ever": no_data_ever,
             "first_data_date": _first_data_date(user),
         }
     )

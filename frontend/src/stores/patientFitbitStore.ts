@@ -68,6 +68,7 @@ class PatientFitbitStore {
   hrScopeOk: boolean | null = null;
   hrDataMissing: boolean | null = null;
   sleepScopeOk: boolean | null = null;
+  noDataEver: boolean | null = null;
 
   summary: FitbitSummary | null = null;
   summaryLoading = false;
@@ -130,6 +131,7 @@ class PatientFitbitStore {
           this.hrScopeOk = ghData?.hr_scope_ok ?? null;
           this.hrDataMissing = ghData?.hr_data_missing ?? null;
           this.sleepScopeOk = ghData?.sleep_scope_ok ?? null;
+          this.noDataEver = ghData?.no_data_ever ?? null;
         });
       } else {
         // Fitbit (or omron/none): fall through to Fitbit status for accurate connected state

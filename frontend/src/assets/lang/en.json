@@ -1493,6 +1493,8 @@
   "hrSyncBannerReason": "Fitbit may not be syncing heart rate to Google Health. In Android Settings → Health Connect, confirm Fitbit has write access for Heart rate.",
   "sleepScopeBannerTitle": "Sleep data unavailable — please reconnect Google Health.",
   "sleepScopeBannerReason": "Reconnecting grants the app access to sleep data needed for sleep tracking.",
+  "noDataBannerTitle": "No health data received — check Fitbit sync.",
+  "noDataBannerReason": "Fitbit may not be writing data to Health Connect. In Android Settings → Health Connect, confirm Fitbit has write access for Activity, Heart rate, and Sleep.",
   "1. Research Use": "1. Research Use",
   "2. Data Privacy": "2. Data Privacy",
   "3. No Guarantees": "3. No Guarantees",

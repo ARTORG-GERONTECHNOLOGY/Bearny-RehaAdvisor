@@ -189,6 +189,64 @@ def test_status_includes_wearable_device_field():
 
 
 # ---------------------------------------------------------------------------
+# google_health_status — no_data_ever field
+# ---------------------------------------------------------------------------
+
+
+def test_status_no_data_ever_true_when_connected_and_no_data():
+    """Connected token with zero GoogleHealthData rows → no_data_ever=True."""
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now())
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is True
+
+
+def test_status_no_data_ever_false_when_data_exists():
+    """When at least one GoogleHealthData row exists, no_data_ever=False."""
+    from core.models import GoogleHealthData
+
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now())
+    GoogleHealthData(user=user, date=timezone.now(), steps=1000).save()
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is False
+
+
+def test_status_no_data_ever_false_when_not_connected():
+    """Not connected (no token) → no_data_ever=False (not applicable)."""
+    user = _make_user()
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is False
+
+
+@patch("core.views.google_health_view._probe_hr_scope", return_value=True)
+@patch("core.views.google_health_view._probe_sleep_scope", return_value=True)
+@patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
+def test_status_probes_scopes_when_no_data_ever(mock_token, mock_sleep, mock_hr):
+    """When connected but no data, scope probes run to distinguish missing scope from device issue."""
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now())
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is True
+    assert body["hr_scope_ok"] is True
+    assert body["sleep_scope_ok"] is True
+    mock_hr.assert_called_once()
+    mock_sleep.assert_called_once()
+
+
+@patch("core.views.google_health_view._probe_hr_scope", return_value=False)
+@patch("core.views.google_health_view._probe_sleep_scope", return_value=True)
+@patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
+def test_status_no_data_reports_missing_hr_scope(mock_token, mock_sleep, mock_hr):
+    """When no data and HR scope missing (403), hr_scope_ok=False."""
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now())
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is True
+    assert body["hr_scope_ok"] is False
+
+
+# ---------------------------------------------------------------------------
 # google_health_callback — connected_at and is_revoked reset
 # ---------------------------------------------------------------------------
 
