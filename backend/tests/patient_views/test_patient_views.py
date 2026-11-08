@@ -208,11 +208,13 @@ def setup_patient_with_plan():
         notes="",
         dates=[datetime.now() + timedelta(days=i) for i in range(5)],
     )
+    utc_now = datetime.now(py_timezone.utc).replace(tzinfo=None)
     plan = RehabilitationPlan(
         patientId=patient,
         therapistId=therapist,
-        startDate=datetime.now(),
-        endDate=datetime.now() + timedelta(days=30),
+        startDate=utc_now,
+        # Noon UTC is the same calendar day in Zurich, so plan-end date assertions can't straddle midnight.
+        endDate=(utc_now + timedelta(days=30)).replace(hour=12, minute=0, second=0, microsecond=0),
         status="active",
         interventions=[assignment],
     )

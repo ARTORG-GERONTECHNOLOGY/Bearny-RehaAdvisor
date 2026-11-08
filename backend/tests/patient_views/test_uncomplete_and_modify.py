@@ -130,11 +130,13 @@ def setup_patient_with_plan():
         frequency="Daily",
         dates=[datetime.now() + timedelta(days=i + 1) for i in range(3)],
     )
+    utc_now = datetime.now(py_utc.utc).replace(tzinfo=None)
     plan = RehabilitationPlan(
         patientId=patient,
         therapistId=therapist,
-        startDate=datetime.now(),
-        endDate=datetime.now() + timedelta(days=30),
+        startDate=utc_now,
+        # Noon UTC is the same calendar day in Zurich, so plan-end date assertions can't straddle midnight.
+        endDate=(utc_now + timedelta(days=30)).replace(hour=12, minute=0, second=0, microsecond=0),
         status="active",
         interventions=[assignment],
     ).save()
@@ -1044,11 +1046,12 @@ def test_modify_intervention_from_date_expired_plan_still_generates_dates(mongo_
         dates=[datetime.now() - timedelta(days=i) for i in range(3)],
     )
     # Plan ended yesterday — the critical condition for this bug
+    utc_now = datetime.now(py_utc.utc).replace(tzinfo=None)
     plan = RehabilitationPlan(
         patientId=patient,
         therapistId=therapist,
-        startDate=datetime.now() - timedelta(days=10),
-        endDate=datetime.now() - timedelta(days=1),
+        startDate=utc_now - timedelta(days=10),
+        endDate=utc_now - timedelta(days=1),
         status="active",
         interventions=[assignment],
     ).save()
