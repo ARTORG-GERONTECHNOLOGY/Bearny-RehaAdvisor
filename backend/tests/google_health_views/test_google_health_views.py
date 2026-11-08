@@ -97,6 +97,20 @@ def _make_token(user, connected_at=None, is_revoked=False):
     ).save()
 
 
+def _make_patient(user, wearable_device="google_health"):
+    from core.models import Patient, Therapist, User
+
+    th_user = User(
+        username=f"th-{ObjectId()}",
+        email=f"th-{ObjectId()}@example.com",
+        role="Therapist",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    th = Therapist(userId=th_user, clinics=["Inselspital"], projects=["COPAIN"]).save()
+    return Patient(userId=user, patient_code=f"P-{ObjectId()}", therapist=th, wearable_device=wearable_device).save()
+
+
 def _status_as(patient_id):
     """Call google_health_status directly, bypassing JWT middleware."""
     from core.views.google_health_view import google_health_status
@@ -252,6 +266,49 @@ def test_status_no_data_ever_true_when_rows_have_no_steps():
     assert body["no_data_ever"] is True
 
 
+def test_status_no_data_ever_false_when_only_sleep_rows_exist():
+    """Patients who don't walk can sync sleep without steps; that still counts as a syncing device."""
+    from core.models import GoogleHealthData, SleepData
+
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    GoogleHealthData(user=user, date=timezone.now(), sleep=SleepData(minutes_asleep=420)).save()
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is False
+
+
+@patch("core.views.google_health_view._probe_hr_scope")
+@patch("core.views.google_health_view._probe_sleep_scope")
+def test_status_skips_probes_for_patient_on_another_device(mock_sleep, mock_hr):
+    """An old Google token on a Fitbit patient must not cost Google calls on every status request."""
+    user = _make_user()
+    _make_patient(user, wearable_device="fitbit")
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    body = json.loads(_status_as(user.id).content)
+    mock_hr.assert_not_called()
+    mock_sleep.assert_not_called()
+    assert body["hr_scope_ok"] is None
+
+
+@patch("core.views.google_health_view._probe_hr_scope", return_value=True)
+@patch("core.views.google_health_view._probe_sleep_scope")
+@patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
+def test_status_flags_hr_data_missing_when_steps_sync_without_hr(mock_token, mock_sleep, mock_hr):
+    """Steps and sleep sync, HR scope is granted, but no wear time → Fitbit isn't writing HR (hr_data_missing)."""
+    from core.models import GoogleHealthData, SleepData
+
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    GoogleHealthData(user=user, date=timezone.now(), steps=3000, sleep=SleepData(minutes_asleep=420)).save()
+    body = json.loads(_status_as(user.id).content)
+    assert body["hr_scope_ok"] is True
+    assert body["hr_data_missing"] is True
+    assert body["sleep_scope_ok"] is True
+    assert body["no_data_ever"] is False
+    mock_sleep.assert_not_called()
+
+
 def test_status_no_data_ever_false_when_not_connected():
     """Not connected (no token) → no_data_ever=False (not applicable)."""
     user = _make_user()
@@ -265,6 +322,7 @@ def test_status_no_data_ever_false_when_not_connected():
 def test_status_probes_scopes_when_no_data_ever(mock_token, mock_sleep, mock_hr):
     """When connected but no data, scope probes run to distinguish missing scope from device issue."""
     user = _make_user()
+    _make_patient(user)
     _make_token(user, connected_at=timezone.now() - timedelta(days=2))
     body = json.loads(_status_as(user.id).content)
     assert body["no_data_ever"] is True
@@ -280,6 +338,7 @@ def test_status_probes_scopes_when_no_data_ever(mock_token, mock_sleep, mock_hr)
 def test_status_no_data_reports_missing_hr_scope(mock_token, mock_sleep, mock_hr):
     """When no data and HR scope missing (403), hr_scope_ok=False."""
     user = _make_user()
+    _make_patient(user)
     _make_token(user, connected_at=timezone.now() - timedelta(days=2))
     body = json.loads(_status_as(user.id).content)
     assert body["no_data_ever"] is True

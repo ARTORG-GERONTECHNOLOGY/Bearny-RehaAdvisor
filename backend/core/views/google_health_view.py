@@ -14,6 +14,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
@@ -345,8 +346,11 @@ def google_health_status(request, patient_id):
 
     if connected:
         active_days = list(GoogleHealthData.objects(user=user, steps__gt=0).order_by("-date").limit(7))
-        # Rows without steps (e.g. resting calories) don't count as a syncing device.
-        no_data_ever = past_grace and not active_days
+        # Any device signal counts (so patients who don't walk aren't flagged); calories-only rows don't.
+        device_rows = GoogleHealthData.objects(user=user).filter(
+            Q(steps__gt=0) | Q(wear_time_minutes__gt=0) | Q(sleep__ne=None) | Q(resting_heart_rate__gt=0)
+        )
+        no_data_ever = past_grace and not device_rows.first()
 
         # Gather which probes are needed, then run them once with a single token fetch.
         should_probe_hr = False
@@ -368,6 +372,10 @@ def google_health_status(request, patient_id):
             # Tells a missing scope (reconnect) apart from a device that never writes data.
             should_probe_hr = True
             should_probe_sleep = True
+
+        # The frontend ignores these results for patients on another device, so don't spend Google calls on them.
+        if getattr(patient, "wearable_device", None) != "google_health":
+            should_probe_hr = should_probe_sleep = False
 
         if should_probe_hr or should_probe_sleep:
             try:
