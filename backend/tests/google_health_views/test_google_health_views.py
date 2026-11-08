@@ -231,14 +231,25 @@ def test_status_no_data_ever_true_for_legacy_token_without_connected_at():
 
 
 def test_status_no_data_ever_false_when_data_exists():
-    """When at least one GoogleHealthData row exists, no_data_ever=False."""
+    """A row with steps means the device syncs, so no_data_ever=False even past the grace period."""
     from core.models import GoogleHealthData
 
     user = _make_user()
-    _make_token(user, connected_at=timezone.now())
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
     GoogleHealthData(user=user, date=timezone.now(), steps=1000).save()
     body = json.loads(_status_as(user.id).content)
     assert body["no_data_ever"] is False
+
+
+def test_status_no_data_ever_true_when_rows_have_no_steps():
+    """Calories-only rows (resting burn) don't prove the device syncs → still no_data_ever=True."""
+    from core.models import GoogleHealthData
+
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    GoogleHealthData(user=user, date=timezone.now(), calories=1600.0).save()
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is True
 
 
 def test_status_no_data_ever_false_when_not_connected():

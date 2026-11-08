@@ -341,10 +341,12 @@ def google_health_status(request, patient_id):
         connected_at = timezone.make_aware(connected_at, dt_timezone.utc)
     # Grace period lets the on-connect backfill run before we blame the device.
     past_grace = connected_at is None or timezone.now() - connected_at >= _NO_DATA_GRACE
-    no_data_ever = connected and not latest and past_grace
+    no_data_ever = False
 
     if connected:
         active_days = list(GoogleHealthData.objects(user=user, steps__gt=0).order_by("-date").limit(7))
+        # Rows without steps (e.g. resting calories) don't count as a syncing device.
+        no_data_ever = past_grace and not active_days
 
         # Gather which probes are needed, then run them once with a single token fetch.
         should_probe_hr = False
