@@ -3,6 +3,7 @@ import json
 import logging
 import secrets
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from urllib.parse import urlparse
 
 import redis
@@ -63,6 +64,7 @@ from core.views.google_health_sync import (
 logger = logging.getLogger(__name__)
 
 _OAUTH_NONCE_TTL = 600  # seconds — 10 minutes
+_NO_DATA_GRACE = timedelta(hours=24)
 
 
 def _get_redis_client():
@@ -331,13 +333,15 @@ def google_health_status(request, patient_id):
     #   HTTP 200 → scope granted (banner should clear immediately after reconnect)
     #   HTTP 403 → scope truly missing (banner stays, reconnect needed)
     #   Network error → leave field as None (no banner change)
-    #
-    # We also probe when the user is connected but has never received any data at all.
-    # This distinguishes "scope missing" from "device not writing to Health Connect".
     hr_scope_ok = None
     hr_data_missing = None
     sleep_scope_ok = None
-    no_data_ever = connected and (not latest)
+    connected_at = getattr(token, "connected_at", None) if token else None
+    if connected_at and timezone.is_naive(connected_at):
+        connected_at = timezone.make_aware(connected_at, dt_timezone.utc)
+    # Grace period lets the on-connect backfill run before we blame the device.
+    past_grace = connected_at is None or timezone.now() - connected_at >= _NO_DATA_GRACE
+    no_data_ever = connected and not latest and past_grace
 
     if connected:
         active_days = list(GoogleHealthData.objects(user=user, steps__gt=0).order_by("-date").limit(7))
@@ -359,9 +363,7 @@ def google_health_status(request, patient_id):
             else:
                 should_probe_sleep = True
         elif no_data_ever:
-            # Connected for a while but zero data written — probe both scopes to tell
-            # the patient whether the issue is a missing scope (fix: reconnect) or
-            # the device not writing to Health Connect (fix: check app permissions).
+            # Tells a missing scope (reconnect) apart from a device that never writes data.
             should_probe_hr = True
             should_probe_sleep = True
 

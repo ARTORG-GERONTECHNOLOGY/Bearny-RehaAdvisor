@@ -9,40 +9,70 @@ import { buildFitbitAuthUrl } from '@/utils/fitbitAuthUrl';
 import { buildGoogleHealthAuthUrl } from '@/utils/googleHealthAuthUrl';
 import { cn } from '@/lib/utils';
 
-const DISMISS_KEY = (id: string) => `reconnect_banner_dismissed_${id}`;
+type Variant = 'noData' | 'hrSync' | 'hrScope' | 'sleepScope' | 'reconnect';
+
+const COPY: Record<Exclude<Variant, 'reconnect'>, { title: string; reason: string }> = {
+  noData: { title: 'noDataBannerTitle', reason: 'noDataBannerReason' },
+  hrSync: { title: 'hrSyncBannerTitle', reason: 'hrSyncBannerReason' },
+  hrScope: { title: 'hrScopeBannerTitle', reason: 'hrScopeBannerReason' },
+  sleepScope: { title: 'sleepScopeBannerTitle', reason: 'sleepScopeBannerReason' },
+};
+
+// Per-variant key so dismissing one problem doesn't hide a different one later in the session.
+const DISMISS_KEY = (id: string, variant: Variant) =>
+  variant === 'reconnect'
+    ? `reconnect_banner_dismissed_${id}`
+    : `reconnect_banner_dismissed_${id}_${variant}`;
 
 const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className }) => {
   const { t } = useTranslation();
   const patientId = authStore.getStoredUserId();
-  const [dismissed, setDismissed] = useState(
-    () => sessionStorage.getItem(DISMISS_KEY(patientId)) === '1'
-  );
+  const [dismissedNow, setDismissedNow] = useState<Variant | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
 
   const hrScopeMissing = patientFitbitStore.hrScopeOk === false;
   const hrDataMissing = patientFitbitStore.hrDataMissing === true;
   const sleepScopeMissing = patientFitbitStore.sleepScopeOk === false;
-  // Connected but zero data ever written — device is not syncing to Health Connect.
-  // Only show this when scopes are confirmed OK (scope banners take priority).
+  // Only blame the device once both scopes are confirmed; an unknown scope could be the real cause.
   const noDataEver =
-    patientFitbitStore.noDataEver === true && !hrScopeMissing && !sleepScopeMissing;
+    patientFitbitStore.noDataEver === true &&
+    patientFitbitStore.hrScopeOk === true &&
+    patientFitbitStore.sleepScopeOk === true;
+
+  const variant: Variant | null = noDataEver
+    ? 'noData'
+    : hrDataMissing
+      ? 'hrSync'
+      : hrScopeMissing
+        ? 'hrScope'
+        : sleepScopeMissing
+          ? 'sleepScope'
+          : patientFitbitStore.needsReconnect
+            ? 'reconnect'
+            : null;
 
   if (
-    dismissed ||
-    (!patientFitbitStore.needsReconnect &&
-      !hrScopeMissing &&
-      !hrDataMissing &&
-      !sleepScopeMissing &&
-      !noDataEver)
+    !variant ||
+    dismissedNow === variant ||
+    sessionStorage.getItem(DISMISS_KEY(patientId, variant)) === '1'
   )
     return null;
 
   const days = patientFitbitStore.daysUntilExpiry;
   const expired = days === 0 || days === null;
+  const title =
+    variant !== 'reconnect'
+      ? t(COPY[variant].title)
+      : expired
+        ? t('reconnectBannerExpired')
+        : t('reconnectBannerWarning', { count: days });
+  const reason = variant !== 'reconnect' ? t(COPY[variant].reason) : t('reconnectBannerReason');
+  // These two are device-side problems; reconnecting won't fix them.
+  const canReconnect = variant !== 'noData' && variant !== 'hrSync';
 
   const handleDismiss = () => {
-    sessionStorage.setItem(DISMISS_KEY(patientId), '1');
-    setDismissed(true);
+    sessionStorage.setItem(DISMISS_KEY(patientId, variant), '1');
+    setDismissedNow(variant);
   };
 
   const handleReconnect = async () => {
@@ -72,34 +102,12 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       </div>
 
       <div className="flex-1 min-w-48 break-words">
-        <div className="font-bold text-sm text-zinc-800">
-          {noDataEver
-            ? t('noDataBannerTitle')
-            : hrDataMissing
-              ? t('hrSyncBannerTitle')
-              : hrScopeMissing
-                ? t('hrScopeBannerTitle')
-                : sleepScopeMissing
-                  ? t('sleepScopeBannerTitle')
-                  : expired
-                    ? t('reconnectBannerExpired')
-                    : t('reconnectBannerWarning', { count: days })}
-        </div>
-        <div className="font-medium text-xs text-zinc-500 mt-0.5">
-          {noDataEver
-            ? t('noDataBannerReason')
-            : hrDataMissing
-              ? t('hrSyncBannerReason')
-              : hrScopeMissing
-                ? t('hrScopeBannerReason')
-                : sleepScopeMissing
-                  ? t('sleepScopeBannerReason')
-                  : t('reconnectBannerReason')}
-        </div>
+        <div className="font-bold text-sm text-zinc-800">{title}</div>
+        <div className="font-medium text-xs text-zinc-500 mt-0.5">{reason}</div>
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
-        {!hrDataMissing && !noDataEver && (
+        {canReconnect && (
           <Button
             size="dashboard"
             className="bg-yellow hover:bg-yellow/90 text-white rounded-2xl"

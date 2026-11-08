@@ -183,6 +183,23 @@ describe('ReconnectBanner — noDataEver banner', () => {
     const { container } = render(<ReconnectBanner />);
     expect(container.firstChild).toBeNull();
   });
+
+  it('renders nothing when a scope probe result is unknown', () => {
+    setStore(false, null, { noDataEver: true, hrScopeOk: null, sleepScopeOk: true });
+    const { container } = render(<ReconnectBanner />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('dismissing the no-data banner does not hide a later hr-scope banner', () => {
+    setStore(false, null, { noDataEver: true, hrScopeOk: true, sleepScopeOk: true });
+    const { unmount } = render(<ReconnectBanner />);
+    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
+    unmount();
+
+    setStore(false, null, { noDataEver: true, hrScopeOk: false, sleepScopeOk: true });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/hrScopeBannerTitle/i)).toBeInTheDocument();
+  });
 });
 
 describe('ReconnectBanner — dismiss behaviour', () => {

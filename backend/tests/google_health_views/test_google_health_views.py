@@ -62,6 +62,16 @@ def mongo_mock():
     disconnect(alias)
 
 
+@pytest.fixture(autouse=True)
+def no_live_scope_probes():
+    # Tests that exercise the probes patch them explicitly; everything else must stay offline.
+    with (
+        patch("core.views.google_health_view._probe_hr_scope", return_value=None),
+        patch("core.views.google_health_view._probe_sleep_scope", return_value=None),
+    ):
+        yield
+
+
 def _make_user():
     from core.models import User
 
@@ -194,9 +204,28 @@ def test_status_includes_wearable_device_field():
 
 
 def test_status_no_data_ever_true_when_connected_and_no_data():
-    """Connected token with zero GoogleHealthData rows → no_data_ever=True."""
+    """Connected past the grace period with zero GoogleHealthData rows → no_data_ever=True."""
     user = _make_user()
-    _make_token(user, connected_at=timezone.now())
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is True
+
+
+@patch("core.views.google_health_view._probe_hr_scope")
+@patch("core.views.google_health_view._probe_sleep_scope")
+def test_status_no_data_ever_false_within_grace_period(mock_sleep, mock_hr):
+    """Just connected: the backfill may not have run yet, so no banner and no probes."""
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now() - timedelta(hours=1))
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is False
+    mock_hr.assert_not_called()
+    mock_sleep.assert_not_called()
+
+
+def test_status_no_data_ever_true_for_legacy_token_without_connected_at():
+    user = _make_user()
+    _make_token(user, connected_at=None)
     body = json.loads(_status_as(user.id).content)
     assert body["no_data_ever"] is True
 
@@ -225,7 +254,7 @@ def test_status_no_data_ever_false_when_not_connected():
 def test_status_probes_scopes_when_no_data_ever(mock_token, mock_sleep, mock_hr):
     """When connected but no data, scope probes run to distinguish missing scope from device issue."""
     user = _make_user()
-    _make_token(user, connected_at=timezone.now())
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
     body = json.loads(_status_as(user.id).content)
     assert body["no_data_ever"] is True
     assert body["hr_scope_ok"] is True
@@ -240,7 +269,7 @@ def test_status_probes_scopes_when_no_data_ever(mock_token, mock_sleep, mock_hr)
 def test_status_no_data_reports_missing_hr_scope(mock_token, mock_sleep, mock_hr):
     """When no data and HR scope missing (403), hr_scope_ok=False."""
     user = _make_user()
-    _make_token(user, connected_at=timezone.now())
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
     body = json.loads(_status_as(user.id).content)
     assert body["no_data_ever"] is True
     assert body["hr_scope_ok"] is False
