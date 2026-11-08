@@ -7,6 +7,11 @@ jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next')
 const mockStore = {
   needsReconnect: false,
   daysUntilExpiry: null as number | null,
+  hrScopeOk: null as boolean | null,
+  hrDataMissing: null as boolean | null,
+  sleepScopeOk: null as boolean | null,
+  noDataEver: null as boolean | null,
+  wearableDevice: 'fitbit' as string,
 };
 
 jest.mock('@/stores/patientFitbitStore', () => ({
@@ -16,6 +21,21 @@ jest.mock('@/stores/patientFitbitStore', () => ({
     },
     get daysUntilExpiry() {
       return mockStore.daysUntilExpiry;
+    },
+    get hrScopeOk() {
+      return mockStore.hrScopeOk;
+    },
+    get hrDataMissing() {
+      return mockStore.hrDataMissing;
+    },
+    get sleepScopeOk() {
+      return mockStore.sleepScopeOk;
+    },
+    get noDataEver() {
+      return mockStore.noDataEver;
+    },
+    get wearableDevice() {
+      return mockStore.wearableDevice;
     },
   },
 }));
@@ -37,9 +57,18 @@ jest.mock('@/utils/googleHealthAuthUrl', () => ({
 
 const mockAuthStore = jest.requireMock('@/stores/authStore').default as { id: string };
 
-function setStore(needsReconnect: boolean, daysUntilExpiry: number | null) {
+function setStore(
+  needsReconnect: boolean,
+  daysUntilExpiry: number | null,
+  overrides: Partial<typeof mockStore> = {}
+) {
   mockStore.needsReconnect = needsReconnect;
   mockStore.daysUntilExpiry = daysUntilExpiry;
+  mockStore.hrScopeOk = overrides.hrScopeOk ?? null;
+  mockStore.hrDataMissing = overrides.hrDataMissing ?? null;
+  mockStore.sleepScopeOk = overrides.sleepScopeOk ?? null;
+  mockStore.noDataEver = overrides.noDataEver ?? null;
+  mockStore.wearableDevice = overrides.wearableDevice ?? 'fitbit';
 }
 
 beforeEach(() => {
@@ -122,6 +151,57 @@ describe('ReconnectBanner — reconnect button', () => {
   });
 });
 
+describe('ReconnectBanner — noDataEver banner', () => {
+  it('shows the no-data banner when connected but no data has ever been received', () => {
+    setStore(false, null, { noDataEver: true, hrScopeOk: true, sleepScopeOk: true });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/noDataBannerTitle/i)).toBeInTheDocument();
+    expect(screen.getByText(/noDataBannerReason/i)).toBeInTheDocument();
+  });
+
+  it('does not show a Reconnect button for the no-data banner', () => {
+    setStore(false, null, { noDataEver: true, hrScopeOk: true, sleepScopeOk: true });
+    render(<ReconnectBanner />);
+    expect(screen.queryByRole('button', { name: /reconnect/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /dismiss/i })).toBeInTheDocument();
+  });
+
+  it('shows the hr-scope banner instead when scopes are missing even if noDataEver is true', () => {
+    setStore(false, null, { noDataEver: true, hrScopeOk: false });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/hrScopeBannerTitle/i)).toBeInTheDocument();
+  });
+
+  it('renders nothing when noDataEver is false', () => {
+    setStore(false, null, { noDataEver: false });
+    const { container } = render(<ReconnectBanner />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders nothing when noDataEver is null', () => {
+    setStore(false, null, { noDataEver: null });
+    const { container } = render(<ReconnectBanner />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders nothing when a scope probe result is unknown', () => {
+    setStore(false, null, { noDataEver: true, hrScopeOk: null, sleepScopeOk: true });
+    const { container } = render(<ReconnectBanner />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('dismissing the no-data banner does not hide a later hr-scope banner', () => {
+    setStore(false, null, { noDataEver: true, hrScopeOk: true, sleepScopeOk: true });
+    const { unmount } = render(<ReconnectBanner />);
+    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
+    unmount();
+
+    setStore(false, null, { noDataEver: true, hrScopeOk: false, sleepScopeOk: true });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/hrScopeBannerTitle/i)).toBeInTheDocument();
+  });
+});
+
 describe('ReconnectBanner — dismiss behaviour', () => {
   it('hides the banner when the × button is clicked', () => {
     setStore(true, 1);
@@ -159,5 +239,45 @@ describe('ReconnectBanner — dismiss behaviour', () => {
     fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
 
     expect(sessionStorage.getItem('reconnect_banner_dismissed_ls-patient-id')).toBe('1');
+  });
+});
+
+describe('ReconnectBanner — remaining variants and priority', () => {
+  it('shows the hr-sync banner without a Reconnect button', () => {
+    setStore(false, null, { hrDataMissing: true, hrScopeOk: true });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/hrSyncBannerTitle/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reconnect/i })).not.toBeInTheDocument();
+  });
+
+  it('shows the sleep-scope banner with a Reconnect button', () => {
+    setStore(false, null, { sleepScopeOk: false });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/sleepScopeBannerTitle/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reconnect/i })).toBeInTheDocument();
+  });
+
+  it('prefers the hr-sync banner when heart rate and sleep access are both affected', () => {
+    setStore(false, null, { hrDataMissing: true, hrScopeOk: true, sleepScopeOk: false });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/hrSyncBannerTitle/i)).toBeInTheDocument();
+    expect(screen.queryByText(/sleepScopeBannerTitle/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the next applicable banner once the first one is dismissed', () => {
+    setStore(false, null, { hrDataMissing: true, hrScopeOk: true, sleepScopeOk: false });
+    render(<ReconnectBanner />);
+    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
+    expect(screen.queryByText(/hrSyncBannerTitle/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/sleepScopeBannerTitle/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reconnect/i })).toBeInTheDocument();
+  });
+
+  it('keeps a banner hidden that was dismissed earlier in the session', () => {
+    sessionStorage.setItem('reconnect_banner_dismissed_test-patient-id_hrSync', '1');
+    setStore(false, null, { hrDataMissing: true, hrScopeOk: true, sleepScopeOk: false });
+    render(<ReconnectBanner />);
+    expect(screen.queryByText(/hrSyncBannerTitle/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/sleepScopeBannerTitle/i)).toBeInTheDocument();
   });
 });

@@ -3,6 +3,7 @@ import json
 import logging
 import secrets
 from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from urllib.parse import urlparse
 
 import redis
@@ -13,6 +14,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from mongoengine.queryset.visitor import Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 
@@ -56,6 +58,7 @@ def _parse_sleep_end(sleep_end_raw, day_start_dt):
 
 from core.views.google_health_sync import (
     _BASE,
+    _civil_date,
     get_valid_google_access_token,
     queue_google_health_today_sync,
 )
@@ -63,6 +66,7 @@ from core.views.google_health_sync import (
 logger = logging.getLogger(__name__)
 
 _OAUTH_NONCE_TTL = 600  # seconds — 10 minutes
+_NO_DATA_GRACE = timedelta(hours=24)
 
 
 def _get_redis_client():
@@ -244,13 +248,13 @@ def _probe_hr_scope(access_token: str) -> bool | None:
     """
     import datetime as _dt
 
-    yesterday = (_dt.date.today() - _dt.timedelta(days=1)).isoformat()
-    today = _dt.date.today().isoformat()
+    today = _dt.date.today()
+    yesterday = today - _dt.timedelta(days=1)
     url = f"{_BASE}/dataTypes/time-in-heart-rate-zone/dataPoints:dailyRollUp"
     try:
         resp = requests.post(
             url,
-            json={"range": {"start": yesterday, "end": today}, "windowSizeDays": 1},
+            json={"range": {"start": _civil_date(yesterday), "end": _civil_date(today)}, "windowSizeDays": 1},
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10,
         )
@@ -258,7 +262,11 @@ def _probe_hr_scope(access_token: str) -> bool | None:
             return True
         if resp.status_code in (401, 403):
             return False
-        logger.warning("[gh_probe] unexpected status %s probing hr scope", resp.status_code)
+        logger.warning(
+            "[gh_probe] unexpected status %s probing hr scope: %s",
+            resp.status_code,
+            " ".join(resp.text.split())[:200],
+        )
         return None
     except Exception:
         logger.warning("[gh_probe] network error probing hr scope", exc_info=True)
@@ -284,7 +292,11 @@ def _probe_sleep_scope(access_token: str) -> bool | None:
             return True
         if resp.status_code in (401, 403):
             return False
-        logger.warning("[gh_probe] unexpected status %s probing sleep scope", resp.status_code)
+        logger.warning(
+            "[gh_probe] unexpected status %s probing sleep scope: %s",
+            resp.status_code,
+            " ".join(resp.text.split())[:200],
+        )
         return None
     except Exception:
         logger.warning("[gh_probe] network error probing sleep scope", exc_info=True)
@@ -334,38 +346,72 @@ def google_health_status(request, patient_id):
     hr_scope_ok = None
     hr_data_missing = None
     sleep_scope_ok = None
+    connected_at = getattr(token, "connected_at", None) if token else None
+    if connected_at and timezone.is_naive(connected_at):
+        connected_at = timezone.make_aware(connected_at, dt_timezone.utc)
+    # Grace period lets the on-connect backfill run before we blame the device.
+    past_grace = connected_at is None or timezone.now() - connected_at >= _NO_DATA_GRACE
+    no_data_ever = False
 
     if connected:
         active_days = list(GoogleHealthData.objects(user=user, steps__gt=0).order_by("-date").limit(7))
+        # Any device signal counts (so patients who don't walk aren't flagged); calories-only rows don't.
+        device_rows = GoogleHealthData.objects(user=user).filter(
+            Q(steps__gt=0)
+            | Q(wear_time_minutes__gt=0)
+            | Q(sleep__ne=None)
+            | Q(resting_heart_rate__gt=0)
+            | Q(distance__gt=0)
+            | Q(active_minutes__gt=0)
+            | Q(lightly_active_minutes__gt=0)
+        )
+        no_data_ever = past_grace and not active_days and not device_rows.first()
+
+        # Gather which probes are needed, then run them once with a single token fetch.
+        should_probe_hr = False
+        should_probe_sleep = False
+
         if active_days:
             stored_hr_ok = any((d.wear_time_minutes or 0) > 0 for d in active_days)
             if stored_hr_ok:
                 hr_scope_ok = True
             else:
-                try:
-                    token_val = get_valid_google_access_token(user)
-                    probe = _probe_hr_scope(token_val)
-                    if probe is True:
-                        hr_scope_ok = True
-                        hr_data_missing = True
-                    elif probe is False:
-                        hr_scope_ok = False
-                except Exception:
-                    logger.warning("[gh_status] could not probe hr scope for user %s", user.id)
+                should_probe_hr = True
 
             stored_sleep_ok = any(d.sleep is not None for d in active_days)
             if stored_sleep_ok:
                 sleep_scope_ok = True
             else:
-                try:
-                    token_val = get_valid_google_access_token(user)
+                should_probe_sleep = True
+        elif no_data_ever:
+            # Tells a missing scope (reconnect) apart from a device that never writes data.
+            should_probe_hr = True
+            should_probe_sleep = True
+
+        # The frontend ignores these results for patients on another device, so don't spend Google calls on them.
+        if getattr(patient, "wearable_device", None) != "google_health":
+            should_probe_hr = should_probe_sleep = False
+
+        if should_probe_hr or should_probe_sleep:
+            try:
+                token_val = get_valid_google_access_token(user)
+                if should_probe_hr:
+                    probe = _probe_hr_scope(token_val)
+                    if probe is True:
+                        hr_scope_ok = True
+                        if active_days:
+                            # Scope OK but historical HR absent → Fitbit not writing HR zones
+                            hr_data_missing = True
+                    elif probe is False:
+                        hr_scope_ok = False
+                if should_probe_sleep:
                     probe = _probe_sleep_scope(token_val)
                     if probe is True:
                         sleep_scope_ok = True
                     elif probe is False:
                         sleep_scope_ok = False
-                except Exception:
-                    logger.warning("[gh_status] could not probe sleep scope for user %s", user.id)
+            except Exception:
+                logger.warning("[gh_status] could not probe scopes for user %s", user.id)
 
     return JsonResponse(
         {
@@ -378,6 +424,7 @@ def google_health_status(request, patient_id):
             "hr_scope_ok": hr_scope_ok,
             "hr_data_missing": hr_data_missing,
             "sleep_scope_ok": sleep_scope_ok,
+            "no_data_ever": no_data_ever,
             "first_data_date": _first_data_date(user),
         }
     )

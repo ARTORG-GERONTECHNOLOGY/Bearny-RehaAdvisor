@@ -34,6 +34,10 @@ from django.test import Client
 from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
+# Kept before the autouse fixture replaces it, so the probe itself can be tested.
+from core.views.google_health_view import _probe_hr_scope as _real_probe_hr_scope
+from core.views.google_health_view import _probe_sleep_scope as _real_probe_sleep_scope
+
 client = Client()
 factory = APIRequestFactory()
 
@@ -62,6 +66,16 @@ def mongo_mock():
     disconnect(alias)
 
 
+@pytest.fixture(autouse=True)
+def no_live_scope_probes():
+    # Tests that exercise the probes patch them explicitly; everything else must stay offline.
+    with (
+        patch("core.views.google_health_view._probe_hr_scope", return_value=None),
+        patch("core.views.google_health_view._probe_sleep_scope", return_value=None),
+    ):
+        yield
+
+
 def _make_user():
     from core.models import User
 
@@ -85,6 +99,20 @@ def _make_token(user, connected_at=None, is_revoked=False):
         connected_at=connected_at,
         is_revoked=is_revoked,
     ).save()
+
+
+def _make_patient(user, wearable_device="google_health"):
+    from core.models import Patient, Therapist, User
+
+    th_user = User(
+        username=f"th-{ObjectId()}",
+        email=f"th-{ObjectId()}@example.com",
+        role="Therapist",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    th = Therapist(userId=th_user, clinics=["Inselspital"], projects=["COPAIN"]).save()
+    return Patient(userId=user, patient_code=f"P-{ObjectId()}", therapist=th, wearable_device=wearable_device).save()
 
 
 def _status_as(patient_id):
@@ -186,6 +214,197 @@ def test_status_includes_wearable_device_field():
     _make_token(user, connected_at=timezone.now())
     body = json.loads(_status_as(user.id).content)
     assert "wearable_device" in body
+
+
+# ---------------------------------------------------------------------------
+# google_health_status — no_data_ever field
+# ---------------------------------------------------------------------------
+
+
+def test_status_no_data_ever_true_when_connected_and_no_data():
+    """Connected past the grace period with zero GoogleHealthData rows → no_data_ever=True."""
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is True
+
+
+@patch("core.views.google_health_view._probe_hr_scope")
+@patch("core.views.google_health_view._probe_sleep_scope")
+def test_status_no_data_ever_false_within_grace_period(mock_sleep, mock_hr):
+    """Just connected: the backfill may not have run yet, so no banner and no probes."""
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(hours=1))
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is False
+    mock_hr.assert_not_called()
+    mock_sleep.assert_not_called()
+
+
+def test_status_no_data_ever_true_for_legacy_token_without_connected_at():
+    user = _make_user()
+    _make_token(user, connected_at=None)
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is True
+
+
+def test_status_no_data_ever_false_when_data_exists():
+    """A row with steps means the device syncs, so no_data_ever=False even past the grace period."""
+    from core.models import GoogleHealthData
+
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    GoogleHealthData(user=user, date=timezone.now(), steps=1000).save()
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is False
+
+
+def test_status_no_data_ever_true_when_rows_have_no_steps():
+    """Calories-only rows (resting burn) don't prove the device syncs → still no_data_ever=True."""
+    from core.models import GoogleHealthData
+
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    GoogleHealthData(user=user, date=timezone.now(), calories=1600.0).save()
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is True
+
+
+def test_status_no_data_ever_false_when_only_sleep_rows_exist():
+    """Patients who don't walk can sync sleep without steps; that still counts as a syncing device."""
+    from core.models import GoogleHealthData, SleepData
+
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    GoogleHealthData(user=user, date=timezone.now(), sleep=SleepData(minutes_asleep=420)).save()
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is False
+
+
+def test_status_no_data_ever_false_when_only_active_minutes_exist():
+    """Workouts without steps (e.g. wheelchair users) still count as a syncing device."""
+    from core.models import GoogleHealthData
+
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    GoogleHealthData(user=user, date=timezone.now(), calories=1600.0, active_minutes=25).save()
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is False
+
+
+@patch("core.views.google_health_view._probe_hr_scope")
+@patch("core.views.google_health_view._probe_sleep_scope")
+def test_status_skips_probes_for_patient_on_another_device(mock_sleep, mock_hr):
+    """An old Google token on a Fitbit patient must not cost Google calls on every status request."""
+    user = _make_user()
+    _make_patient(user, wearable_device="fitbit")
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    body = json.loads(_status_as(user.id).content)
+    mock_hr.assert_not_called()
+    mock_sleep.assert_not_called()
+    assert body["hr_scope_ok"] is None
+
+
+@patch("core.views.google_health_view._probe_hr_scope", return_value=True)
+@patch("core.views.google_health_view._probe_sleep_scope")
+@patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
+def test_status_flags_hr_data_missing_when_steps_sync_without_hr(mock_token, mock_sleep, mock_hr):
+    """Steps and sleep sync, HR scope is granted, but no wear time → Fitbit isn't writing HR (hr_data_missing)."""
+    from core.models import GoogleHealthData, SleepData
+
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    GoogleHealthData(user=user, date=timezone.now(), steps=3000, sleep=SleepData(minutes_asleep=420)).save()
+    body = json.loads(_status_as(user.id).content)
+    assert body["hr_scope_ok"] is True
+    assert body["hr_data_missing"] is True
+    assert body["sleep_scope_ok"] is True
+    assert body["no_data_ever"] is False
+    mock_sleep.assert_not_called()
+
+
+@patch("core.views.google_health_view.requests.post")
+def test_probe_hr_scope_sends_civil_dates(mock_post):
+    """Plain ISO date strings made Google answer every probe with 400 in production."""
+    import datetime as _dt
+
+    mock_post.return_value = MagicMock(status_code=200)
+    assert _real_probe_hr_scope("tok") is True
+
+    today = _dt.date.today()
+    yesterday = today - _dt.timedelta(days=1)
+    body = mock_post.call_args.kwargs["json"]
+    assert body["range"]["start"] == {"date": {"year": yesterday.year, "month": yesterday.month, "day": yesterday.day}}
+    assert body["range"]["end"] == {"date": {"year": today.year, "month": today.month, "day": today.day}}
+
+
+@pytest.mark.parametrize("status, expected", [(403, False), (401, False), (400, None), (500, None)])
+@patch("core.views.google_health_view.requests.post")
+def test_probe_hr_scope_maps_status_codes(mock_post, status, expected):
+    mock_post.return_value = MagicMock(status_code=status, text="")
+    assert _real_probe_hr_scope("tok") is expected
+
+
+_NOT_LINKED = """{
+  "error": {
+    "code": 400,
+    "message": "The account is not linked to Google Health.",
+    "status": "FAILED_PRECONDITION"
+  }
+}"""
+
+
+@patch("core.views.google_health_view.requests.get")
+@patch("core.views.google_health_view.requests.post")
+def test_probes_log_googles_reason_on_one_line(mock_post, mock_get, caplog):
+    """Google's reason must reach the log so 'not linked' accounts can be told apart from other 400s."""
+    mock_post.return_value = MagicMock(status_code=400, text=_NOT_LINKED)
+    mock_get.return_value = MagicMock(status_code=400, text=_NOT_LINKED)
+    with caplog.at_level("WARNING", logger="core.views.google_health_view"):
+        assert _real_probe_hr_scope("tok") is None
+        assert _real_probe_sleep_scope("tok") is None
+    lines = [r.getMessage() for r in caplog.records]
+    assert any("probing hr scope" in m and "not linked to Google Health" in m for m in lines)
+    assert any("probing sleep scope" in m and "not linked to Google Health" in m for m in lines)
+    assert all("\n" not in m for m in lines)
+
+
+def test_status_no_data_ever_false_when_not_connected():
+    """Not connected (no token) → no_data_ever=False (not applicable)."""
+    user = _make_user()
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is False
+
+
+@patch("core.views.google_health_view._probe_hr_scope", return_value=True)
+@patch("core.views.google_health_view._probe_sleep_scope", return_value=True)
+@patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
+def test_status_probes_scopes_when_no_data_ever(mock_token, mock_sleep, mock_hr):
+    """When connected but no data, scope probes run to distinguish missing scope from device issue."""
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is True
+    assert body["hr_scope_ok"] is True
+    assert body["sleep_scope_ok"] is True
+    mock_hr.assert_called_once()
+    mock_sleep.assert_called_once()
+
+
+@patch("core.views.google_health_view._probe_hr_scope", return_value=False)
+@patch("core.views.google_health_view._probe_sleep_scope", return_value=True)
+@patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
+def test_status_no_data_reports_missing_hr_scope(mock_token, mock_sleep, mock_hr):
+    """When no data and HR scope missing (403), hr_scope_ok=False."""
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is True
+    assert body["hr_scope_ok"] is False
 
 
 # ---------------------------------------------------------------------------
