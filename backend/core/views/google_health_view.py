@@ -356,7 +356,7 @@ def google_health_status(request, patient_id):
             | Q(active_minutes__gt=0)
             | Q(lightly_active_minutes__gt=0)
         )
-        no_data_ever = past_grace and not device_rows.first()
+        no_data_ever = past_grace and not active_days and not device_rows.first()
 
         # Gather which probes are needed, then run them once with a single token fetch.
         should_probe_hr = False

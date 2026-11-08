@@ -140,7 +140,7 @@ The patient page shows at most one banner, picked from these fields in the order
 | `sleep_scope_ok: false` | Sleep access missing | Reconnect |
 | `needs_reconnect: true` | Connection expiring or expired | Reconnect |
 
-`no_data_ever` is true when the patient has been connected for at least 24 hours and no stored day has device data (steps, wear time, sleep, resting heart rate, distance or active minutes). Calories alone don't count, because Google can report a resting calorie burn even when the device never syncs. The 24 hours give the backfill that runs on connect time to finish. The frontend only shows this banner when both `hr_scope_ok` and `sleep_scope_ok` are `true`, so a missing or unknown scope is never reported as a device problem.
+`no_data_ever` is true when the patient has been connected for at least 24 hours and no stored day has device data (steps, wear time, sleep, resting heart rate, distance or active minutes). Calories alone don't count, because Google can report a resting calorie burn even when the device never syncs. The 24-hour grace period gives the backfill that runs on connect time to finish. The frontend only shows this banner when both `hr_scope_ok` and `sleep_scope_ok` are `true`, so a missing or unknown scope is never reported as a device problem.
 
 `days_until_expiry` is always `null`, and `needs_reconnect` is always `false` for Google Health, because production tokens don't expire.
 
