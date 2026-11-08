@@ -23,6 +23,7 @@ the 15-minute rate-limit guard is applied on every page load. The Celery task
 """
 
 import json
+import time as _time
 from datetime import datetime, time, timedelta
 from datetime import timezone as dt_timezone
 from types import SimpleNamespace
@@ -479,6 +480,35 @@ def test_fitbit_summary_today_shows_manual_vitals_when_no_device_data_yet(mock_f
     assert body["today"]["bp_dia"] == 76
     assert body["today"]["weight_kg"] == 70.5
     assert body["today"]["steps"] == 0
+
+
+@pytest.fixture
+def process_on_zurich_time(monkeypatch):
+    """Run the process on Zurich time like CI and prod; a POSIX rule needs no zoneinfo files."""
+    monkeypatch.setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3")
+    _time.tzset()
+    yield
+    monkeypatch.undo()
+    _time.tzset()
+
+
+@patch("core.views.fitbit_view.timezone.now")
+@patch("core.views.fitbit_view.fetch_fitbit_today_for_user")
+def test_fitbit_summary_today_shows_vitals_logged_just_after_local_midnight(
+    mock_fetch, mock_now, process_on_zurich_time
+):
+    """Vitals logged at 00:30 Zurich (23:30 UTC the day before) belong to the new local day."""
+    mock_now.return_value = datetime(2026, 1, 14, 23, 30, tzinfo=dt_timezone.utc)
+    _, _, patient_user, patient = create_patient_graph()
+    PatientVitals(
+        patientId=patient, user=patient_user, date=mock_now.return_value, bp_sys=118, bp_dia=76, weight_kg=70.5
+    ).save()
+
+    resp = client.get(f"/api/fitbit/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["today"] is not None
+    assert body["today"]["weight_kg"] == 70.5
 
 
 @patch("core.views.fitbit_view.timezone.now")

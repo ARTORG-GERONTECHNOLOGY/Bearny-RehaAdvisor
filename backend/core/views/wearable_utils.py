@@ -1,8 +1,18 @@
 import logging
+from datetime import timezone as dt_timezone
+
+from django.utils import timezone
 
 from core.models import FitbitData, GoogleHealthData, Patient, User
 
 logger = logging.getLogger(__name__)
+
+
+def local_day_key(value) -> str:
+    """Local calendar day of a stored datetime; naive Mongo values mean UTC, not process-local time."""
+    if timezone.is_naive(value):
+        value = value.replace(tzinfo=dt_timezone.utc)
+    return timezone.localtime(value).date().isoformat()
 
 
 def fetch_merged_wearable_records(user, start_dt, end_dt):

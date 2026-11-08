@@ -31,6 +31,7 @@ from core.views.wearable_utils import (
     _resolve_user_for_fitbit_status,
     avg_excluding_zero,
     fetch_merged_wearable_records,
+    local_day_key,
 )
 
 logger = logging.getLogger(__name__)
@@ -146,7 +147,7 @@ def fitbit_summary(request, patient_id=None):
 
         vitals_by_day = {}  # "YYYY-MM-DD" -> {"bp_sys":..., "bp_dia":..., "weight_kg":...}
         for v in vitals_qs:
-            day_key = v.date.astimezone(timezone.get_current_timezone()).date().isoformat()
+            day_key = local_day_key(v.date)
             if day_key not in vitals_by_day:
                 vitals_by_day[day_key] = {
                     "bp_sys": v.bp_sys,
@@ -226,7 +227,7 @@ def fitbit_summary(request, patient_id=None):
             # -----------------------------
             # BP & Weight resolution: FitbitData first, else PatientVitals day map
             # -----------------------------
-            day_key = d.date.astimezone(timezone.get_current_timezone()).date().isoformat()
+            day_key = local_day_key(d.date)
             covered_days.add(day_key)
 
             bp_sys = getattr(d, "bp_sys", None)

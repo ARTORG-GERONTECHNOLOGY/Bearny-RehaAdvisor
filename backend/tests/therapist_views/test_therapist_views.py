@@ -1653,7 +1653,8 @@ def test_adherence_rate_via_endpoint_one_of_three():
         userId=patient,
         interventionId=intervention,
         rehabilitationPlanId=plan,
-        date=now - timedelta(days=1),
+        # Log dates are naive local time, as mark_intervention_completed stores them.
+        date=timezone.localtime(now - timedelta(days=1)).replace(tzinfo=None),
         status=["completed"],
     ).save()
 

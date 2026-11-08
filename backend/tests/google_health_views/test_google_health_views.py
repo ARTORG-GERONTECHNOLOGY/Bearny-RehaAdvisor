@@ -22,6 +22,7 @@ google_health_status returns:
 """
 
 import json
+import time as _time
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 from types import SimpleNamespace
@@ -1159,6 +1160,45 @@ def test_summary_today_shows_manual_vitals_when_no_device_data_yet(mock_fetch):
     assert body["today"]["bp_dia"] == 76
     assert body["today"]["weight_kg"] == 70.5
     assert body["today"]["steps"] == 0
+
+
+@pytest.fixture
+def process_on_zurich_time(monkeypatch):
+    """Run the process on Zurich time like CI and prod; a POSIX rule needs no zoneinfo files."""
+    monkeypatch.setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3")
+    _time.tzset()
+    yield
+    monkeypatch.undo()
+    _time.tzset()
+
+
+@patch("core.views.google_health_view.timezone.now")
+@patch("core.views.google_health_view.queue_google_health_today_sync")
+def test_summary_today_shows_vitals_logged_just_after_local_midnight(mock_fetch, mock_now, process_on_zurich_time):
+    """Vitals logged at 00:30 Zurich (23:30 UTC the day before) belong to the new local day."""
+    from core.models import Patient, PatientVitals, Therapist, User
+
+    # Set before saving — model saves also call timezone.now().
+    mock_now.return_value = datetime(2026, 1, 14, 23, 30, tzinfo=dt_timezone.utc)
+    th_user = User(
+        username=f"th-{ObjectId()}",
+        email="th@example.com",
+        role="Therapist",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+    th = Therapist(userId=th_user, clinics=["Inselspital"], projects=["COPAIN"]).save()
+    patient_user = _make_user()
+    patient = Patient(userId=patient_user, patient_code=f"P-{ObjectId()}", therapist=th).save()
+    PatientVitals(
+        patientId=patient, user=patient_user, date=mock_now.return_value, bp_sys=118, bp_dia=76, weight_kg=70.5
+    ).save()
+
+    resp = Client().get(f"/api/google-health/summary/{patient.id}/?days=7", HTTP_AUTHORIZATION="Bearer test")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["today"] is not None
+    assert body["today"]["weight_kg"] == 70.5
 
 
 @patch("core.views.google_health_view.timezone.now")

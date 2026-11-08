@@ -34,6 +34,7 @@ from core.views.wearable_utils import (
     _resolve_patient,
     _resolve_user_for_fitbit_status,
     avg_excluding_zero,
+    local_day_key,
 )
 
 
@@ -459,7 +460,7 @@ def google_health_summary(request, patient_id=None):
         vitals_qs = PatientVitals.objects(patientId=patient, date__gte=start, date__lte=end).order_by("-date")
         vitals_by_day = {}
         for v in vitals_qs:
-            day_key = v.date.astimezone(timezone.get_current_timezone()).date().isoformat()
+            day_key = local_day_key(v.date)
             if day_key not in vitals_by_day:
                 vitals_by_day[day_key] = {"bp_sys": v.bp_sys, "bp_dia": v.bp_dia, "weight_kg": v.weight_kg}
 
@@ -485,7 +486,7 @@ def google_health_summary(request, patient_id=None):
                 day_start = timezone.make_aware(day_start, timezone.get_current_timezone())
             _, wake_minute = _parse_sleep_end(sleep_end_raw, day_start)
 
-            day_key = d.date.astimezone(timezone.get_current_timezone()).date().isoformat()
+            day_key = local_day_key(d.date)
             covered_days.add(day_key)
             vday = vitals_by_day.get(day_key) or {}
 
