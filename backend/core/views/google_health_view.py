@@ -58,6 +58,7 @@ def _parse_sleep_end(sleep_end_raw, day_start_dt):
 
 from core.views.google_health_sync import (
     _BASE,
+    _civil_date,
     get_valid_google_access_token,
     queue_google_health_today_sync,
 )
@@ -247,13 +248,13 @@ def _probe_hr_scope(access_token: str) -> bool | None:
     """
     import datetime as _dt
 
-    yesterday = (_dt.date.today() - _dt.timedelta(days=1)).isoformat()
-    today = _dt.date.today().isoformat()
+    today = _dt.date.today()
+    yesterday = today - _dt.timedelta(days=1)
     url = f"{_BASE}/dataTypes/time-in-heart-rate-zone/dataPoints:dailyRollUp"
     try:
         resp = requests.post(
             url,
-            json={"range": {"start": yesterday, "end": today}, "windowSizeDays": 1},
+            json={"range": {"start": _civil_date(yesterday), "end": _civil_date(today)}, "windowSizeDays": 1},
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10,
         )
@@ -261,7 +262,11 @@ def _probe_hr_scope(access_token: str) -> bool | None:
             return True
         if resp.status_code in (401, 403):
             return False
-        logger.warning("[gh_probe] unexpected status %s probing hr scope", resp.status_code)
+        logger.warning(
+            "[gh_probe] unexpected status %s probing hr scope: %s",
+            resp.status_code,
+            " ".join(resp.text.split())[:200],
+        )
         return None
     except Exception:
         logger.warning("[gh_probe] network error probing hr scope", exc_info=True)
@@ -287,7 +292,11 @@ def _probe_sleep_scope(access_token: str) -> bool | None:
             return True
         if resp.status_code in (401, 403):
             return False
-        logger.warning("[gh_probe] unexpected status %s probing sleep scope", resp.status_code)
+        logger.warning(
+            "[gh_probe] unexpected status %s probing sleep scope: %s",
+            resp.status_code,
+            " ".join(resp.text.split())[:200],
+        )
         return None
     except Exception:
         logger.warning("[gh_probe] network error probing sleep scope", exc_info=True)

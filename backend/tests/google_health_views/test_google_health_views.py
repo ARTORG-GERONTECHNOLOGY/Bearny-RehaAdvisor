@@ -34,6 +34,10 @@ from django.test import Client
 from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
+# Kept before the autouse fixture replaces it, so the probe itself can be tested.
+from core.views.google_health_view import _probe_hr_scope as _real_probe_hr_scope
+from core.views.google_health_view import _probe_sleep_scope as _real_probe_sleep_scope
+
 client = Client()
 factory = APIRequestFactory()
 
@@ -319,6 +323,52 @@ def test_status_flags_hr_data_missing_when_steps_sync_without_hr(mock_token, moc
     assert body["sleep_scope_ok"] is True
     assert body["no_data_ever"] is False
     mock_sleep.assert_not_called()
+
+
+@patch("core.views.google_health_view.requests.post")
+def test_probe_hr_scope_sends_civil_dates(mock_post):
+    """Plain ISO date strings made Google answer every probe with 400 in production."""
+    import datetime as _dt
+
+    mock_post.return_value = MagicMock(status_code=200)
+    assert _real_probe_hr_scope("tok") is True
+
+    today = _dt.date.today()
+    yesterday = today - _dt.timedelta(days=1)
+    body = mock_post.call_args.kwargs["json"]
+    assert body["range"]["start"] == {"date": {"year": yesterday.year, "month": yesterday.month, "day": yesterday.day}}
+    assert body["range"]["end"] == {"date": {"year": today.year, "month": today.month, "day": today.day}}
+
+
+@pytest.mark.parametrize("status, expected", [(403, False), (401, False), (400, None), (500, None)])
+@patch("core.views.google_health_view.requests.post")
+def test_probe_hr_scope_maps_status_codes(mock_post, status, expected):
+    mock_post.return_value = MagicMock(status_code=status, text="")
+    assert _real_probe_hr_scope("tok") is expected
+
+
+_NOT_LINKED = """{
+  "error": {
+    "code": 400,
+    "message": "The account is not linked to Google Health.",
+    "status": "FAILED_PRECONDITION"
+  }
+}"""
+
+
+@patch("core.views.google_health_view.requests.get")
+@patch("core.views.google_health_view.requests.post")
+def test_probes_log_googles_reason_on_one_line(mock_post, mock_get, caplog):
+    """Google's reason must reach the log so 'not linked' accounts can be told apart from other 400s."""
+    mock_post.return_value = MagicMock(status_code=400, text=_NOT_LINKED)
+    mock_get.return_value = MagicMock(status_code=400, text=_NOT_LINKED)
+    with caplog.at_level("WARNING", logger="core.views.google_health_view"):
+        assert _real_probe_hr_scope("tok") is None
+        assert _real_probe_sleep_scope("tok") is None
+    lines = [r.getMessage() for r in caplog.records]
+    assert any("probing hr scope" in m and "not linked to Google Health" in m for m in lines)
+    assert any("probing sleep scope" in m and "not linked to Google Health" in m for m in lines)
+    assert all("\n" not in m for m in lines)
 
 
 def test_status_no_data_ever_false_when_not_connected():
