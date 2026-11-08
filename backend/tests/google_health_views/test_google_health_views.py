@@ -277,6 +277,17 @@ def test_status_no_data_ever_false_when_only_sleep_rows_exist():
     assert body["no_data_ever"] is False
 
 
+def test_status_no_data_ever_false_when_only_active_minutes_exist():
+    """Workouts without steps (e.g. wheelchair users) still count as a syncing device."""
+    from core.models import GoogleHealthData
+
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    GoogleHealthData(user=user, date=timezone.now(), calories=1600.0, active_minutes=25).save()
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is False
+
+
 @patch("core.views.google_health_view._probe_hr_scope")
 @patch("core.views.google_health_view._probe_sleep_scope")
 def test_status_skips_probes_for_patient_on_another_device(mock_sleep, mock_hr):

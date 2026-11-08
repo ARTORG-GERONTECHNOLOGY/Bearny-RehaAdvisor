@@ -121,12 +121,28 @@ All endpoints require `IsAuthenticated` and accept either a Patient ID or a User
 | Method | URL | Purpose |
 |---|---|---|
 | `GET` | `/api/google-health/callback/` | OAuth callback — receives `code` and `state` |
-| `GET` | `/api/google-health/status/<patient_id>/` | Connection status, `needs_reconnect`, `days_until_expiry`, `wearable_device` |
+| `GET` | `/api/google-health/status/<patient_id>/` | Connection status, `wearable_device`, and the fields that drive the patient banner (see below) |
 | `GET` | `/api/google-health/summary/<patient_id>/` | Today's metrics + 7-day (or `?days=N`) period averages |
 | `GET` | `/api/google-health/data/<patient_id>/` | Raw daily rows for a date range (`?from=&to=`) |
 | `POST` | `/api/google-health/steps/<patient_id>/` | Manually write steps for a day |
 | `GET` | `/api/google-health/history/<patient_id>/` | Combined wearable + questionnaire + adherence history |
 | `DELETE` | `/api/google-health/disconnect/` | Revoke token for the current user |
+
+### Status fields behind the patient banner
+
+The patient page shows at most one banner, picked from these fields in the order listed. Scope fields come from stored data where possible, and otherwise from a live probe of the Google Health API (`true` = granted, `false` = missing, `null` = unknown, for example on a network error). Probes only run for patients whose `wearable_device` is `google_health`.
+
+| Field | Banner when set | Patient action |
+|---|---|---|
+| `no_data_ever: true` | No health data received | Check the Fitbit app and, on Android, Health Connect permissions |
+| `hr_data_missing: true` | Heart rate not syncing | Check the Fitbit app and, on Android, Health Connect permissions |
+| `hr_scope_ok: false` | Heart-rate access missing | Reconnect |
+| `sleep_scope_ok: false` | Sleep access missing | Reconnect |
+| `needs_reconnect: true` | Connection expiring or expired | Reconnect |
+
+`no_data_ever` is true when the patient has been connected for at least 24 hours and no stored day has device data (steps, wear time, sleep, resting heart rate, distance or active minutes). Calories alone don't count, because Google can report a resting calorie burn even when the device never syncs. The 24 hours give the backfill that runs on connect time to finish. The frontend only shows this banner when both `hr_scope_ok` and `sleep_scope_ok` are `true`, so a missing or unknown scope is never reported as a device problem.
+
+`days_until_expiry` is always `null`, and `needs_reconnect` is always `false` for Google Health, because production tokens don't expire.
 
 ---
 

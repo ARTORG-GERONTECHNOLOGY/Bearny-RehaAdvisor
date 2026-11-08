@@ -348,7 +348,13 @@ def google_health_status(request, patient_id):
         active_days = list(GoogleHealthData.objects(user=user, steps__gt=0).order_by("-date").limit(7))
         # Any device signal counts (so patients who don't walk aren't flagged); calories-only rows don't.
         device_rows = GoogleHealthData.objects(user=user).filter(
-            Q(steps__gt=0) | Q(wear_time_minutes__gt=0) | Q(sleep__ne=None) | Q(resting_heart_rate__gt=0)
+            Q(steps__gt=0)
+            | Q(wear_time_minutes__gt=0)
+            | Q(sleep__ne=None)
+            | Q(resting_heart_rate__gt=0)
+            | Q(distance__gt=0)
+            | Q(active_minutes__gt=0)
+            | Q(lightly_active_minutes__gt=0)
         )
         no_data_ever = past_grace and not device_rows.first()
 
