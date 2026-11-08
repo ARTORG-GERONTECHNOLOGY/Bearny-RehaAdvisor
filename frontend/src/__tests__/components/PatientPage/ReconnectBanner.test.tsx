@@ -241,3 +241,43 @@ describe('ReconnectBanner — dismiss behaviour', () => {
     expect(sessionStorage.getItem('reconnect_banner_dismissed_ls-patient-id')).toBe('1');
   });
 });
+
+describe('ReconnectBanner — remaining variants and priority', () => {
+  it('shows the hr-sync banner without a Reconnect button', () => {
+    setStore(false, null, { hrDataMissing: true, hrScopeOk: true });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/hrSyncBannerTitle/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reconnect/i })).not.toBeInTheDocument();
+  });
+
+  it('shows the sleep-scope banner with a Reconnect button', () => {
+    setStore(false, null, { sleepScopeOk: false });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/sleepScopeBannerTitle/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reconnect/i })).toBeInTheDocument();
+  });
+
+  it('prefers the hr-sync banner when heart rate and sleep access are both affected', () => {
+    setStore(false, null, { hrDataMissing: true, hrScopeOk: true, sleepScopeOk: false });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/hrSyncBannerTitle/i)).toBeInTheDocument();
+    expect(screen.queryByText(/sleepScopeBannerTitle/i)).not.toBeInTheDocument();
+  });
+
+  it('shows the next applicable banner once the first one is dismissed', () => {
+    setStore(false, null, { hrDataMissing: true, hrScopeOk: true, sleepScopeOk: false });
+    render(<ReconnectBanner />);
+    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
+    expect(screen.queryByText(/hrSyncBannerTitle/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/sleepScopeBannerTitle/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reconnect/i })).toBeInTheDocument();
+  });
+
+  it('keeps a banner hidden that was dismissed earlier in the session', () => {
+    sessionStorage.setItem('reconnect_banner_dismissed_test-patient-id_hrSync', '1');
+    setStore(false, null, { hrDataMissing: true, hrScopeOk: true, sleepScopeOk: false });
+    render(<ReconnectBanner />);
+    expect(screen.queryByText(/hrSyncBannerTitle/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/sleepScopeBannerTitle/i)).toBeInTheDocument();
+  });
+});
