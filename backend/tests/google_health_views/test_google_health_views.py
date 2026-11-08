@@ -230,6 +230,7 @@ def test_status_no_data_ever_true_when_connected_and_no_data():
 def test_status_no_data_ever_false_within_grace_period(mock_sleep, mock_hr):
     """Just connected: the backfill may not have run yet, so no banner and no probes."""
     user = _make_user()
+    _make_patient(user)
     _make_token(user, connected_at=timezone.now() - timedelta(hours=1))
     body = json.loads(_status_as(user.id).content)
     assert body["no_data_ever"] is False
