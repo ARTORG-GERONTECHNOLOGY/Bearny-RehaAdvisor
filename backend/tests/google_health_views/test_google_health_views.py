@@ -1001,6 +1001,24 @@ def test_today_sync_clears_not_linked_when_google_answers_without_data(mock_toke
     assert GoogleHealthUserToken.objects.get(id=token.id).sync_error is None
 
 
+@patch("core.views.google_health_sync._sync_day")
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_clears_a_flag_set_while_it_was_running(mock_token, mock_sync):
+    """Written data proves the link, even if another path flagged the account mid-sync."""
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(60 * 25)
+
+    def flagged_meanwhile(*args, **kwargs):
+        GoogleHealthUserToken.objects(id=token.id).update_one(set__sync_error="not_linked")
+        return True
+
+    mock_sync.side_effect = flagged_meanwhile
+    assert fetch_google_health_today_for_user(user) == 1
+    assert GoogleHealthUserToken.objects.get(id=token.id).sync_error is None
+
+
 @patch("core.views.google_health_sync._sync_day", return_value=False)
 @patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
 def test_today_sync_skips_the_extra_check_for_unflagged_accounts(mock_token, mock_sync):

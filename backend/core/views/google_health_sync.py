@@ -865,8 +865,8 @@ def fetch_google_health_today_for_user(user, bypass_cooldown: bool = False) -> i
     except GoogleHealthAccountNotLinked:
         mark_account_not_linked(user)
         return 0
-    # No row today can also mean a 5xx, so without data only a real 200 proves the account is linked now.
-    if token.sync_error == SYNC_ERROR_NOT_LINKED and (written or _google_answers(access_token)):
+    # Clearing only touches a flagged token; without data, only a real 200 proves the link (no row can mean a 5xx).
+    if written or (token.sync_error == SYNC_ERROR_NOT_LINKED and _google_answers(access_token)):
         clear_account_not_linked(user)
     if written:
         logger.info("[google_health] stored today for user=%s", user.id)
