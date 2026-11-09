@@ -123,6 +123,9 @@ describe('ReconnectBanner — layout', () => {
     const { container } = render(<ReconnectBanner className="lg:col-span-3" />);
     const banner = container.firstChild as HTMLElement;
     expect(banner).toHaveClass('flex-wrap', 'lg:col-span-3');
+    expect(screen.getByRole('button', { name: 'Reconnect' }).parentElement).toHaveClass(
+      'flex-wrap'
+    );
     // The compact size; the default one is too large to sit next to the text.
     expect(screen.getByRole('button', { name: 'Reconnect' })).toHaveClass('text-sm');
   });
@@ -172,6 +175,15 @@ describe('ReconnectBanner — Fitbit discontinued banner', () => {
     expect(screen.getByText(/fitbitEndedBannerTitle/i)).toBeInTheDocument();
     expect(screen.getByText(/fitbitEndedBannerReason/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^reconnect$/i })).toBeNull();
+  });
+
+  it('links to Google sign-up for patients whose Fitbit account is not on Google yet', () => {
+    setStore(false, null, { wearableDevice: 'fitbit' });
+    render(<ReconnectBanner />);
+    expect(screen.getByRole('link', { name: /set up google health/i })).toHaveAttribute(
+      'href',
+      'https://fitbit.google.com/auth/signup'
+    );
   });
 
   it('starts the Google Health sign-in, not the Fitbit one', async () => {

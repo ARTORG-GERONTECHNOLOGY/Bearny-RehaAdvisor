@@ -54,6 +54,7 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       title: 'fitbitEndedBannerTitle',
       reason: 'fitbitEndedBannerReason',
       action: 'Connect Google Health',
+      setupUrl: GOOGLE_HEALTH_SIGNUP_URL,
     },
   ];
   // First match wins. noData and hrSync are device-side problems, so reconnecting won't fix them.
@@ -136,7 +137,7 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
   return (
     <div
       className={cn(
-        'p-4 rounded-3xl border border-yellow bg-yellow/10 flex flex-wrap items-center gap-3',
+        'relative p-4 rounded-3xl border border-yellow bg-yellow/10 flex flex-wrap items-center gap-3',
         className
       )}
     >
@@ -144,42 +145,44 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
         <WifiIcon className="w-5 h-5 text-yellow" />
       </div>
 
-      <div className="flex-1 min-w-48 break-words">
+      <div className="flex-1 min-w-48 break-words pr-6">
         <div className="font-bold text-sm text-zinc-800">{t(banner.title, banner.titleArgs)}</div>
         <div className="font-medium text-xs text-zinc-500 mt-0.5">{t(banner.reason)}</div>
       </div>
 
-      <div className="flex items-center gap-2 ml-auto">
-        {banner.setupUrl && (
-          <Button
-            asChild
-            size="dashboard"
-            variant="secondary"
-            className="border-yellow text-zinc-800 rounded-2xl"
-          >
-            <a href={banner.setupUrl} target="_blank" rel="noopener noreferrer">
-              {t('Set up Google Health')}
-            </a>
-          </Button>
-        )}
-        {banner.action && (
-          <Button
-            size="dashboard"
-            className="bg-yellow hover:bg-yellow/90 text-white rounded-2xl"
-            onClick={handleConnect}
-            disabled={reconnecting}
-          >
-            {t(banner.action)}
-          </Button>
-        )}
-        <button
-          onClick={handleDismiss}
-          aria-label="Dismiss"
-          className="w-6 h-6 flex items-center justify-center rounded-full text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors text-base leading-none"
-        >
-          ×
-        </button>
-      </div>
+      {(banner.setupUrl || banner.action) && (
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:ml-auto sm:mr-6">
+          {banner.setupUrl && (
+            <Button
+              asChild
+              size="dashboard"
+              variant="secondary"
+              className="flex-1 sm:flex-none border-yellow text-zinc-800 rounded-2xl"
+            >
+              <a href={banner.setupUrl} target="_blank" rel="noopener noreferrer">
+                {t('Set up Google Health')}
+              </a>
+            </Button>
+          )}
+          {banner.action && (
+            <Button
+              size="dashboard"
+              className="flex-1 sm:flex-none bg-yellow hover:bg-yellow/90 text-white rounded-2xl"
+              onClick={handleConnect}
+              disabled={reconnecting}
+            >
+              {t(banner.action)}
+            </Button>
+          )}
+        </div>
+      )}
+      <button
+        onClick={handleDismiss}
+        aria-label="Dismiss"
+        className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center rounded-full text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors text-base leading-none"
+      >
+        ×
+      </button>
     </div>
   );
 });

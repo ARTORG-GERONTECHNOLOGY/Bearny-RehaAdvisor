@@ -153,6 +153,27 @@ describe('patientFitbitStore', () => {
       expect(patientFitbitStore.connected).toBe(true);
     });
 
+    it('ignores a late summary failure for the previous patient', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { wearable_device: 'google_health' },
+      });
+      await patientFitbitStore.fetchStatus('patient-a');
+      let rejectA: (e: unknown) => void = () => {};
+      (apiClient.get as jest.Mock).mockReturnValueOnce(new Promise((_, r) => (rejectA = r)));
+      const summaryA = patientFitbitStore.fetchSummary('patient-a', 7);
+
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { wearable_device: 'google_health' },
+      });
+      await patientFitbitStore.fetchStatus('patient-b');
+      (patientFitbitStore as any).summary = { today: { steps: 1 } };
+
+      rejectA(new Error('boom'));
+      await summaryA;
+      expect(patientFitbitStore.summary).toEqual({ today: { steps: 1 } });
+      expect(patientFitbitStore.error).toBe('');
+    });
+
     it('keeps the device loaded when the same patient refreshes', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { wearable_device: 'fitbit' } });
       await patientFitbitStore.fetchStatus('p1');

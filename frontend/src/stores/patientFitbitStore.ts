@@ -208,6 +208,7 @@ class PatientFitbitStore {
       });
       PatientFitbitStore.saveSummaryToStorage(cacheKey, data as FitbitSummary);
     } catch {
+      if (this.statusFor !== null && !this.isCurrent(patientId)) return;
       runInAction(() => {
         if (!cached) {
           this.summary = null;
