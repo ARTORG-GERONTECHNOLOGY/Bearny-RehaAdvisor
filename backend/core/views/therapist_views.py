@@ -24,6 +24,7 @@ from core.models import (
     User,
 )
 from core.permissions import can_access_patient, is_self_or_admin
+from core.views.google_health_sync import SYNC_ERROR_NOT_LINKED
 from core.views.wearable_utils import fetch_merged_wearable_records
 from utils.interventions import _get_star_q_ids, _star_rating_value
 from utils.utils import _adherence, resolve_patient
@@ -565,6 +566,7 @@ def list_therapist_patients(request, therapist_id):
                 or (gh_token and getattr(gh_token, "is_revoked", False))
             )
             fitbit_no_token = has_wearable_data and not fitbit_token and not gh_token
+            gh_not_linked = bool(gh_token and not gh_token.is_revoked and gh_token.sync_error == SYNC_ERROR_NOT_LINKED)
 
             today_date = timezone.now().date()
             days_since_worn = (today_date - last_worn_date).days if last_worn_date else None
@@ -578,6 +580,7 @@ def list_therapist_patients(request, therapist_id):
                 "wear_time_avg_min": _avg(wear_vals),
                 "wear_time_days_since": days_since_worn,
                 "fitbit_revoked": fitbit_revoked,
+                "gh_not_linked": gh_not_linked,
                 "fitbit_no_token": fitbit_no_token,
             }
 

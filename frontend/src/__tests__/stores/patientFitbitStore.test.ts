@@ -71,15 +71,25 @@ describe('patientFitbitStore', () => {
       expect(sawLoadingDuringFetch).toBe(false);
     });
 
+    it('reads account_not_linked for Google Health patients', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { connected: true, wearable_device: 'google_health', account_not_linked: true },
+      });
+      await patientFitbitStore.fetchStatus('p1');
+      expect(patientFitbitStore.accountNotLinked).toBe(true);
+    });
+
     it('clears Google Health banner flags when the device is not google_health', async () => {
       (patientFitbitStore as any).noDataEver = true;
       (patientFitbitStore as any).hrScopeOk = false;
+      (patientFitbitStore as any).accountNotLinked = true;
       (apiClient.get as jest.Mock)
         .mockResolvedValueOnce({ data: { wearable_device: 'fitbit' } })
         .mockResolvedValueOnce({ data: { connected: true } });
       await patientFitbitStore.fetchStatus('p1');
       expect(patientFitbitStore.noDataEver).toBeNull();
       expect(patientFitbitStore.hrScopeOk).toBeNull();
+      expect(patientFitbitStore.accountNotLinked).toBeNull();
     });
 
     it('clears Google Health banner flags when the status request fails', async () => {

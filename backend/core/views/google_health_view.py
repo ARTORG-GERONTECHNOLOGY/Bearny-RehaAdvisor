@@ -59,8 +59,12 @@ def _parse_sleep_end(sleep_end_raw, day_start_dt):
 
 from core.views.google_health_sync import (
     _BASE,
+    SYNC_ERROR_NOT_LINKED,
+    GoogleHealthAccountNotLinked,
     _civil_date,
     get_valid_google_access_token,
+    is_not_linked_response,
+    mark_account_not_linked,
     queue_google_health_today_sync,
 )
 
@@ -212,6 +216,7 @@ def google_health_callback(request):
             set__connected_at=timezone.now(),
             set__is_revoked=False,
             set__revoked_at=None,
+            set__sync_error=None,
             upsert=True,
         )
         logger.info("[google_health_callback] token saved for user %s", user.id)
@@ -240,12 +245,29 @@ def google_health_callback(request):
         return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=error")
 
 
+def _probe_result(resp, scope: str) -> bool | None:
+    if resp.status_code == 200:
+        return True
+    if resp.status_code in (401, 403):
+        return False
+    if is_not_linked_response(resp):
+        raise GoogleHealthAccountNotLinked()
+    logger.warning(
+        "[gh_probe] unexpected status %s probing %s scope: %s",
+        resp.status_code,
+        scope,
+        " ".join(resp.text.split())[:200],
+    )
+    return None
+
+
 def _probe_hr_scope(access_token: str) -> bool | None:
     """
     Probe the health_metrics_and_measurements scope with a live dailyRollUp call.
 
     Returns True (200 — scope present), False (403/401 — scope missing),
     or None (network/unexpected error — caller should not update banner state).
+    Raises GoogleHealthAccountNotLinked when the account isn't linked to Google Health.
     """
     import datetime as _dt
 
@@ -259,19 +281,10 @@ def _probe_hr_scope(access_token: str) -> bool | None:
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10,
         )
-        if resp.status_code == 200:
-            return True
-        if resp.status_code in (401, 403):
-            return False
-        logger.warning(
-            "[gh_probe] unexpected status %s probing hr scope: %s",
-            resp.status_code,
-            " ".join(resp.text.split())[:200],
-        )
-        return None
     except Exception:
         logger.warning("[gh_probe] network error probing hr scope", exc_info=True)
         return None
+    return _probe_result(resp, "hr")
 
 
 def _probe_sleep_scope(access_token: str) -> bool | None:
@@ -280,6 +293,7 @@ def _probe_sleep_scope(access_token: str) -> bool | None:
 
     Returns True (200 — scope present), False (403/401 — scope missing),
     or None (network/unexpected error — caller should not update banner state).
+    Raises GoogleHealthAccountNotLinked when the account isn't linked to Google Health.
     """
     url = f"{_BASE}/dataTypes/sleep/dataPoints"
     try:
@@ -289,19 +303,10 @@ def _probe_sleep_scope(access_token: str) -> bool | None:
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10,
         )
-        if resp.status_code == 200:
-            return True
-        if resp.status_code in (401, 403):
-            return False
-        logger.warning(
-            "[gh_probe] unexpected status %s probing sleep scope: %s",
-            resp.status_code,
-            " ".join(resp.text.split())[:200],
-        )
-        return None
     except Exception:
         logger.warning("[gh_probe] network error probing sleep scope", exc_info=True)
         return None
+    return _probe_result(resp, "sleep")
 
 
 def _first_data_date(user) -> str | None:
@@ -353,6 +358,8 @@ def google_health_status(request, patient_id):
     # Grace period lets the on-connect backfill run before we blame the device.
     past_grace = connected_at is None or timezone.now() - connected_at >= _NO_DATA_GRACE
     no_data_ever = False
+    account_not_linked = connected and token.sync_error == SYNC_ERROR_NOT_LINKED
+    on_google_health = getattr(patient, "wearable_device", None) == "google_health"
 
     if connected:
         active_days = list(GoogleHealthData.objects(user=user, steps__gt=0).order_by("-date").limit(7))
@@ -389,8 +396,8 @@ def google_health_status(request, patient_id):
             should_probe_hr = True
             should_probe_sleep = True
 
-        # The frontend ignores these results for patients on another device, so don't spend Google calls on them.
-        if getattr(patient, "wearable_device", None) != "google_health":
+        # Other devices ignore the results and not-linked accounts fail every probe, so skip the Google calls.
+        if not on_google_health or account_not_linked:
             should_probe_hr = should_probe_sleep = False
 
         if should_probe_hr or should_probe_sleep:
@@ -411,6 +418,10 @@ def google_health_status(request, patient_id):
                         sleep_scope_ok = True
                     elif probe is False:
                         sleep_scope_ok = False
+            except GoogleHealthAccountNotLinked:
+                mark_account_not_linked(user)
+                account_not_linked = True
+                hr_scope_ok = sleep_scope_ok = hr_data_missing = None
             except Exception:
                 logger.warning("[gh_status] could not probe scopes for user %s", user.id)
 
@@ -426,6 +437,7 @@ def google_health_status(request, patient_id):
             "hr_data_missing": hr_data_missing,
             "sleep_scope_ok": sleep_scope_ok,
             "no_data_ever": no_data_ever,
+            "account_not_linked": account_not_linked,
             "first_data_date": _first_data_date(user),
         }
     )

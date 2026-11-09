@@ -9,7 +9,7 @@ import { buildFitbitAuthUrl } from '@/utils/fitbitAuthUrl';
 import { buildGoogleHealthAuthUrl } from '@/utils/googleHealthAuthUrl';
 import { cn } from '@/lib/utils';
 
-type Variant = 'noData' | 'hrSync' | 'hrScope' | 'sleepScope' | 'reconnect';
+type Variant = 'notLinked' | 'noData' | 'hrSync' | 'hrScope' | 'sleepScope' | 'reconnect';
 
 interface Banner {
   variant: Variant;
@@ -18,7 +18,11 @@ interface Banner {
   titleArgs?: Record<string, unknown>;
   reason: string;
   canReconnect: boolean;
+  setupUrl?: string;
 }
+
+// Google's sign-up page for creating a Google Health profile or moving a Fitbit account to Google.
+const GOOGLE_HEALTH_SIGNUP_URL = 'https://fitbit.google.com/auth/signup';
 
 // One key per variant so dismissing one banner doesn't hide another; 'reconnect' is unsuffixed for back-compat with existing dismiss flags.
 const DISMISS_KEY = (id: string, variant: Variant) =>
@@ -38,6 +42,14 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
 
   // First match wins. noData and hrSync are device-side problems, so reconnecting won't fix them.
   const banners: Banner[] = [
+    {
+      variant: 'notLinked',
+      show: store.accountNotLinked === true,
+      title: 'notLinkedBannerTitle',
+      reason: 'notLinkedBannerReason',
+      canReconnect: true,
+      setupUrl: GOOGLE_HEALTH_SIGNUP_URL,
+    },
     {
       variant: 'noData',
       // Only blame the device once both scopes are confirmed; an unknown scope could be the real cause.
@@ -118,6 +130,18 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
+        {banner.setupUrl && (
+          <Button
+            asChild
+            size="dashboard"
+            variant="secondary"
+            className="border-yellow text-zinc-800 rounded-2xl"
+          >
+            <a href={banner.setupUrl} target="_blank" rel="noopener noreferrer">
+              {t('Set up Google Health')}
+            </a>
+          </Button>
+        )}
         {banner.canReconnect && (
           <Button
             size="dashboard"

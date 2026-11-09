@@ -110,7 +110,7 @@ https://www.googleapis.com/auth/googlehealth.health_metrics_and_measurements.rea
 | `spo2` | FloatField\|None | Average daily SpO₂ % from `daily-oxygen-saturation` → `averageSaturationPercent` |
 | `vo2_max` | FloatField\|None | VO₂ max in mL/kg/min from `daily-vo2-max` → `vo2MaxMillilitersPerKilogramPerMinute` |
 
-**`GoogleHealthUserToken`** fields: `user`, `access_token`, `refresh_token`, `expires_at`, `google_user_id`, `connected_at`, `is_revoked`, `revoked_at`
+**`GoogleHealthUserToken`** fields: `user`, `access_token`, `refresh_token`, `expires_at`, `google_user_id`, `connected_at`, `is_revoked`, `revoked_at`, `last_fetched_at` (when the last sync started), `sync_error` (why Google rejects the account's data calls; see below)
 
 ---
 
@@ -134,6 +134,7 @@ The patient page shows at most one banner, picked from these fields in the order
 
 | Field | Banner when set | Patient action |
 |---|---|---|
+| `account_not_linked: true` | Google account isn't linked to Google Health yet | Set up Google Health or move the Fitbit account to Google (**Set up Google Health** button), or reconnect with the Google account the Fitbit uses |
 | `no_data_ever: true` | No health data received | Check the Fitbit app and, on Android, Health Connect permissions |
 | `hr_data_missing: true` | Heart rate not syncing | Check the Fitbit app and, on Android, Health Connect permissions |
 | `hr_scope_ok: false` | Heart-rate access missing | Reconnect |
@@ -141,6 +142,8 @@ The patient page shows at most one banner, picked from these fields in the order
 | `needs_reconnect: true` | Connection expiring or expired | Reconnect |
 
 `no_data_ever` is true when the patient has been connected for at least 24 hours and no stored day has device data (steps, wear time, sleep, resting heart rate, distance or active minutes). Calories alone don't count, because Google can report a resting calorie burn even when the device never syncs. The 24-hour grace period gives the backfill that runs on connect time to finish. The frontend only shows this banner when both `hr_scope_ok` and `sleep_scope_ok` are `true`, so a missing or unknown scope is never reported as a device problem.
+
+`account_not_linked` is true when Google answered a sync or probe call with `400 FAILED_PRECONDITION`, reason `ACCOUNT_NOT_LINKED` ("The account is not linked to Google Health."; see [Google's troubleshooting guide](https://developers.google.com/health/troubleshooting)). The OAuth sign-in succeeded, but the Google account has no active Google Health profile. Either the patient used a different Google account than the one their Fitbit uses, or they haven't created a Google Health profile or moved their legacy Fitbit account to Google yet. The banner offers both fixes: **Set up Google Health** opens Google's sign-up page (`https://fitbit.google.com/auth/signup`), and **Reconnect** opens the Google sign-in with an account picker. The token then stores `sync_error = "not_linked"`. The today sync keeps its normal 15-minute cooldown for these accounts: each try stops at Google's first "not linked" answer, so it costs one request. The status endpoint skips its scope probes while the flag is set. The flag is cleared when the patient reconnects, or when a today sync for the flagged account either writes data or gets a `200` from Google for today's steps. That also covers a patient who fixes the link in the Fitbit or Google Health app without reconnecting. Empty answers alone don't clear it, because a Google outage looks the same. Clearing the flag queues the 365-day backfill, the same one a new connection starts, so history Google kept while the account wasn't linked also arrives. Therapists see a "Not linked" wear badge (`biomarker.gh_not_linked`), and the admin System status card counts these accounts under "Not linked to Google Health".
 
 `days_until_expiry` is always `null`, and `needs_reconnect` is always `false` for Google Health, because production tokens don't expire.
 

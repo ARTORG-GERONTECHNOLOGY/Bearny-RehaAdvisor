@@ -26,6 +26,7 @@ export async function buildGoogleHealthAuthUrl(patientId: string): Promise<strin
     `&scope=${encodeURIComponent(SCOPES)}` +
     `&state=${encodeURIComponent(`${nonce}:${patientId}`)}` +
     `&access_type=offline` +
-    `&prompt=consent`
+    // select_account lets patients switch to the Google account their Fitbit uses.
+    `&prompt=${encodeURIComponent('select_account consent')}`
   );
 }

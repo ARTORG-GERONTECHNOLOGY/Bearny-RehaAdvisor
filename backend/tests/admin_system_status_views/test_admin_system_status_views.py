@@ -491,8 +491,29 @@ def test_wearable_counts(admin_client):
 
     wearables = admin_client.get(URL).json()["wearables"]
     assert wearables["providers"]["fitbit"] == {"connected": 3, "stale_sync": 2, "revoked_recent": 1}
-    assert wearables["providers"]["google_health"] == {"connected": 0, "stale_sync": 0, "revoked_recent": 0}
+    assert wearables["providers"]["google_health"] == {
+        "connected": 0,
+        "stale_sync": 0,
+        "revoked_recent": 0,
+        "not_linked": 0,
+    }
     assert wearables["status"] == "ok"
+
+
+def _gh_token(username, **fields):
+    user = User(username=username, email=f"{username}@test.example.com", createdAt=datetime.now()).save()
+    return GoogleHealthUserToken(user=user, access_token="a", refresh_token="r", **fields).save()
+
+
+@pytest.mark.django_db
+def test_google_health_counts_not_linked_accounts(admin_client):
+    now = timezone.now()
+    _gh_token("ok", last_fetched_at=now - timedelta(hours=1))
+    _gh_token("not_linked", last_fetched_at=now - timedelta(hours=1), sync_error="not_linked")
+    _gh_token("revoked_not_linked", is_revoked=True, sync_error="not_linked")
+
+    gh = admin_client.get(URL).json()["wearables"]["providers"]["google_health"]
+    assert gh["not_linked"] == 1
 
 
 @pytest.mark.django_db

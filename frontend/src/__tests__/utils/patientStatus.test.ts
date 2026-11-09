@@ -187,6 +187,22 @@ describe('getWearInfo', () => {
     expect(result.level).toBe('unknown');
   });
 
+  it('flags a Google Health patient whose account is not linked', () => {
+    const result = getWearInfo(
+      makePatient({ wearable_device: 'google_health', biomarker: { gh_not_linked: true } })
+    );
+    expect(result.level).toBe('bad');
+    expect(result.notLinked).toBe(true);
+    expect(result.revoked).toBe(false);
+  });
+
+  it('ignores gh_not_linked for patients on another device', () => {
+    const result = getWearInfo(
+      makePatient({ wearable_device: 'fitbit', biomarker: { gh_not_linked: true } })
+    );
+    expect(result.notLinked).toBe(false);
+  });
+
   it('does not return Disconnected for omron even when revoked flag is set', () => {
     const result = getWearInfo(
       makePatient({ wearable_device: 'omron', biomarker: { fitbit_revoked: true } })

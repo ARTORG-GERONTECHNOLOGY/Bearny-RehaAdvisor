@@ -232,6 +232,32 @@ describe('WearBadge', () => {
     expect(screen.queryByText('Disconnected')).not.toBeInTheDocument();
   });
 
+  it('shows Not linked for Google Health patients whose account is not linked', () => {
+    renderWithI18n(
+      <WearBadge
+        patient={makePatient({
+          wearable_device: 'google_health',
+          biomarker: { wear_time_days_since: null, wear_time_avg_min: null, gh_not_linked: true },
+        })}
+      />
+    );
+    expect(screen.getByText('Not linked')).toBeInTheDocument();
+    expect(screen.queryByText('Disconnected')).not.toBeInTheDocument();
+  });
+
+  it('shows Not linked even when an old revoked Fitbit token sets fitbit_revoked', () => {
+    renderWithI18n(
+      <WearBadge
+        patient={makePatient({
+          wearable_device: 'google_health',
+          biomarker: { fitbit_revoked: true, gh_not_linked: true },
+        })}
+      />
+    );
+    expect(screen.getByText('Not linked')).toBeInTheDocument();
+    expect(screen.queryByText('Disconnected')).not.toBeInTheDocument();
+  });
+
   it('still shows Fitbit Disconnected badge for fitbit patients with revoked token', () => {
     renderWithI18n(
       <WearBadge

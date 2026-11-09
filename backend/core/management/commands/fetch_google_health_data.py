@@ -5,7 +5,14 @@ import logging
 from django.core.management.base import BaseCommand
 
 from core.models import GoogleHealthUserToken
-from core.views.google_health_sync import _prefetch_unfiltered, _sync_day, get_valid_google_access_token
+from core.views.google_health_sync import (
+    GoogleHealthAccountNotLinked,
+    _prefetch_unfiltered,
+    _sync_day,
+    clear_account_not_linked,
+    get_valid_google_access_token,
+    mark_account_not_linked,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,12 +81,17 @@ class Command(BaseCommand):
             self.stdout.write(f"  Pre-fetching sleep / resting HR / HRV for user {user.id}…")
             try:
                 prefetch = _prefetch_unfiltered(access_token)
+            except GoogleHealthAccountNotLinked:
+                mark_account_not_linked(user)
+                self.stdout.write(self.style.WARNING(f"  Skipped user {user.id}: account not linked to Google Health"))
+                continue
             except Exception as e:
                 logger.error("[google_health] Pre-fetch failed for user %s: %s", user.id, e)
                 prefetch = None
 
             written = 0
             skipped = 0
+            not_linked = False
             for d in date_range:
                 try:
                     ok = _sync_day(user, access_token, d, prefetch=prefetch)
@@ -87,11 +99,20 @@ class Command(BaseCommand):
                         written += 1
                     else:
                         skipped += 1
+                except GoogleHealthAccountNotLinked:
+                    mark_account_not_linked(user)
+                    not_linked = True
+                    break
                 except Exception as e:
                     logger.error("[google_health] Error syncing %s for user %s: %s", d, user.id, e)
                     skipped += 1
 
             msg = f"  user={user.id}: {written} days written, {skipped} days skipped/empty"
+            if not_linked:
+                self.stdout.write(self.style.WARNING(f"{msg}, stopped: account not linked to Google Health"))
+                continue
+            if written:
+                clear_account_not_linked(user)
             self.stdout.write(self.style.SUCCESS(msg))
             logger.info("[google_health] Completed backfill for user %s: %d written", user.id, written)
 

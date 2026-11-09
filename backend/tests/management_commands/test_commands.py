@@ -1,9 +1,11 @@
 import datetime
+import io
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from core.management.commands.backfill_lightly_active import Command as BackfillCommand
 from core.management.commands.fetch_fitbit_data import Command as FetchFitbitCommand
+from core.management.commands.fetch_google_health_data import Command as FetchGoogleHealthCommand
 from core.management.commands.seed_periodic_tasks import Command as SeedPeriodicTasksCommand
 from core.management.commands.set_celerybeat_every_minute import Command as SetBeatEveryMinuteCommand
 
@@ -67,6 +69,25 @@ def test_fetch_fitbit_command_no_users_exits_cleanly():
         return_value=[],
     ):
         cmd.handle()
+
+
+def test_fetch_google_health_command_reports_not_linked_account_as_warning():
+    from core.views.google_health_sync import GoogleHealthAccountNotLinked
+
+    user = SimpleNamespace(id="u1")
+    out = io.StringIO()
+    mod = "core.management.commands.fetch_google_health_data"
+    with (
+        patch(f"{mod}.GoogleHealthUserToken.objects", MagicMock(all=lambda: [SimpleNamespace(user=user)])),
+        patch(f"{mod}.get_valid_google_access_token", return_value="tok"),
+        patch(f"{mod}._prefetch_unfiltered", return_value={}),
+        patch(f"{mod}._sync_day", side_effect=GoogleHealthAccountNotLinked) as sync_day,
+        patch(f"{mod}.mark_account_not_linked") as mark,
+    ):
+        FetchGoogleHealthCommand(stdout=out).handle(days=5)
+    sync_day.assert_called_once()
+    mark.assert_called_once_with(user)
+    assert "stopped: account not linked to Google Health" in out.getvalue()
 
 
 def test_fetch_fitbit_command_single_user_happy_path_with_mocks():

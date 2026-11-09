@@ -181,6 +181,7 @@ class GoogleHealthUserToken(Document):
     is_revoked = BooleanField(default=False)  # True when refresh fails with invalid_grant
     revoked_at = DateTimeField(null=True)
     last_fetched_at = DateTimeField()
+    sync_error = StringField(null=True)  # e.g. "not_linked"; cleared on reconnect or a working sync
 
 
 class GoogleHealthData(Document):

@@ -11,6 +11,7 @@ const mockStore = {
   hrDataMissing: null as boolean | null,
   sleepScopeOk: null as boolean | null,
   noDataEver: null as boolean | null,
+  accountNotLinked: null as boolean | null,
   wearableDevice: 'fitbit' as string,
 };
 
@@ -33,6 +34,9 @@ jest.mock('@/stores/patientFitbitStore', () => ({
     },
     get noDataEver() {
       return mockStore.noDataEver;
+    },
+    get accountNotLinked() {
+      return mockStore.accountNotLinked;
     },
     get wearableDevice() {
       return mockStore.wearableDevice;
@@ -68,6 +72,7 @@ function setStore(
   mockStore.hrDataMissing = overrides.hrDataMissing ?? null;
   mockStore.sleepScopeOk = overrides.sleepScopeOk ?? null;
   mockStore.noDataEver = overrides.noDataEver ?? null;
+  mockStore.accountNotLinked = overrides.accountNotLinked ?? null;
   mockStore.wearableDevice = overrides.wearableDevice ?? 'fitbit';
 }
 
@@ -148,6 +153,49 @@ describe('ReconnectBanner — reconnect button', () => {
     setStore(true, 1);
     render(<ReconnectBanner />);
     expect(screen.getByRole('button', { name: /reconnect/i })).toBeInTheDocument();
+  });
+});
+
+describe('ReconnectBanner — account not linked banner', () => {
+  it('asks the patient to reconnect with the right Google account', () => {
+    setStore(false, null, { accountNotLinked: true, wearableDevice: 'google_health' });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/notLinkedBannerTitle/i)).toBeInTheDocument();
+    expect(screen.getByText(/notLinkedBannerReason/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reconnect/i })).toBeInTheDocument();
+  });
+
+  it("links to Google's sign-up page for patients already on the right account", () => {
+    setStore(false, null, { accountNotLinked: true, wearableDevice: 'google_health' });
+    render(<ReconnectBanner />);
+    const link = screen.getByRole('link', { name: /set up google health/i });
+    expect(link).toHaveAttribute('href', 'https://fitbit.google.com/auth/signup');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('shows the set-up link only on the not-linked banner', () => {
+    setStore(false, null, { hrScopeOk: false, wearableDevice: 'google_health' });
+    render(<ReconnectBanner />);
+    expect(screen.queryByRole('link', { name: /set up google health/i })).toBeNull();
+  });
+
+  it('takes precedence over the no-data banner', () => {
+    setStore(false, null, {
+      accountNotLinked: true,
+      noDataEver: true,
+      hrScopeOk: true,
+      sleepScopeOk: true,
+    });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/notLinkedBannerTitle/i)).toBeInTheDocument();
+    expect(screen.queryByText(/noDataBannerTitle/i)).toBeNull();
+  });
+
+  it('renders nothing when accountNotLinked is false', () => {
+    setStore(false, null, { accountNotLinked: false });
+    const { container } = render(<ReconnectBanner />);
+    expect(container.firstChild).toBeNull();
   });
 });
 

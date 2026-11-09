@@ -45,7 +45,7 @@ const status = (overrides: Partial<SystemStatus> = {}): SystemStatus => ({
     status: 'ok',
     providers: {
       fitbit: { connected: 12, stale_sync: 1, revoked_recent: 0 },
-      google_health: { connected: 4, stale_sync: 0, revoked_recent: 2 },
+      google_health: { connected: 4, stale_sync: 0, revoked_recent: 2, not_linked: 3 },
     },
   },
   push: { status: 'info', sent_24h: 87 },
@@ -158,6 +158,8 @@ describe('SystemStatusTab', () => {
     expect(within(cards[0]).getByText('3')).toBeInTheDocument();
     expect(within(cards[1]).getByText('Fitbit')).toBeInTheDocument();
     expect(within(cards[1]).getByText('12')).toBeInTheDocument();
+    // Only Google Health reports not-linked accounts.
+    expect(within(cards[1]).getAllByText('Not linked to Google Health')).toHaveLength(1);
     expect(within(cards[2]).getByText('87')).toBeInTheDocument();
     expect(within(cards[3]).getByText('de, en, fr, it, nl, pt')).toBeInTheDocument();
   });
