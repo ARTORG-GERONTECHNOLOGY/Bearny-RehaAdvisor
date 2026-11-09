@@ -15,6 +15,8 @@ describe('patientFitbitStore', () => {
     (patientFitbitStore as any).needsReconnect = false;
     (patientFitbitStore as any).daysUntilExpiry = null;
     (patientFitbitStore as any).wearableDevice = 'fitbit';
+    (patientFitbitStore as any).wearableDeviceLoaded = false;
+    (patientFitbitStore as any).statusFor = null;
   });
 
   // ------------------------------------------------------------------
@@ -117,6 +119,38 @@ describe('patientFitbitStore', () => {
       (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('boom'));
       await patientFitbitStore.fetchStatus('other-patient');
       expect(patientFitbitStore.wearableDeviceLoaded).toBe(false);
+    });
+
+    it("drops the previous patient's state when another patient's status is loaded", async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { connected: true, wearable_device: 'google_health', account_not_linked: true },
+      });
+      await patientFitbitStore.fetchStatus('patient-a');
+      (patientFitbitStore as any).summary = { today: {} };
+
+      let resolveB: (v: unknown) => void = () => {};
+      (apiClient.get as jest.Mock).mockReturnValueOnce(new Promise((r) => (resolveB = r)));
+      const loadingB = patientFitbitStore.fetchStatus('patient-b');
+      expect(patientFitbitStore.connected).toBeNull();
+      expect(patientFitbitStore.accountNotLinked).toBeNull();
+      expect(patientFitbitStore.summary).toBeNull();
+
+      resolveB({ data: { wearable_device: 'omron' } });
+      await loadingB;
+    });
+
+    it('ignores a slow response for the previous patient', async () => {
+      let resolveA: (v: unknown) => void = () => {};
+      (apiClient.get as jest.Mock)
+        .mockReturnValueOnce(new Promise((r) => (resolveA = r)))
+        .mockResolvedValueOnce({ data: { connected: true, wearable_device: 'google_health' } });
+      const loadingA = patientFitbitStore.fetchStatus('patient-a');
+      await patientFitbitStore.fetchStatus('patient-b');
+
+      resolveA({ data: { connected: false, wearable_device: 'fitbit' } });
+      await loadingA;
+      expect(patientFitbitStore.wearableDevice).toBe('google_health');
+      expect(patientFitbitStore.connected).toBe(true);
     });
 
     it('keeps the device loaded when the same patient refreshes', async () => {
