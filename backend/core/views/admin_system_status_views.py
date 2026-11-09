@@ -18,6 +18,7 @@ from api import celery_app
 from core.models import FitbitUserToken, GoogleHealthUserToken, SentPushNotification, TaskRun
 from core.permissions import IsAdmin
 from core.signals import summarize_error
+from core.views.google_health_sync import SYNC_ERROR_NOT_LINKED
 
 CACHE_KEY = "admin_system_status"
 CACHE_SECONDS = 60
@@ -203,7 +204,10 @@ def _provider_counts(model, now):
 def _wearables_section(now):
     providers = {
         "fitbit": _provider_counts(FitbitUserToken, now),
-        "google_health": _provider_counts(GoogleHealthUserToken, now),
+        "google_health": {
+            **_provider_counts(GoogleHealthUserToken, now),
+            "not_linked": GoogleHealthUserToken.objects(is_revoked__ne=True, sync_error=SYNC_ERROR_NOT_LINKED).count(),
+        },
     }
     stale = sum(p["stale_sync"] for p in providers.values())
     revoked = sum(p["revoked_recent"] for p in providers.values())

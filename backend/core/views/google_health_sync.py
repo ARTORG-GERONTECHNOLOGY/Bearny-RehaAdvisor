@@ -22,6 +22,7 @@ _BASE = "https://health.googleapis.com/v4/users/me"
 _TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 FETCH_COOLDOWN_MINUTES = 15
+SYNC_ERROR_NOT_LINKED = "not_linked"
 
 # Canonical zone names matching the frontend chart (HRZonesStacked.tsx).
 # Covers both Fitbit-style names (FAT_BURN etc.) and Google Health v4 names (MODERATE etc.).
@@ -46,6 +47,52 @@ _ZONE_NAME_MAP = {
     "cardio": "Cardio",
     "peak": "Peak",
 }
+
+
+class GoogleHealthAccountNotLinked(Exception):
+    """The Google account has no Google Health profile, so every data call fails with ACCOUNT_NOT_LINKED."""
+
+    def __init__(self, message="account is not linked to Google Health"):
+        super().__init__(message)
+
+
+def is_not_linked_response(resp) -> bool:
+    """True for Google's 400 ACCOUNT_NOT_LINKED answer (https://developers.google.com/health/troubleshooting)."""
+    if resp.status_code != 400:
+        return False
+    try:
+        err = resp.json().get("error") or {}
+    except (ValueError, AttributeError):
+        return False
+    if not isinstance(err, dict):
+        return False
+    details = err.get("details") if isinstance(err.get("details"), list) else []
+    if any(isinstance(d, dict) and d.get("reason") == "ACCOUNT_NOT_LINKED" for d in details):
+        return True
+    # Fallback in case the reason is missing or renamed.
+    return err.get("status") == "FAILED_PRECONDITION" and "not linked" in str(err.get("message", "")).lower()
+
+
+def mark_account_not_linked(user) -> None:
+    if GoogleHealthUserToken.objects(user=user, sync_error__ne=SYNC_ERROR_NOT_LINKED).update_one(
+        set__sync_error=SYNC_ERROR_NOT_LINKED
+    ):
+        logger.warning("[google_health] account for user %s is not linked to Google Health", user.id)
+
+
+def clear_account_not_linked(user, backfill=True) -> bool:
+    """Clear the flag and, unless the caller is a backfill itself, fetch the history Google kept meanwhile."""
+    if not GoogleHealthUserToken.objects(user=user, sync_error=SYNC_ERROR_NOT_LINKED).update_one(set__sync_error=None):
+        return False
+    logger.info("[google_health] account for user %s is now linked to Google Health", user.id)
+    if backfill:
+        from core.tasks import backfill_google_health_on_connect  # lazy: core.tasks imports this module
+
+        try:
+            backfill_google_health_on_connect.delay(str(user.id))
+        except Exception:
+            logger.exception("[google_health] could not queue backfill for user=%s", user.id)
+    return True
 
 
 def get_valid_google_access_token(user) -> str:
@@ -124,6 +171,8 @@ def _daily_rollup(access_token: str, data_type: str, d: datetime.date) -> dict:
         logger.exception("[google_health] Request error for %s on %s", data_type, d)
         return {}
 
+    if is_not_linked_response(resp):
+        raise GoogleHealthAccountNotLinked()
     if resp.status_code != 200:
         logger.warning(
             "[google_health] dailyRollUp %s failed %s: %s",
@@ -166,6 +215,8 @@ def _list_points(access_token: str, data_type: str, filter_expr: str = "") -> li
             logger.exception("[google_health] Request error listing %s", data_type)
             break
 
+        if is_not_linked_response(resp):
+            raise GoogleHealthAccountNotLinked()
         if resp.status_code != 200:
             logger.warning(
                 "[google_health] list %s failed %s: %s",
@@ -505,7 +556,8 @@ def _parse_hr_zones(rollup_pt: dict) -> list[HeartRateZone]:
 def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None = None) -> bool:
     """
     Fetch and upsert one day of Google Health data for *user* using the v4 API.
-    Returns True if a row was written.
+    Returns True if a row was written, which proves the account is linked; callers then clear the
+    not-linked flag. Raises GoogleHealthAccountNotLinked on the first call Google rejects that way.
 
     For multi-day backfills, pass the result of _prefetch_unfiltered(access_token)
     as `prefetch` so that sleep, resting HR, HRV, SpO2, and VO2 max are not re-fetched
@@ -735,6 +787,24 @@ def _sync_day(user, access_token: str, d: datetime.date, prefetch: dict | None =
     return True
 
 
+def _google_answers(access_token: str) -> bool:
+    """True when Google answers today's steps rollup with 200, which proves the account is linked."""
+    today = datetime.date.today()
+    try:
+        resp = requests.post(
+            f"{_BASE}/dataTypes/steps/dataPoints:dailyRollUp",
+            json={
+                "range": {"start": _civil_date(today), "end": _civil_date(today + timedelta(days=1))},
+                "windowSizeDays": 1,
+            },
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+    except requests.RequestException:
+        return False
+    return resp.status_code == 200
+
+
 def queue_google_health_today_sync(user, bypass_cooldown: bool = False) -> None:
     """Sync today in Celery so the request answers from the DB instead of waiting ~45 s."""
     from core.tasks import fetch_google_health_data_async  # lazy: core.tasks imports this module
@@ -790,7 +860,14 @@ def fetch_google_health_today_for_user(user, bypass_cooldown: bool = False) -> i
         return 0
 
     today = datetime.date.today()
-    written = _sync_day(user, access_token, today)
+    try:
+        written = _sync_day(user, access_token, today)
+    except GoogleHealthAccountNotLinked:
+        mark_account_not_linked(user)
+        return 0
+    # Clearing only touches a flagged token; without data, only a real 200 proves the link (no row can mean a 5xx).
+    if written or (token.sync_error == SYNC_ERROR_NOT_LINKED and _google_answers(access_token)):
+        clear_account_not_linked(user)
     if written:
         logger.info("[google_health] stored today for user=%s", user.id)
     else:

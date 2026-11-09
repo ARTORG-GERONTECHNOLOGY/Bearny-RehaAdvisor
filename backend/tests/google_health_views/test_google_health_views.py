@@ -36,6 +36,7 @@ from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 # Kept before the autouse fixture replaces it, so the probe itself can be tested.
+from core.views.google_health_sync import _google_answers as _real_google_answers
 from core.views.google_health_view import _probe_hr_scope as _real_probe_hr_scope
 from core.views.google_health_view import _probe_sleep_scope as _real_probe_sleep_scope
 
@@ -73,6 +74,16 @@ def no_live_scope_probes():
     with (
         patch("core.views.google_health_view._probe_hr_scope", return_value=None),
         patch("core.views.google_health_view._probe_sleep_scope", return_value=None),
+    ):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def no_queued_backfills():
+    # Clearing the not-linked flag queues a backfill and may check Google; keep both offline.
+    with (
+        patch("core.tasks.backfill_google_health_on_connect.delay"),
+        patch("core.views.google_health_sync._google_answers", return_value=False),
     ):
         yield
 
@@ -357,19 +368,240 @@ _NOT_LINKED = """{
 }"""
 
 
+_OTHER_400 = """{
+  "error": {
+    "code": 400,
+    "message": "Request contains an invalid argument.",
+    "status": "INVALID_ARGUMENT"
+  }
+}"""
+
+
+# Full body as documented at https://developers.google.com/health/troubleshooting.
+_NOT_LINKED_WITH_REASON = json.dumps(
+    {
+        "error": {
+            "code": 400,
+            "message": "The account is not linked to Google Health.",
+            "status": "FAILED_PRECONDITION",
+            "details": [
+                {
+                    "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                    "reason": "ACCOUNT_NOT_LINKED",
+                    "domain": "health.googleapis.com",
+                    "metadata": {"redirect_uri": "https://fitbit.google.com/auth/signup"},
+                }
+            ],
+        }
+    }
+)
+# Still detected if Google rewords the message.
+_REASON_ONLY = json.dumps(
+    {
+        "error": {
+            "code": 400,
+            "message": "Reworded.",
+            "status": "FAILED_PRECONDITION",
+            "details": [{"reason": "ACCOUNT_NOT_LINKED"}],
+        }
+    }
+)
+
+
+def _google_error(body):
+    return MagicMock(status_code=400, text=body, json=lambda: json.loads(body))
+
+
 @patch("core.views.google_health_view.requests.get")
 @patch("core.views.google_health_view.requests.post")
 def test_probes_log_googles_reason_on_one_line(mock_post, mock_get, caplog):
-    """Google's reason must reach the log so 'not linked' accounts can be told apart from other 400s."""
-    mock_post.return_value = MagicMock(status_code=400, text=_NOT_LINKED)
-    mock_get.return_value = MagicMock(status_code=400, text=_NOT_LINKED)
+    """Google's reason must reach the log so unexpected probe failures can be told apart."""
+    mock_post.return_value = _google_error(_OTHER_400)
+    mock_get.return_value = _google_error(_OTHER_400)
     with caplog.at_level("WARNING", logger="core.views.google_health_view"):
         assert _real_probe_hr_scope("tok") is None
         assert _real_probe_sleep_scope("tok") is None
     lines = [r.getMessage() for r in caplog.records]
-    assert any("probing hr scope" in m and "not linked to Google Health" in m for m in lines)
-    assert any("probing sleep scope" in m and "not linked to Google Health" in m for m in lines)
+    assert any("probing hr scope" in m and "invalid argument" in m for m in lines)
+    assert any("probing sleep scope" in m and "invalid argument" in m for m in lines)
     assert all("\n" not in m for m in lines)
+
+
+@patch("core.views.google_health_view.requests.get")
+@patch("core.views.google_health_view.requests.post")
+def test_probes_raise_when_account_not_linked(mock_post, mock_get):
+    from core.views.google_health_sync import GoogleHealthAccountNotLinked
+
+    mock_post.return_value = _google_error(_NOT_LINKED)
+    mock_get.return_value = _google_error(_NOT_LINKED)
+    with pytest.raises(GoogleHealthAccountNotLinked):
+        _real_probe_hr_scope("tok")
+    with pytest.raises(GoogleHealthAccountNotLinked):
+        _real_probe_sleep_scope("tok")
+
+
+@pytest.mark.parametrize(
+    "resp, expected",
+    [
+        (_google_error(_NOT_LINKED), True),
+        (_google_error(_NOT_LINKED_WITH_REASON), True),
+        (_google_error(_REASON_ONLY), True),
+        (_google_error(_OTHER_400), False),
+        (MagicMock(status_code=403, json=lambda: json.loads(_NOT_LINKED)), False),
+        (MagicMock(status_code=400, json=MagicMock(side_effect=ValueError)), False),
+        (MagicMock(status_code=400, json=lambda: {"error": "invalid_request"}), False),
+    ],
+)
+def test_is_not_linked_response(resp, expected):
+    from core.views.google_health_sync import is_not_linked_response
+
+    assert is_not_linked_response(resp) is expected
+
+
+def test_not_linked_error_has_a_readable_message():
+    """Generic error handlers (e.g. backfill_gh_sleep) print str(exc), which must not be empty."""
+    from core.views.google_health_sync import GoogleHealthAccountNotLinked
+
+    assert str(GoogleHealthAccountNotLinked()) == "account is not linked to Google Health"
+
+
+@patch("core.views.google_health_sync.requests.post")
+def test_daily_rollup_raises_when_account_not_linked(mock_post):
+    import datetime as _dt
+
+    from core.views.google_health_sync import GoogleHealthAccountNotLinked, _daily_rollup
+
+    mock_post.return_value = _google_error(_NOT_LINKED)
+    with pytest.raises(GoogleHealthAccountNotLinked):
+        _daily_rollup("tok", "steps", _dt.date.today())
+
+
+@patch("core.views.google_health_sync.requests.get")
+def test_list_points_raises_when_account_not_linked(mock_get):
+    from core.views.google_health_sync import GoogleHealthAccountNotLinked, _list_points
+
+    mock_get.return_value = _google_error(_NOT_LINKED)
+    with pytest.raises(GoogleHealthAccountNotLinked):
+        _list_points("tok", "sleep")
+
+
+@patch("core.views.google_health_sync.requests.post")
+def test_sync_day_stops_after_first_not_linked_call(mock_post):
+    """One failed call is enough; the other ~12 data types would fail the same way."""
+    import datetime as _dt
+
+    from core.views.google_health_sync import GoogleHealthAccountNotLinked, _sync_day
+
+    mock_post.return_value = _google_error(_NOT_LINKED)
+    with pytest.raises(GoogleHealthAccountNotLinked):
+        _sync_day(_make_user(), "tok", _dt.date.today())
+    assert mock_post.call_count == 1
+
+
+@patch("core.views.google_health_sync._list_points", return_value=[])
+@patch("core.views.google_health_sync._daily_rollup")
+def test_sync_day_leaves_the_flag_to_the_caller(mock_rollup, mock_list):
+    """Backfills write old days one by one; the caller clears the flag once per run."""
+    import datetime as _dt
+
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import _sync_day
+
+    mock_rollup.side_effect = lambda tok, data_type, d: {"steps": {"countSum": "1200"}} if data_type == "steps" else {}
+    user = _make_user()
+    token = _flagged_token(user)
+
+    assert _sync_day(user, "tok", _dt.date.today()) is True
+    assert GoogleHealthUserToken.objects.get(id=token.id).sync_error == "not_linked"
+
+
+def _flagged_token(user):
+    from core.models import GoogleHealthUserToken
+
+    token = _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    GoogleHealthUserToken.objects(id=token.id).update_one(set__sync_error="not_linked")
+    return GoogleHealthUserToken.objects.get(id=token.id)  # connected_at as stored (ms precision)
+
+
+@patch("core.views.google_health_view.get_valid_google_access_token")
+@patch("core.views.google_health_view._probe_hr_scope")
+@patch("core.views.google_health_view._probe_sleep_scope")
+def test_status_reports_not_linked_without_calling_google(mock_sleep, mock_hr, mock_token):
+    """Status requests only read the flag; the sync clears it once data arrives."""
+    from core.models import GoogleHealthUserToken
+
+    user = _make_user()
+    _make_patient(user)
+    token = _flagged_token(user)
+    body = json.loads(_status_as(user.id).content)
+    assert body["connected"] is True
+    assert body["account_not_linked"] is True
+    mock_token.assert_not_called()
+    mock_hr.assert_not_called()
+    mock_sleep.assert_not_called()
+    assert GoogleHealthUserToken.objects.get(id=token.id).sync_error == "not_linked"
+
+
+@pytest.mark.parametrize("backfill", [True, False])
+@patch("core.tasks.backfill_google_health_on_connect.delay")
+def test_clear_not_linked_queues_one_backfill(mock_backfill, backfill):
+    """Only the call that clears the flag queues it, so concurrent clears can't start two 365-day backfills."""
+    from core.views.google_health_sync import clear_account_not_linked
+
+    user = _make_user()
+    _flagged_token(user)
+    assert clear_account_not_linked(user, backfill=backfill) is True
+    assert clear_account_not_linked(user, backfill=backfill) is False
+    assert mock_backfill.call_count == (1 if backfill else 0)
+
+
+@patch("core.tasks.backfill_google_health_on_connect.delay", side_effect=Exception("redis down"))
+def test_clear_not_linked_survives_a_queue_failure(mock_backfill, caplog):
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import clear_account_not_linked
+
+    user = _make_user()
+    token = _flagged_token(user)
+    assert clear_account_not_linked(user) is True
+    assert GoogleHealthUserToken.objects.get(id=token.id).sync_error is None
+    assert any("could not queue backfill" in r.getMessage() for r in caplog.records)
+
+
+@patch("core.tasks.backfill_google_health_on_connect.delay")
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_that_clears_not_linked_queues_the_backfill(mock_token, mock_sync, mock_backfill):
+    """History older than the nightly 30-day resync would otherwise never arrive."""
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, _ = _token_fetched_minutes_ago(60 * 25, sync_error="not_linked")
+    assert fetch_google_health_today_for_user(user) == 1
+    mock_backfill.assert_called_once_with(str(user.id))
+
+
+def test_status_account_not_linked_false_by_default():
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(hours=1))
+    assert json.loads(_status_as(user.id).content)["account_not_linked"] is False
+
+
+@patch("core.views.google_health_view._probe_sleep_scope")
+@patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
+def test_status_probe_flags_not_linked_account(mock_token, mock_sleep):
+    """Patients who open the page before the next sync still see the banner right away."""
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import GoogleHealthAccountNotLinked
+
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    with patch("core.views.google_health_view._probe_hr_scope", side_effect=GoogleHealthAccountNotLinked):
+        body = json.loads(_status_as(user.id).content)
+    assert body["account_not_linked"] is True
+    assert body["hr_scope_ok"] is None
+    assert body["sleep_scope_ok"] is None
+    assert GoogleHealthUserToken.objects.get(user=user).sync_error == "not_linked"
 
 
 def test_status_no_data_ever_false_when_not_connected():
@@ -478,6 +710,7 @@ def test_callback_clears_is_revoked_on_reconnect(mock_redis, mock_post):
         access_token="old",
         refresh_token="old_refresh",
         expires_at=timezone.now(),
+        sync_error="not_linked",
         is_revoked=True,
         revoked_at=timezone.now() - timedelta(days=1),
         connected_at=timezone.now() - timedelta(days=8),
@@ -500,6 +733,7 @@ def test_callback_clears_is_revoked_on_reconnect(mock_redis, mock_post):
     token = GoogleHealthUserToken.objects(user=user).first()
     assert token.is_revoked is False
     assert token.revoked_at is None
+    assert token.sync_error is None
     assert token.connected_at is not None
 
 
@@ -613,13 +847,14 @@ def test_valid_token_not_expired_skips_refresh(mock_post):
 # ---------------------------------------------------------------------------
 
 
-def _token_fetched_minutes_ago(minutes):
+def _token_fetched_minutes_ago(minutes, sync_error=None):
     user = _make_user()
     token = _make_token(user)
+    token.sync_error = sync_error
     if minutes is not None:
         # Naive UTC, as MongoDB returns it.
         token.last_fetched_at = datetime.utcnow() - timedelta(minutes=minutes)
-        token.save()
+    token.save()
     return user, token
 
 
@@ -719,6 +954,101 @@ def test_today_sync_bypass_cooldown_ignores_recent_sync(mock_token, mock_sync):
 
     assert fetch_google_health_today_for_user(user, bypass_cooldown=True) == 1
     mock_sync.assert_called_once()
+
+
+@patch("core.views.google_health_sync._sync_day")
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_flags_not_linked_account(mock_token, mock_sync):
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import GoogleHealthAccountNotLinked, fetch_google_health_today_for_user
+
+    mock_sync.side_effect = GoogleHealthAccountNotLinked
+    user, token = _token_fetched_minutes_ago(None)
+
+    assert fetch_google_health_today_for_user(user) == 0
+    stored = GoogleHealthUserToken.objects.get(id=token.id)
+    assert stored.sync_error == "not_linked"
+    assert stored.last_fetched_at is not None  # keeps the stamp, so the normal cooldown applies
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=False)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_keeps_not_linked_when_google_does_not_answer(mock_token, mock_sync):
+    """No row can also mean a Google outage; without a real 200 the flag stays."""
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(60 * 25, sync_error="not_linked")
+
+    with patch("core.views.google_health_sync._google_answers", return_value=False) as answers:
+        assert fetch_google_health_today_for_user(user) == 0
+    mock_sync.assert_called_once()
+    answers.assert_called_once_with("access")
+    assert GoogleHealthUserToken.objects.get(id=token.id).sync_error == "not_linked"
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=False)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_clears_not_linked_when_google_answers_without_data(mock_token, mock_sync):
+    """A newly linked account may have no data yet; a 200 still proves the link."""
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(60 * 25, sync_error="not_linked")
+
+    with patch("core.views.google_health_sync._google_answers", return_value=True):
+        assert fetch_google_health_today_for_user(user) == 0
+    assert GoogleHealthUserToken.objects.get(id=token.id).sync_error is None
+
+
+@patch("core.views.google_health_sync._sync_day")
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_clears_a_flag_set_while_it_was_running(mock_token, mock_sync):
+    """Written data proves the link, even if another path flagged the account mid-sync."""
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(60 * 25)
+
+    def flagged_meanwhile(*args, **kwargs):
+        GoogleHealthUserToken.objects(id=token.id).update_one(set__sync_error="not_linked")
+        return True
+
+    mock_sync.side_effect = flagged_meanwhile
+    assert fetch_google_health_today_for_user(user) == 1
+    assert GoogleHealthUserToken.objects.get(id=token.id).sync_error is None
+
+
+@patch("core.views.google_health_sync._sync_day", return_value=False)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_skips_the_extra_check_for_unflagged_accounts(mock_token, mock_sync):
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, _ = _token_fetched_minutes_ago(60 * 25)
+    with patch("core.views.google_health_sync._google_answers") as answers:
+        fetch_google_health_today_for_user(user)
+    answers.assert_not_called()
+
+
+@pytest.mark.parametrize("status, expected", [(200, True), (400, False), (503, False)])
+@patch("core.views.google_health_sync.requests.post")
+def test_google_answers_needs_a_real_200(mock_post, status, expected):
+    mock_post.return_value = MagicMock(status_code=status)
+    assert _real_google_answers("tok") is expected
+
+
+@patch("core.tasks.backfill_google_health_on_connect.delay")
+@patch("core.views.google_health_sync._sync_day", return_value=True)
+@patch("core.views.google_health_sync.get_valid_google_access_token", return_value="access")
+def test_today_sync_clears_not_linked_once_data_is_written(mock_token, mock_sync, mock_backfill):
+    """Any written row, even calories only, proves Google accepts the account."""
+    from core.models import GoogleHealthUserToken
+    from core.views.google_health_sync import fetch_google_health_today_for_user
+
+    user, token = _token_fetched_minutes_ago(60 * 25, sync_error="not_linked")
+
+    assert fetch_google_health_today_for_user(user) == 1
+    assert GoogleHealthUserToken.objects.get(id=token.id).sync_error is None
 
 
 # ---------------------------------------------------------------------------

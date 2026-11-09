@@ -47,6 +47,7 @@ type BioLike = {
   wear_time_days_since?: unknown;
   fitbit_revoked?: unknown;
   fitbit_no_token?: unknown;
+  gh_not_linked?: unknown;
 };
 
 export const toNum = (v: unknown): number | null => {
@@ -228,6 +229,7 @@ export const getWearInfo = (p: PatientType) => {
       daysSinceWorn: null,
       avgMin: null,
       revoked: false,
+      notLinked: false,
       device,
     };
   }
@@ -236,13 +238,21 @@ export const getWearInfo = (p: PatientType) => {
   const daysSinceWorn = toNum(b.wear_time_days_since);
   const avgMin = toNum(b.wear_time_avg_min);
   const revoked = b.fitbit_revoked === true || b.fitbit_no_token === true;
+  const notLinked = device === 'google_health' && b.gh_not_linked === true;
 
-  if (revoked) {
-    return { level: 'bad' as Traffic, daysSinceWorn, avgMin, revoked: true, device };
+  if (revoked || notLinked) {
+    return { level: 'bad' as Traffic, daysSinceWorn, avgMin, revoked, notLinked, device };
   }
 
   if (daysSinceWorn === null && avgMin === null) {
-    return { level: 'unknown' as Traffic, daysSinceWorn, avgMin, revoked: false, device };
+    return {
+      level: 'unknown' as Traffic,
+      daysSinceWorn,
+      avgMin,
+      revoked: false,
+      notLinked: false,
+      device,
+    };
   }
 
   let level: Traffic = 'good';
@@ -253,5 +263,5 @@ export const getWearInfo = (p: PatientType) => {
     level = 'warn';
   }
 
-  return { level, daysSinceWorn, avgMin, revoked: false, device };
+  return { level, daysSinceWorn, avgMin, revoked: false, notLinked: false, device };
 };

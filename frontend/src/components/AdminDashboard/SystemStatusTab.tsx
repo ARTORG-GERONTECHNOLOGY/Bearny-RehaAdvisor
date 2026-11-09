@@ -40,7 +40,12 @@ type Workers = {
   longest_task: { name: string; running_s: number } | null;
 };
 
-type ProviderCounts = { connected: number; stale_sync: number; revoked_recent: number };
+type ProviderCounts = {
+  connected: number;
+  stale_sync: number;
+  revoked_recent: number;
+  not_linked?: number;
+};
 
 export type SystemStatus = {
   generated_at: string;
@@ -369,6 +374,8 @@ const SystemStatusTab: React.FC = () => {
                 {row(t('Connected'), counts.connected)}
                 {row(t('Not synced in 24h'), counts.stale_sync)}
                 {row(t('Revoked in 7 days'), counts.revoked_recent)}
+                {counts.not_linked !== undefined &&
+                  row(t('Not linked to Google Health'), counts.not_linked)}
               </div>
             ))}
           </div>

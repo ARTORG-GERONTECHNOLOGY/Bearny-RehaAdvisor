@@ -15,10 +15,13 @@ from mongoengine.errors import DoesNotExist, NotUniqueError
 
 from core.views.fitbit_sync import fetch_fitbit_date_range_for_user, fetch_fitbit_today_for_user
 from core.views.google_health_sync import (
+    GoogleHealthAccountNotLinked,
     _prefetch_unfiltered,
     _sync_day,
+    clear_account_not_linked,
     fetch_google_health_today_for_user,
     get_valid_google_access_token,
+    mark_account_not_linked,
 )
 
 logger = logging.getLogger(__name__)
@@ -268,6 +271,9 @@ def backfill_google_health_on_connect(user_id: str, days: int = 365):
 
     try:
         prefetch = _prefetch_unfiltered(access_token)
+    except GoogleHealthAccountNotLinked:
+        mark_account_not_linked(user)
+        return
     except Exception as e:
         logger.error("[google_health_backfill] prefetch failed for user %s: %s", user_id, e)
         prefetch = None
@@ -277,9 +283,14 @@ def backfill_google_health_on_connect(user_id: str, days: int = 365):
         try:
             if _sync_day(user, access_token, d, prefetch=prefetch):
                 written += 1
+        except GoogleHealthAccountNotLinked:
+            mark_account_not_linked(user)
+            return
         except Exception as e:
             logger.error("[google_health_backfill] error syncing %s for user %s: %s", d, user_id, e)
 
+    if written:
+        clear_account_not_linked(user, backfill=False)
     logger.info("[google_health_backfill] user %s: %d/%d days written", user_id, written, days)
 
 

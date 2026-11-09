@@ -120,6 +120,37 @@ def test_backfill_tasks_sent_from_oauth_callbacks_ignore_result(task):
     assert task.ignore_result is True
 
 
+def test_google_health_backfill_stops_when_account_not_linked():
+    """A not-linked account would otherwise fail ~13 calls for each of 365 days."""
+    from core.views.google_health_sync import GoogleHealthAccountNotLinked
+
+    user = SimpleNamespace(id="u1")
+    with (
+        patch("core.tasks.User.objects", return_value=SimpleNamespace(first=lambda: user)),
+        patch("core.tasks.get_valid_google_access_token", return_value="tok"),
+        patch("core.tasks._prefetch_unfiltered", side_effect=GoogleHealthAccountNotLinked),
+        patch("core.tasks._sync_day") as sync_day,
+        patch("core.tasks.mark_account_not_linked") as mark,
+    ):
+        backfill_google_health_on_connect("u1")
+    sync_day.assert_not_called()
+    mark.assert_called_once_with(user)
+
+
+def test_google_health_backfill_clears_not_linked_without_queueing_itself_again():
+    user = SimpleNamespace(id="u1")
+    with (
+        patch("core.tasks.User.objects", return_value=SimpleNamespace(first=lambda: user)),
+        patch("core.tasks.get_valid_google_access_token", return_value="tok"),
+        patch("core.tasks._prefetch_unfiltered", return_value={}),
+        patch("core.tasks._sync_day", side_effect=[True, False]),
+        patch("core.tasks.clear_account_not_linked") as clear,
+    ):
+        backfill_google_health_on_connect("u1", days=2)
+    # backfill=False: the backfill must not queue another copy of itself.
+    clear.assert_called_once_with(user, backfill=False)
+
+
 def test_google_health_today_all_counts_only_users_actually_synced():
     """Users skipped by the cooldown or without data return 0 and must not be reported as synced."""
     tokens = [SimpleNamespace(user=f"user-{i}") for i in range(3)]

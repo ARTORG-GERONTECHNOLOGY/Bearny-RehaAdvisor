@@ -136,7 +136,7 @@ export const FeedbackBadge: React.FC<Props> = ({ patient }) => {
 
 export const WearBadge: React.FC<Props> = ({ patient }) => {
   const { t } = useTranslation();
-  const { level, daysSinceWorn, avgMin, revoked, device } = getWearInfo(patient);
+  const { level, daysSinceWorn, avgMin, revoked, notLinked, device } = getWearInfo(patient);
 
   if (device === 'omron') {
     return (
@@ -171,6 +171,23 @@ export const WearBadge: React.FC<Props> = ({ patient }) => {
         tip={String(noDataTip)}
       >
         {String(t('No data'))}
+      </StatusChip>
+    );
+  }
+
+  // Before revoked: an old, revoked Fitbit token also sets revoked, but the advice here is the useful one.
+  if (notLinked) {
+    return (
+      <StatusChip
+        label="Google Health"
+        level={level}
+        tip={String(
+          t(
+            'Google account not linked to Google Health — patient must set up Google Health or reconnect'
+          )
+        )}
+      >
+        {String(t('Not linked'))}
       </StatusChip>
     );
   }

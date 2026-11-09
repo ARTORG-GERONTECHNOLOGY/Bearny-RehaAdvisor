@@ -45,6 +45,7 @@ from core.models import (
     FitbitUserToken,
     GeneralFeedback,
     GoogleHealthData,
+    GoogleHealthUserToken,
     HealthQuestionnaire,
     Intervention,
     InterventionAssignment,
@@ -1063,6 +1064,47 @@ def test_biomarker_fitbit_revoked_true_when_token_revoked(mongo_mock):
     )
     assert resp.status_code == 200
     row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    assert row["biomarker"]["fitbit_revoked"] is True
+
+
+def test_biomarker_gh_not_linked_when_google_account_not_linked(mongo_mock):
+    therapist, patient = create_therapist_with_patient()
+    GoogleHealthUserToken(
+        user=patient.userId,
+        access_token="tok",
+        refresh_token="ref",
+        expires_at=timezone.now() + timedelta(hours=1),
+        sync_error="not_linked",
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    assert resp.status_code == 200
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    assert row["biomarker"]["gh_not_linked"] is True
+    assert row["biomarker"]["fitbit_revoked"] is False
+
+
+def test_biomarker_gh_not_linked_false_for_revoked_google_token(mongo_mock):
+    """A revoked token needs a reconnect first; "Disconnected" is the right advice then."""
+    therapist, patient = create_therapist_with_patient()
+    GoogleHealthUserToken(
+        user=patient.userId,
+        access_token="tok",
+        refresh_token="ref",
+        expires_at=timezone.now() + timedelta(hours=1),
+        sync_error="not_linked",
+        is_revoked=True,
+    ).save()
+
+    resp = client.get(
+        f"/api/therapists/{therapist.userId.id}/patients/",
+        HTTP_AUTHORIZATION="Bearer test",
+    )
+    row = next(r for r in resp.json() if r["_id"] == str(patient.id))
+    assert row["biomarker"]["gh_not_linked"] is False
     assert row["biomarker"]["fitbit_revoked"] is True
 
 
