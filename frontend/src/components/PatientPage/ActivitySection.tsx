@@ -6,7 +6,6 @@ import CircleDashedFill from '@/assets/icons/circle-dashed-fill.svg?react';
 import { Badge } from '@/components/ui/badge';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts';
-import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
 import GoogleHealthConnectButton from '@/components/PatientPage/GoogleHealthConnectButton';
 import ProgressIndicator from '@/components/PatientPage/ProgressIndicator';
 import Section from '@/components/Section';
@@ -77,11 +76,7 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
     <Section>
       <div className="flex p-2 pl-4 justify-between w-full">
         <div className="text-lg font-medium text-zinc-500">{t('Todays Activity')}</div>
-        {connected && (
-          <Badge variant="section">
-            {t(wearableDevice === 'google_health' ? 'Google Health Connected' : 'Fitbit Connected')}
-          </Badge>
-        )}
+        {connected && <Badge variant="section">{t('Google Health Connected')}</Badge>}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -213,16 +208,10 @@ const ActivitySection: React.FC<ActivitySectionProps> = ({
         {!connected && (wearableDevice === 'fitbit' || wearableDevice === 'google_health') && (
           <div className="p-4 rounded-3xl bg-zinc-100 flex gap-1 justify-between items-center">
             <div className="flex flex-col">
-              <div className="font-bold text-lg text-zinc-800">
-                {wearableDevice === 'google_health' ? t('Google Health') : t('Fitbit')}
-              </div>
+              <div className="font-bold text-lg text-zinc-800">{t('Google Health')}</div>
               <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
             </div>
-            {wearableDevice === 'google_health' ? (
-              <GoogleHealthConnectButton />
-            ) : (
-              <FitbitConnectButton />
-            )}
+            <GoogleHealthConnectButton />
           </div>
         )}
       </div>

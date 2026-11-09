@@ -15,9 +15,9 @@ jest.mock('@/stores/patientFitbitStore', () => ({
   },
 }));
 
-jest.mock('@/components/PatientPage/FitbitStatus', () => ({
+jest.mock('@/components/PatientPage/GoogleHealthConnectButton', () => ({
   __esModule: true,
-  default: () => <button data-testid="fitbit-connect-button">Connect Fitbit</button>,
+  default: () => <button data-testid="google-health-connect-button">Connect Google Health</button>,
 }));
 
 jest.mock('@/components/ui/skeleton', () => ({
@@ -47,7 +47,7 @@ describe('FitbitCard — loading state (connected === null)', () => {
   it('does not render the connect button while loading', () => {
     mockConnected = null;
     renderCard();
-    expect(screen.queryByTestId('fitbit-connect-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('google-health-connect-button')).not.toBeInTheDocument();
   });
 
   it('does not render the disconnect button while loading', () => {
@@ -64,15 +64,15 @@ describe('FitbitCard — disconnected state', () => {
     mockConnected = false;
   });
 
-  it('renders the Fitbit label and subtitle', () => {
+  it('offers Google Health, since Fitbit no longer sends data', () => {
     renderCard();
-    expect(screen.getByText('Fitbit')).toBeInTheDocument();
+    expect(screen.getByText('Google Health')).toBeInTheDocument();
     expect(screen.getByText('Fitness Tracker')).toBeInTheDocument();
   });
 
   it('shows the connect button when disconnected', () => {
     renderCard();
-    expect(screen.getByTestId('fitbit-connect-button')).toBeInTheDocument();
+    expect(screen.getByTestId('google-health-connect-button')).toBeInTheDocument();
   });
 
   it('does not show the disconnect button when disconnected', () => {
@@ -82,7 +82,7 @@ describe('FitbitCard — disconnected state', () => {
 
   it('applies the grey background style when disconnected', () => {
     renderCard();
-    const label = screen.getByText('Fitbit');
+    const label = screen.getByText('Google Health');
     let container = label.closest('div');
     while (container && !container.className.includes('p-4')) {
       container = container.parentElement as HTMLElement | null;
@@ -98,15 +98,15 @@ describe('FitbitCard — connected state', () => {
     mockConnected = true;
   });
 
-  it('shows "Fitbit Connected" label', () => {
+  it('shows "Google Health Connected" label', () => {
     renderCard();
-    expect(screen.getByText('Fitbit Connected')).toBeInTheDocument();
+    expect(screen.getByText('Google Health Connected')).toBeInTheDocument();
     expect(screen.getByText('Fitness Tracker')).toBeInTheDocument();
   });
 
   it('does not show the connect button when already connected', () => {
     renderCard();
-    expect(screen.queryByTestId('fitbit-connect-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('google-health-connect-button')).not.toBeInTheDocument();
   });
 
   it('renders a Disconnect button when connected', () => {
@@ -116,7 +116,7 @@ describe('FitbitCard — connected state', () => {
 
   it('applies the border/accent style when connected', () => {
     renderCard();
-    const label = screen.getByText('Fitbit Connected');
+    const label = screen.getByText('Google Health Connected');
     let container = label.closest('div');
     while (container && !container.className.includes('p-4')) {
       container = container.parentElement as HTMLElement | null;
@@ -135,14 +135,14 @@ describe('FitbitCard — disconnect confirmation flow', () => {
 
   it('does not show the confirmation sheet initially', () => {
     renderCard();
-    expect(screen.queryByText('Disconnect Fitbit')).not.toBeInTheDocument();
+    expect(screen.queryByText('Disconnect Google Health')).not.toBeInTheDocument();
   });
 
   it('opens the confirmation sheet when Disconnect is clicked', async () => {
     renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
     await waitFor(() => {
-      expect(screen.getByText('Disconnect Fitbit')).toBeInTheDocument();
+      expect(screen.getByText('Disconnect Google Health')).toBeInTheDocument();
     });
   });
 
@@ -163,7 +163,7 @@ describe('FitbitCard — disconnect confirmation flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     await waitFor(() => {
-      expect(screen.queryByText('Disconnect Fitbit')).not.toBeInTheDocument();
+      expect(screen.queryByText('Disconnect Google Health')).not.toBeInTheDocument();
     });
     expect(mockDisconnect).not.toHaveBeenCalled();
   });
@@ -192,7 +192,7 @@ describe('FitbitCard — disconnect confirmation flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
 
     await waitFor(() => {
-      expect(screen.queryByText('Disconnect Fitbit')).not.toBeInTheDocument();
+      expect(screen.queryByText('Disconnect Google Health')).not.toBeInTheDocument();
     });
   });
 });

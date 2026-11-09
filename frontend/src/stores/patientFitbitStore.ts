@@ -63,6 +63,8 @@ class PatientFitbitStore {
   connected: boolean | null = null;
   statusLoading = false;
   wearableDevice: 'fitbit' | 'omron' | 'google_health' | 'none' = 'fitbit';
+  wearableDeviceLoaded = false;
+  private wearableDeviceFor: string | null = null;
   needsReconnect = false;
   daysUntilExpiry: number | null = null;
   hrScopeOk: boolean | null = null;
@@ -114,6 +116,8 @@ class PatientFitbitStore {
   async fetchStatus(patientId: string) {
     if (this.connected === null) this.statusLoading = true;
     this.error = '';
+    // The store outlives logout, so another patient's device must not show until this one's is known.
+    if (patientId !== this.wearableDeviceFor) this.wearableDeviceLoaded = false;
     try {
       // Google Health status returns wearable_device for all patients
       const { data: ghData } = await apiClient.get(`/google-health/status/${patientId}/`);
@@ -121,6 +125,8 @@ class PatientFitbitStore {
       if (device && ['fitbit', 'omron', 'google_health', 'none'].includes(device)) {
         runInAction(() => {
           this.wearableDevice = device;
+          this.wearableDeviceLoaded = true;
+          this.wearableDeviceFor = patientId;
         });
       }
 
@@ -136,30 +142,23 @@ class PatientFitbitStore {
           this.accountNotLinked = ghData?.account_not_linked ?? null;
         });
       } else {
+        // Fitbit's API is gone and omron/none have no connection, so no device data arrives.
         runInAction(() => {
+          this.connected = false;
+          this.needsReconnect = false;
+          this.daysUntilExpiry = null;
           this.hrScopeOk = null;
           this.hrDataMissing = null;
           this.sleepScopeOk = null;
           this.noDataEver = null;
           this.accountNotLinked = null;
         });
-        // Fitbit (or omron/none): fall through to Fitbit status for accurate connected state
-        try {
-          const { data: fbData } = await apiClient.get(`/fitbit/status/${patientId}/`);
-          runInAction(() => {
-            this.connected = !!fbData?.connected;
-            this.needsReconnect = !!fbData?.needs_reconnect;
-            this.daysUntilExpiry = null;
-          });
-        } catch {
-          runInAction(() => {
-            this.connected = false;
-          });
-        }
       }
     } catch {
       runInAction(() => {
         this.connected = false;
+        this.needsReconnect = false;
+        this.daysUntilExpiry = null;
         this.hrScopeOk = null;
         this.hrDataMissing = null;
         this.sleepScopeOk = null;
@@ -220,8 +219,7 @@ class PatientFitbitStore {
 
   async disconnect() {
     this.error = '';
-    const base = this.useGoogleHealth ? 'google-health' : 'fitbit';
-    await apiClient.delete(`/${base}/disconnect/`);
+    await apiClient.delete('/google-health/disconnect/');
     runInAction(() => {
       this.connected = false;
       this.summary = null;

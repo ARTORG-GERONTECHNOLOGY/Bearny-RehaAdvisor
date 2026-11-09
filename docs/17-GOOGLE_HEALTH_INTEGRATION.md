@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Google Health integration is an alternative wearable backend that replaces Fitbit for patients enrolled on devices that use Google's health platform. Both integrations coexist in production: each patient's `wearable_device` field determines which backend is active. Fitbit remains the default; Google Health is opt-in per patient.
+The Google Health integration is an alternative wearable backend that replaces Fitbit for patients enrolled on devices that use Google's health platform. Each patient's `wearable_device` field determines which backend is active. New patients default to Google Health. `fitbit` is only kept for existing patients: the Fitbit Web API has been shut down, so they receive no new data and the patient page asks them to connect Google Health instead.
 
 ---
 

@@ -40,26 +40,7 @@ describe('GoogleHealthConnectButton', () => {
     mockAuthId = 'auth-patient-id';
   });
 
-  it('fetches status using localStorage patient id', async () => {
-    mockAuthId = '';
-    localStorage.setItem('id', 'storage-patient-id');
-    render(<GoogleHealthConnectButton />);
-
-    await waitFor(() => {
-      expect(mockFetchStatus).toHaveBeenCalledWith('storage-patient-id');
-    });
-  });
-
-  it('falls back to auth store id when localStorage id is missing', async () => {
-    render(<GoogleHealthConnectButton />);
-
-    await waitFor(() => {
-      expect(mockFetchStatus).toHaveBeenCalledWith('auth-patient-id');
-    });
-  });
-
-  it('does not fetch the connection status when there is no patient id at all', async () => {
-    mockAuthId = '';
+  it('leaves loading the status to the page instead of fetching it again', async () => {
     render(<GoogleHealthConnectButton />);
 
     await new Promise((resolve) => setTimeout(resolve, 0));

@@ -5,11 +5,17 @@ import { Button } from '@/components/ui/button';
 import WifiIcon from '@/assets/icons/wifi-fill.svg?react';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
 import authStore from '@/stores/authStore';
-import { buildFitbitAuthUrl } from '@/utils/fitbitAuthUrl';
 import { buildGoogleHealthAuthUrl } from '@/utils/googleHealthAuthUrl';
 import { cn } from '@/lib/utils';
 
-type Variant = 'notLinked' | 'noData' | 'hrSync' | 'hrScope' | 'sleepScope' | 'reconnect';
+type Variant =
+  | 'fitbitEnded'
+  | 'notLinked'
+  | 'noData'
+  | 'hrSync'
+  | 'hrScope'
+  | 'sleepScope'
+  | 'reconnect';
 
 interface Banner {
   variant: Variant;
@@ -17,7 +23,7 @@ interface Banner {
   title: string;
   titleArgs?: Record<string, unknown>;
   reason: string;
-  canReconnect: boolean;
+  action?: 'Reconnect' | 'Connect Google Health';
   setupUrl?: string;
 }
 
@@ -40,14 +46,24 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
   const days = store.daysUntilExpiry;
   const expired = days === 0 || days === null;
 
+  // Fitbit's API is gone, so Fitbit patients only get the switch to Google Health.
+  const fitbitBanners: Banner[] = [
+    {
+      variant: 'fitbitEnded',
+      show: true,
+      title: 'fitbitEndedBannerTitle',
+      reason: 'fitbitEndedBannerReason',
+      action: 'Connect Google Health',
+    },
+  ];
   // First match wins. noData and hrSync are device-side problems, so reconnecting won't fix them.
-  const banners: Banner[] = [
+  const googleHealthBanners: Banner[] = [
     {
       variant: 'notLinked',
       show: store.accountNotLinked === true,
       title: 'notLinkedBannerTitle',
       reason: 'notLinkedBannerReason',
-      canReconnect: true,
+      action: 'Reconnect',
       setupUrl: GOOGLE_HEALTH_SIGNUP_URL,
     },
     {
@@ -56,28 +72,26 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       show: store.noDataEver === true && store.hrScopeOk === true && store.sleepScopeOk === true,
       title: 'noDataBannerTitle',
       reason: 'noDataBannerReason',
-      canReconnect: false,
     },
     {
       variant: 'hrSync',
       show: store.hrDataMissing === true,
       title: 'hrSyncBannerTitle',
       reason: 'hrSyncBannerReason',
-      canReconnect: false,
     },
     {
       variant: 'hrScope',
       show: store.hrScopeOk === false,
       title: 'hrScopeBannerTitle',
       reason: 'hrScopeBannerReason',
-      canReconnect: true,
+      action: 'Reconnect',
     },
     {
       variant: 'sleepScope',
       show: store.sleepScopeOk === false,
       title: 'sleepScopeBannerTitle',
       reason: 'sleepScopeBannerReason',
-      canReconnect: true,
+      action: 'Reconnect',
     },
     {
       variant: 'reconnect',
@@ -85,9 +99,17 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       title: expired ? 'reconnectBannerExpired' : 'reconnectBannerWarning',
       titleArgs: expired ? undefined : { count: days },
       reason: 'reconnectBannerReason',
-      canReconnect: true,
+      action: 'Reconnect',
     },
   ];
+  // Until this patient's status has loaded, the store may still hold the previous patient's flags.
+  const banners = !store.wearableDeviceLoaded
+    ? []
+    : store.wearableDevice === 'fitbit'
+      ? fitbitBanners
+      : store.wearableDevice === 'google_health'
+        ? googleHealthBanners
+        : [];
   const isDismissed = (v: Variant) =>
     dismissedNow === v || sessionStorage.getItem(DISMISS_KEY(patientId, v)) === '1';
   // A dismissed banner lets the next applicable one through.
@@ -100,13 +122,11 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
     setDismissedNow(banner.variant);
   };
 
-  const handleReconnect = async () => {
+  const handleConnect = async () => {
     if (!patientId || reconnecting) return;
     setReconnecting(true);
     try {
-      const buildAuthUrl =
-        store.wearableDevice === 'google_health' ? buildGoogleHealthAuthUrl : buildFitbitAuthUrl;
-      const authUrl = await buildAuthUrl(patientId);
+      const authUrl = await buildGoogleHealthAuthUrl(patientId);
       window.location.href = authUrl;
     } catch {
       setReconnecting(false);
@@ -142,14 +162,14 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
             </a>
           </Button>
         )}
-        {banner.canReconnect && (
+        {banner.action && (
           <Button
             size="dashboard"
             className="bg-yellow hover:bg-yellow/90 text-white rounded-2xl"
-            onClick={handleReconnect}
+            onClick={handleConnect}
             disabled={reconnecting}
           >
-            {t('Reconnect')}
+            {t(banner.action)}
           </Button>
         )}
         <button

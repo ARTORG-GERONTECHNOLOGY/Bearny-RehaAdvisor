@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
 import authStore from '@/stores/authStore';
@@ -11,11 +11,6 @@ const GoogleHealthConnectButton: React.FC = observer(() => {
   const { t } = useTranslation();
   const patientId = useMemo(() => authStore.getStoredUserId(), []);
   const [connecting, setConnecting] = useState(false);
-
-  useEffect(() => {
-    if (!patientId) return;
-    patientFitbitStore.fetchStatus(patientId);
-  }, [patientId]);
 
   if (patientFitbitStore.connected === null) return null;
   if (patientFitbitStore.connected) return null;

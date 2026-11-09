@@ -11,7 +11,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import FitbitConnectButton from '@/components/PatientPage/FitbitStatus';
 import GoogleHealthConnectButton from '@/components/PatientPage/GoogleHealthConnectButton';
 import { patientFitbitStore } from '@/stores/patientFitbitStore';
 
@@ -20,14 +19,6 @@ const FitbitCard = observer(() => {
   const { connected, wearableDevice } = patientFitbitStore;
   const [showConfirm, setShowConfirm] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
-
-  const isGoogleHealth = wearableDevice === 'google_health';
-  const deviceName = isGoogleHealth ? 'Google Health' : 'Fitbit';
-  const connectedKey = isGoogleHealth ? 'Google Health Connected' : 'Fitbit Connected';
-  const disconnectTitleKey = isGoogleHealth ? 'Disconnect Google Health' : 'Disconnect Fitbit';
-  const disconnectConfirmKey = isGoogleHealth
-    ? 'disconnectGoogleHealthConfirm'
-    : 'disconnectFitbitConfirm';
 
   const handleDisconnect = async () => {
     setIsDisconnecting(true);
@@ -51,7 +42,7 @@ const FitbitCard = observer(() => {
           <>
             <div className="flex flex-col">
               <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
-              <div className="font-bold text-lg text-zinc-800">{t(connectedKey)}</div>
+              <div className="font-bold text-lg text-zinc-800">{t('Google Health Connected')}</div>
             </div>
             <Button variant="secondary" onClick={() => setShowConfirm(true)}>
               {t('Disconnect')}
@@ -60,10 +51,10 @@ const FitbitCard = observer(() => {
         ) : connected === false ? (
           <>
             <div className="flex flex-col">
-              <div className="font-bold text-lg text-zinc-800">{deviceName}</div>
+              <div className="font-bold text-lg text-zinc-800">{t('Google Health')}</div>
               <div className="font-medium text-sm text-zinc-500">{t('Fitness Tracker')}</div>
             </div>
-            {isGoogleHealth ? <GoogleHealthConnectButton /> : <FitbitConnectButton />}
+            <GoogleHealthConnectButton />
           </>
         ) : (
           <div className="flex flex-col gap-2">
@@ -84,8 +75,8 @@ const FitbitCard = observer(() => {
           onEscapeKeyDown={(e) => isDisconnecting && e.preventDefault()}
         >
           <SheetHeader>
-            <SheetTitle>{t(disconnectTitleKey)}</SheetTitle>
-            <SheetDescription>{t(disconnectConfirmKey)}</SheetDescription>
+            <SheetTitle>{t('Disconnect Google Health')}</SheetTitle>
+            <SheetDescription>{t('disconnectGoogleHealthConfirm')}</SheetDescription>
           </SheetHeader>
           <SheetFooter>
             <Button

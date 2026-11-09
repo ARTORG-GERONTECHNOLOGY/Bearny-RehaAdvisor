@@ -218,7 +218,7 @@ test.describe('Connect button rendering', () => {
     await loginAsPatient(page);
   });
 
-  test('unconnected Fitbit patient sees Fitbit connect button', async ({ page }) => {
+  test('Fitbit patient is offered Google Health instead of Fitbit', async ({ page }) => {
     skipUnlessPatient(test);
 
     await mockStatus(page, 'fitbit', { connected: false });
@@ -233,14 +233,14 @@ test.describe('Connect button rendering', () => {
     await page.goto('/patient');
     await page.waitForLoadState('networkidle');
 
-    // ActivitySection shows "Fitbit" heading and FitbitConnectButton with link to fitbit.com
-    await expect(page.locator('text=Fitness Tracker')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('text=Fitbit').first()).toBeVisible();
-
-    const connectLink = page.getByRole('link', { name: /connect fitbit/i });
-    await expect(connectLink).toBeVisible({ timeout: 5000 });
-    const href = await connectLink.getAttribute('href');
-    expect(href).toContain('fitbit.com/oauth2/authorize');
+    // The Fitbit API is gone: the banner and ActivitySection both point to Google Health.
+    await expect(page.getByText('Fitbit no longer sends data to RehaAdvisor.')).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(
+      page.getByRole('button', { name: /connect google health/i }).first()
+    ).toBeVisible();
+    await expect(page.getByText(/connect fitbit/i)).toHaveCount(0);
   });
 
   test('unconnected Google Health patient sees Google Health connect button', async ({ page }) => {
@@ -338,7 +338,7 @@ test.describe('fetchStatus fallthrough', () => {
     await loginAsPatient(page);
   });
 
-  test('Fitbit patient hits GH status first then Fitbit status for connected state', async ({
+  test('Fitbit patient only asks the GH status, not the discontinued Fitbit API', async ({
     page,
   }) => {
     skipUnlessPatient(test);
@@ -381,7 +381,7 @@ test.describe('fetchStatus fallthrough', () => {
     await page.waitForLoadState('networkidle');
 
     expect(ghStatusCalled, '/google-health/status/ must be called').toBe(true);
-    expect(fitbitStatusCalled, '/fitbit/status/ must be called as fallthrough').toBe(true);
+    expect(fitbitStatusCalled, '/fitbit/status/ must not be called').toBe(false);
   });
 
   test('Google Health patient does NOT hit Fitbit status endpoint', async ({ page }) => {
@@ -434,44 +434,6 @@ test.describe('Disconnect routing', () => {
   test.beforeEach(async ({ page }) => {
     skipUnlessPatient(test);
     await loginAsPatient(page);
-  });
-
-  test('Fitbit connected patient disconnect calls /fitbit/disconnect/', async ({ page }) => {
-    skipUnlessPatient(test);
-
-    await mockStatus(page, 'fitbit', { connected: true });
-    await page.route('**/fitbit/summary/**', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(emptySummary()),
-      })
-    );
-
-    let fitbitDisconnectCalled = false;
-    let ghDisconnectCalled = false;
-
-    await page.route('**/fitbit/disconnect/**', (route) => {
-      fitbitDisconnectCalled = true;
-      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
-    });
-    await page.route('**/google-health/disconnect/**', (route) => {
-      ghDisconnectCalled = true;
-      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
-    });
-
-    await page.goto('/patient');
-    await page.waitForLoadState('networkidle');
-
-    // FitbitStatus shows "Disconnect Fitbit" for connected Fitbit patients
-    const disconnectBtn = page.getByRole('button', { name: /disconnect fitbit/i });
-    await expect(disconnectBtn).toBeVisible({ timeout: 10000 });
-    await disconnectBtn.click();
-
-    await page.waitForTimeout(500);
-
-    expect(fitbitDisconnectCalled, '/fitbit/disconnect/ must be called').toBe(true);
-    expect(ghDisconnectCalled, '/google-health/disconnect/ must NOT be called').toBe(false);
   });
 
   test('Google Health connected patient disconnect calls /google-health/disconnect/', async ({
