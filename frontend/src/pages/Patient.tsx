@@ -5,8 +5,8 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 
-import StatusBanner from '@/components/common/StatusBanner';
 import ReconnectBanner from '@/components/PatientPage/ReconnectBanner';
+import { Alert } from '@/components/ui/alert';
 import Layout from '@/components/Layout';
 import PageHeader from '@/components/PageHeader';
 import ActivitySection from '@/components/PatientPage/ActivitySection';
@@ -31,18 +31,15 @@ import HomeIllustration from '@/assets/home_illustration.svg?react';
 
 const PatientView: React.FC = observer(() => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
   const { isAllowed } = useRoleAuthGate('Patient');
 
   const locale = getDateFnsLocale(i18n.language);
 
   const [loading, setLoading] = useState(true);
-  const [pageError, setPageError] = useState('');
-  const [pageSuccess, setPageSuccess] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [connectResult, setConnectResult] = useState<'connected' | 'failed' | null>(null);
 
-  const fitbitStatus = useMemo(() => searchParams.get('fitbit_status'), [searchParams]);
-  const fitbitError = useMemo(() => searchParams.get('fitbit_error'), [searchParams]);
   const patientId = authStore.getStoredUserId();
 
   // Get today's interventions completion count for badge
@@ -86,42 +83,16 @@ const PatientView: React.FC = observer(() => {
     : [];
 
   useEffect(() => {
-    if (!isAllowed) return;
+    const status = searchParams.get('google_health_status');
+    if (!status) return;
+    setConnectResult(status === 'connected' ? 'connected' : 'failed');
+    const next = new URLSearchParams(searchParams);
+    next.delete('google_health_status');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
-    if (fitbitStatus === 'connected') {
-      setPageError('');
-      setPageSuccess(String(t('Your Fitbit account has been successfully connected.')));
-    }
-    if (fitbitStatus === 'error') {
-      setPageSuccess('');
-      setPageError(String(t('Fitbit connection failed.')));
-    }
-    if (fitbitStatus === 'misconfigured') {
-      setPageSuccess('');
-      setPageError(String(t('Fitbit is not configured on this server. Please contact support.')));
-    }
-    if (fitbitStatus === 'already_linked') {
-      setPageSuccess('');
-      setPageError(
-        String(
-          t(
-            'This Fitbit account is already connected to another patient. Please log out of your Google account in the browser, then try again.'
-          )
-        )
-      );
-    }
-    if (fitbitStatus === 'auth_error') {
-      const desc =
-        fitbitError === 'redirect_uri_mismatch'
-          ? t('Fitbit redirect URI mismatch — please contact support.')
-          : fitbitError === 'invalid_client'
-            ? t('Fitbit client credentials are invalid — please contact support.')
-            : fitbitError === 'access_denied'
-              ? t('Fitbit authorization was denied.')
-              : t('Fitbit authorization failed: {{error}}.', { error: fitbitError ?? 'unknown' });
-      setPageSuccess('');
-      setPageError(String(desc));
-    }
+  useEffect(() => {
+    if (!isAllowed) return;
 
     if (patientId) {
       patientFitbitStore.fetchStatus(patientId);
@@ -132,26 +103,7 @@ const PatientView: React.FC = observer(() => {
     }
 
     setLoading(false);
-  }, [isAllowed, fitbitStatus, fitbitError, t, patientId, i18n.language]);
-
-  const clearFitbitParams = () => {
-    if (!fitbitStatus && !fitbitError) return;
-
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete('fitbit_status');
-    nextParams.delete('fitbit_error');
-    setSearchParams(nextParams, { replace: true });
-  };
-
-  const dismissPageSuccess = () => {
-    setPageSuccess('');
-    clearFitbitParams();
-  };
-
-  const dismissPageError = () => {
-    setPageError('');
-    clearFitbitParams();
-  };
+  }, [isAllowed, patientId, i18n.language]);
 
   if (loading) return null;
 
@@ -175,12 +127,20 @@ const PatientView: React.FC = observer(() => {
           }
         />
 
-        <StatusBanner type="success" message={pageSuccess} onClose={dismissPageSuccess} />
-        <StatusBanner type="destructive" message={pageError} onClose={dismissPageError} />
-        {/* Full width above the cards on desktop instead of taking a grid column. */}
-        {patientFitbitStore.useGoogleHealth && (
-          <ReconnectBanner className="lg:col-span-3 lg:order-first" />
+        {connectResult && (
+          <Alert
+            variant={connectResult === 'connected' ? 'success' : 'destructive'}
+            onClose={() => setConnectResult(null)}
+            closeLabel={String(t('Close'))}
+            className="lg:col-span-3 lg:order-first rounded-3xl p-4 font-medium"
+          >
+            {connectResult === 'connected'
+              ? t('Google Health connected. Your data will appear shortly.')
+              : t("Connecting Google Health didn't work. Please try again.")}
+          </Alert>
         )}
+        {/* Full width above the cards on desktop instead of taking a grid column. */}
+        <ReconnectBanner className="lg:col-span-3 lg:order-first" />
 
         <ActivitySection
           loading={patientFitbitStore.connected === null || patientFitbitStore.summaryLoading}

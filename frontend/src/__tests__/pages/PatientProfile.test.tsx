@@ -106,10 +106,9 @@ jest.mock('@/components/Layout', () => ({
   default: jest.requireActual('@/__mocks__/components/Layout').default,
 }));
 
-// Mock FitbitConnectButton
-jest.mock('@/components/PatientPage/FitbitStatus', () => ({
+jest.mock('@/components/PatientPage/GoogleHealthConnectButton', () => ({
   __esModule: true,
-  default: () => <button data-testid="fitbit-connect-button">Connect Fitbit</button>,
+  default: () => <button data-testid="google-health-connect-button">Connect Google Health</button>,
 }));
 
 // Mock Skeleton component
@@ -239,17 +238,17 @@ describe('PatientProfile - Fitbit', () => {
     renderPatientProfile();
 
     expect(screen.getByText('Fitness Tracker')).toBeInTheDocument();
-    expect(screen.getByText('Fitbit Connected')).toBeInTheDocument();
-    expect(screen.queryByTestId('fitbit-connect-button')).not.toBeInTheDocument();
+    expect(screen.getByText('Google Health Connected')).toBeInTheDocument();
+    expect(screen.queryByTestId('google-health-connect-button')).not.toBeInTheDocument();
   });
 
   it('displays disconnected state with connect button when fitbit is not connected', () => {
     mockFitbitConnected = false;
     renderPatientProfile();
 
-    expect(screen.getByText('Fitbit')).toBeInTheDocument();
+    expect(screen.getByText('Google Health')).toBeInTheDocument();
     expect(screen.getByText('Fitness Tracker')).toBeInTheDocument();
-    expect(screen.getByTestId('fitbit-connect-button')).toBeInTheDocument();
+    expect(screen.getByTestId('google-health-connect-button')).toBeInTheDocument();
   });
 
   it('displays loading skeletons when fitbit connection status is unknown', () => {
@@ -267,7 +266,7 @@ describe('PatientProfile - Fitbit', () => {
 
     // Find the fitbit card container by looking for the element with the styling classes
     // The container should have p-4, rounded-3xl, and border/accent classes
-    const fitbitTextEl = screen.getByText('Fitbit Connected');
+    const fitbitTextEl = screen.getByText('Google Health Connected');
     let cardContainer = fitbitTextEl.closest('div');
 
     // Navigate up the DOM to find the container with p-4 class
@@ -286,7 +285,7 @@ describe('PatientProfile - Fitbit', () => {
     renderPatientProfile();
 
     // Find the disconnect fitbit card container
-    const fitbitTextEl = screen.getByText('Fitbit');
+    const fitbitTextEl = screen.getByText('Google Health');
     let cardContainer = fitbitTextEl.closest('div');
 
     // Navigate up the DOM to find the container with p-4 class
@@ -306,16 +305,16 @@ describe('PatientProfile - Fitbit', () => {
     // Check that the small label appears before the large label
     const labels = screen.getAllByText('Fitness Tracker');
     expect(labels[0]).toBeInTheDocument();
-    expect(screen.getByText('Fitbit Connected')).toBeInTheDocument();
+    expect(screen.getByText('Google Health Connected')).toBeInTheDocument();
   });
 
   it('displays proper labels and hierarchy in disconnected state', () => {
     mockFitbitConnected = false;
     renderPatientProfile();
 
-    expect(screen.getByText('Fitbit')).toBeInTheDocument();
+    expect(screen.getByText('Google Health')).toBeInTheDocument();
     expect(screen.getByText('Fitness Tracker')).toBeInTheDocument();
-    const button = screen.getByTestId('fitbit-connect-button');
+    const button = screen.getByTestId('google-health-connect-button');
     expect(button).toBeInTheDocument();
   });
 
@@ -336,7 +335,7 @@ describe('PatientProfile - Fitbit', () => {
     renderPatientProfile();
     fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
     await waitFor(() => {
-      expect(screen.getByText('Disconnect Fitbit')).toBeInTheDocument();
+      expect(screen.getByText('Disconnect Google Health')).toBeInTheDocument();
     });
   });
 });

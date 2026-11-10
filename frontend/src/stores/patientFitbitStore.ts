@@ -63,6 +63,8 @@ class PatientFitbitStore {
   connected: boolean | null = null;
   statusLoading = false;
   wearableDevice: 'fitbit' | 'omron' | 'google_health' | 'none' = 'fitbit';
+  wearableDeviceLoaded = false;
+  private statusFor: string | null = null;
   needsReconnect = false;
   daysUntilExpiry: number | null = null;
   hrScopeOk: boolean | null = null;
@@ -111,16 +113,46 @@ class PatientFitbitStore {
     this.error = '';
   }
 
+  private resetStatusFlags() {
+    this.needsReconnect = false;
+    this.daysUntilExpiry = null;
+    this.hrScopeOk = null;
+    this.hrDataMissing = null;
+    this.sleepScopeOk = null;
+    this.noDataEver = null;
+    this.accountNotLinked = null;
+  }
+
+  private switchTo(patientId: string) {
+    if (patientId === this.statusFor) return;
+    if (this.statusFor !== null) {
+      // The store outlives logout, so drop the previous patient's state.
+      this.connected = null;
+      this.wearableDevice = 'fitbit';
+      this.summary = null;
+      this.resetStatusFlags();
+    }
+    this.wearableDeviceLoaded = false;
+    this.statusFor = patientId;
+  }
+
+  private isCurrent(patientId: string) {
+    return patientId === this.statusFor;
+  }
+
   async fetchStatus(patientId: string) {
+    this.switchTo(patientId);
     if (this.connected === null) this.statusLoading = true;
     this.error = '';
     try {
       // Google Health status returns wearable_device for all patients
       const { data: ghData } = await apiClient.get(`/google-health/status/${patientId}/`);
+      if (!this.isCurrent(patientId)) return;
       const device = ghData?.wearable_device;
       if (device && ['fitbit', 'omron', 'google_health', 'none'].includes(device)) {
         runInAction(() => {
           this.wearableDevice = device;
+          this.wearableDeviceLoaded = true;
         });
       }
 
@@ -136,35 +168,17 @@ class PatientFitbitStore {
           this.accountNotLinked = ghData?.account_not_linked ?? null;
         });
       } else {
+        // Fitbit's API is gone and omron/none have no connection, so no device data arrives.
         runInAction(() => {
-          this.hrScopeOk = null;
-          this.hrDataMissing = null;
-          this.sleepScopeOk = null;
-          this.noDataEver = null;
-          this.accountNotLinked = null;
+          this.connected = false;
+          this.resetStatusFlags();
         });
-        // Fitbit (or omron/none): fall through to Fitbit status for accurate connected state
-        try {
-          const { data: fbData } = await apiClient.get(`/fitbit/status/${patientId}/`);
-          runInAction(() => {
-            this.connected = !!fbData?.connected;
-            this.needsReconnect = !!fbData?.needs_reconnect;
-            this.daysUntilExpiry = null;
-          });
-        } catch {
-          runInAction(() => {
-            this.connected = false;
-          });
-        }
       }
     } catch {
+      if (!this.isCurrent(patientId)) return;
       runInAction(() => {
         this.connected = false;
-        this.hrScopeOk = null;
-        this.hrDataMissing = null;
-        this.sleepScopeOk = null;
-        this.noDataEver = null;
-        this.accountNotLinked = null;
+        this.resetStatusFlags();
       });
     } finally {
       runInAction(() => {
@@ -188,11 +202,13 @@ class PatientFitbitStore {
       const { data } = await apiClient.get(`/${base}/summary/${patientId}/`, {
         params: { days },
       });
+      if (this.statusFor !== null && !this.isCurrent(patientId)) return;
       runInAction(() => {
         this.summary = data;
       });
       PatientFitbitStore.saveSummaryToStorage(cacheKey, data as FitbitSummary);
     } catch {
+      if (this.statusFor !== null && !this.isCurrent(patientId)) return;
       runInAction(() => {
         if (!cached) {
           this.summary = null;
@@ -220,8 +236,7 @@ class PatientFitbitStore {
 
   async disconnect() {
     this.error = '';
-    const base = this.useGoogleHealth ? 'google-health' : 'fitbit';
-    await apiClient.delete(`/${base}/disconnect/`);
+    await apiClient.delete('/google-health/disconnect/');
     runInAction(() => {
       this.connected = false;
       this.summary = null;

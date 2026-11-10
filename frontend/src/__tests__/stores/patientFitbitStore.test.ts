@@ -15,6 +15,8 @@ describe('patientFitbitStore', () => {
     (patientFitbitStore as any).needsReconnect = false;
     (patientFitbitStore as any).daysUntilExpiry = null;
     (patientFitbitStore as any).wearableDevice = 'fitbit';
+    (patientFitbitStore as any).wearableDeviceLoaded = false;
+    (patientFitbitStore as any).statusFor = null;
   });
 
   // ------------------------------------------------------------------
@@ -71,6 +73,15 @@ describe('patientFitbitStore', () => {
       expect(sawLoadingDuringFetch).toBe(false);
     });
 
+    it('marks the device as loaded once the status names it', async () => {
+      (patientFitbitStore as any).wearableDeviceLoaded = false;
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { connected: true, wearable_device: 'google_health' },
+      });
+      await patientFitbitStore.fetchStatus('p1');
+      expect(patientFitbitStore.wearableDeviceLoaded).toBe(true);
+    });
+
     it('reads account_not_linked for Google Health patients', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({
         data: { connected: true, wearable_device: 'google_health', account_not_linked: true },
@@ -83,13 +94,92 @@ describe('patientFitbitStore', () => {
       (patientFitbitStore as any).noDataEver = true;
       (patientFitbitStore as any).hrScopeOk = false;
       (patientFitbitStore as any).accountNotLinked = true;
-      (apiClient.get as jest.Mock)
-        .mockResolvedValueOnce({ data: { wearable_device: 'fitbit' } })
-        .mockResolvedValueOnce({ data: { connected: true } });
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { wearable_device: 'omron' } });
       await patientFitbitStore.fetchStatus('p1');
       expect(patientFitbitStore.noDataEver).toBeNull();
       expect(patientFitbitStore.hrScopeOk).toBeNull();
       expect(patientFitbitStore.accountNotLinked).toBeNull();
+    });
+
+    it('treats Fitbit patients as not connected without asking the dead Fitbit API', async () => {
+      (patientFitbitStore as any).accountNotLinked = true;
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { wearable_device: 'fitbit' } });
+      await patientFitbitStore.fetchStatus('p1');
+      expect(patientFitbitStore.connected).toBe(false);
+      expect(patientFitbitStore.needsReconnect).toBe(false);
+      expect(patientFitbitStore.accountNotLinked).toBeNull();
+      expect(apiClient.get).toHaveBeenCalledTimes(1);
+    });
+
+    it("hides the previous patient's device until the new one has loaded", async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { wearable_device: 'fitbit' } });
+      await patientFitbitStore.fetchStatus('fitbit-patient');
+      expect(patientFitbitStore.wearableDeviceLoaded).toBe(true);
+
+      (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('boom'));
+      await patientFitbitStore.fetchStatus('other-patient');
+      expect(patientFitbitStore.wearableDeviceLoaded).toBe(false);
+    });
+
+    it("drops the previous patient's state when another patient's status is loaded", async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { connected: true, wearable_device: 'google_health', account_not_linked: true },
+      });
+      await patientFitbitStore.fetchStatus('patient-a');
+      (patientFitbitStore as any).summary = { today: {} };
+
+      let resolveB: (v: unknown) => void = () => {};
+      (apiClient.get as jest.Mock).mockReturnValueOnce(new Promise((r) => (resolveB = r)));
+      const loadingB = patientFitbitStore.fetchStatus('patient-b');
+      expect(patientFitbitStore.connected).toBeNull();
+      expect(patientFitbitStore.accountNotLinked).toBeNull();
+      expect(patientFitbitStore.summary).toBeNull();
+
+      resolveB({ data: { wearable_device: 'omron' } });
+      await loadingB;
+    });
+
+    it('ignores a slow response for the previous patient', async () => {
+      let resolveA: (v: unknown) => void = () => {};
+      (apiClient.get as jest.Mock)
+        .mockReturnValueOnce(new Promise((r) => (resolveA = r)))
+        .mockResolvedValueOnce({ data: { connected: true, wearable_device: 'google_health' } });
+      const loadingA = patientFitbitStore.fetchStatus('patient-a');
+      await patientFitbitStore.fetchStatus('patient-b');
+
+      resolveA({ data: { connected: false, wearable_device: 'fitbit' } });
+      await loadingA;
+      expect(patientFitbitStore.wearableDevice).toBe('google_health');
+      expect(patientFitbitStore.connected).toBe(true);
+    });
+
+    it('ignores a late summary failure for the previous patient', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { wearable_device: 'google_health' },
+      });
+      await patientFitbitStore.fetchStatus('patient-a');
+      let rejectA: (e: unknown) => void = () => {};
+      (apiClient.get as jest.Mock).mockReturnValueOnce(new Promise((_, r) => (rejectA = r)));
+      const summaryA = patientFitbitStore.fetchSummary('patient-a', 7);
+
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: { wearable_device: 'google_health' },
+      });
+      await patientFitbitStore.fetchStatus('patient-b');
+      (patientFitbitStore as any).summary = { today: { steps: 1 } };
+
+      rejectA(new Error('boom'));
+      await summaryA;
+      expect(patientFitbitStore.summary).toEqual({ today: { steps: 1 } });
+      expect(patientFitbitStore.error).toBe('');
+    });
+
+    it('keeps the device loaded when the same patient refreshes', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { wearable_device: 'fitbit' } });
+      await patientFitbitStore.fetchStatus('p1');
+      (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('boom'));
+      await patientFitbitStore.fetchStatus('p1');
+      expect(patientFitbitStore.wearableDeviceLoaded).toBe(true);
     });
 
     it('clears Google Health banner flags when the status request fails', async () => {
@@ -100,10 +190,12 @@ describe('patientFitbitStore', () => {
     });
 
     it('treats a failed request as disconnected', async () => {
+      patientFitbitStore.needsReconnect = true;
       (apiClient.get as jest.Mock).mockRejectedValueOnce(new Error('boom'));
       await patientFitbitStore.fetchStatus('p1');
       expect(patientFitbitStore.connected).toBe(false);
       expect(patientFitbitStore.statusLoading).toBe(false);
+      expect(patientFitbitStore.needsReconnect).toBe(false);
     });
 
     // reconnect-banner fields (google_health patients only)
@@ -336,10 +428,10 @@ describe('patientFitbitStore', () => {
   // disconnect
   // ------------------------------------------------------------------
   describe('disconnect', () => {
-    it('calls DELETE /fitbit/disconnect/', async () => {
+    it('calls DELETE /google-health/disconnect/', async () => {
       (apiClient.delete as jest.Mock).mockResolvedValueOnce({});
       await patientFitbitStore.disconnect();
-      expect(apiClient.delete).toHaveBeenCalledWith('/fitbit/disconnect/');
+      expect(apiClient.delete).toHaveBeenCalledWith('/google-health/disconnect/');
     });
 
     it('sets connected to false after a successful disconnect', async () => {

@@ -2,7 +2,9 @@
 
 ## Overview
 
-The Fitbit integration allows patients to connect their Fitbit device to the platform. Once connected, activity, sleep, heart rate, and physiological data are fetched from the Fitbit Web API and stored in MongoDB. Therapists and the patient dashboard consume this data via REST endpoints.
+The Fitbit integration connected patients' Fitbit devices to the platform: activity, sleep, heart rate, and physiological data were fetched from the Fitbit Web API and stored in MongoDB, and therapists and the patient dashboard read this data via REST endpoints.
+
+The Fitbit Web API was shut down on October 30, 2026, and has delivered no data since November 2, 2026. The app no longer offers a Fitbit connection: patients still set to `fitbit` see a "Fitbit no longer sends data" banner and are asked to connect Google Health instead (see [17-GOOGLE_HEALTH_INTEGRATION.md](./17-GOOGLE_HEALTH_INTEGRATION.md)). Their stored Fitbit data stays visible. The backend endpoints described below still exist until the Fitbit code is removed.
 
 ---
 
@@ -515,14 +517,14 @@ Not all patients use a Fitbit. The `wearable_device` field on the `Patient` mode
 | `"google_health"` | Patient uses a Google Health-connected device (current default for new patients) |
 | `"omron"` | Patient uses an Omron device; steps entered manually |
 | `"none"` | No wearable configured |
-| `"fitbit"` | Legacy: patient connected via the old Fitbit Web API. **The Fitbit Web API shuts down October 30, 2026.** New patients should not be registered with this value. |
+| `"fitbit"` | Legacy: patient connected via the old Fitbit Web API, which was shut down on October 30, 2026. New patients should not be registered with this value. |
 
 ### Effect on the UI
 
 | Location | Google Health | Fitbit (legacy) | Omron | None |
 |---|---|---|---|---|
-| Patient page — GH connect card | Shown when not connected | Hidden | Hidden | Hidden |
-| Patient page — Fitbit connect card | Hidden | Shown when not connected | Hidden | Hidden |
+| Patient page — "Fitbit no longer sends data" banner | Hidden | Shown | Hidden | Hidden |
+| Patient page — GH connect card | Shown when not connected | Shown | Hidden | Hidden |
 | Therapist list — `WearBadge` | Wear time / Disconnected | Wear time / Disconnected | Grey "Omron" chip | Grey "No device" chip |
 
 ### Where to set it

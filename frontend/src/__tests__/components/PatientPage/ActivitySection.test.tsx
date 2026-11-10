@@ -6,15 +6,7 @@ jest.mock(
   '@/components/PatientPage/GoogleHealthConnectButton',
   () =>
     function GoogleHealthConnectButton() {
-      return <div data-testid="fitbit-connect-button">Connect</div>;
-    }
-);
-
-jest.mock(
-  '@/components/PatientPage/FitbitStatus',
-  () =>
-    function FitbitConnectButton() {
-      return <div data-testid="fitbit-connect-button">Connect</div>;
+      return <div data-testid="google-health-connect-button">Connect</div>;
     }
 );
 
@@ -65,7 +57,7 @@ describe('ActivitySection', () => {
 
     expect(container.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0);
     expect(screen.queryByText('Todays Activity')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('fitbit-connect-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('google-health-connect-button')).not.toBeInTheDocument();
   });
 
   it('renders disconnected state and opens manual steps entry on click', () => {
@@ -82,30 +74,32 @@ describe('ActivitySection', () => {
     );
 
     expect(screen.getByText('Manual entry')).toBeInTheDocument();
-    expect(screen.getByTestId('fitbit-connect-button')).toBeInTheDocument();
+    expect(screen.getByTestId('google-health-connect-button')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button'));
     expect(onOpenManualStepsEntry).toHaveBeenCalledTimes(1);
   });
 
-  it('hides the Fitbit connect button when wearableDevice is omron', () => {
+  it('hides the connect button when wearableDevice is omron', () => {
     render(<ActivitySection {...baseProps} connected={false} wearableDevice="omron" />);
-    expect(screen.queryByTestId('fitbit-connect-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('google-health-connect-button')).not.toBeInTheDocument();
   });
 
-  it('hides the Fitbit connect button when wearableDevice is none', () => {
+  it('hides the connect button when wearableDevice is none', () => {
     render(<ActivitySection {...baseProps} connected={false} wearableDevice="none" />);
-    expect(screen.queryByTestId('fitbit-connect-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('google-health-connect-button')).not.toBeInTheDocument();
   });
 
-  it('shows the Fitbit connect button when wearableDevice is fitbit and disconnected', () => {
+  it('offers Google Health instead of Fitbit to Fitbit patients', () => {
     render(<ActivitySection {...baseProps} connected={false} wearableDevice="fitbit" />);
-    expect(screen.getByTestId('fitbit-connect-button')).toBeInTheDocument();
+    expect(screen.getByTestId('google-health-connect-button')).toBeInTheDocument();
+    expect(screen.getByText('Google Health')).toBeInTheDocument();
+    expect(screen.queryByText('Fitbit')).not.toBeInTheDocument();
   });
 
-  it('shows the Fitbit connect button when wearableDevice is unset and disconnected', () => {
+  it('shows the connect button when wearableDevice is unset and disconnected', () => {
     render(<ActivitySection {...baseProps} connected={false} />);
-    expect(screen.getByTestId('fitbit-connect-button')).toBeInTheDocument();
+    expect(screen.getByTestId('google-health-connect-button')).toBeInTheDocument();
   });
 
   it('renders connected metrics and formatted minute values', () => {
@@ -126,7 +120,7 @@ describe('ActivitySection', () => {
       />
     );
 
-    expect(screen.getByText('Fitbit Connected')).toBeInTheDocument();
+    expect(screen.getByText('Google Health Connected')).toBeInTheDocument();
     expect(screen.getAllByTestId('progress-indicator')).toHaveLength(3);
     expect(screen.getByText('1h 30min')).toBeInTheDocument();
     expect(screen.getByText('7h 10min')).toBeInTheDocument();

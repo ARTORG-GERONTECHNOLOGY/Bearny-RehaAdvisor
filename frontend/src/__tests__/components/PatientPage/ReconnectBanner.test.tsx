@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ReconnectBanner from '@/components/PatientPage/ReconnectBanner';
 
 jest.mock('react-i18next', () => jest.requireActual('@/__mocks__/react-i18next'));
@@ -12,7 +12,8 @@ const mockStore = {
   sleepScopeOk: null as boolean | null,
   noDataEver: null as boolean | null,
   accountNotLinked: null as boolean | null,
-  wearableDevice: 'fitbit' as string,
+  wearableDevice: 'google_health' as string,
+  wearableDeviceLoaded: true,
 };
 
 jest.mock('@/stores/patientFitbitStore', () => ({
@@ -41,6 +42,9 @@ jest.mock('@/stores/patientFitbitStore', () => ({
     get wearableDevice() {
       return mockStore.wearableDevice;
     },
+    get wearableDeviceLoaded() {
+      return mockStore.wearableDeviceLoaded;
+    },
   },
 }));
 
@@ -55,9 +59,13 @@ jest.mock('@/stores/authStore', () => ({
 }));
 
 jest.mock('@/utils/googleHealthAuthUrl', () => ({
-  buildGoogleHealthAuthUrl: (id: string) =>
-    Promise.resolve(`https://accounts.google.com/oauth?state=${id}`),
+  buildGoogleHealthAuthUrl: jest.fn((id: string) =>
+    Promise.resolve(`https://accounts.google.com/oauth?state=${id}`)
+  ),
 }));
+
+const mockBuildGoogleHealthAuthUrl = jest.requireMock('@/utils/googleHealthAuthUrl')
+  .buildGoogleHealthAuthUrl as jest.Mock;
 
 const mockAuthStore = jest.requireMock('@/stores/authStore').default as { id: string };
 
@@ -73,7 +81,8 @@ function setStore(
   mockStore.sleepScopeOk = overrides.sleepScopeOk ?? null;
   mockStore.noDataEver = overrides.noDataEver ?? null;
   mockStore.accountNotLinked = overrides.accountNotLinked ?? null;
-  mockStore.wearableDevice = overrides.wearableDevice ?? 'fitbit';
+  mockStore.wearableDevice = overrides.wearableDevice ?? 'google_health';
+  mockStore.wearableDeviceLoaded = overrides.wearableDeviceLoaded ?? true;
 }
 
 beforeEach(() => {
@@ -114,6 +123,9 @@ describe('ReconnectBanner — layout', () => {
     const { container } = render(<ReconnectBanner className="lg:col-span-3" />);
     const banner = container.firstChild as HTMLElement;
     expect(banner).toHaveClass('flex-wrap', 'lg:col-span-3');
+    expect(screen.getByRole('button', { name: 'Reconnect' }).parentElement).toHaveClass(
+      'flex-wrap'
+    );
     // The compact size; the default one is too large to sit next to the text.
     expect(screen.getByRole('button', { name: 'Reconnect' })).toHaveClass('text-sm');
   });
@@ -153,6 +165,63 @@ describe('ReconnectBanner — reconnect button', () => {
     setStore(true, 1);
     render(<ReconnectBanner />);
     expect(screen.getByRole('button', { name: /reconnect/i })).toBeInTheDocument();
+  });
+});
+
+describe('ReconnectBanner — Fitbit discontinued banner', () => {
+  it('asks Fitbit patients to connect Google Health', () => {
+    setStore(false, null, { wearableDevice: 'fitbit' });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/fitbitEndedBannerTitle/i)).toBeInTheDocument();
+    expect(screen.getByText(/fitbitEndedBannerReason/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^reconnect$/i })).toBeNull();
+  });
+
+  it('links to Google sign-up for patients whose Fitbit account is not on Google yet', () => {
+    setStore(false, null, { wearableDevice: 'fitbit' });
+    render(<ReconnectBanner />);
+    expect(screen.getByRole('link', { name: /set up google health/i })).toHaveAttribute(
+      'href',
+      'https://fitbit.google.com/auth/signup'
+    );
+  });
+
+  it('starts the Google Health sign-in, not the Fitbit one', async () => {
+    setStore(false, null, { wearableDevice: 'fitbit' });
+    render(<ReconnectBanner />);
+    fireEvent.click(screen.getByRole('button', { name: /connect google health/i }));
+    await waitFor(() =>
+      expect(mockBuildGoogleHealthAuthUrl).toHaveBeenCalledWith('test-patient-id')
+    );
+  });
+
+  it('waits until the device is loaded, so other patients never see it flash', () => {
+    setStore(false, null, { wearableDevice: 'fitbit', wearableDeviceLoaded: false });
+    const { container } = render(<ReconnectBanner />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('shows only this banner to Fitbit patients', () => {
+    setStore(true, 0, { wearableDevice: 'fitbit' });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/fitbitEndedBannerTitle/i)).toBeInTheDocument();
+    expect(screen.queryByText(/reconnectBanner/i)).toBeNull();
+  });
+
+  it("hides Google Health banners until this patient's device has loaded", () => {
+    setStore(false, null, {
+      wearableDevice: 'google_health',
+      accountNotLinked: true,
+      wearableDeviceLoaded: false,
+    });
+    const { container } = render(<ReconnectBanner />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('never appears for Google Health patients', () => {
+    setStore(false, null, { wearableDevice: 'google_health' });
+    const { container } = render(<ReconnectBanner />);
+    expect(container.firstChild).toBeNull();
   });
 });
 
