@@ -8,7 +8,6 @@ import it from './src/assets/lang/it.json';
 import pt from './src/assets/lang/pt.json';
 import nl from './src/assets/lang/nl.json';
 
-// A wrong <html lang> makes Chrome auto-translate, which breaks React's DOM.
 i18n.on('languageChanged', (lng) => {
   document.documentElement.lang = lng;
 });
@@ -21,6 +20,7 @@ i18n
       order: ['localStorage', 'cookie', 'navigator', 'htmlTag', 'path', 'subdomain'],
       caches: ['localStorage', 'cookie'], // Store selected language
     },
+    supportedLngs: ['en', 'de', 'fr', 'it', 'pt', 'nl'],
     resources: {
       en: { translation: en },
       de: { translation: de },
