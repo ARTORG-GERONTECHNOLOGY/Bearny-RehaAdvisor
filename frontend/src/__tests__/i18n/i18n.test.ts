@@ -1,6 +1,15 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import i18n from '../../../i18n';
+import type { i18n as I18n } from 'i18next';
+import { SUPPORTED_LANGUAGES } from '@/constants/languages';
+
+const loadI18n = async (): Promise<I18n> => {
+  let instance!: I18n;
+  await jest.isolateModulesAsync(async () => {
+    instance = (await import('../../../i18n')).default;
+  });
+  return instance;
+};
 
 describe('index.html', () => {
   const html = new DOMParser().parseFromString(
@@ -15,27 +24,55 @@ describe('index.html', () => {
 });
 
 describe('i18n config', () => {
-  it('sets <html lang> to the detected language on init', () => {
-    expect(document.documentElement.lang).toBe('en');
+  afterEach(() => jest.restoreAllMocks());
+
+  beforeEach(() => {
+    localStorage.clear();
+    document.cookie = 'i18next=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.documentElement.lang = 'en';
   });
 
-  it('updates <html lang> when the language changes', async () => {
-    await i18n.changeLanguage('de');
+  it('resolves a saved regional language to its base language on startup', async () => {
+    localStorage.setItem('i18nextLng', 'de-CH');
+    const i18n = await loadI18n();
+
+    expect(i18n.language).toBe('de');
     expect(document.documentElement.lang).toBe('de');
-
-    await i18n.changeLanguage('fr');
-    expect(document.documentElement.lang).toBe('fr');
+    expect(localStorage.getItem('i18nextLng')).toBe('de');
   });
 
-  it('reduces regional codes to a supported language', async () => {
-    await i18n.changeLanguage('de-CH');
+  it('resolves a regional browser language to its base language on startup', async () => {
+    jest.spyOn(navigator, 'languages', 'get').mockReturnValue(['de-CH']);
+    jest.spyOn(navigator, 'language', 'get').mockReturnValue('de-CH');
+    const i18n = await loadI18n();
+
     expect(i18n.language).toBe('de');
     expect(document.documentElement.lang).toBe('de');
   });
 
-  it('falls back to English for unsupported languages', async () => {
-    await i18n.changeLanguage('es-ES');
+  it('falls back to English for an unsupported saved language on startup', async () => {
+    localStorage.setItem('i18nextLng', 'es-ES');
+    const i18n = await loadI18n();
+
     expect(i18n.language).toBe('en');
     expect(document.documentElement.lang).toBe('en');
+  });
+
+  it('updates <html lang> when the language changes', async () => {
+    const i18n = await loadI18n();
+
+    await i18n.changeLanguage('fr');
+    expect(document.documentElement.lang).toBe('fr');
+
+    await i18n.changeLanguage('it-CH');
+    expect(document.documentElement.lang).toBe('it');
+  });
+
+  it('loads exactly the languages offered in the language switcher', async () => {
+    const i18n = await loadI18n();
+
+    expect(Object.keys(i18n.options.resources ?? {}).sort()).toEqual(
+      [...SUPPORTED_LANGUAGES].sort()
+    );
   });
 });

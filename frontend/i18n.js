@@ -28,6 +28,7 @@ i18n
     detection: {
       order: ['localStorage', 'cookie', 'navigator', 'htmlTag', 'path', 'subdomain'],
       caches: ['localStorage', 'cookie'], // Store selected language
+      convertDetectedLanguage: (lng) => lng.split('-')[0],
     },
     supportedLngs: Object.keys(resources),
     resources,
