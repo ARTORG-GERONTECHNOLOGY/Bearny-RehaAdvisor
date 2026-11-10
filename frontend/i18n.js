@@ -8,6 +8,15 @@ import it from './src/assets/lang/it.json';
 import pt from './src/assets/lang/pt.json';
 import nl from './src/assets/lang/nl.json';
 
+const resources = {
+  en: { translation: en },
+  de: { translation: de },
+  fr: { translation: fr },
+  it: { translation: it },
+  pt: { translation: pt },
+  nl: { translation: nl },
+};
+
 i18n.on('languageChanged', (lng) => {
   document.documentElement.lang = lng;
 });
@@ -20,15 +29,8 @@ i18n
       order: ['localStorage', 'cookie', 'navigator', 'htmlTag', 'path', 'subdomain'],
       caches: ['localStorage', 'cookie'], // Store selected language
     },
-    supportedLngs: ['en', 'de', 'fr', 'it', 'pt', 'nl'],
-    resources: {
-      en: { translation: en },
-      de: { translation: de },
-      fr: { translation: fr },
-      it: { translation: it },
-      pt: { translation: pt },
-      nl: { translation: nl },
-    },
+    supportedLngs: Object.keys(resources),
+    resources,
     // Remove hardcoded default:
     fallbackLng: 'en',
     interpolation: {
