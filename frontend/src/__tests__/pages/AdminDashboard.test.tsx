@@ -1241,36 +1241,6 @@ describe('AdminDashboard', () => {
         expect(screen.getByText('Therapist')).toBeInTheDocument();
       });
     });
-    it('retries a failed analytics load via the Refresh button', async () => {
-      (apiClient.get as jest.Mock).mockImplementation((url: string) =>
-        url === '/admin/analytics/devices/'
-          ? Promise.reject(new Error('fail'))
-          : Promise.resolve({ data: {} })
-      );
-      render(
-        <MemoryRouter initialEntries={['/?tab=analytics']}>
-          <AdminDashboard />
-        </MemoryRouter>
-      );
-
-      const refresh = await waitFor(() => {
-        const button = screen
-          .getAllByRole('button', { name: 'Refresh' })
-          .find((b) => !b.closest('[data-testid="active-users"]'));
-        expect(button).toBeDefined();
-        return button!;
-      });
-      expect(screen.getByText('Failed to load analytics.')).toBeInTheDocument();
-      (apiClient.get as jest.Mock).mockImplementation((url: string) =>
-        Promise.resolve({
-          data:
-            url === '/admin/analytics/devices/' ? { by_device: { Mobile: 1 }, by_role: {} } : {},
-        })
-      );
-      await userEvent.click(refresh);
-
-      expect(await screen.findByText('Login device types')).toBeInTheDocument();
-    });
   });
 
   // ── system tab ────────────────────────────────────────────────────────────

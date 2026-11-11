@@ -12,6 +12,7 @@ import TherapistAccessDialog from '@/components/AdminDashboard/TherapistAccessDi
 import EditQuestionnaireDialog from '@/components/AdminDashboard/EditQuestionnaireDialog';
 import SystemStatusTab from '@/components/AdminDashboard/SystemStatusTab';
 import ActiveUsersCard from '@/components/AdminDashboard/ActiveUsersCard';
+import DeviceAnalyticsCard from '@/components/AdminDashboard/DeviceAnalyticsCard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 import adminStore from '@/stores/adminStore';
@@ -108,32 +109,6 @@ const AdminDashboard: React.FC = observer(() => {
   const [interventionSearch, setInterventionSearch] = useState('');
   const [interventionLoading, setInterventionLoading] = useState(false);
   const [interventionError, setInterventionError] = useState<string | null>(null);
-
-  // -------------------------
-  // Analytics tab
-  // -------------------------
-  type DeviceAnalytics = {
-    by_device: Record<string, number>;
-    by_role: Record<string, Record<string, number>>;
-  };
-  const [deviceAnalytics, setDeviceAnalytics] = useState<DeviceAnalytics | null>(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(true);
-
-  const fetchAnalytics = useCallback(async () => {
-    setAnalyticsLoading(true);
-    try {
-      const res = await apiClient.get('/admin/analytics/devices/');
-      setDeviceAnalytics(res.data);
-    } catch {
-      /* silently ignore */
-    } finally {
-      setAnalyticsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isAllowed && activeTab === 'analytics') fetchAnalytics();
-  }, [isAllowed, activeTab, fetchAnalytics]);
 
   const [deleteModal, setDeleteModal] = useState<{
     open: boolean;
@@ -1159,63 +1134,12 @@ const AdminDashboard: React.FC = observer(() => {
 
         {/* ── Tab 6: analytics ── */}
         <TabsContent value="analytics">
-          {analyticsLoading ? (
-            <div className="text-center my-5">
-              <Spinner />
-            </div>
-          ) : deviceAnalytics ? (
-            <div className="my-4">
-              <h5 className="text-base font-semibold mb-3">{t('Login device types')}</h5>
-              <div className="flex flex-wrap gap-4 mb-6">
-                {['Mobile', 'Desktop', 'Tablet', 'Unknown'].map((device) => {
-                  const count = deviceAnalytics.by_device[device] ?? 0;
-                  if (count === 0) return null;
-                  return (
-                    <div
-                      key={device}
-                      className="rounded-xl border bg-zinc-50 px-8 py-6 text-center min-w-[120px]"
-                    >
-                      <div className="text-3xl font-bold">{count}</div>
-                      <div className="text-sm text-muted-foreground mt-1">{t(device)}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              {Object.keys(deviceAnalytics.by_role).length > 0 && (
-                <div className="max-w-[480px]">
-                  <h6 className="text-base font-semibold mb-3">{t('By user role')}</h6>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('Role')}</TableHead>
-                        <TableHead>Mobile</TableHead>
-                        <TableHead>Desktop</TableHead>
-                        <TableHead>Tablet</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {Object.entries(deviceAnalytics.by_role).map(([role, counts]) => (
-                        <TableRow key={role}>
-                          <TableCell>{role}</TableCell>
-                          <TableCell>{counts['Mobile'] ?? 0}</TableCell>
-                          <TableCell>{counts['Desktop'] ?? 0}</TableCell>
-                          <TableCell>{counts['Tablet'] ?? 0}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="mt-4 flex items-center gap-3">
-              <span className="text-sm text-nok">{t('Failed to load analytics.')}</span>
-              <Button size="dashboard" variant="secondary" onClick={fetchAnalytics}>
-                {t('Refresh')}
-              </Button>
-            </div>
+          {isAllowed && (
+            <>
+              <DeviceAnalyticsCard />
+              <ActiveUsersCard />
+            </>
           )}
-          {isAllowed && !analyticsLoading && <ActiveUsersCard />}
         </TabsContent>
 
         {/* ── Tab 7: ICF Access allowlist ── */}
