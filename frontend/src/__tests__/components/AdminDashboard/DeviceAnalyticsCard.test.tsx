@@ -45,6 +45,7 @@ describe('DeviceAnalyticsCard', () => {
     (apiClient.get as jest.Mock).mockReturnValue(new Promise(() => {}));
     render(<DeviceAnalyticsCard />);
 
+    expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument();
     expect(screen.queryByText('Login device types')).not.toBeInTheDocument();
   });
