@@ -46,13 +46,12 @@ describe('i18n lang files are in sync', () => {
   it.each(langs)('%s has no duplicate keys', (lang) => {
     const keys = rawTopLevelKeys(lang);
     expect(keys.length).toBeGreaterThanOrEqual(Object.keys(files[lang]).length);
-    const seen = new Set<string>();
-    const duplicates = keys.filter((k) => seen.has(k) || !seen.add(k));
+    const duplicates = keys.filter((k, i) => keys.indexOf(k) !== i);
     expect(duplicates).toEqual([]);
   });
 
   it.each(langs)('%s keys are sorted', (lang) => {
-    const keys = Object.keys(files[lang]);
+    const keys = rawTopLevelKeys(lang);
     const firstOutOfOrder = keys.findIndex((k, i) => i > 0 && compareKeys(keys[i - 1], k) > 0);
     expect(
       firstOutOfOrder === -1
