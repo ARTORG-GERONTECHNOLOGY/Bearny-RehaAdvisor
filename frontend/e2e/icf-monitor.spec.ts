@@ -94,7 +94,7 @@ async function answerAssistanceQuestion(
   await page.getByRole('button', { name: choice }).click();
 }
 
-/** Answer the device question screen (step 3 of the intro flow). */
+/** Answer the device question (step 3) and continue past the explainer video (step 4). */
 async function answerDeviceQuestion(
   page: Page,
   choice:
@@ -104,9 +104,10 @@ async function answerDeviceQuestion(
     | 'Computer' = 'Smartphone, Handy'
 ) {
   await page.getByRole('button', { name: choice }).click();
+  await page.getByRole('button', { name: 'Weiter' }).click();
 }
 
-/** Navigate through welcome → assistance → device → practice mode. */
+/** Navigate through welcome → assistance → device → video → practice mode. */
 async function startMicAndPractice(page: Page) {
   await page.getByRole('button', { name: 'Übungslauf starten' }).click();
   await answerAssistanceQuestion(page);
@@ -351,7 +352,7 @@ test.describe('ICF Monitor — MediaRecorder not available', () => {
     });
 
     await gotoWithPatientId(page);
-    // Advance through both intro screens; startMic() fires after device selection
+    // Advance through the intro screens; startMic() fires on Weiter after the video
     await page.getByRole('button', { name: 'Übungslauf starten' }).click();
     await answerAssistanceQuestion(page);
     await answerDeviceQuestion(page);
@@ -729,7 +730,7 @@ test.describe('#324 — MediaRecorder started with timeslice', () => {
     await stubSubmitItem(page);
     await gotoWithPatientId(page);
 
-    // Click start → assistance → device → startMic() → timeslice recorded
+    // Click start → assistance → device → video → startMic() → timeslice recorded
     await page.getByRole('button', { name: 'Übungslauf starten' }).click();
     await answerAssistanceQuestion(page);
     await answerDeviceQuestion(page);
@@ -796,6 +797,21 @@ test.describe('ICF Monitor — assistance + device intro screens', () => {
     await expect(
       page.getByText('Werden Sie das FunktionsBarometer jetzt alleine verwenden')
     ).not.toBeVisible();
+  });
+
+  test('selecting a device shows the explainer video before practice mode', async ({ page }) => {
+    await mockAudioAPIs(page);
+    await gotoWithPatientId(page);
+
+    await page.getByRole('button', { name: 'Übungslauf starten' }).click();
+    await answerAssistanceQuestion(page);
+    await page.getByRole('button', { name: 'Smartphone, Handy' }).click();
+
+    await expect(page.getByTestId('icf-explainer-video')).toBeVisible();
+    await expect(page.getByText('ÜBUNGSMODUS')).not.toBeVisible();
+
+    await page.getByRole('button', { name: 'Weiter' }).click();
+    await expect(page.getByText('ÜBUNGSMODUS')).toBeVisible();
   });
 
   test('selecting a device starts the session and shows practice mode', async ({ page }) => {
