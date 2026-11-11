@@ -1761,6 +1761,7 @@
   "Active in the last {{minutes}} min": "Active in the last {{minutes}} min",
   "As of {{time}}": "As of {{time}}",
   "Failed to load active users.": "Failed to load active users.",
+  "Failed to load analytics.": "Failed to load analytics.",
   "Counts only users who did something that is logged, such as opening a patient or completing an exercise.": "Counts only users who did something that is logged, such as opening a patient or completing an exercise.",
   "Registered accounts": "Registered accounts",
   "Active accounts": "Active accounts",

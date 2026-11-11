@@ -1208,9 +1208,12 @@ const AdminDashboard: React.FC = observer(() => {
               )}
             </div>
           ) : (
-            <Button size="dashboard" variant="secondary" className="mt-4" onClick={fetchAnalytics}>
-              {t('Refresh')}
-            </Button>
+            <div className="mt-4 flex items-center gap-3">
+              <span className="text-sm text-nok">{t('Failed to load analytics.')}</span>
+              <Button size="dashboard" variant="secondary" onClick={fetchAnalytics}>
+                {t('Refresh')}
+              </Button>
+            </div>
           )}
           {isAllowed && !analyticsLoading && <ActiveUsersCard />}
         </TabsContent>

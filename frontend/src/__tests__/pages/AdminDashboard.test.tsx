@@ -1260,6 +1260,7 @@ describe('AdminDashboard', () => {
         expect(button).toBeDefined();
         return button!;
       });
+      expect(screen.getByText('Failed to load analytics.')).toBeInTheDocument();
       (apiClient.get as jest.Mock).mockImplementation((url: string) =>
         Promise.resolve({
           data:

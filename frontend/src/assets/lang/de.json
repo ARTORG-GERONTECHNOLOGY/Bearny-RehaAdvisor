@@ -1761,6 +1761,7 @@
   "Active in the last {{minutes}} min": "Aktiv in den letzten {{minutes}} Min.",
   "As of {{time}}": "Stand {{time}}",
   "Failed to load active users.": "Aktive Benutzer:innen konnten nicht geladen werden.",
+  "Failed to load analytics.": "Analysen konnten nicht geladen werden.",
   "Counts only users who did something that is logged, such as opening a patient or completing an exercise.": "Zählt nur Benutzer:innen mit einer protokollierten Aktion, z. B. Patient:in öffnen oder Übung abschliessen.",
   "Registered accounts": "Registrierte Konten",
   "Active accounts": "Aktive Konten",
