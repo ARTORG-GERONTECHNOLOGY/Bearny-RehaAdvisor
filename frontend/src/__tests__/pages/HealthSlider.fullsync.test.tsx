@@ -595,18 +595,23 @@ describe('HealthSlider (Full Sync)', () => {
       }
     };
 
-    renderICF();
-    await enterPatientId();
-    await startPracticeMode();
+    try {
+      renderICF();
+      await enterPatientId();
+      await startPracticeMode();
 
-    expect(await screen.findByText(/Mikrofon-Fehler: NotSupportedError/i)).toBeInTheDocument();
-    expect(stop).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText(/Mikrofon-Fehler: NotSupportedError/i)).toBeInTheDocument();
+      expect(stop).toHaveBeenCalledTimes(1);
+      // A reload now must show the intro again, not resume a session without device/assistance.
+      expect(localStorage.getItem('survey_sessionId')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
-    await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
-    expect(getUserMedia).toHaveBeenCalledTimes(2);
-
-    (global as any).MediaRecorder = OriginalMR;
+      fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
+      await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
+      expect(getUserMedia).toHaveBeenCalledTimes(2);
+      expect(localStorage.getItem('survey_sessionId')).not.toBeNull();
+    } finally {
+      (global as any).MediaRecorder = OriginalMR;
+    }
   });
 
   it('preloads correct audio sources: practice uses ubung.wav, real uses q01.wav', async () => {

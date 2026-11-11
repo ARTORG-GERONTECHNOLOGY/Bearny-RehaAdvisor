@@ -670,11 +670,12 @@ export default function HealthSlider() {
       }
 
       ensureSessionId();
-      // Persist sessionId immediately so a refresh during practice mode also
-      // skips the welcome screen (testMode initialises to false when either
-      // survey_index or survey_sessionId is present in localStorage).
-      if (sessionIdRef.current) localStorage.setItem('survey_sessionId', sessionIdRef.current);
       startItemRecorder();
+      // Persist sessionId only once recording runs, so a refresh during practice mode
+      // skips the welcome screen (testMode initialises to false when either
+      // survey_index or survey_sessionId is present in localStorage), but a failed
+      // start doesn't skip the assistance/device questions.
+      if (sessionIdRef.current) localStorage.setItem('survey_sessionId', sessionIdRef.current);
 
       setTestMode(false);
       setMicError('');
@@ -687,6 +688,7 @@ export default function HealthSlider() {
       micDestRef.current?.stream.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
       micDestRef.current = null;
+      recorderRef.current = null;
 
       const name = e?.name || 'UnknownError';
       const msg = e?.message || '';

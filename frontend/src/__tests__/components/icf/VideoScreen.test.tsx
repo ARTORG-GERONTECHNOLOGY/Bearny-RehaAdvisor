@@ -12,11 +12,24 @@ describe('VideoScreen', () => {
     expect(video).toHaveAttribute('playsinline');
   });
 
-  it('calls onContinue when Weiter is clicked', () => {
+  it('pauses the video and calls onContinue when Weiter is clicked', () => {
+    const pause = jest.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function (
+      this: HTMLMediaElement
+    ) {
+      expect(this).toBe(screen.getByTestId('icf-explainer-video'));
+    });
     const onContinue = jest.fn();
-    render(<VideoScreen onContinue={onContinue} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
-    expect(onContinue).toHaveBeenCalledTimes(1);
+    try {
+      render(<VideoScreen onContinue={onContinue} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
+      expect(pause).toHaveBeenCalledTimes(1);
+      expect(onContinue).toHaveBeenCalledTimes(1);
+      expect(pause.mock.invocationCallOrder[0]).toBeLessThan(
+        onContinue.mock.invocationCallOrder[0]
+      );
+    } finally {
+      pause.mockRestore();
+    }
   });
 
   it('does not show mic error when micError is not provided', () => {
