@@ -579,6 +579,36 @@ describe('HealthSlider (Full Sync)', () => {
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1);
   });
 
+  it('releases the mic stream when the recorder fails, so Weiter can retry cleanly', async () => {
+    const stop = jest.fn();
+    const getUserMedia = navigator.mediaDevices.getUserMedia as jest.Mock;
+    getUserMedia.mockResolvedValueOnce({ getTracks: () => [{ stop }] });
+
+    const OriginalMR = (global as any).MediaRecorder;
+    let failNextStart = true;
+    (global as any).MediaRecorder = class extends OriginalMR {
+      start() {
+        if (failNextStart) {
+          failNextStart = false;
+          throw Object.assign(new Error('rec fail'), { name: 'NotSupportedError' });
+        }
+      }
+    };
+
+    renderICF();
+    await enterPatientId();
+    await startPracticeMode();
+
+    expect(await screen.findByText(/Mikrofon-Fehler: NotSupportedError/i)).toBeInTheDocument();
+    expect(stop).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
+    await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
+    expect(getUserMedia).toHaveBeenCalledTimes(2);
+
+    (global as any).MediaRecorder = OriginalMR;
+  });
+
   it('preloads correct audio sources: practice uses ubung.wav, real uses q01.wav', async () => {
     // Capture new Audio(src) calls triggered by preload effect
     const audioCalls: string[] = [];

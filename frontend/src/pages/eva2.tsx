@@ -631,6 +631,7 @@ export default function HealthSlider() {
   const startMic = async () => {
     if (micStartingRef.current) return;
     micStartingRef.current = true;
+    let started = false;
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         setMicError('Dieser Browser unterstützt Mikrofon-Aufnahmen nicht.');
@@ -677,8 +678,15 @@ export default function HealthSlider() {
 
       setTestMode(false);
       setMicError('');
+      started = true;
     } catch (e: any) {
       console.error('[HealthSlider] getUserMedia error', e);
+
+      // Release a stream that opened before the recorder failed, so a retry starts clean.
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      micDestRef.current?.stream.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      micDestRef.current = null;
 
       const name = e?.name || 'UnknownError';
       const msg = e?.message || '';
@@ -692,7 +700,8 @@ export default function HealthSlider() {
 
       setMicError(`${nice}${msg ? ` (${msg})` : ''}`);
     } finally {
-      micStartingRef.current = false;
+      // Stays set after success: the video screen may still be mounted until React re-renders.
+      if (!started) micStartingRef.current = false;
     }
   };
 
