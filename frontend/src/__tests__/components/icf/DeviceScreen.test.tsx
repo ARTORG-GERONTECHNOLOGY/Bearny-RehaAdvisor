@@ -40,18 +40,4 @@ describe('DeviceScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Computer' }));
     expect(onSelect).toHaveBeenCalledWith('desktop');
   });
-
-  it('does not show mic error when micError is not provided', () => {
-    const { container } = render(<DeviceScreen onSelect={noop} />);
-    expect(container.querySelector('.icf-audio-error')).not.toBeInTheDocument();
-  });
-
-  it('shows mic error when micError is provided', () => {
-    const { container } = render(
-      <DeviceScreen onSelect={noop} micError="Mikrofon nicht verfügbar" />
-    );
-    const errorEl = container.querySelector('.icf-audio-error');
-    expect(errorEl).toBeInTheDocument();
-    expect(errorEl).toHaveTextContent('Mikrofon nicht verfügbar');
-  });
 });

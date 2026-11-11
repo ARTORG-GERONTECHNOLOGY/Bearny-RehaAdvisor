@@ -6,10 +6,9 @@ export type DeviceChoice = 'smartphone' | 'tablet' | 'laptop' | 'desktop';
 
 interface Props {
   onSelect: (device: DeviceChoice) => void;
-  micError?: string;
 }
 
-export default function DeviceScreen({ onSelect, micError }: Props) {
+export default function DeviceScreen({ onSelect }: Props) {
   return (
     <main className="icf-page">
       <FlowerSides />
@@ -18,8 +17,6 @@ export default function DeviceScreen({ onSelect, micError }: Props) {
 
       <div className="mt-6 max-w-2xl w-full">
         <p className="mb-8 text-xl font-semibold">Welches Gerät nutzen Sie jetzt dafür?</p>
-
-        {!!micError && <p className="icf-audio-error">{micError}</p>}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button

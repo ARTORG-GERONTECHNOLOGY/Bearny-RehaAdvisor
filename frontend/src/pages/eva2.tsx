@@ -18,14 +18,15 @@
  *                         "Smartphone / Tablet / Laptop / Computer".
  *                         Both answers are stored in component state and sent with every
  *                         subsequent POST to /api/healthslider/submit-item/.
- * 4. Mic permission     — getUserMedia is requested after the device is selected.
- * 4. Practice mode      — one warm-up question (not uploaded to backend).
- * 5. Survey questions   — 29 ICF domain questions with vertical slider + optional audio cue.
+ * 4. Explainer video    — full-page screen with the explainer video and a "Weiter" button.
+ * 5. Mic permission     — getUserMedia is requested after "Weiter" on the video screen.
+ * 6. Practice mode      — one warm-up question (not uploaded to backend).
+ * 7. Survey questions   — 29 ICF domain questions with vertical slider + optional audio cue.
  *                         Each answer POSTs to /api/healthslider/submit-item/ including
  *                         participantId, sessionId, questionIndex, answerValue, deviceType,
  *                         assistance, and the recorded audio Blob (webm or m4a depending
  *                         on browser).
- * 6. Summary / end      — shown after the last question; localStorage is cleared immediately
+ * 8. Summary / end      — shown after the last question; localStorage is cleared immediately
  *                         before the end screen renders (no "Beenden" button).
  *
  * Persistence (localStorage)
@@ -53,6 +54,7 @@ import EndScreen from '@/components/icf/EndScreen';
 import InfoScreen from '@/components/icf/InfoScreen';
 import PatientIdScreen from '@/components/icf/PatientIdScreen';
 import StartScreen from '@/components/icf/StartScreen';
+import VideoScreen from '@/components/icf/VideoScreen';
 import '@/assets/styles/icf.css';
 
 /** ====== DATA ====== */
@@ -170,6 +172,7 @@ export default function HealthSlider() {
   const [deviceChoice, setDeviceChoice] = useState<DeviceChoice | null>(null);
   const [showingAssistanceScreen, setShowingAssistanceScreen] = useState(false);
   const [showingDeviceScreen, setShowingDeviceScreen] = useState(false);
+  const [showingVideoScreen, setShowingVideoScreen] = useState(false);
   const [sliderPosition, setSliderPosition] = useState(50);
   const [sliderMoved, setSliderMoved] = useState(false);
   const [questionIndex, setQuestionIndex] = useState(() => {
@@ -201,6 +204,7 @@ export default function HealthSlider() {
   const [micError, setMicError] = useState('');
 
   const streamRef = useRef<MediaStream | null>(null);
+  const [micStarting, setMicStarting] = useState(false);
   const micDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -625,6 +629,9 @@ export default function HealthSlider() {
   };
 
   const startMic = async () => {
+    setMicStarting(true);
+    // Release leftovers from a failed earlier attempt; a no-op on the first start.
+    stopAll();
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         setMicError('Dieser Browser unterstützt Mikrofon-Aufnahmen nicht.');
@@ -663,11 +670,9 @@ export default function HealthSlider() {
       }
 
       ensureSessionId();
-      // Persist sessionId immediately so a refresh during practice mode also
-      // skips the welcome screen (testMode initialises to false when either
-      // survey_index or survey_sessionId is present in localStorage).
-      if (sessionIdRef.current) localStorage.setItem('survey_sessionId', sessionIdRef.current);
       startItemRecorder();
+      // Persisted only after recording starts, so a failed start can't skip the intro on reload.
+      if (sessionIdRef.current) localStorage.setItem('survey_sessionId', sessionIdRef.current);
 
       setTestMode(false);
       setMicError('');
@@ -685,6 +690,8 @@ export default function HealthSlider() {
         nice = 'Mikrofon belegt (z.B. Zoom/Teams) oder Start fehlgeschlagen.';
 
       setMicError(`${nice}${msg ? ` (${msg})` : ''}`);
+    } finally {
+      setMicStarting(false);
     }
   };
 
@@ -888,13 +895,15 @@ export default function HealthSlider() {
   }
 
   if (testMode) {
+    if (showingVideoScreen) {
+      return <VideoScreen micError={micError} starting={micStarting} onContinue={startMic} />;
+    }
     if (showingDeviceScreen) {
       return (
         <DeviceScreen
-          micError={micError}
           onSelect={(device) => {
             setDeviceChoice(device);
-            startMic();
+            setShowingVideoScreen(true);
           }}
         />
       );
