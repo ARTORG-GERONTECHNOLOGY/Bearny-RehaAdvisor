@@ -1139,12 +1139,31 @@ describe('AdminDashboard', () => {
         </MemoryRouter>
       );
 
-      expect(screen.getByRole('tab', { name: 'Analytics' })).toHaveAttribute(
-        'aria-selected',
-        'true'
+      await waitFor(() =>
+        expect(screen.getByRole('tab', { name: 'Analytics' })).toHaveAttribute(
+          'aria-selected',
+          'true'
+        )
       );
       expect(await screen.findByText('Login device types')).toBeInTheDocument();
     });
+
+    it.each(['analytics', 'system'])(
+      'does not open ?tab=%s or call admin endpoints for a non-admin',
+      async (tab) => {
+        mockAuthStore.userType = 'Therapist';
+        render(
+          <MemoryRouter initialEntries={[`/?tab=${tab}`]}>
+            <AdminDashboard />
+          </MemoryRouter>
+        );
+
+        await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/unauthorized'));
+        expect(apiClient.get).not.toHaveBeenCalledWith('/admin/analytics/devices/');
+        expect(apiClient.get).not.toHaveBeenCalledWith('/admin/system-status/');
+        expect(apiClient.get).not.toHaveBeenCalledWith('/admin/analytics/active-users/');
+      }
+    );
 
     it('writes the selected tab to ?tab= and keeps other params', async () => {
       const LocationSearch = () => <div data-testid="search">{useLocation().search}</div>;

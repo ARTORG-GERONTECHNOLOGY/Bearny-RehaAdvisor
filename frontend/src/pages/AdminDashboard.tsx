@@ -61,7 +61,9 @@ const AdminDashboard: React.FC = observer(() => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const activeTab = tabParam && TAB_VALUES.includes(tabParam) ? tabParam : TAB_VALUES[0];
+  // Until auth passes, stay on a tab whose content doesn't fetch on mount.
+  const activeTab =
+    isAllowed && tabParam && TAB_VALUES.includes(tabParam) ? tabParam : TAB_VALUES[0];
   const setActiveTab = (value: string) =>
     setSearchParams(
       (prev) => {
