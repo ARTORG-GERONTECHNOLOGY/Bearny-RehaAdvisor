@@ -61,9 +61,7 @@ const AdminDashboard: React.FC = observer(() => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  // Until auth passes, stay on a tab whose content doesn't fetch on mount.
-  const activeTab =
-    isAllowed && tabParam && TAB_VALUES.includes(tabParam) ? tabParam : TAB_VALUES[0];
+  const activeTab = tabParam && TAB_VALUES.includes(tabParam) ? tabParam : TAB_VALUES[0];
   const setActiveTab = (value: string) =>
     setSearchParams(
       (prev) => {
@@ -119,7 +117,7 @@ const AdminDashboard: React.FC = observer(() => {
     by_role: Record<string, Record<string, number>>;
   };
   const [deviceAnalytics, setDeviceAnalytics] = useState<DeviceAnalytics | null>(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
@@ -134,8 +132,8 @@ const AdminDashboard: React.FC = observer(() => {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'analytics') fetchAnalytics();
-  }, [activeTab, fetchAnalytics]);
+    if (isAllowed && activeTab === 'analytics') fetchAnalytics();
+  }, [isAllowed, activeTab, fetchAnalytics]);
 
   const [deleteModal, setDeleteModal] = useState<{
     open: boolean;
@@ -1210,11 +1208,11 @@ const AdminDashboard: React.FC = observer(() => {
               )}
             </div>
           ) : (
-            <p className="mt-4 text-muted-foreground">
-              {t('Click the Analytics tab to load data.')}
-            </p>
+            <Button size="dashboard" variant="secondary" className="mt-4" onClick={fetchAnalytics}>
+              {t('Refresh')}
+            </Button>
           )}
-          {!analyticsLoading && <ActiveUsersCard />}
+          {isAllowed && !analyticsLoading && <ActiveUsersCard />}
         </TabsContent>
 
         {/* ── Tab 7: ICF Access allowlist ── */}
@@ -1370,9 +1368,7 @@ const AdminDashboard: React.FC = observer(() => {
         </TabsContent>
 
         {/* ── Tab 8: system status ── */}
-        <TabsContent value="system">
-          <SystemStatusTab />
-        </TabsContent>
+        <TabsContent value="system">{isAllowed && <SystemStatusTab />}</TabsContent>
       </Tabs>
 
       {/* Reject access request modal */}
