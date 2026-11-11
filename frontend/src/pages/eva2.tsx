@@ -21,12 +21,12 @@
  * 4. Explainer video    — full-page screen with the explainer video and a "Weiter" button.
  * 5. Mic permission     — getUserMedia is requested after "Weiter" on the video screen.
  * 6. Practice mode      — one warm-up question (not uploaded to backend).
- * 7. Survey questions  — 29 ICF domain questions with vertical slider + optional audio cue.
+ * 7. Survey questions   — 29 ICF domain questions with vertical slider + optional audio cue.
  *                         Each answer POSTs to /api/healthslider/submit-item/ including
  *                         participantId, sessionId, questionIndex, answerValue, deviceType,
  *                         assistance, and the recorded audio Blob (webm or m4a depending
  *                         on browser).
- * 8. Summary / end     — shown after the last question; localStorage is cleared immediately
+ * 8. Summary / end      — shown after the last question; localStorage is cleared immediately
  *                         before the end screen renders (no "Beenden" button).
  *
  * Persistence (localStorage)
@@ -204,6 +204,7 @@ export default function HealthSlider() {
   const [micError, setMicError] = useState('');
 
   const streamRef = useRef<MediaStream | null>(null);
+  const micStartingRef = useRef(false);
   const micDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -628,6 +629,8 @@ export default function HealthSlider() {
   };
 
   const startMic = async () => {
+    if (micStartingRef.current) return;
+    micStartingRef.current = true;
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         setMicError('Dieser Browser unterstützt Mikrofon-Aufnahmen nicht.');
@@ -688,6 +691,8 @@ export default function HealthSlider() {
         nice = 'Mikrofon belegt (z.B. Zoom/Teams) oder Start fehlgeschlagen.';
 
       setMicError(`${nice}${msg ? ` (${msg})` : ''}`);
+    } finally {
+      micStartingRef.current = false;
     }
   };
 

@@ -814,7 +814,7 @@ test.describe('ICF Monitor — assistance + device intro screens', () => {
     await expect(page.getByText('ÜBUNGSMODUS')).toBeVisible();
   });
 
-  test('selecting a device starts the session and shows practice mode', async ({ page }) => {
+  test('continuing past the video starts the session and shows practice mode', async ({ page }) => {
     await mockAudioAPIs(page);
     await stubSubmitItem(page);
     await gotoWithPatientId(page);

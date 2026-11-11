@@ -62,12 +62,13 @@ describe('HealthSlider (Full Sync)', () => {
     });
   };
 
-  // Click through the two intro screens (AssistanceScreen → DeviceScreen) to
-  // reach practice mode. startMic() is called after the device selection.
+  // Click through the intro screens (Assistance → Device → Video) to reach
+  // practice mode. startMic() is called on Weiter after the video.
   const startPracticeMode = async () => {
     fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
     fireEvent.click(screen.getByRole('button', { name: /Alleine/i }));
     fireEvent.click(screen.getByRole('button', { name: /Smartphone, Handy/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
   };
 
   beforeEach(() => {
@@ -564,6 +565,20 @@ describe('HealthSlider (Full Sync)', () => {
     (global as any).MediaRecorder = savedMR;
   });
 
+  it('double-tapping Weiter on the video screen requests the microphone only once', async () => {
+    renderICF();
+    await enterPatientId();
+    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Alleine/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Smartphone, Handy/i }));
+    const weiter = screen.getByRole('button', { name: 'Weiter' });
+    fireEvent.click(weiter);
+    fireEvent.click(weiter);
+
+    await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1);
+  });
+
   it('preloads correct audio sources: practice uses ubung.wav, real uses q01.wav', async () => {
     // Capture new Audio(src) calls triggered by preload effect
     const audioCalls: string[] = [];
@@ -1036,9 +1051,7 @@ describe('HealthSlider (Full Sync)', () => {
     (err as any).name = name;
     (global.navigator.mediaDevices.getUserMedia as jest.Mock).mockRejectedValueOnce(err);
 
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Alleine/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Smartphone, Handy/i }));
+    await startPracticeMode();
 
     expect(await screen.findByText(expectedMessage)).toBeInTheDocument();
   });
@@ -1050,9 +1063,7 @@ describe('HealthSlider (Full Sync)', () => {
     // @ts-expect-error -- simulate a browser with no mediaDevices API at all
     delete global.navigator.mediaDevices;
 
-    fireEvent.click(screen.getByRole('button', { name: /Übungslauf starten/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Alleine/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Smartphone, Handy/i }));
+    await startPracticeMode();
 
     expect(
       await screen.findByText(/Dieser Browser unterstützt Mikrofon-Aufnahmen nicht/i)
