@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { Badge } from '@/components/ui/badge';
 import { Alert } from '@/components/ui/alert';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router';
 
 import ErrorAlert from '@/components/common/ErrorAlert';
 import ConfirmModal from '@/components/common/ConfirmModal';
@@ -35,6 +36,17 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 
+const TAB_VALUES = [
+  'pending',
+  'access-requests',
+  'interventions',
+  'questionnaires',
+  'export',
+  'analytics',
+  'icf-access',
+  'system',
+];
+
 type AccessModalState = {
   open: boolean;
   therapistId: string;
@@ -46,6 +58,19 @@ const AdminDashboard: React.FC = observer(() => {
   const { isAllowed } = useRoleAuthGate('Admin', '/unauthorized');
 
   const store = useMemo(() => new AdminDashboardStore(), []);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab = tabParam && TAB_VALUES.includes(tabParam) ? tabParam : TAB_VALUES[0];
+  const setActiveTab = (value: string) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', value);
+        return next;
+      },
+      { replace: true }
+    );
 
   // -------------------------
   // Access modal (clinics + projects)
@@ -105,6 +130,11 @@ const AdminDashboard: React.FC = observer(() => {
       setAnalyticsLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'analytics') fetchAnalytics();
+  }, [activeTab, fetchAnalytics]);
+
   const [deleteModal, setDeleteModal] = useState<{
     open: boolean;
     id: string;
@@ -638,7 +668,7 @@ const AdminDashboard: React.FC = observer(() => {
 
       {store.error && <ErrorAlert message={store.error} onClose={() => store.setError(null)} />}
 
-      <Tabs defaultValue="pending">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-3">
           <TabsTrigger value="pending">
             {t('Pending registrations')}
@@ -655,9 +685,7 @@ const AdminDashboard: React.FC = observer(() => {
           <TabsTrigger value="interventions">{t('Interventions')}</TabsTrigger>
           <TabsTrigger value="questionnaires">{t('Questionnaires')}</TabsTrigger>
           <TabsTrigger value="export">{t('Export')}</TabsTrigger>
-          <TabsTrigger value="analytics" onClick={fetchAnalytics}>
-            {t('Analytics')}
-          </TabsTrigger>
+          <TabsTrigger value="analytics">{t('Analytics')}</TabsTrigger>
           <TabsTrigger value="icf-access">{t('ICF Access')}</TabsTrigger>
           <TabsTrigger value="system">{t('System')}</TabsTrigger>
         </TabsList>

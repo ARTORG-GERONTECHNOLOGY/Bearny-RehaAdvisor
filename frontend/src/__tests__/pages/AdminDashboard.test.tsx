@@ -82,7 +82,7 @@ jest.mock('@/stores/authStore', () => ({
 
 import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useLocation } from 'react-router';
 import AdminDashboard from '@/pages/AdminDashboard';
 import '@testing-library/jest-dom';
 
@@ -1120,6 +1120,59 @@ describe('AdminDashboard', () => {
           responseType: 'blob',
         });
       });
+    });
+  });
+
+  // ── tab persistence ───────────────────────────────────────────────────────
+
+  describe('tab URL param', () => {
+    it('opens the tab named in ?tab= so it survives a refresh', async () => {
+      (apiClient.get as jest.Mock).mockImplementation((url: string) =>
+        Promise.resolve({
+          data:
+            url === '/admin/analytics/devices/' ? { by_device: { Mobile: 1 }, by_role: {} } : {},
+        })
+      );
+      render(
+        <MemoryRouter initialEntries={['/?tab=analytics']}>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      expect(screen.getByRole('tab', { name: 'Analytics' })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      );
+      expect(await screen.findByText('Login device types')).toBeInTheDocument();
+    });
+
+    it('writes the selected tab to ?tab= and keeps other params', async () => {
+      const LocationSearch = () => <div data-testid="search">{useLocation().search}</div>;
+      render(
+        <MemoryRouter initialEntries={['/?foo=bar']}>
+          <AdminDashboard />
+          <LocationSearch />
+        </MemoryRouter>
+      );
+
+      await userEvent.click(screen.getByRole('tab', { name: 'Export' }));
+
+      expect(screen.getByTestId('search')).toHaveTextContent('?foo=bar&tab=export');
+    });
+
+    it('falls back to the pending tab when ?tab= is invalid', async () => {
+      render(
+        <MemoryRouter initialEntries={['/?tab=not-a-real-tab']}>
+          <AdminDashboard />
+        </MemoryRouter>
+      );
+
+      await waitFor(() =>
+        expect(screen.getByRole('tab', { name: /Pending registrations/ })).toHaveAttribute(
+          'aria-selected',
+          'true'
+        )
+      );
     });
   });
 
