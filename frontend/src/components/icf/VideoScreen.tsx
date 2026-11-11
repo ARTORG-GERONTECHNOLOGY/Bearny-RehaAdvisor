@@ -8,9 +8,10 @@ export const EXPLAINER_VIDEO_SRC = '/icf-video/funktionsbarometer-erklaervideo.m
 interface Props {
   onContinue: () => void;
   micError?: string;
+  starting?: boolean;
 }
 
-export default function VideoScreen({ onContinue, micError }: Props) {
+export default function VideoScreen({ onContinue, micError, starting = false }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const handleContinue = () => {
@@ -42,6 +43,7 @@ export default function VideoScreen({ onContinue, micError }: Props) {
           <button
             type="button"
             className="icf-btn icf-btn--primary icf-btn--auto"
+            disabled={starting}
             onClick={handleContinue}
           >
             Weiter

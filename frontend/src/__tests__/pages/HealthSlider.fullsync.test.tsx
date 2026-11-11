@@ -579,7 +579,7 @@ describe('HealthSlider (Full Sync)', () => {
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(1);
   });
 
-  it('releases the mic stream when the recorder fails, so Weiter can retry cleanly', async () => {
+  it('releases the leftover mic stream when Weiter retries after a recorder failure', async () => {
     const stop = jest.fn();
     const getUserMedia = navigator.mediaDevices.getUserMedia as jest.Mock;
     getUserMedia.mockResolvedValueOnce({ getTracks: () => [{ stop }] });
@@ -601,14 +601,42 @@ describe('HealthSlider (Full Sync)', () => {
       await startPracticeMode();
 
       expect(await screen.findByText(/Mikrofon-Fehler: NotSupportedError/i)).toBeInTheDocument();
-      expect(stop).toHaveBeenCalledTimes(1);
       // A reload now must show the intro again, not resume a session without device/assistance.
       expect(localStorage.getItem('survey_sessionId')).toBeNull();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Weiter' }));
+      const weiter = screen.getByRole('button', { name: 'Weiter' });
+      expect(weiter).toBeEnabled();
+      fireEvent.click(weiter);
       await waitFor(() => expect(screen.getByText(/ÜBUNGSMODUS/i)).toBeInTheDocument());
+      expect(stop).toHaveBeenCalledTimes(1);
       expect(getUserMedia).toHaveBeenCalledTimes(2);
       expect(localStorage.getItem('survey_sessionId')).not.toBeNull();
+    } finally {
+      (global as any).MediaRecorder = OriginalMR;
+    }
+  });
+
+  it('keeps the mic stream open when the recorder fails to start after a mid-survey reload', async () => {
+    const stop = jest.fn();
+    const getUserMedia = navigator.mediaDevices.getUserMedia as jest.Mock;
+    getUserMedia.mockResolvedValueOnce({ getTracks: () => [{ stop }] });
+
+    const OriginalMR = (global as any).MediaRecorder;
+    (global as any).MediaRecorder = class extends OriginalMR {
+      start() {
+        throw Object.assign(new Error('rec fail'), { name: 'NotSupportedError' });
+      }
+    };
+
+    try {
+      localStorage.setItem('survey_index', '2');
+      localStorage.setItem('survey_sessionId', 'resume-session');
+      renderICF('/icf/P001-001T1');
+
+      expect(await screen.findByText(/NotSupportedError/i)).toBeInTheDocument();
+      // No Weiter to retry here, so the stream must stay open for the next item's recorder.
+      expect(stop).not.toHaveBeenCalled();
+      expect(localStorage.getItem('survey_sessionId')).toBe('resume-session');
     } finally {
       (global as any).MediaRecorder = OriginalMR;
     }

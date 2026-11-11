@@ -204,7 +204,7 @@ export default function HealthSlider() {
   const [micError, setMicError] = useState('');
 
   const streamRef = useRef<MediaStream | null>(null);
-  const micStartingRef = useRef(false);
+  const [micStarting, setMicStarting] = useState(false);
   const micDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -629,9 +629,9 @@ export default function HealthSlider() {
   };
 
   const startMic = async () => {
-    if (micStartingRef.current) return;
-    micStartingRef.current = true;
-    let started = false;
+    setMicStarting(true);
+    // Release leftovers from a failed earlier attempt; a no-op on the first start.
+    stopAll();
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
         setMicError('Dieser Browser unterstützt Mikrofon-Aufnahmen nicht.');
@@ -671,24 +671,13 @@ export default function HealthSlider() {
 
       ensureSessionId();
       startItemRecorder();
-      // Persist sessionId only once recording runs, so a refresh during practice mode
-      // skips the welcome screen (testMode initialises to false when either
-      // survey_index or survey_sessionId is present in localStorage), but a failed
-      // start doesn't skip the assistance/device questions.
+      // Persisted only after recording starts, so a failed start can't skip the intro on reload.
       if (sessionIdRef.current) localStorage.setItem('survey_sessionId', sessionIdRef.current);
 
       setTestMode(false);
       setMicError('');
-      started = true;
     } catch (e: any) {
       console.error('[HealthSlider] getUserMedia error', e);
-
-      // Release a stream that opened before the recorder failed, so a retry starts clean.
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      micDestRef.current?.stream.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-      micDestRef.current = null;
-      recorderRef.current = null;
 
       const name = e?.name || 'UnknownError';
       const msg = e?.message || '';
@@ -702,8 +691,7 @@ export default function HealthSlider() {
 
       setMicError(`${nice}${msg ? ` (${msg})` : ''}`);
     } finally {
-      // Stays set after success: the video screen may still be mounted until React re-renders.
-      if (!started) micStartingRef.current = false;
+      setMicStarting(false);
     }
   };
 
@@ -908,7 +896,7 @@ export default function HealthSlider() {
 
   if (testMode) {
     if (showingVideoScreen) {
-      return <VideoScreen micError={micError} onContinue={startMic} />;
+      return <VideoScreen micError={micError} starting={micStarting} onContinue={startMic} />;
     }
     if (showingDeviceScreen) {
       return (

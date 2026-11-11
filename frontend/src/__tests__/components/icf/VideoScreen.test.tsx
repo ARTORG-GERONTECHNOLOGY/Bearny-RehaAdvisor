@@ -32,6 +32,13 @@ describe('VideoScreen', () => {
     }
   });
 
+  it('disables Weiter while the mic is starting', () => {
+    const { rerender } = render(<VideoScreen onContinue={noop} />);
+    expect(screen.getByRole('button', { name: 'Weiter' })).toBeEnabled();
+    rerender(<VideoScreen onContinue={noop} starting />);
+    expect(screen.getByRole('button', { name: 'Weiter' })).toBeDisabled();
+  });
+
   it('does not show mic error when micError is not provided', () => {
     const { container } = render(<VideoScreen onContinue={noop} />);
     expect(container.querySelector('.icf-audio-error')).not.toBeInTheDocument();
