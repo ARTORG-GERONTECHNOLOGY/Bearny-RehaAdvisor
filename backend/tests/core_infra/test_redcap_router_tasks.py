@@ -155,7 +155,7 @@ def test_google_health_today_all_counts_only_users_actually_synced():
     """Users skipped by the cooldown or without data return 0 and must not be reported as synced."""
     tokens = [SimpleNamespace(user=f"user-{i}") for i in range(3)]
     with (
-        patch("core.models.GoogleHealthUserToken.objects", return_value=SimpleNamespace(all=lambda: tokens)),
+        patch("core.models.GoogleHealthUserToken.objects", return_value=SimpleNamespace(only=lambda *fields: tokens)),
         patch("core.tasks.fetch_google_health_today_for_user", side_effect=[1, 0, Exception("boom")]),
     ):
         result = run_fetch_google_health_data_today_all()
@@ -176,7 +176,7 @@ def test_google_health_today_all_reads_all_tokens_before_calling_the_api():
         return 1
 
     with (
-        patch("core.models.GoogleHealthUserToken.objects", return_value=SimpleNamespace(all=cursor)),
+        patch("core.models.GoogleHealthUserToken.objects", return_value=SimpleNamespace(only=lambda *fields: cursor())),
         patch("core.tasks.fetch_google_health_today_for_user", side_effect=fetch),
     ):
         result = run_fetch_google_health_data_today_all()
