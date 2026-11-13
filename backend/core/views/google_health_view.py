@@ -174,7 +174,11 @@ def google_health_callback(request):
                 # A reloaded callback URL reuses the nonce of a sign-in that already succeeded.
                 done = rc.get(f"oauth_nonce_done:{nonce}")
                 if done is not None and done.decode() == patient_id_from_state:
-                    logger.info("[google_health_callback] repeated callback for a completed sign-in")
+                    logger.info(
+                        "[google_health_callback] repeated callback for completed nonce %s, user %s",
+                        nonce,
+                        patient_id_from_state,
+                    )
                     return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=connected")
                 logger.warning("[google_health_callback] nonce not found or expired: %s", nonce)
                 return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=unauthorized")
