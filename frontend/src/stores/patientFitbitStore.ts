@@ -71,6 +71,8 @@ class PatientFitbitStore {
   hrDataMissing: boolean | null = null;
   sleepScopeOk: boolean | null = null;
   noDataEver: boolean | null = null;
+  deviceStoppedSyncing: boolean | null = null;
+  daysSinceDeviceData: number | null = null;
   accountNotLinked: boolean | null = null;
 
   summary: FitbitSummary | null = null;
@@ -120,6 +122,8 @@ class PatientFitbitStore {
     this.hrDataMissing = null;
     this.sleepScopeOk = null;
     this.noDataEver = null;
+    this.deviceStoppedSyncing = null;
+    this.daysSinceDeviceData = null;
     this.accountNotLinked = null;
   }
 
@@ -165,6 +169,8 @@ class PatientFitbitStore {
           this.hrDataMissing = ghData?.hr_data_missing ?? null;
           this.sleepScopeOk = ghData?.sleep_scope_ok ?? null;
           this.noDataEver = ghData?.no_data_ever ?? null;
+          this.deviceStoppedSyncing = ghData?.device_stopped_syncing ?? null;
+          this.daysSinceDeviceData = ghData?.days_since_device_data ?? null;
           this.accountNotLinked = ghData?.account_not_linked ?? null;
         });
       } else {
