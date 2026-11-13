@@ -13,6 +13,7 @@ from core.tasks import (
     run_delete_expired_videos,
     run_fetch_fitbit_data,
     run_fetch_google_health_data_today_all,
+    sync_wearables_to_redcap_all,
 )
 
 
@@ -155,8 +156,56 @@ def test_google_health_today_all_counts_only_users_actually_synced():
     """Users skipped by the cooldown or without data return 0 and must not be reported as synced."""
     tokens = [SimpleNamespace(user=f"user-{i}") for i in range(3)]
     with (
-        patch("core.models.GoogleHealthUserToken.objects", return_value=SimpleNamespace(all=lambda: tokens)),
+        patch("core.models.GoogleHealthUserToken.objects", return_value=SimpleNamespace(only=lambda *fields: tokens)),
         patch("core.tasks.fetch_google_health_today_for_user", side_effect=[1, 0, Exception("boom")]),
     ):
         result = run_fetch_google_health_data_today_all()
     assert result == {"synced": 1, "errors": 1}
+
+
+def test_google_health_today_all_reads_all_tokens_before_calling_the_api():
+    consumed = []
+    consumed_at_fetch = []
+
+    def cursor():
+        for i in range(2):
+            consumed.append(i)
+            yield SimpleNamespace(user=f"user-{i}")
+
+    def fetch(user):
+        consumed_at_fetch.append(len(consumed))
+        return 1
+
+    with (
+        patch("core.models.GoogleHealthUserToken.objects") as objects,
+        patch("core.tasks.fetch_google_health_today_for_user", side_effect=fetch),
+    ):
+        objects.return_value.only.return_value = cursor()
+        result = run_fetch_google_health_data_today_all()
+    objects.assert_called_once_with(is_revoked__ne=True)
+    objects.return_value.only.assert_called_once_with("user")
+    assert consumed_at_fetch == [2, 2], "cursor must be exhausted before the slow per-user API calls"
+    assert result == {"synced": 2, "errors": 0}
+
+
+def test_sync_wearables_all_reads_all_patients_before_calling_redcap():
+    consumed = []
+    consumed_at_export = []
+
+    def cursor():
+        for i in range(2):
+            consumed.append(i)
+            yield SimpleNamespace(project="P1", patient_code=f"PAT-{i}")
+
+    def export(patient, skip_if_populated):
+        consumed_at_export.append(len(consumed))
+        return {}
+
+    with (
+        patch("core.tasks.Patient.objects", return_value=cursor()) as objects,
+        patch("core.services.wearables_redcap_service.export_wearables_to_redcap", side_effect=export),
+    ):
+        result = sync_wearables_to_redcap_all()
+    objects.assert_called_once_with(project__ne="")
+    assert consumed_at_export == [2, 2], "cursor must be exhausted before the slow per-patient REDCap calls"
+    assert result == {"synced": 2, "errors": 0}
