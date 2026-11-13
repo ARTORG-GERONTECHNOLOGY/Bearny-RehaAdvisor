@@ -76,13 +76,6 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       reason: 'noDataBannerReason',
     },
     {
-      variant: 'stoppedSyncing',
-      show: store.deviceStoppedSyncing === true,
-      title: 'stoppedSyncingBannerTitle',
-      titleArgs: { count: store.daysSinceDeviceData },
-      reason: 'stoppedSyncingBannerReason',
-    },
-    {
       variant: 'hrSync',
       show: store.hrDataMissing === true,
       title: 'hrSyncBannerTitle',
@@ -101,6 +94,14 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       title: 'sleepScopeBannerTitle',
       reason: 'sleepScopeBannerReason',
       action: 'Reconnect',
+    },
+    {
+      // After the scope banners: a missing scope is fixable in Bearny and may be why data stopped.
+      variant: 'stoppedSyncing',
+      show: store.deviceStoppedSyncing === true,
+      title: 'stoppedSyncingBannerTitle',
+      titleArgs: { count: store.daysSinceDeviceData },
+      reason: 'stoppedSyncingBannerReason',
     },
     {
       variant: 'reconnect',

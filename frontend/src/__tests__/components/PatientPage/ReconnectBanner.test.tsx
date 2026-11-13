@@ -346,6 +346,16 @@ describe('ReconnectBanner — stopped-syncing banner', () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it('gives way to a missing-scope banner, which offers Reconnect', () => {
+    setStore(false, null, {
+      deviceStoppedSyncing: true,
+      daysSinceDeviceData: 5,
+      sleepScopeOk: false,
+    });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/sleepScopeBannerTitle/i)).toBeInTheDocument();
+  });
+
   it('gives way to the not-linked banner, which the patient can fix in Bearny', () => {
     setStore(false, null, {
       deviceStoppedSyncing: true,

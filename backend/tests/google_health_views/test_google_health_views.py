@@ -345,18 +345,35 @@ def test_status_device_stopped_syncing_counts_sleep_only_days():
     assert body["device_stopped_syncing"] is False
 
 
-@pytest.mark.parametrize("case", ["no_data", "other_device", "not_linked", "not_connected"])
+@pytest.mark.parametrize("case", ["no_data", "other_device", "not_linked", "not_connected", "just_reconnected"])
 def test_status_device_stopped_syncing_false_when_another_state_applies(case):
     from core.models import GoogleHealthUserToken
 
     user = _make_user()
     _make_patient(user, wearable_device="fitbit" if case == "other_device" else "google_health")
-    token = _make_token(user, connected_at=timezone.now() - timedelta(days=30), is_revoked=case == "not_connected")
+    # A fresh reconnect gets the grace period: the backfill may not have written recent days yet.
+    connected_ago = timedelta(hours=1) if case == "just_reconnected" else timedelta(days=30)
+    token = _make_token(user, connected_at=timezone.now() - connected_ago, is_revoked=case == "not_connected")
     if case == "not_linked":
         GoogleHealthUserToken.objects(id=token.id).update_one(set__sync_error="not_linked")
     if case != "no_data":
         _device_row(user, 10, steps=4000)
     body = json.loads(_status_as(user.id).content)
+    assert body["device_stopped_syncing"] is False
+
+
+@patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
+@patch("core.views.google_health_view._probe_hr_scope")
+def test_status_device_stopped_syncing_false_when_probe_finds_account_not_linked(mock_hr, mock_token):
+    from core.views.google_health_sync import GoogleHealthAccountNotLinked
+
+    mock_hr.side_effect = GoogleHealthAccountNotLinked()
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(days=30))
+    _device_row(user, 10, steps=4000)  # no wear time, so the status probes the HR scope
+    body = json.loads(_status_as(user.id).content)
+    assert body["account_not_linked"] is True
     assert body["device_stopped_syncing"] is False
 
 

@@ -373,7 +373,6 @@ def google_health_status(request, patient_id):
     past_grace = connected_at is None or timezone.now() - connected_at >= _NO_DATA_GRACE
     no_data_ever = False
     days_since_device_data = None
-    device_stopped_syncing = False
     account_not_linked = connected and token.sync_error == SYNC_ERROR_NOT_LINKED
     on_google_health = getattr(patient, "wearable_device", None) == "google_health"
 
@@ -390,12 +389,9 @@ def google_health_status(request, patient_id):
             | Q(lightly_active_minutes__gt=0)
         )
         last_device_row = device_rows.order_by("-date").only("date").first()
-        no_data_ever = past_grace and not active_days and not last_device_row
+        no_data_ever = past_grace and not last_device_row
         if last_device_row:
             days_since_device_data = (timezone.localdate() - last_device_row.date.date()).days
-            device_stopped_syncing = (
-                on_google_health and not account_not_linked and days_since_device_data >= _DEVICE_STALE_DAYS
-            )
 
         # Gather which probes are needed, then run them once with a single token fetch.
         should_probe_hr = False
@@ -446,6 +442,15 @@ def google_health_status(request, patient_id):
                 hr_scope_ok = sleep_scope_ok = hr_data_missing = None
             except Exception:
                 logger.warning("[gh_status] could not probe scopes for user %s", user.id)
+
+    # After the probes, which can still discover a not-linked account.
+    device_stopped_syncing = (
+        past_grace
+        and on_google_health
+        and not account_not_linked
+        and days_since_device_data is not None
+        and days_since_device_data >= _DEVICE_STALE_DAYS
+    )
 
     return JsonResponse(
         {
