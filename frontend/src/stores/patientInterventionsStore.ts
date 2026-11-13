@@ -127,6 +127,7 @@ class PatientInterventionsStore {
   }
 
   async fetchPlan(patientId: string, uiLang: string) {
+    const patientChanged = patientId !== this.currentPatientId;
     this.currentPatientId = patientId;
     const generation = ++this.fetchGeneration;
     const cached = this.loadFromSessionStorage(patientId);
@@ -134,6 +135,8 @@ class PatientInterventionsStore {
       runInAction(() => {
         this.items = cached;
       });
+    } else if (patientChanged) {
+      this.items = [];
     }
     if (!this.items.length) this.loading = true;
     this.clearError();
