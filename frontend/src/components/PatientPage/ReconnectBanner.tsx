@@ -77,8 +77,7 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
     },
     {
       variant: 'hrSync',
-      // A watch that sends nothing also sends no heart rate; the stopped-syncing banner covers that.
-      show: store.hrDataMissing === true && store.deviceStoppedSyncing !== true,
+      show: store.hrDataMissing === true,
       title: 'hrSyncBannerTitle',
       reason: 'hrSyncBannerReason',
     },
@@ -97,9 +96,12 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       action: 'Reconnect',
     },
     {
-      // After the scope banners: a missing scope is fixable in Bearny and may be why data stopped.
+      // Like noData: only blame the device once both scopes are confirmed.
       variant: 'stoppedSyncing',
-      show: store.deviceStoppedSyncing === true,
+      show:
+        store.deviceStoppedSyncing === true &&
+        store.hrScopeOk === true &&
+        store.sleepScopeOk === true,
       title: 'stoppedSyncingBannerTitle',
       titleArgs: { count: store.daysSinceDeviceData },
       reason: 'stoppedSyncingBannerReason',

@@ -331,7 +331,12 @@ describe('ReconnectBanner — noDataEver banner', () => {
 
 describe('ReconnectBanner — stopped-syncing banner', () => {
   it('shows how many days the watch has sent no data, without a Reconnect button', () => {
-    setStore(false, null, { deviceStoppedSyncing: true, daysSinceDeviceData: 5 });
+    setStore(false, null, {
+      deviceStoppedSyncing: true,
+      daysSinceDeviceData: 5,
+      hrScopeOk: true,
+      sleepScopeOk: true,
+    });
     render(<ReconnectBanner />);
     expect(
       screen.getByText('No data from your watch for 5 days — check Fitbit sync.')
@@ -346,16 +351,15 @@ describe('ReconnectBanner — stopped-syncing banner', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('takes precedence over the heart-rate sync banner', () => {
+  it('renders nothing while a scope check is unknown, e.g. after a failed probe', () => {
     setStore(false, null, {
       deviceStoppedSyncing: true,
       daysSinceDeviceData: 10,
-      hrDataMissing: true,
+      hrScopeOk: null,
+      sleepScopeOk: true,
     });
-    render(<ReconnectBanner />);
-    expect(
-      screen.getByText('No data from your watch for 10 days — check Fitbit sync.')
-    ).toBeInTheDocument();
+    const { container } = render(<ReconnectBanner />);
+    expect(container.firstChild).toBeNull();
   });
 
   it('gives way to a missing-scope banner, which offers Reconnect', () => {

@@ -392,15 +392,20 @@ def google_health_status(request, patient_id):
         today = timezone.localdate()
         # Manual steps can be entered for future dates; those mustn't count as recent device data.
         last_device_row = (
-            device_rows.filter(date__lte=datetime.combine(today, datetime.min.time()))
+            device_rows.filter(date__lt=datetime.combine(today + timedelta(days=1), datetime.min.time()))
             .order_by("-date")
             .only("date")
             .first()
         )
-        no_data_ever = past_grace and not device_rows.first()
+        no_data_ever = past_grace and not last_device_row
+        last_fetched = getattr(token, "last_fetched_at", None)
+        if last_fetched and timezone.is_naive(last_fetched):
+            last_fetched = timezone.make_aware(last_fetched, dt_timezone.utc)
+        # Without a recent sync run, a gap could be our outage rather than the watch.
+        synced_recently = last_fetched is not None and timezone.now() - last_fetched < timedelta(days=1)
         if last_device_row:
             days_since_device_data = (today - last_device_row.date.date()).days
-            device_stale = past_grace and days_since_device_data >= _DEVICE_STALE_DAYS
+            device_stale = past_grace and synced_recently and days_since_device_data >= _DEVICE_STALE_DAYS
 
         # Gather which probes are needed, then run them once with a single token fetch.
         should_probe_hr = False
@@ -422,10 +427,6 @@ def google_health_status(request, patient_id):
             # Tells a missing scope (reconnect) apart from a device that never writes data.
             should_probe_hr = True
             should_probe_sleep = True
-        hr_missing_in_store = should_probe_hr and bool(active_days)
-        if device_stale:
-            # The stored days predate the stop, so ask Google whether a scope went missing since.
-            should_probe_hr = should_probe_sleep = True
 
         # Other devices ignore the results and not-linked accounts fail every probe, so skip the Google calls.
         if not on_google_health or account_not_linked:
@@ -438,7 +439,7 @@ def google_health_status(request, patient_id):
                     probe = _probe_hr_scope(token_val)
                     if probe is True:
                         hr_scope_ok = True
-                        if hr_missing_in_store:
+                        if active_days:
                             # Scope OK but historical HR absent → Fitbit not writing HR zones
                             hr_data_missing = True
                     elif probe is False:
@@ -458,6 +459,9 @@ def google_health_status(request, patient_id):
 
     # After the probes, which can still discover a not-linked account.
     device_stopped_syncing = device_stale and on_google_health and not account_not_linked
+    if device_stopped_syncing:
+        # A watch that sends nothing also sends no heart rate; the stopped-syncing banner covers that.
+        hr_data_missing = None
 
     return JsonResponse(
         {

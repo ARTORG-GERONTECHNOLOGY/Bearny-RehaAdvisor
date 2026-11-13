@@ -101,7 +101,7 @@ def _make_user():
     ).save()
 
 
-def _make_token(user, connected_at=None, is_revoked=False):
+def _make_token(user, connected_at=None, is_revoked=False, last_fetched_at=None):
     from core.models import GoogleHealthUserToken
 
     return GoogleHealthUserToken(
@@ -111,6 +111,7 @@ def _make_token(user, connected_at=None, is_revoked=False):
         expires_at=timezone.now() + timedelta(hours=1),
         connected_at=connected_at,
         is_revoked=is_revoked,
+        last_fetched_at=last_fetched_at,
     ).save()
 
 
@@ -325,7 +326,7 @@ def _device_row(user, days_ago, **fields):
 def test_status_device_stopped_syncing_after_three_days(days_ago, stopped):
     user = _make_user()
     _make_patient(user)
-    _make_token(user, connected_at=timezone.now() - timedelta(days=30))
+    _make_token(user, connected_at=timezone.now() - timedelta(days=30), last_fetched_at=timezone.now())
     _device_row(user, days_ago, steps=4000)
     body = json.loads(_status_as(user.id).content)
     assert body["days_since_device_data"] == days_ago
@@ -338,14 +339,16 @@ def test_status_device_stopped_syncing_counts_sleep_only_days():
 
     user = _make_user()
     _make_patient(user)
-    _make_token(user, connected_at=timezone.now() - timedelta(days=30))
+    _make_token(user, connected_at=timezone.now() - timedelta(days=30), last_fetched_at=timezone.now())
     _device_row(user, 6, steps=4000)
     _device_row(user, 1, sleep=SleepData(minutes_asleep=420))
     body = json.loads(_status_as(user.id).content)
     assert body["device_stopped_syncing"] is False
 
 
-@pytest.mark.parametrize("case", ["no_data", "other_device", "not_linked", "not_connected", "just_reconnected"])
+@pytest.mark.parametrize(
+    "case", ["no_data", "other_device", "not_linked", "not_connected", "just_reconnected", "no_recent_sync"]
+)
 def test_status_device_stopped_syncing_false_when_another_state_applies(case):
     from core.models import GoogleHealthUserToken
 
@@ -353,7 +356,14 @@ def test_status_device_stopped_syncing_false_when_another_state_applies(case):
     _make_patient(user, wearable_device="fitbit" if case == "other_device" else "google_health")
     # A fresh reconnect gets the grace period: the backfill may not have written recent days yet.
     connected_ago = timedelta(hours=1) if case == "just_reconnected" else timedelta(days=30)
-    token = _make_token(user, connected_at=timezone.now() - connected_ago, is_revoked=case == "not_connected")
+    # Without a sync run in the last day, the gap could be our outage rather than the watch.
+    last_fetched = timezone.now() - timedelta(days=4 if case == "no_recent_sync" else 0)
+    token = _make_token(
+        user,
+        connected_at=timezone.now() - connected_ago,
+        is_revoked=case == "not_connected",
+        last_fetched_at=last_fetched,
+    )
     if case == "not_linked":
         GoogleHealthUserToken.objects(id=token.id).update_one(set__sync_error="not_linked")
     if case != "no_data":
@@ -362,41 +372,38 @@ def test_status_device_stopped_syncing_false_when_another_state_applies(case):
     assert body["device_stopped_syncing"] is False
 
 
+def test_status_no_data_ever_ignores_future_dated_rows():
+    """A manual entry for a future date doesn't prove the device ever synced."""
+    user = _make_user()
+    _make_token(user, connected_at=timezone.now() - timedelta(days=2))
+    _device_row(user, -14, steps=3000)
+    body = json.loads(_status_as(user.id).content)
+    assert body["no_data_ever"] is True
+
+
+@patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
+@patch("core.views.google_health_view._probe_sleep_scope", return_value=True)
+@patch("core.views.google_health_view._probe_hr_scope", return_value=True)
+def test_status_stale_device_does_not_report_hr_data_missing(mock_hr, mock_sleep, mock_token):
+    """Old step days without heart rate mustn't raise the heart-rate banner over the stopped-syncing one."""
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(days=30), last_fetched_at=timezone.now())
+    _device_row(user, 10, steps=4000)
+    body = json.loads(_status_as(user.id).content)
+    assert body["device_stopped_syncing"] is True
+    assert body["hr_data_missing"] is None
+
+
 def test_status_device_stopped_syncing_ignores_future_dated_rows():
     """A manual entry for a future date mustn't make an old stop look recent."""
     user = _make_user()
     _make_patient(user)
-    _make_token(user, connected_at=timezone.now() - timedelta(days=30))
+    _make_token(user, connected_at=timezone.now() - timedelta(days=30), last_fetched_at=timezone.now())
     _device_row(user, 5, steps=4000)
     _device_row(user, -14, steps=3000)
     body = json.loads(_status_as(user.id).content)
     assert body["days_since_device_data"] == 5
-    assert body["device_stopped_syncing"] is True
-
-
-@pytest.mark.parametrize("hr_probe, sleep_probe", [(False, True), (True, False)])
-@patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
-@patch("core.views.google_health_view._probe_sleep_scope")
-@patch("core.views.google_health_view._probe_hr_scope")
-def test_status_stale_device_probes_scopes_despite_old_stored_data(
-    mock_hr, mock_sleep, mock_token, hr_probe, sleep_probe
-):
-    """Old days with heart rate and sleep don't prove the scopes are still granted."""
-    from core.models import SleepData
-
-    mock_hr.return_value = hr_probe
-    mock_sleep.return_value = sleep_probe
-    user = _make_user()
-    _make_patient(user)
-    _make_token(user, connected_at=timezone.now() - timedelta(days=30))
-    _device_row(user, 10, steps=4000, wear_time_minutes=600, sleep=SleepData(minutes_asleep=420))
-
-    body = json.loads(_status_as(user.id).content)
-
-    assert body["hr_scope_ok"] is hr_probe
-    assert body["sleep_scope_ok"] is sleep_probe
-    # Stored heart rate was present, so a granted scope doesn't mean Fitbit stopped writing it.
-    assert body["hr_data_missing"] is None
     assert body["device_stopped_syncing"] is True
 
 
@@ -408,7 +415,7 @@ def test_status_device_stopped_syncing_false_when_probe_finds_account_not_linked
     mock_hr.side_effect = GoogleHealthAccountNotLinked()
     user = _make_user()
     _make_patient(user)
-    _make_token(user, connected_at=timezone.now() - timedelta(days=30))
+    _make_token(user, connected_at=timezone.now() - timedelta(days=30), last_fetched_at=timezone.now())
     _device_row(user, 10, steps=4000)  # no wear time, so the status probes the HR scope
     body = json.loads(_status_as(user.id).content)
     assert body["account_not_linked"] is True
