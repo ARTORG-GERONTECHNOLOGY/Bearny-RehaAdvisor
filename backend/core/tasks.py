@@ -358,7 +358,8 @@ def sync_wearables_to_redcap_all():
     """
     from core.services.wearables_redcap_service import export_wearables_to_redcap
 
-    patients = Patient.objects(project__ne="")
+    # list(): the per-patient REDCap calls can outlast Mongo's 10-min idle cursor timeout (CursorNotFound).
+    patients = list(Patient.objects(project__ne=""))
 
     synced = 0
     errors = 0
