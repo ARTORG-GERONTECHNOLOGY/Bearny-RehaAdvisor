@@ -176,9 +176,12 @@ def test_google_health_today_all_reads_all_tokens_before_calling_the_api():
         return 1
 
     with (
-        patch("core.models.GoogleHealthUserToken.objects", return_value=SimpleNamespace(only=lambda *fields: cursor())),
+        patch("core.models.GoogleHealthUserToken.objects") as objects,
         patch("core.tasks.fetch_google_health_today_for_user", side_effect=fetch),
     ):
+        objects.return_value.only.return_value = cursor()
         result = run_fetch_google_health_data_today_all()
+    objects.assert_called_once_with(is_revoked__ne=True)
+    objects.return_value.only.assert_called_once_with("user")
     assert consumed_at_fetch == [2, 2], "cursor must be exhausted before the slow per-user API calls"
     assert result == {"synced": 2, "errors": 0}
