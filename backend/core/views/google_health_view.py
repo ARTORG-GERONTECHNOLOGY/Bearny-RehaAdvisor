@@ -70,7 +70,7 @@ from core.views.google_health_sync import (
 
 logger = logging.getLogger(__name__)
 
-_OAUTH_NONCE_TTL = 600  # seconds — 10 minutes
+_OAUTH_NONCE_TTL = 1800  # long enough for a slow sign-in in the clinic
 _NO_DATA_GRACE = timedelta(hours=24)
 
 

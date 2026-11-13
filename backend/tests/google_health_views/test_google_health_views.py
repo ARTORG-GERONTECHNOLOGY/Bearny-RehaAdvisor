@@ -37,6 +37,7 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 # Kept before the autouse fixture replaces it, so the probe itself can be tested.
 from core.views.google_health_sync import _google_answers as _real_google_answers
+from core.views.google_health_view import _OAUTH_NONCE_TTL
 from core.views.google_health_view import _probe_hr_scope as _real_probe_hr_scope
 from core.views.google_health_view import _probe_sleep_scope as _real_probe_sleep_scope
 
@@ -768,7 +769,7 @@ def test_callback_records_completed_nonce(
 
     # A failed write must not turn a successful connect into an error.
     assert "google_health_status=connected" in resp["Location"]
-    rc.set.assert_called_once_with("oauth_nonce_done:donenonce", str(user.id), ex=600)
+    rc.set.assert_called_once_with("oauth_nonce_done:donenonce", str(user.id), ex=_OAUTH_NONCE_TTL)
 
 
 @patch("core.tasks.backfill_google_health_on_connect.delay")
