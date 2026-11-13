@@ -90,13 +90,31 @@ describe('patientFitbitStore', () => {
       expect(patientFitbitStore.accountNotLinked).toBe(true);
     });
 
+    it('reads the stopped-syncing state for Google Health patients', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: {
+          connected: true,
+          wearable_device: 'google_health',
+          device_stopped_syncing: true,
+          days_since_device_data: 4,
+        },
+      });
+      await patientFitbitStore.fetchStatus('p1');
+      expect(patientFitbitStore.deviceStoppedSyncing).toBe(true);
+      expect(patientFitbitStore.daysSinceDeviceData).toBe(4);
+    });
+
     it('clears Google Health banner flags when the device is not google_health', async () => {
+      (patientFitbitStore as any).deviceStoppedSyncing = true;
+      (patientFitbitStore as any).daysSinceDeviceData = 4;
       (patientFitbitStore as any).noDataEver = true;
       (patientFitbitStore as any).hrScopeOk = false;
       (patientFitbitStore as any).accountNotLinked = true;
       (apiClient.get as jest.Mock).mockResolvedValueOnce({ data: { wearable_device: 'omron' } });
       await patientFitbitStore.fetchStatus('p1');
       expect(patientFitbitStore.noDataEver).toBeNull();
+      expect(patientFitbitStore.deviceStoppedSyncing).toBeNull();
+      expect(patientFitbitStore.daysSinceDeviceData).toBeNull();
       expect(patientFitbitStore.hrScopeOk).toBeNull();
       expect(patientFitbitStore.accountNotLinked).toBeNull();
     });

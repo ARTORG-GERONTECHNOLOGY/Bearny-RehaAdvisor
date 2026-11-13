@@ -1548,6 +1548,8 @@
   "stepsTip": "Stappen",
   "Stop": "Stoppen",
   "Stop Recording": "Opname stoppen",
+  "stoppedSyncingBannerReason": "Open de Fitbit-app en controleer of je horloge onlangs heeft gesynchroniseerd. Open op Android ook Health Connect (zoek ernaar in Instellingen) en controleer of Fitbit nog steeds schrijftoegang heeft voor Activiteit, Hartslag en Slaap.",
+  "stoppedSyncingBannerTitle": "Al {{count}} dagen geen gegevens van je horloge — controleer Fitbit-synchronisatie.",
   "stopRecording": "opname stoppen",
   "strength training": "Krachttraining",
   "stress": "Stress",

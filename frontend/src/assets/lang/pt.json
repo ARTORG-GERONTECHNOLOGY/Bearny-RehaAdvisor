@@ -1548,6 +1548,8 @@
   "stepsTip": "Passos",
   "Stop": "Parar",
   "Stop Recording": "Parar Gravação",
+  "stoppedSyncingBannerReason": "Abra a aplicação Fitbit e verifique se o seu relógio sincronizou recentemente. No Android, abra também o Health Connect (pesquise-o nas Configurações) e confirme que o Fitbit ainda tem acesso de gravação para Atividade, Frequência cardíaca e Sono.",
+  "stoppedSyncingBannerTitle": "Sem dados do seu relógio há {{count}} dias — verifique a sincronização do Fitbit.",
   "stopRecording": "parar gravação",
   "strength training": "Treino de força",
   "stress": "Stress",

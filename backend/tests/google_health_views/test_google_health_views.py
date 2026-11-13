@@ -306,6 +306,60 @@ def test_status_no_data_ever_false_when_only_active_minutes_exist():
     assert body["no_data_ever"] is False
 
 
+# ---------------------------------------------------------------------------
+# google_health_status — device_stopped_syncing field
+# ---------------------------------------------------------------------------
+
+
+def _device_row(user, days_ago, **fields):
+    from core.models import GoogleHealthData
+
+    day = datetime.combine(timezone.localdate() - timedelta(days=days_ago), datetime.min.time())
+    return GoogleHealthData(user=user, date=day, **fields).save()
+
+
+@pytest.mark.parametrize(
+    "days_ago, stopped",
+    [(0, False), (2, False), (3, True), (10, True)],
+)
+def test_status_device_stopped_syncing_after_three_days(days_ago, stopped):
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(days=30))
+    _device_row(user, days_ago, steps=4000)
+    body = json.loads(_status_as(user.id).content)
+    assert body["days_since_device_data"] == days_ago
+    assert body["device_stopped_syncing"] is stopped
+
+
+def test_status_device_stopped_syncing_counts_sleep_only_days():
+    """Patients who don't walk still sync sleep; that keeps the banner away."""
+    from core.models import SleepData
+
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(days=30))
+    _device_row(user, 6, steps=4000)
+    _device_row(user, 1, sleep=SleepData(minutes_asleep=420))
+    body = json.loads(_status_as(user.id).content)
+    assert body["device_stopped_syncing"] is False
+
+
+@pytest.mark.parametrize("case", ["no_data", "other_device", "not_linked", "not_connected"])
+def test_status_device_stopped_syncing_false_when_another_state_applies(case):
+    from core.models import GoogleHealthUserToken
+
+    user = _make_user()
+    _make_patient(user, wearable_device="fitbit" if case == "other_device" else "google_health")
+    token = _make_token(user, connected_at=timezone.now() - timedelta(days=30), is_revoked=case == "not_connected")
+    if case == "not_linked":
+        GoogleHealthUserToken.objects(id=token.id).update_one(set__sync_error="not_linked")
+    if case != "no_data":
+        _device_row(user, 10, steps=4000)
+    body = json.loads(_status_as(user.id).content)
+    assert body["device_stopped_syncing"] is False
+
+
 @patch("core.views.google_health_view._probe_hr_scope")
 @patch("core.views.google_health_view._probe_sleep_scope")
 def test_status_skips_probes_for_patient_on_another_device(mock_sleep, mock_hr):

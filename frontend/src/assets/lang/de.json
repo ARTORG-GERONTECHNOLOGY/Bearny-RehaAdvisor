@@ -1548,6 +1548,8 @@
   "stepsTip": "Schritte",
   "Stop": "Stopp",
   "Stop Recording": "Aufnahme stoppen",
+  "stoppedSyncingBannerReason": "Öffnen Sie die Fitbit-App und prüfen Sie, ob Ihre Uhr kürzlich synchronisiert hat. Auf Android öffnen Sie zusätzlich Health Connect (in den Einstellungen danach suchen) und prüfen, ob Fitbit weiterhin Schreibzugriff für Aktivität, Herzfrequenz und Schlaf hat.",
+  "stoppedSyncingBannerTitle": "Seit {{count}} Tagen keine Daten von Ihrer Uhr — Fitbit-Synchronisierung prüfen.",
   "stopRecording": "Aufnahme stoppen",
   "strength training": "Krafttraining",
   "stress": "Stress",

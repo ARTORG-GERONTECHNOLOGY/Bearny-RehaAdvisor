@@ -72,6 +72,7 @@ logger = logging.getLogger(__name__)
 
 _OAUTH_NONCE_TTL = 1800  # long enough for a slow sign-in in the clinic
 _NO_DATA_GRACE = timedelta(hours=24)
+_DEVICE_STALE_DAYS = 3
 
 
 def _get_redis_client():
@@ -371,6 +372,8 @@ def google_health_status(request, patient_id):
     # Grace period lets the on-connect backfill run before we blame the device.
     past_grace = connected_at is None or timezone.now() - connected_at >= _NO_DATA_GRACE
     no_data_ever = False
+    days_since_device_data = None
+    device_stopped_syncing = False
     account_not_linked = connected and token.sync_error == SYNC_ERROR_NOT_LINKED
     on_google_health = getattr(patient, "wearable_device", None) == "google_health"
 
@@ -386,7 +389,13 @@ def google_health_status(request, patient_id):
             | Q(active_minutes__gt=0)
             | Q(lightly_active_minutes__gt=0)
         )
-        no_data_ever = past_grace and not active_days and not device_rows.first()
+        last_device_row = device_rows.order_by("-date").only("date").first()
+        no_data_ever = past_grace and not active_days and not last_device_row
+        if last_device_row:
+            days_since_device_data = (timezone.localdate() - last_device_row.date.date()).days
+            device_stopped_syncing = (
+                on_google_health and not account_not_linked and days_since_device_data >= _DEVICE_STALE_DAYS
+            )
 
         # Gather which probes are needed, then run them once with a single token fetch.
         should_probe_hr = False
@@ -450,6 +459,8 @@ def google_health_status(request, patient_id):
             "hr_data_missing": hr_data_missing,
             "sleep_scope_ok": sleep_scope_ok,
             "no_data_ever": no_data_ever,
+            "days_since_device_data": days_since_device_data,
+            "device_stopped_syncing": device_stopped_syncing,
             "account_not_linked": account_not_linked,
             "first_data_date": _first_data_date(user),
         }

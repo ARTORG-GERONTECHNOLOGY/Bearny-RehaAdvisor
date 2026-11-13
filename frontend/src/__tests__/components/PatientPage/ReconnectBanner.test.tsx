@@ -11,6 +11,8 @@ const mockStore = {
   hrDataMissing: null as boolean | null,
   sleepScopeOk: null as boolean | null,
   noDataEver: null as boolean | null,
+  deviceStoppedSyncing: null as boolean | null,
+  daysSinceDeviceData: null as number | null,
   accountNotLinked: null as boolean | null,
   wearableDevice: 'google_health' as string,
   wearableDeviceLoaded: true,
@@ -35,6 +37,12 @@ jest.mock('@/stores/patientFitbitStore', () => ({
     },
     get noDataEver() {
       return mockStore.noDataEver;
+    },
+    get deviceStoppedSyncing() {
+      return mockStore.deviceStoppedSyncing;
+    },
+    get daysSinceDeviceData() {
+      return mockStore.daysSinceDeviceData;
     },
     get accountNotLinked() {
       return mockStore.accountNotLinked;
@@ -80,6 +88,8 @@ function setStore(
   mockStore.hrDataMissing = overrides.hrDataMissing ?? null;
   mockStore.sleepScopeOk = overrides.sleepScopeOk ?? null;
   mockStore.noDataEver = overrides.noDataEver ?? null;
+  mockStore.deviceStoppedSyncing = overrides.deviceStoppedSyncing ?? null;
+  mockStore.daysSinceDeviceData = overrides.daysSinceDeviceData ?? null;
   mockStore.accountNotLinked = overrides.accountNotLinked ?? null;
   mockStore.wearableDevice = overrides.wearableDevice ?? 'google_health';
   mockStore.wearableDeviceLoaded = overrides.wearableDeviceLoaded ?? true;
@@ -316,6 +326,34 @@ describe('ReconnectBanner — noDataEver banner', () => {
     setStore(false, null, { noDataEver: true, hrScopeOk: false, sleepScopeOk: true });
     render(<ReconnectBanner />);
     expect(screen.getByText(/hrScopeBannerTitle/i)).toBeInTheDocument();
+  });
+});
+
+describe('ReconnectBanner — stopped-syncing banner', () => {
+  it('shows how many days the watch has sent no data, without a Reconnect button', () => {
+    setStore(false, null, { deviceStoppedSyncing: true, daysSinceDeviceData: 5 });
+    render(<ReconnectBanner />);
+    expect(
+      screen.getByText('No data from your watch for 5 days — check Fitbit sync.')
+    ).toBeInTheDocument();
+    expect(screen.getByText(/stoppedSyncingBannerReason/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reconnect/i })).toBeNull();
+  });
+
+  it('renders nothing when the device is still syncing', () => {
+    setStore(false, null, { deviceStoppedSyncing: false, daysSinceDeviceData: 1 });
+    const { container } = render(<ReconnectBanner />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('gives way to the not-linked banner, which the patient can fix in Bearny', () => {
+    setStore(false, null, {
+      deviceStoppedSyncing: true,
+      daysSinceDeviceData: 5,
+      accountNotLinked: true,
+    });
+    render(<ReconnectBanner />);
+    expect(screen.getByText(/notLinkedBannerTitle/i)).toBeInTheDocument();
   });
 });
 

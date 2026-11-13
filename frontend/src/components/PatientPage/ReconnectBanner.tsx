@@ -12,6 +12,7 @@ type Variant =
   | 'fitbitEnded'
   | 'notLinked'
   | 'noData'
+  | 'stoppedSyncing'
   | 'hrSync'
   | 'hrScope'
   | 'sleepScope'
@@ -57,7 +58,7 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       setupUrl: GOOGLE_HEALTH_SIGNUP_URL,
     },
   ];
-  // First match wins. noData and hrSync are device-side problems, so reconnecting won't fix them.
+  // First match wins. noData, stoppedSyncing and hrSync are device-side problems, so reconnecting won't fix them.
   const googleHealthBanners: Banner[] = [
     {
       variant: 'notLinked',
@@ -73,6 +74,13 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       show: store.noDataEver === true && store.hrScopeOk === true && store.sleepScopeOk === true,
       title: 'noDataBannerTitle',
       reason: 'noDataBannerReason',
+    },
+    {
+      variant: 'stoppedSyncing',
+      show: store.deviceStoppedSyncing === true,
+      title: 'stoppedSyncingBannerTitle',
+      titleArgs: { count: store.daysSinceDeviceData },
+      reason: 'stoppedSyncingBannerReason',
     },
     {
       variant: 'hrSync',

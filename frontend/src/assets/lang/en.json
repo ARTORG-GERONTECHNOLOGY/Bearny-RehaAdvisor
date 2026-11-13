@@ -1548,6 +1548,8 @@
   "stepsTip": "Steps",
   "Stop": "Stop",
   "Stop Recording": "Stop Recording",
+  "stoppedSyncingBannerReason": "Open the Fitbit app and check that your watch has synced recently. On Android, also open Health Connect (search for it in Settings) and confirm Fitbit still has write access for Activity, Heart rate and Sleep.",
+  "stoppedSyncingBannerTitle": "No data from your watch for {{count}} days — check Fitbit sync.",
   "stopRecording": "stop recording",
   "strength training": "Strength Training",
   "stress": "Stress",
