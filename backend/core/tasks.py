@@ -224,7 +224,7 @@ def run_fetch_google_health_data_today_all():
     """
     from core.models import GoogleHealthUserToken
 
-    # list(): the per-user API calls outlast Mongo's 10-min idle cursor timeout (CursorNotFound).
+    # list(): slow per-item calls would let Mongo's idle cursor time out (CursorNotFound).
     tokens = list(GoogleHealthUserToken.objects(is_revoked__ne=True).only("user"))
     synced = 0
     errors = 0
@@ -358,7 +358,7 @@ def sync_wearables_to_redcap_all():
     """
     from core.services.wearables_redcap_service import export_wearables_to_redcap
 
-    # list(): the per-patient REDCap calls can outlast Mongo's 10-min idle cursor timeout (CursorNotFound).
+    # list(): slow per-item calls would let Mongo's idle cursor time out (CursorNotFound).
     patients = list(Patient.objects(project__ne=""))
 
     synced = 0
