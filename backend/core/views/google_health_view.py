@@ -378,7 +378,12 @@ def google_health_status(request, patient_id):
     on_google_health = getattr(patient, "wearable_device", None) == "google_health"
 
     if connected:
-        active_days = list(GoogleHealthData.objects(user=user, steps__gt=0).order_by("-date").limit(7))
+        today = timezone.localdate()
+        # Manual steps can be entered for future dates; those mustn't count as device data.
+        up_to_today = Q(date__lt=datetime.combine(today + timedelta(days=1), datetime.min.time()))
+        active_days = list(
+            GoogleHealthData.objects(user=user, steps__gt=0).filter(up_to_today).order_by("-date").limit(7)
+        )
         # Any device signal counts (so patients who don't walk aren't flagged); calories-only rows don't.
         device_rows = GoogleHealthData.objects(user=user).filter(
             Q(steps__gt=0)
@@ -389,14 +394,7 @@ def google_health_status(request, patient_id):
             | Q(active_minutes__gt=0)
             | Q(lightly_active_minutes__gt=0)
         )
-        today = timezone.localdate()
-        # Manual steps can be entered for future dates; those mustn't count as recent device data.
-        last_device_row = (
-            device_rows.filter(date__lt=datetime.combine(today + timedelta(days=1), datetime.min.time()))
-            .order_by("-date")
-            .only("date")
-            .first()
-        )
+        last_device_row = device_rows.filter(up_to_today).order_by("-date").only("date").first()
         no_data_ever = past_grace and not last_device_row
         last_fetched = getattr(token, "last_fetched_at", None)
         if last_fetched and timezone.is_naive(last_fetched):
@@ -459,9 +457,6 @@ def google_health_status(request, patient_id):
 
     # After the probes, which can still discover a not-linked account.
     device_stopped_syncing = device_stale and on_google_health and not account_not_linked
-    if device_stopped_syncing:
-        # A watch that sends nothing also sends no heart rate; the stopped-syncing banner covers that.
-        hr_data_missing = None
 
     return JsonResponse(
         {

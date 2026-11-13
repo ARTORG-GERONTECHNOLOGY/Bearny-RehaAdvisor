@@ -384,14 +384,29 @@ def test_status_no_data_ever_ignores_future_dated_rows():
 @patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
 @patch("core.views.google_health_view._probe_sleep_scope", return_value=True)
 @patch("core.views.google_health_view._probe_hr_scope", return_value=True)
-def test_status_stale_device_does_not_report_hr_data_missing(mock_hr, mock_sleep, mock_token):
-    """Old step days without heart rate mustn't raise the heart-rate banner over the stopped-syncing one."""
+def test_status_stale_device_reports_hr_data_missing_unchanged(mock_hr, mock_sleep, mock_token):
+    """The frontend decides which banner wins; the status reports both signals as they are."""
     user = _make_user()
     _make_patient(user)
     _make_token(user, connected_at=timezone.now() - timedelta(days=30), last_fetched_at=timezone.now())
     _device_row(user, 10, steps=4000)
     body = json.loads(_status_as(user.id).content)
     assert body["device_stopped_syncing"] is True
+    assert body["hr_data_missing"] is True
+
+
+@patch("core.views.google_health_view._probe_hr_scope")
+def test_status_future_dated_steps_are_not_active_days(mock_hr):
+    """A future-dated manual entry alone mustn't trigger the heart-rate probe meant for synced step days."""
+    from core.models import SleepData
+
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(days=30), last_fetched_at=timezone.now())
+    _device_row(user, 1, sleep=SleepData(minutes_asleep=420))
+    _device_row(user, -14, steps=3000)
+    body = json.loads(_status_as(user.id).content)
+    mock_hr.assert_not_called()
     assert body["hr_data_missing"] is None
 
 

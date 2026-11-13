@@ -76,6 +76,15 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       reason: 'noDataBannerReason',
     },
     {
+      // Before hrSync: a watch that sends nothing also sends no heart rate. A missing HR or sleep
+      // scope doesn't stop steps, so it can't explain a full stop; its banner shows once data flows again.
+      variant: 'stoppedSyncing',
+      show: store.deviceStoppedSyncing === true,
+      title: 'stoppedSyncingBannerTitle',
+      titleArgs: { count: store.daysSinceDeviceData },
+      reason: 'stoppedSyncingBannerReason',
+    },
+    {
       variant: 'hrSync',
       show: store.hrDataMissing === true,
       title: 'hrSyncBannerTitle',
@@ -94,14 +103,6 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       title: 'sleepScopeBannerTitle',
       reason: 'sleepScopeBannerReason',
       action: 'Reconnect',
-    },
-    {
-      // After the scope banners, so a missing scope (fixable with Reconnect) shows first.
-      variant: 'stoppedSyncing',
-      show: store.deviceStoppedSyncing === true,
-      title: 'stoppedSyncingBannerTitle',
-      titleArgs: { count: store.daysSinceDeviceData },
-      reason: 'stoppedSyncingBannerReason',
     },
     {
       variant: 'reconnect',

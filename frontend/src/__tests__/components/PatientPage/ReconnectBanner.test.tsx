@@ -364,14 +364,17 @@ describe('ReconnectBanner — stopped-syncing banner', () => {
     ).toBeInTheDocument();
   });
 
-  it('gives way to a missing-scope banner, which offers Reconnect', () => {
+  it('takes precedence over the heart-rate sync banner', () => {
     setStore(false, null, {
       deviceStoppedSyncing: true,
-      daysSinceDeviceData: 5,
-      sleepScopeOk: false,
+      daysSinceDeviceData: 10,
+      hrDataMissing: true,
+      hrScopeOk: true,
     });
     render(<ReconnectBanner />);
-    expect(screen.getByText(/sleepScopeBannerTitle/i)).toBeInTheDocument();
+    expect(
+      screen.getByText('No data from your watch for 10 days — check Fitbit sync.')
+    ).toBeInTheDocument();
   });
 
   it('gives way to the not-linked banner, which the patient can fix in Bearny', () => {
