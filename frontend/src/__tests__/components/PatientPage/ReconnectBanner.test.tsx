@@ -346,6 +346,18 @@ describe('ReconnectBanner — stopped-syncing banner', () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it('takes precedence over the heart-rate sync banner', () => {
+    setStore(false, null, {
+      deviceStoppedSyncing: true,
+      daysSinceDeviceData: 10,
+      hrDataMissing: true,
+    });
+    render(<ReconnectBanner />);
+    expect(
+      screen.getByText('No data from your watch for 10 days — check Fitbit sync.')
+    ).toBeInTheDocument();
+  });
+
   it('gives way to a missing-scope banner, which offers Reconnect', () => {
     setStore(false, null, {
       deviceStoppedSyncing: true,

@@ -77,7 +77,8 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
     },
     {
       variant: 'hrSync',
-      show: store.hrDataMissing === true,
+      // A watch that sends nothing also sends no heart rate; the stopped-syncing banner covers that.
+      show: store.hrDataMissing === true && store.deviceStoppedSyncing !== true,
       title: 'hrSyncBannerTitle',
       reason: 'hrSyncBannerReason',
     },

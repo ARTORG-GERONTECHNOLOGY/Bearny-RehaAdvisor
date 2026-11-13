@@ -362,6 +362,44 @@ def test_status_device_stopped_syncing_false_when_another_state_applies(case):
     assert body["device_stopped_syncing"] is False
 
 
+def test_status_device_stopped_syncing_ignores_future_dated_rows():
+    """A manual entry for a future date mustn't make an old stop look recent."""
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(days=30))
+    _device_row(user, 5, steps=4000)
+    _device_row(user, -14, steps=3000)
+    body = json.loads(_status_as(user.id).content)
+    assert body["days_since_device_data"] == 5
+    assert body["device_stopped_syncing"] is True
+
+
+@pytest.mark.parametrize("hr_probe, sleep_probe", [(False, True), (True, False)])
+@patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
+@patch("core.views.google_health_view._probe_sleep_scope")
+@patch("core.views.google_health_view._probe_hr_scope")
+def test_status_stale_device_probes_scopes_despite_old_stored_data(
+    mock_hr, mock_sleep, mock_token, hr_probe, sleep_probe
+):
+    """Old days with heart rate and sleep don't prove the scopes are still granted."""
+    from core.models import SleepData
+
+    mock_hr.return_value = hr_probe
+    mock_sleep.return_value = sleep_probe
+    user = _make_user()
+    _make_patient(user)
+    _make_token(user, connected_at=timezone.now() - timedelta(days=30))
+    _device_row(user, 10, steps=4000, wear_time_minutes=600, sleep=SleepData(minutes_asleep=420))
+
+    body = json.loads(_status_as(user.id).content)
+
+    assert body["hr_scope_ok"] is hr_probe
+    assert body["sleep_scope_ok"] is sleep_probe
+    # Stored heart rate was present, so a granted scope doesn't mean Fitbit stopped writing it.
+    assert body["hr_data_missing"] is None
+    assert body["device_stopped_syncing"] is True
+
+
 @patch("core.views.google_health_view.get_valid_google_access_token", return_value="tok")
 @patch("core.views.google_health_view._probe_hr_scope")
 def test_status_device_stopped_syncing_false_when_probe_finds_account_not_linked(mock_hr, mock_token):
