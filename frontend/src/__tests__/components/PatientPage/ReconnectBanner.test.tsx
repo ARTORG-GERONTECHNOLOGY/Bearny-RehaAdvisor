@@ -339,7 +339,7 @@ describe('ReconnectBanner — stopped-syncing banner', () => {
     });
     render(<ReconnectBanner />);
     expect(
-      screen.getByText('No data from your watch for 5 days — check Fitbit sync.')
+      screen.getByText('No data from your watch for 5 days — check that it syncs.')
     ).toBeInTheDocument();
     expect(screen.getByText(/stoppedSyncingBannerReason/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /reconnect/i })).toBeNull();
@@ -360,7 +360,7 @@ describe('ReconnectBanner — stopped-syncing banner', () => {
     });
     render(<ReconnectBanner />);
     expect(
-      screen.getByText('No data from your watch for 10 days — check Fitbit sync.')
+      screen.getByText('No data from your watch for 10 days — check that it syncs.')
     ).toBeInTheDocument();
   });
 
@@ -373,7 +373,7 @@ describe('ReconnectBanner — stopped-syncing banner', () => {
     });
     render(<ReconnectBanner />);
     expect(
-      screen.getByText('No data from your watch for 10 days — check Fitbit sync.')
+      screen.getByText('No data from your watch for 10 days — check that it syncs.')
     ).toBeInTheDocument();
   });
 

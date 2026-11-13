@@ -135,9 +135,9 @@ The patient page shows at most one banner, picked from these fields in the order
 | Field | Banner when set | Patient action |
 |---|---|---|
 | `account_not_linked: true` | Google account isn't linked to Google Health yet | Set up Google Health or move the Fitbit account to Google (**Set up Google Health** button), or reconnect with the Google account the Fitbit uses |
-| `no_data_ever: true` | No health data received | Check the Fitbit app and, on Android, Health Connect permissions |
-| `device_stopped_syncing: true` | No data from the watch for `days_since_device_data` days | Check that the Fitbit app syncs the watch and, on Android, Health Connect permissions |
-| `hr_data_missing: true` | Heart rate not syncing | Check the Fitbit app and, on Android, Health Connect permissions |
+| `no_data_ever: true` | No health data received | Check the Google Health app (formerly Fitbit) and, on Android, Health Connect permissions |
+| `device_stopped_syncing: true` | No data from the watch for `days_since_device_data` days | Check that the Google Health app (formerly Fitbit) syncs the watch and, on Android, Health Connect permissions |
+| `hr_data_missing: true` | Heart rate not syncing | Check the Google Health app (formerly Fitbit) and, on Android, Health Connect permissions |
 | `hr_scope_ok: false` | Heart-rate access missing | Reconnect |
 | `sleep_scope_ok: false` | Sleep access missing | Reconnect |
 | `needs_reconnect: true` | Connection expiring or expired | Reconnect |
