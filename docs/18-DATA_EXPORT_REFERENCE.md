@@ -294,7 +294,7 @@ One row per logged platform event for patients in the export scope. Records key 
 **Reading `QUESTIONNAIRE_SUBMIT` rows:** `details` has the form `intervention_id=<id> date=<YYYY-MM-DD>`.
 
 - `intervention_id=` with no value is a health-status questionnaire. The answers are in `questionnaire_answers.csv`.
-- `intervention_id=<id>` is feedback on an intervention, either on a planned session or as a rating from the patient library; both look the same here. To tell them apart, find the rows in `intervention_feedback.csv` with the same patient and a `log_date` equal to `date`: their `source` column says `plan` or `library`. If that patient has feedback on more than one intervention that day, the export cannot tell which row belongs to which event. The `<id>` is an internal database ID, not an `external_id`, so it does not match `intervention_external_id` in the other sheets, and in this sheet's `intervention_external_id` column it shows up as that database ID.
+- `intervention_id=<id>` is feedback on an intervention, either on a planned session or as a rating from the patient library; both look the same here. To tell them apart, find the rows in `intervention_feedback.csv` with the same patient and a `log_date` equal to `date`: their `source` column says `plan` or `library`. The `<id>` is an internal database ID, not an `external_id`.
 - `date` is the day the submission belongs to, which can be earlier than the day it was sent. `timestamp` is when the patient sent it.
 
 ---
