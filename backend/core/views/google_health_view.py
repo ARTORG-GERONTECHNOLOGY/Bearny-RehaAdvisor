@@ -72,7 +72,7 @@ logger = logging.getLogger(__name__)
 
 _OAUTH_NONCE_TTL = 1800  # long enough for a slow sign-in in the clinic
 _NO_DATA_GRACE = timedelta(hours=24)
-_DEVICE_STALE_DAYS = 3
+_DEVICE_STALE_DAYS = 4
 
 
 def _get_redis_client():

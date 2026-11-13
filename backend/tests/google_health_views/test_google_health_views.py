@@ -321,9 +321,9 @@ def _device_row(user, days_ago, **fields):
 
 @pytest.mark.parametrize(
     "days_ago, stopped",
-    [(0, False), (2, False), (3, True), (10, True)],
+    [(0, False), (3, False), (4, True), (10, True)],
 )
-def test_status_device_stopped_syncing_after_three_days(days_ago, stopped):
+def test_status_device_stopped_syncing_after_four_days(days_ago, stopped):
     user = _make_user()
     _make_patient(user)
     _make_token(user, connected_at=timezone.now() - timedelta(days=30), last_fetched_at=timezone.now())
