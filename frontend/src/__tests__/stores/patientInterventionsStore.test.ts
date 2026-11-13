@@ -240,6 +240,47 @@ describe('PatientInterventionsStore', () => {
       expect(store.loading).toBe(false);
     });
 
+    it("clears the previous patient's plan and shows a loading state when the patient changes", async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [{ intervention_id: 'a1', intervention_title: 'A plan' }],
+      });
+      await store.fetchPlan('patient-a', 'en');
+      sessionStorage.clear(); // logout clears the session cache
+
+      let sawItems: any;
+      let sawLoading: boolean | undefined;
+      (apiClient.get as jest.Mock).mockImplementationOnce(async () => {
+        sawItems = store.items;
+        sawLoading = store.loading;
+        return { data: [{ intervention_id: 'b1', intervention_title: 'B plan' }] };
+      });
+      await store.fetchPlan('patient-b', 'en');
+
+      expect(sawItems).toEqual([]);
+      expect(sawLoading).toBe(true);
+      expect(store.items.map((r) => r.intervention_id)).toEqual(['b1']);
+    });
+
+    it('keeps the current items while reloading the same patient', async () => {
+      (apiClient.get as jest.Mock).mockResolvedValueOnce({
+        data: [{ intervention_id: 'a1', intervention_title: 'A plan' }],
+      });
+      await store.fetchPlan('patient-a', 'en');
+      sessionStorage.clear();
+
+      let sawIds: string[] | undefined;
+      let sawLoading: boolean | undefined;
+      (apiClient.get as jest.Mock).mockImplementationOnce(async () => {
+        sawIds = store.items.map((r) => r.intervention_id);
+        sawLoading = store.loading;
+        return { data: [] };
+      });
+      await store.fetchPlan('patient-a', 'en');
+
+      expect(sawIds).toEqual(['a1']);
+      expect(sawLoading).toBe(false);
+    });
+
     it('persists items to sessionStorage after a successful fetch', async () => {
       (apiClient.get as jest.Mock).mockResolvedValueOnce({
         data: [{ intervention_id: 'i1', intervention_title: 'X' }],
