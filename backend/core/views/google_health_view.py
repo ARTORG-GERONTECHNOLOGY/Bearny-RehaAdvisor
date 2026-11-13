@@ -171,6 +171,11 @@ def google_health_callback(request):
             rc = _get_redis_client()
             stored = rc.get(f"oauth_nonce:{nonce}")
             if stored is None:
+                # A reloaded callback URL reuses the nonce of a sign-in that already succeeded.
+                done = rc.get(f"oauth_nonce_done:{nonce}")
+                if done is not None and done.decode() == patient_id_from_state:
+                    logger.info("[google_health_callback] repeated callback for a completed sign-in")
+                    return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=connected")
                 logger.warning("[google_health_callback] nonce not found or expired: %s", nonce)
                 return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=unauthorized")
             if stored.decode() != patient_id_from_state:
@@ -220,6 +225,10 @@ def google_health_callback(request):
             upsert=True,
         )
         logger.info("[google_health_callback] token saved for user %s", user.id)
+        try:
+            rc.set(f"oauth_nonce_done:{nonce}", user_id_str, ex=_OAUTH_NONCE_TTL)
+        except Exception:
+            logger.warning("[google_health_callback] could not record completed nonce", exc_info=True)
 
         # Switch the patient's active data source to Google Health.
         try:

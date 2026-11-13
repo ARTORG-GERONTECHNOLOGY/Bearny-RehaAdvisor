@@ -737,6 +737,105 @@ def test_callback_clears_is_revoked_on_reconnect(mock_redis, mock_post):
     assert token.connected_at is not None
 
 
+@pytest.mark.parametrize("set_fails", [False, True])
+@patch("core.tasks.backfill_google_health_on_connect.delay")
+@patch("core.tasks.fetch_google_health_data_async.apply_async")
+@patch("core.views.google_health_view.requests.post")
+@patch("core.views.google_health_view._get_redis_client")
+def test_callback_records_completed_nonce(
+    mock_redis, mock_post, mock_today_apply_async, mock_backfill_delay, set_fails
+):
+    from core.models import User
+
+    user = User(
+        username=f"nd-{ObjectId()}",
+        email=f"nd-{ObjectId()}@example.com",
+        role="Patient",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+
+    rc = _mock_redis_for_nonce("donenonce", user.id)
+    if set_fails:
+        rc.set.side_effect = ConnectionError("redis down")
+    mock_redis.return_value = rc
+    mock_post.return_value = MagicMock(
+        status_code=200,
+        json=lambda: {"access_token": "a", "refresh_token": "r", "expires_in": 3600},
+    )
+
+    resp = client.get(f"/api/google-health/callback/?code=testcode&state=donenonce:{user.id}")
+
+    # A failed write must not turn a successful connect into an error.
+    assert "google_health_status=connected" in resp["Location"]
+    rc.set.assert_called_once_with("oauth_nonce_done:donenonce", str(user.id), ex=600)
+
+
+@patch("core.tasks.backfill_google_health_on_connect.delay")
+@patch("core.tasks.fetch_google_health_data_async.apply_async")
+@patch("core.views.google_health_view.requests.post")
+@patch("core.views.google_health_view._get_redis_client")
+def test_callback_reload_after_success_shows_connected(
+    mock_redis, mock_post, mock_today_apply_async, mock_backfill_delay
+):
+    from core.models import User
+
+    user = User(
+        username=f"rl-{ObjectId()}",
+        email=f"rl-{ObjectId()}@example.com",
+        role="Patient",
+        createdAt=datetime.now(),
+        isActive=True,
+    ).save()
+
+    store = {"oauth_nonce:reloadnonce": str(user.id).encode()}
+    rc = MagicMock()
+    rc.get.side_effect = store.get
+    rc.set.side_effect = lambda key, value, ex=None: store.__setitem__(key, value.encode())
+    rc.delete.side_effect = lambda key: store.pop(key, None)
+    mock_redis.return_value = rc
+    mock_post.return_value = MagicMock(
+        status_code=200,
+        json=lambda: {"access_token": "a", "refresh_token": "r", "expires_in": 3600},
+    )
+    url = f"/api/google-health/callback/?code=testcode&state=reloadnonce:{user.id}"
+
+    first = client.get(url)
+    second = client.get(url)
+
+    assert "google_health_status=connected" in first["Location"]
+    assert "google_health_status=connected" in second["Location"]
+    assert mock_post.call_count == 1  # the reload doesn't reuse the Google code
+
+
+@pytest.mark.parametrize(
+    "marker, expected_status",
+    [
+        ("none", "unauthorized"),  # nonce expired or never issued
+        ("other_patient", "unauthorized"),
+        ("same_patient", "connected"),  # repeat of a sign-in that succeeded
+    ],
+)
+@patch("core.views.google_health_view.requests.post")
+@patch("core.views.google_health_view._get_redis_client")
+def test_callback_with_used_nonce(mock_redis, mock_post, marker, expected_status):
+    patient_id = str(ObjectId())
+    done = {"none": None, "other_patient": str(ObjectId()).encode(), "same_patient": patient_id.encode()}
+    stored = {
+        "oauth_nonce:usednonce": None,
+        "oauth_nonce_done:usednonce": done[marker],
+    }
+    rc = MagicMock()
+    rc.get.side_effect = stored.get
+    mock_redis.return_value = rc
+
+    resp = client.get(f"/api/google-health/callback/?code=testcode&state=usednonce:{patient_id}")
+
+    assert resp.status_code == 302
+    assert f"google_health_status={expected_status}" in resp["Location"]
+    mock_post.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # get_valid_google_access_token — invalid_grant marks token revoked
 # ---------------------------------------------------------------------------
