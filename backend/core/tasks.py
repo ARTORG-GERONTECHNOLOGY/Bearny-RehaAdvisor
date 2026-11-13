@@ -224,7 +224,8 @@ def run_fetch_google_health_data_today_all():
     """
     from core.models import GoogleHealthUserToken
 
-    tokens = GoogleHealthUserToken.objects(is_revoked__ne=True).all()
+    # list(): the per-user API calls outlast Mongo's 10-min idle cursor timeout (CursorNotFound).
+    tokens = list(GoogleHealthUserToken.objects(is_revoked__ne=True).all())
     synced = 0
     errors = 0
     for token in tokens:

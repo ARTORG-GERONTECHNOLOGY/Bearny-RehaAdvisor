@@ -160,3 +160,23 @@ def test_google_health_today_all_counts_only_users_actually_synced():
     ):
         result = run_fetch_google_health_data_today_all()
     assert result == {"synced": 1, "errors": 1}
+
+
+def test_google_health_today_all_reads_all_tokens_before_calling_the_api():
+    consumed = []
+
+    def cursor():
+        for i in range(2):
+            consumed.append(i)
+            yield SimpleNamespace(user=f"user-{i}")
+
+    def fetch(user):
+        assert len(consumed) == 2, "cursor must be exhausted before the slow per-user API calls"
+        return 1
+
+    with (
+        patch("core.models.GoogleHealthUserToken.objects", return_value=SimpleNamespace(all=cursor)),
+        patch("core.tasks.fetch_google_health_today_for_user", side_effect=fetch),
+    ):
+        result = run_fetch_google_health_data_today_all()
+    assert result == {"synced": 2, "errors": 0}
