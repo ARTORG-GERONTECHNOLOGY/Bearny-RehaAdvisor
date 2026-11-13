@@ -164,6 +164,7 @@ def test_google_health_today_all_counts_only_users_actually_synced():
 
 def test_google_health_today_all_reads_all_tokens_before_calling_the_api():
     consumed = []
+    consumed_at_fetch = []
 
     def cursor():
         for i in range(2):
@@ -171,7 +172,7 @@ def test_google_health_today_all_reads_all_tokens_before_calling_the_api():
             yield SimpleNamespace(user=f"user-{i}")
 
     def fetch(user):
-        assert len(consumed) == 2, "cursor must be exhausted before the slow per-user API calls"
+        consumed_at_fetch.append(len(consumed))
         return 1
 
     with (
@@ -179,4 +180,5 @@ def test_google_health_today_all_reads_all_tokens_before_calling_the_api():
         patch("core.tasks.fetch_google_health_today_for_user", side_effect=fetch),
     ):
         result = run_fetch_google_health_data_today_all()
+    assert consumed_at_fetch == [2, 2], "cursor must be exhausted before the slow per-user API calls"
     assert result == {"synced": 2, "errors": 0}
