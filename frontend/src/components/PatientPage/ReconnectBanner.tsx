@@ -96,12 +96,9 @@ const ReconnectBanner: React.FC<{ className?: string }> = observer(({ className 
       action: 'Reconnect',
     },
     {
-      // Like noData: only blame the device once both scopes are confirmed.
+      // After the scope banners, so a missing scope (fixable with Reconnect) shows first.
       variant: 'stoppedSyncing',
-      show:
-        store.deviceStoppedSyncing === true &&
-        store.hrScopeOk === true &&
-        store.sleepScopeOk === true,
+      show: store.deviceStoppedSyncing === true,
       title: 'stoppedSyncingBannerTitle',
       titleArgs: { count: store.daysSinceDeviceData },
       reason: 'stoppedSyncingBannerReason',

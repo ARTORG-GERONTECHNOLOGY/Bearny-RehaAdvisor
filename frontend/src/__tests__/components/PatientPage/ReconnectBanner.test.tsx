@@ -351,15 +351,17 @@ describe('ReconnectBanner — stopped-syncing banner', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders nothing while a scope check is unknown, e.g. after a failed probe', () => {
+  it('shows for patients whose scopes were never checked, e.g. sleep-only patients', () => {
     setStore(false, null, {
       deviceStoppedSyncing: true,
       daysSinceDeviceData: 10,
       hrScopeOk: null,
-      sleepScopeOk: true,
+      sleepScopeOk: null,
     });
-    const { container } = render(<ReconnectBanner />);
-    expect(container.firstChild).toBeNull();
+    render(<ReconnectBanner />);
+    expect(
+      screen.getByText('No data from your watch for 10 days — check Fitbit sync.')
+    ).toBeInTheDocument();
   });
 
   it('gives way to a missing-scope banner, which offers Reconnect', () => {
