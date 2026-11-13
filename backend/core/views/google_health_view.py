@@ -70,7 +70,7 @@ from core.views.google_health_sync import (
 
 logger = logging.getLogger(__name__)
 
-_OAUTH_NONCE_TTL = 600  # seconds — 10 minutes
+_OAUTH_NONCE_TTL = 1800  # long enough for a slow sign-in in the clinic
 _NO_DATA_GRACE = timedelta(hours=24)
 
 
@@ -171,6 +171,15 @@ def google_health_callback(request):
             rc = _get_redis_client()
             stored = rc.get(f"oauth_nonce:{nonce}")
             if stored is None:
+                # A reloaded callback URL reuses the nonce of a sign-in that already succeeded.
+                done = rc.get(f"oauth_nonce_done:{nonce}")
+                if done is not None and done.decode() == patient_id_from_state:
+                    logger.info(
+                        "[google_health_callback] repeated callback for completed nonce %s, user %s",
+                        nonce,
+                        patient_id_from_state,
+                    )
+                    return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=connected")
                 logger.warning("[google_health_callback] nonce not found or expired: %s", nonce)
                 return redirect(f"{settings.FRONTEND_URL}/patient?google_health_status=unauthorized")
             if stored.decode() != patient_id_from_state:
@@ -220,6 +229,10 @@ def google_health_callback(request):
             upsert=True,
         )
         logger.info("[google_health_callback] token saved for user %s", user.id)
+        try:
+            rc.set(f"oauth_nonce_done:{nonce}", user_id_str, ex=_OAUTH_NONCE_TTL)
+        except Exception:
+            logger.warning("[google_health_callback] could not record completed nonce", exc_info=True)
 
         # Switch the patient's active data source to Google Health.
         try:
