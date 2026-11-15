@@ -65,4 +65,4 @@ dependencies:
       - pytz==2024.2
       - sqlparse==0.6.0
       - django-celery-beat==2.8.1
-      - dnspython==2.9.0
+      - dnspython==2.9.2
